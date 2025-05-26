@@ -132,7 +132,7 @@ describe('WebRTC Transcription', () => {
           input_audio_format: 'pcm16',
           output_audio_format: 'pcm16',
           input_audio_transcription: {
-            model: 'whisper-1'
+            model: 'gpt-4o-mini-transcribe'
           },
           turn_detection: {
             type: 'server_vad',
@@ -287,7 +287,7 @@ describe('WebRTC Transcription', () => {
           input_audio_format: 'pcm16',
           output_audio_format: 'pcm16',
           input_audio_transcription: {
-            model: 'whisper-1'
+            model: 'gpt-4o-mini-transcribe'
           },
           turn_detection: {
             type: 'server_vad',
@@ -306,7 +306,7 @@ describe('WebRTC Transcription', () => {
         expect.stringContaining('"type":"session.update"')
       )
       expect(mockDataChannel.send).toHaveBeenCalledWith(
-        expect.stringContaining('"model":"whisper-1"')
+        expect.stringContaining('"model":"gpt-4o-mini-transcribe"')
       )
     })
 
