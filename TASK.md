@@ -196,6 +196,13 @@
 
 ## 🔍 Discovered During Work
 
+### Recent Improvements
+- [x] **Removed Artificial Speaker Labels** (2025-01-27) ✅
+  - Removed fake "You" vs "Guest" speaker alternation since OpenAI Realtime API doesn't provide speaker diarization
+  - Simplified transcript UI to show only timestamp and content
+  - Updated export functionality to exclude speaker information
+  - Cleaned up all transcript processing to remove speaker references
+
 ### Technical Considerations
 - [ ] **Privacy Implementation**
   - Audio deletion after processing
@@ -240,7 +247,18 @@
 ## 🚨 Blockers & Issues
 
 ### Current Blockers
-- None identified
+- [x] **Guidance Generation Not Working During Transcription** (2025-01-27) ✅ **RESOLVED**
+  - **Root Cause**: Missing OpenAI API key configuration + useEffect dependency issues
+  - **Solution**: Fixed useCallback dependencies, improved auto-guidance triggers, reduced intervals for testing
+  - **Status**: ✅ All tests passing, API endpoints working, OpenAI integration confirmed
+  - **Testing**: 
+    - ✅ AI Guidance Engine tests (10/10 passing)
+    - ✅ Guidance API endpoint tests (6/6 passing)  
+    - ✅ Real OpenAI API calls working (verified with curl)
+    - ✅ Summary API endpoint working (verified with curl)
+    - ✅ Auto-guidance triggers every 2 transcript updates (reduced from 3)
+    - ✅ Interval-based guidance every 15 seconds during recording (reduced from 45)
+  - **Ready for User Testing**: Visit http://localhost:3002/app to test live guidance
 
 ### Resolved Issues
 - None yet
