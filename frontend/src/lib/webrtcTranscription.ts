@@ -35,7 +35,8 @@ export class WebRTCTranscriptionService {
 
   constructor(config: WebRTCConfig) {
     this.config = {
-      model: 'gpt-4o-mini-realtime-preview', // Use the supported mini realtime model
+      // Default to the new STT model
+      model: 'gpt-4o-mini-transcribe',
       voiceActivityDetection: true,
       language: 'en',
       ...config
@@ -261,7 +262,8 @@ export class WebRTCTranscriptionService {
         input_audio_format: 'pcm16',
         output_audio_format: 'pcm16',
         input_audio_transcription: {
-          model: 'whisper-1' // Only model officially enabled for transcription_session flow
+          // Use OpenAI's latest STT model
+          model: 'gpt-4o-mini-transcribe'
         },
         turn_detection: this.config.voiceActivityDetection ? {
           type: 'server_vad',
