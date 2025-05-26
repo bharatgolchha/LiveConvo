@@ -43,7 +43,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import Link from 'next/link';
 import { GuidanceType } from '@/components/guidance/GuidanceChip';
 import { useAIGuidance, ContextDocument, GuidanceRequest } from '@/lib/aiGuidance';
-import { RealtimeAudioCapture } from '@/components/session/RealtimeAudioCapture';
+import { useTranscription } from '@/lib/useTranscription';
 import { cn } from '@/lib/utils';
 
 interface TranscriptLine {
@@ -114,6 +114,26 @@ export default function App() {
     { type: 'avoid', message: "Try to avoid technical jargon unless they use it first.", confidence: 94 },
     { type: 'warn', message: "Be mindful of the time, we have 10 minutes left.", confidence: 90 },
   ];
+
+  // Realtime transcription hook
+  const {
+    transcript: liveTranscript,
+    connect,
+    startRecording: startRealtimeRecording,
+    stopRecording: stopRealtimeRecording,
+    disconnect
+  } = useTranscription();
+  const lastTranscriptLen = useRef(0);
+
+  useEffect(() => {
+    if (liveTranscript.length > lastTranscriptLen.current) {
+      const newSeg = liveTranscript.slice(lastTranscriptLen.current).trim();
+      if (newSeg) {
+        handleLiveTranscript(newSeg);
+      }
+      lastTranscriptLen.current = liveTranscript.length;
+    }
+  }, [liveTranscript]);
 
   // Session timer
   useEffect(() => {
@@ -196,17 +216,26 @@ export default function App() {
   }, [transcript, autoGuidance, conversationState]); // Added transcript to dependencies
 
   // Event Handlers
-  const handleStartRecording = () => {
-    setConversationState('recording');
-    setSessionDuration(0);
-    // Keep transcript and guidance if resuming, clear if new session from 'ready' state
-    if (transcript.length > 0 && conversationState !== 'paused') {
+  const handleStartRecording = async () => {
+    try {
+      await connect();
+      await startRealtimeRecording();
+      setConversationState('recording');
+      setSessionDuration(0);
+      if (transcript.length > 0 && conversationState !== 'paused') {
         setTranscript([]);
         setGuidanceList([]);
+      }
+    } catch (err) {
+      console.error('Failed to start realtime transcription', err);
+      setErrorMessage('Failed to start realtime transcription');
+      setConversationState('error');
     }
   };
 
   const handleStopRecording = () => {
+    stopRealtimeRecording();
+    disconnect();
     setConversationState('completed');
   };
 
@@ -816,16 +845,6 @@ export default function App() {
             </motion.div>
           )}
 
-          {/* Hidden RealtimeAudioCapture Component */}
-          {(conversationState === 'recording') && (
-            <div className="absolute opacity-0 pointer-events-none -top-96">
-              <RealtimeAudioCapture
-                onTranscript={handleLiveTranscript}
-                onStart={() => {}} // Managed by main state
-                onStop={() => {}}  // Managed by main state
-            />
-          </div>
-          )}
         </div>
       </main>
     </div>
