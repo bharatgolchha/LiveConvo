@@ -1,0 +1,1 @@
+Please add your OpenAI API key to frontend/.env.local as OPENAI_API_KEY=sk-your-key-here
