@@ -334,15 +334,18 @@ const requestAllPermissions = async () => {
             }))
           });
           
-          // IMPORTANT: Set custom stream BEFORE connecting if not already connected
-          if (!isConnected) {
-            // For now, just use the pre-mixed stream we created with Web Audio API
-            // The WebRTC service will handle it as a single mixed track
-            setCustomAudioStream?.(stream);
-            console.log('📤 Custom audio stream set for transcription');
+          // Always set the combined stream so the service uses the latest audio
+          setCustomAudioStream?.(stream);
+          console.log('📤 Custom audio stream set for transcription');
+
+          // If already connected, reconnect to apply the new stream
+          if (isConnected) {
+            console.log('🔄 Reconnecting to apply new audio stream...');
+            disconnect();
+            await new Promise(resolve => setTimeout(resolve, 500));
+            await connect();
           } else {
-            // If already connected, we might need to update the stream
-            console.log('⚠️ Already connected - audio stream update may not work properly');
+            await connect();
           }
           
           console.log('✅ Combined audio capture started (system + microphone)');
@@ -665,14 +668,6 @@ const requestAllPermissions = async () => {
           <>
             <Button
               onClick={async () => {
-                // Disconnect first if connected to reset the connection with new audio
-                if (isConnected) {
-                  console.log('🔄 Disconnecting to reset audio configuration...');
-                  disconnect();
-                  await new Promise(resolve => setTimeout(resolve, 500)); // Wait for disconnect
-                }
-                
-                // Now start recording which will set up audio and reconnect
                 await startRecording();
               }}
               variant="primary"
