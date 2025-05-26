@@ -137,7 +137,7 @@ export default function App() {
   const lastTranscriptLen = useRef(0);
 
   // Real-time summary hook
-  const fullTranscriptText = transcript.map(t => `${t.speaker}: ${t.text}`).join('\n');
+  const fullTranscriptText = transcript.map(t => t.text).join('\n');
   const {
     summary,
     isLoading: isSummaryLoading,
@@ -245,27 +245,87 @@ export default function App() {
     }
   }, [conversationId, addUserContext, addContext]);
 
+  // Event Handlers - Define handleGenerateGuidance before useEffect hooks
+  const handleGenerateGuidance = React.useCallback(async () => {
+    if (transcript.length === 0 && !textContext) return;
+    
+    console.log('Generating guidance with transcript length:', transcript.length);
+    setConversationState('processing');
+    
+    try {
+      const recentTranscript = transcript.slice(-5).map(t => t.text).join('\n');
+      
+      const guidanceRequest: GuidanceRequest = {
+        transcript: recentTranscript,
+        context: textContext,
+        conversationType: conversationType,
+      };
+
+      console.log('Sending guidance request:', guidanceRequest);
+      const guidanceResult = await generateGuidance(guidanceRequest);
+      console.log('Received guidance result:', guidanceResult);
+      
+      const guidance = Array.isArray(guidanceResult) ? guidanceResult[0] : guidanceResult;
+
+      if (guidance && guidance.message) {
+        const newGuidance: Guidance = {
+          id: Math.random().toString(36).substring(7),
+          type: guidance.type as GuidanceType,
+          message: guidance.message,
+          confidence: guidance.confidence || Math.floor(80 + Math.random() * 20),
+          timestamp: new Date(),
+          dismissed: false
+        };
+        console.log('Adding new guidance:', newGuidance);
+        setGuidanceList(prev => [newGuidance, ...prev]);
+      } else {
+        console.log("No new guidance suggestions from API or API returned empty.");
+      }
+    } catch (error) {
+      console.error('Error generating guidance:', error);
+      setErrorMessage("Failed to generate AI guidance. Using a suggestion.");
+      const randomGuidance = demoGuidances[Math.floor(Math.random() * demoGuidances.length)];
+      const newGuidance: Guidance = {
+          id: Math.random().toString(36).substring(7),
+        ...randomGuidance,
+        timestamp: new Date(),
+        dismissed: false
+      };
+      setGuidanceList(prev => [newGuidance, ...prev]);
+    } finally {
+      if (conversationState === 'processing') {
+        setConversationState(transcript.length > 0 ? 'recording' : 'ready');
+      }
+    }
+  }, [transcript, textContext, conversationType, generateGuidance, conversationState, demoGuidances]);
+
   // Auto-generate guidance when transcript updates
   useEffect(() => {
-    if (autoGuidance && transcript.length > 0 && transcript.length % 3 === 0 && conversationState === 'recording') {
+    if (autoGuidance && transcript.length > 0 && transcript.length % 2 === 0 && conversationState === 'recording') {
+      console.log(`Auto-generating guidance: transcript length = ${transcript.length}, every 2nd update`);
       handleGenerateGuidance();
     }
-  }, [transcript, autoGuidance, conversationState]); // Added transcript to dependencies
+  }, [transcript, autoGuidance, conversationState, handleGenerateGuidance]);
 
   // Auto-generate guidance at regular time intervals
   useEffect(() => {
     if (!autoGuidance || conversationState !== 'recording') return;
 
+    console.log('Setting up guidance interval timer');
     const interval = setInterval(() => {
+      console.log(`Guidance interval triggered: transcript length = ${latestTranscript.current.length}`);
       if (latestTranscript.current.length > 0 || latestTextContext.current) {
         handleGenerateGuidance();
       }
-    }, 45000); // every 45 seconds
+    }, 15000); // every 15 seconds for testing
 
-    return () => clearInterval(interval);
-  }, [autoGuidance, conversationState]);
+    return () => {
+      console.log('Clearing guidance interval timer');
+      clearInterval(interval);
+    };
+  }, [autoGuidance, conversationState, handleGenerateGuidance]);
 
-  // Event Handlers
+  // Other Event Handlers
   const handleStartRecording = async () => {
     try {
       await connect();
@@ -303,7 +363,7 @@ export default function App() {
           id: Math.random().toString(36).substring(7),
           text: newTranscriptText.trim(),
           timestamp: new Date(),
-        speaker: speaker || (transcript.length % 2 === 0 ? 'Guest' : 'You'), // Alternate speaker for demo
+        // No speaker assignment since we can't reliably identify speakers with current setup
         confidence: 0.85 + Math.random() * 0.15 // Random confidence
         };
         setTranscript(prev => [...prev, newLine]);
@@ -341,59 +401,7 @@ export default function App() {
     // Ideally, also remove from AI context if an ID mapping exists
   };
 
-  const handleGenerateGuidance = async () => {
-    if (transcript.length === 0 && !textContext) return;
-    
-    setConversationState('processing');
-    
-    try {
-      const recentTranscript = transcript.slice(-5).map(t => `${t.speaker}: ${t.text}`).join('\n');
-      // const contextForGuidance = textContext ? `${textContext}\n\nTranscript:\n${recentTranscript}` : recentTranscript;
-      
-      const guidanceRequest: GuidanceRequest = {
-        transcript: recentTranscript,
-        context: textContext, // Pass the user-inputted text context here
-        conversationType: conversationType,
-        // participantRole: 'host' // Optional: define if needed
-      };
 
-      const guidanceResult = await generateGuidance(guidanceRequest);
-      
-      const guidance = Array.isArray(guidanceResult) ? guidanceResult[0] : guidanceResult;
-
-      if (guidance && guidance.message) {
-        const newGuidance: Guidance = {
-          id: Math.random().toString(36).substring(7),
-          type: guidance.type as GuidanceType, // Ensure type compatibility
-          message: guidance.message,
-          confidence: guidance.confidence || Math.floor(80 + Math.random() * 20),
-          timestamp: new Date(),
-          dismissed: false
-        };
-        setGuidanceList(prev => [newGuidance, ...prev]); // Add to top
-      } else {
-        // Don't throw error if no guidance, just means no new suggestions
-        console.log("No new guidance suggestions from API or API returned empty.");
-      }
-    } catch (error) {
-      console.error('Error generating guidance:', error);
-      setErrorMessage("Failed to generate AI guidance. Using a suggestion.");
-      const randomGuidance = demoGuidances[Math.floor(Math.random() * demoGuidances.length)];
-      const newGuidance: Guidance = {
-          id: Math.random().toString(36).substring(7),
-        ...randomGuidance,
-        timestamp: new Date(),
-        dismissed: false
-      };
-      setGuidanceList(prev => [newGuidance, ...prev]);
-    } finally {
-      // Revert to recording or paused state if it was processing from there
-      if (conversationState === 'processing') {
-        // const previousState = transcript.length > 0 && sessionDuration > 0 ? 'recording' : 'ready';
-        setConversationState(transcript.length > 0 ? 'recording' : 'ready');
-      }
-    }
-  };
 
   const dismissGuidance = (guidanceId: string) => {
     setGuidanceList(prev => prev.map(g => 
@@ -408,7 +416,6 @@ export default function App() {
       duration: formatDuration(sessionDuration),
       createdAt: new Date().toISOString(),
       transcript: transcript.map(line => ({ 
-        speaker: line.speaker, 
         text: line.text, 
         timestamp: line.timestamp.toLocaleTimeString() 
       })),
@@ -823,13 +830,9 @@ export default function App() {
                                 animate={{ opacity: 1, y: 0, scale: 1 }}
                                 exit={{ opacity: 0, y: -10, scale: 0.95 }}
                                 transition={{ type: "spring", stiffness: 300, damping: 25 }}
-                                className={cn(
-                                  "p-3 rounded-lg border-l-4 text-sm",
-                                  line.speaker === 'You' ? "bg-blue-50 border-blue-500 text-blue-900 self-end ml-8" : "bg-gray-100 border-gray-400 text-gray-800 self-start mr-8"
-                                )}
+                                className="p-3 rounded-lg border-l-4 text-sm bg-gray-50 border-gray-300 text-gray-800"
                               >
-                                <div className="flex items-center justify-between mb-0.5 text-xs">
-                                  <span className="font-semibold">{line.speaker}</span>
+                                <div className="flex items-center justify-end mb-0.5 text-xs">
                                   <span className="text-gray-500">{line.timestamp.toLocaleTimeString([], { hour: '2-digit', minute:'2-digit'})}</span>
                                 </div>
                                 <p className="leading-relaxed">{line.text}</p>
