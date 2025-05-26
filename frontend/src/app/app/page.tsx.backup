@@ -1,0 +1,443 @@
+'use client';
+
+import React, { useState, useEffect } from 'react';
+import { motion } from 'framer-motion';
+import { useSearchParams } from 'next/navigation';
+import { 
+  Brain, 
+  FileText,
+  MessageSquare,
+  User, 
+  Settings,
+  LogOut,
+  Bell
+} from 'lucide-react';
+
+import { Button } from '@/components/ui/Button';
+import { Card } from '@/components/ui/Card';
+import Link from 'next/link';
+import { config } from '@/lib/config';
+import { GuidanceType } from '@/components/guidance/GuidanceChip';
+import { useAIGuidance, ContextDocument } from '@/lib/aiGuidance';
+import { GuidanceCard } from '@/components/guidance/GuidanceCard';
+import { TranscriptCard } from '@/components/session/TranscriptCard';
+import { ContextCard } from '@/components/setup/ContextCard';
+import { SessionManager } from '@/components/session/SessionManager';
+
+interface TranscriptLine {
+  id: string;
+  text: string;
+  timestamp: Date;
+  speaker?: string;
+}
+
+interface Guidance {
+  id: string;
+  type: GuidanceType;
+  message: string;
+  confidence: number;
+  timestamp: Date;
+}
+
+export default function App() {
+  const searchParams = useSearchParams();
+  const conversationId = searchParams.get('cid');
+  
+  const [transcript, setTranscript] = useState<TranscriptLine[]>([]);
+  const [guidanceList, setGuidanceList] = useState<Guidance[]>([]);
+  const [isRecording, setIsRecording] = useState(false);
+  const [sessionDuration, setSessionDuration] = useState(0);
+  const [useLiveTranscription] = useState(true);
+  const [isClient, setIsClient] = useState(false);
+  const [conversationType, setConversationType] = useState<'sales' | 'support' | 'meeting' | 'interview'>('sales');
+  const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
+  const [conversationTitle, setConversationTitle] = useState('New Conversation');
+  const [conversationContext, setConversationContext] = useState<{ text: string; files: File[] }>({ text: '', files: [] });
+
+  // AI Guidance hook
+  const { 
+    generateGuidance, 
+    addContext, 
+    addUserContext, 
+    clearContext,
+    isGenerating,
+    error: guidanceError 
+  } = useAIGuidance();
+
+  // Demo guidance suggestions for fallback
+  const demoGuidances: Omit<Guidance, 'id' | 'timestamp'>[] = [
+    {
+      type: 'ask',
+      message: "Ask about their current pain points with their existing solution.",
+      confidence: 92
+    },
+    {
+      type: 'clarify',
+      message: "Clarify what they mean by 'scalability issues' - get specific examples.",
+      confidence: 87
+    },
+    {
+      type: 'avoid',
+      message: "Avoid mentioning pricing too early. Focus on value proposition first.",
+      confidence: 94
+    }
+  ];
+
+  // Update session duration
+  useEffect(() => {
+    if (!isRecording) return;
+    
+    const interval = setInterval(() => {
+      setSessionDuration(prev => prev + 1);
+    }, 1000);
+    
+    return () => clearInterval(interval);
+  }, [isRecording]);
+
+  // Set client-side flag
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
+
+  // Load conversation configuration from localStorage
+  useEffect(() => {
+    if (conversationId && typeof window !== 'undefined') {
+      const storedConfig = localStorage.getItem(`conversation_${conversationId}`);
+      if (storedConfig) {
+        try {
+          const config = JSON.parse(storedConfig);
+          setConversationTitle(config.title || 'New Conversation');
+          
+          // Map conversation type from dashboard format to app format
+          const typeMapping: Record<string, 'sales' | 'support' | 'meeting' | 'interview'> = {
+            'sales_call': 'sales',
+            'Sales Call': 'sales',
+            'Product Demo': 'sales',
+            'support_call': 'support',
+            'Support Call': 'support',
+            'Customer Support Call': 'support',
+            'meeting': 'meeting',
+            'Meeting': 'meeting',
+            'Team Standup Meeting': 'meeting',
+            'Project Meeting': 'meeting',
+            'interview': 'interview',
+            'Interview': 'interview',
+            'consultation': 'meeting',
+            'Consultation': 'meeting',
+            'Business Review': 'meeting'
+          };
+          
+          const mappedType = typeMapping[config.type] || 'sales';
+          setConversationType(mappedType);
+          
+          // Set context if provided
+          if (config.context) {
+            setConversationContext(config.context);
+            
+            // Add text context to AI guidance system
+            if (config.context.text) {
+              addUserContext(config.context.text);
+            }
+            
+            // Handle uploaded files (in a real app, these would be fetched from server)
+            if (config.context.files && config.context.files.length > 0) {
+              setUploadedFiles(config.context.files);
+              // Add file content to context (simplified for demo)
+              config.context.files.forEach((file: File) => {
+                addContext({
+                  id: Math.random().toString(36).substring(7),
+                  name: file.name,
+                  type: 'pdf',
+                  content: `Document: ${file.name}`,
+                  uploadedAt: new Date()
+                });
+              });
+            }
+          }
+          
+          console.log('Loaded conversation config:', config);
+        } catch (error) {
+          console.error('Error loading conversation config:', error);
+        }
+      }
+    }
+  }, [conversationId, addUserContext, addContext]);
+
+  const handleTranscript = (text: string) => {
+    const newLine: TranscriptLine = {
+      id: Math.random().toString(36).substring(7),
+      text,
+      timestamp: new Date(),
+      speaker: 'You'
+    };
+    
+    setTranscript(prev => [...prev, newLine]);
+  };
+
+  const handleLiveTranscript = (newTranscriptText: string, speaker?: string) => {
+    if (newTranscriptText && newTranscriptText.trim().length > 3) {
+      const currentFullTranscript = transcript.map(line => line.text).join(' ');
+      
+      if (!currentFullTranscript.includes(newTranscriptText.trim())) {
+        const newLine: TranscriptLine = {
+          id: Math.random().toString(36).substring(7),
+          text: newTranscriptText.trim(),
+          timestamp: new Date(),
+          speaker: speaker || 'Voice 1'
+        };
+        
+        setTranscript(prev => [...prev, newLine]);
+      }
+    }
+  };
+
+  const handleFileUpload = (files: File[]) => {
+    setUploadedFiles(files);
+    files.forEach(async (file) => {
+      if (file.type === 'text/plain' || file.type === 'application/pdf') {
+        try {
+          const text = await file.text();
+          addContext({
+            id: Math.random().toString(36).substring(7),
+            name: file.name,
+            type: 'pdf',
+            content: text,
+            uploadedAt: new Date()
+          });
+        } catch (error) {
+          console.error('Error reading file:', error);
+        }
+      }
+    });
+  };
+
+  const handleAddUserContext = (text: string) => {
+    addUserContext(text);
+  };
+
+  const handleManualGuidanceGeneration = async () => {
+    if (transcript.length === 0) return;
+    
+    try {
+      const fullTranscript = transcript.map(line => `${line.speaker}: ${line.text}`).join('\n');
+      
+      const suggestions = await generateGuidance({
+        transcript: fullTranscript,
+        context: '',
+        conversationType,
+        participantRole: 'host'
+      });
+
+      const newGuidances: Guidance[] = suggestions.map(suggestion => ({
+        id: suggestion.id,
+        type: suggestion.type as GuidanceType,
+        message: suggestion.message,
+        confidence: suggestion.confidence,
+        timestamp: suggestion.timestamp
+      }));
+
+      if (newGuidances.length > 0) {
+        setGuidanceList(newGuidances.slice(0, 3));
+      }
+    } catch (error) {
+      console.error('Failed to generate guidance:', error);
+      const randomGuidances = demoGuidances
+        .sort(() => Math.random() - 0.5)
+        .slice(0, 2)
+        .map(guidance => ({
+          id: Math.random().toString(36).substring(7),
+          ...guidance,
+          timestamp: new Date()
+        }));
+      setGuidanceList(randomGuidances);
+    }
+  };
+
+  const handleStartRecording = () => {
+    setIsRecording(true);
+    setSessionDuration(0);
+    setTranscript([]);
+    setGuidanceList([]);
+  };
+
+  const handleStopRecording = () => {
+    setIsRecording(false);
+  };
+
+  const handleResetSession = () => {
+    setIsRecording(false);
+    setSessionDuration(0);
+    setTranscript([]);
+    setGuidanceList([]);
+    setUploadedFiles([]);
+    clearContext();
+  };
+
+  const handleSaveSession = () => {
+    // In a real app, this would save to backend/localStorage
+    const sessionData = {
+      transcript,
+      guidanceList,
+      conversationType,
+      duration: sessionDuration,
+      timestamp: new Date().toISOString()
+    };
+    console.log('Saving session:', sessionData);
+    // localStorage.setItem(`session-${Date.now()}`, JSON.stringify(sessionData));
+  };
+
+  const handleExportSession = () => {
+    // Export transcript as text file
+    const transcriptText = transcript
+      .map(line => `[${line.timestamp.toLocaleTimeString()}] ${line.speaker}: ${line.text}`)
+      .join('\n');
+    
+    const blob = new Blob([transcriptText], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `conversation-transcript-${new Date().toISOString().split('T')[0]}.txt`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  const dismissGuidance = (guidanceId: string) => {
+    setGuidanceList(prev => prev.filter(g => g.id !== guidanceId));
+  };
+
+  const formatDuration = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  return (
+    <div className="min-h-screen bg-background">
+      {/* Header */}
+      <header className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 sticky top-0 z-50">
+        <div className="container mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between h-14">
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2">
+                <Brain className="w-6 h-6 text-primary" />
+                <span className="text-lg font-semibold">LiveConvo</span>
+              </div>
+              <div className="hidden sm:block text-sm text-gray-500">
+                •
+              </div>
+              <div className="hidden sm:block">
+                <span className="text-sm font-medium text-gray-900">{conversationTitle}</span>
+                <span className="text-xs text-gray-500 ml-2 capitalize">({conversationType})</span>
+              </div>
+              {isRecording && (
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.8 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  className="flex items-center gap-2 px-2 py-1 bg-red-50 border border-red-200 rounded-md"
+                >
+                  <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
+                  <span className="text-xs font-medium text-red-700">
+                    LIVE • {formatDuration(sessionDuration)}
+                  </span>
+                </motion.div>
+              )}
+            </div>
+            
+            <div className="flex items-center gap-2">
+              <Button variant="ghost" size="sm">
+                <Bell className="w-4 h-4" />
+              </Button>
+              <Button variant="ghost" size="sm">
+                <Settings className="w-4 h-4" />
+              </Button>
+              <div className="flex items-center gap-2">
+                <Link href="/dashboard">
+                  <Button variant="ghost" size="sm">
+                    <MessageSquare className="w-4 h-4 mr-2" />
+                    Dashboard
+                  </Button>
+                </Link>
+                <Link href="/">
+                  <Button variant="ghost" size="sm">
+                    <Brain className="w-4 h-4 mr-2" />
+                    Home
+                  </Button>
+                </Link>
+                <Button variant="ghost" size="sm">
+                  <User className="w-4 h-4 mr-2" />
+                  Profile
+                </Button>
+                <Button variant="ghost" size="sm">
+                  <LogOut className="w-4 h-4" />
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      {/* Main Content */}
+      <main className="container mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        {/* Session Manager */}
+        <div className="mb-6">
+          <SessionManager
+            isRecording={isRecording}
+            sessionDuration={sessionDuration}
+            transcriptLength={transcript.length}
+            guidanceCount={guidanceList.length}
+            onStartRecording={handleStartRecording}
+            onStopRecording={handleStopRecording}
+            onResetSession={handleResetSession}
+            onSaveSession={handleSaveSession}
+            onExportSession={handleExportSession}
+          />
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 h-[calc(100vh-12rem)]">
+          
+          {/* Context Panel */}
+          <div className="lg:col-span-4 space-y-6">
+            <ContextCard
+              conversationType={conversationType}
+              uploadedFiles={uploadedFiles}
+              onFileUpload={handleFileUpload}
+              onConversationTypeChange={setConversationType}
+              onAddContext={handleAddUserContext}
+            />
+          </div>
+
+          {/* Transcript Panel */}
+          <div className="lg:col-span-4 space-y-6">
+            <TranscriptCard
+              transcript={transcript}
+              isRecording={isRecording}
+              useLiveTranscription={useLiveTranscription}
+              onTranscript={handleTranscript}
+              onLiveTranscript={handleLiveTranscript}
+              onStartRecording={handleStartRecording}
+              onStopRecording={handleStopRecording}
+            />
+          </div>
+
+          {/* Guidance Panel */}
+          <div className="lg:col-span-4 space-y-6">
+            <GuidanceCard
+              guidanceList={guidanceList}
+              isGenerating={isGenerating}
+              error={guidanceError}
+              isRecording={isRecording}
+              onGenerateGuidance={handleManualGuidanceGeneration}
+              onDismissGuidance={dismissGuidance}
+              onGuidanceFeedback={(guidanceId: string, helpful: boolean) => console.log('Feedback:', guidanceId, helpful)}
+              disabled={transcript.length === 0}
+            />
+          </div>
+        </div>
+
+
+      </main>
+    </div>
+  );
+} 
