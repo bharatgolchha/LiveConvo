@@ -86,6 +86,10 @@ export default function App() {
   const [conversationTitle, setConversationTitle] = useState('New Conversation');
   const [textContext, setTextContext] = useState('');
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
+
+  // Refs to keep latest state values for interval callbacks
+  const latestTranscript = useRef<TranscriptLine[]>([]);
+  const latestTextContext = useRef('');
   
   // UI State
   const [showContextPanel, setShowContextPanel] = useState(true);
@@ -134,6 +138,15 @@ export default function App() {
       lastTranscriptLen.current = liveTranscript.length;
     }
   }, [liveTranscript]);
+
+  // Keep refs in sync with latest transcript and text context
+  useEffect(() => {
+    latestTranscript.current = transcript;
+  }, [transcript]);
+
+  useEffect(() => {
+    latestTextContext.current = textContext;
+  }, [textContext]);
 
   // Session timer
   useEffect(() => {
@@ -214,6 +227,19 @@ export default function App() {
       handleGenerateGuidance();
     }
   }, [transcript, autoGuidance, conversationState]); // Added transcript to dependencies
+
+  // Auto-generate guidance at regular time intervals
+  useEffect(() => {
+    if (!autoGuidance || conversationState !== 'recording') return;
+
+    const interval = setInterval(() => {
+      if (latestTranscript.current.length > 0 || latestTextContext.current) {
+        handleGenerateGuidance();
+      }
+    }, 45000); // every 45 seconds
+
+    return () => clearInterval(interval);
+  }, [autoGuidance, conversationState]);
 
   // Event Handlers
   const handleStartRecording = async () => {
