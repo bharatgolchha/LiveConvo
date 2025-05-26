@@ -35,7 +35,12 @@ import {
   PauseCircle,
   Settings2,
   SidebarOpen,
-  SidebarClose
+  SidebarClose,
+  RefreshCw,
+  TrendingUp,
+  CheckSquare,
+  ArrowRight,
+  Hash
 } from 'lucide-react';
 
 import { Button } from '@/components/ui/Button';
@@ -44,6 +49,7 @@ import Link from 'next/link';
 import { GuidanceType } from '@/components/guidance/GuidanceChip';
 import { useAIGuidance, ContextDocument, GuidanceRequest } from '@/lib/aiGuidance';
 import { useTranscription } from '@/lib/useTranscription';
+import { useRealtimeSummary, ConversationSummary } from '@/lib/useRealtimeSummary';
 import { cn } from '@/lib/utils';
 
 interface TranscriptLine {
@@ -97,6 +103,7 @@ export default function App() {
   const [audioEnabled, setAudioEnabled] = useState(true);
   const [autoGuidance, setAutoGuidance] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<'transcript' | 'summary'>('transcript');
 
   const transcriptEndRef = useRef<null | HTMLDivElement>(null);
 
@@ -128,6 +135,23 @@ export default function App() {
     disconnect
   } = useTranscription();
   const lastTranscriptLen = useRef(0);
+
+  // Real-time summary hook
+  const fullTranscriptText = transcript.map(t => `${t.speaker}: ${t.text}`).join('\n');
+  const {
+    summary,
+    isLoading: isSummaryLoading,
+    error: summaryError,
+    lastUpdated: summaryLastUpdated,
+    refreshSummary,
+    getTimeUntilNextRefresh
+  } = useRealtimeSummary({
+    transcript: fullTranscriptText,
+    sessionId: conversationId || undefined,
+    conversationType,
+    isRecording: conversationState === 'recording',
+    refreshIntervalMs: 45000 // 45 seconds
+  });
 
   useEffect(() => {
     if (liveTranscript.length > lastTranscriptLen.current) {
@@ -724,47 +748,224 @@ export default function App() {
 
               {/* Transcript & Guidance Layout */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6 flex-1 overflow-hidden">
-                {/* Transcript Column */}
+                {/* Transcript/Summary Column */}
                 <Card className="md:col-span-2 flex flex-col h-full shadow-lg">
                   <CardHeader className="border-b bg-gray-50 rounded-t-lg">
-                    <CardTitle className="flex items-center gap-2 text-lg">
-                      <MessageSquare className="w-5 h-5 text-blue-600" /> Live Transcript
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="p-4 flex-1 overflow-y-auto space-y-3 scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
-                    {transcript.length === 0 ? (
-                      <div className="flex items-center justify-center h-full text-gray-500">
-                        <div className="text-center">
-                          <Clock className="w-10 h-10 mx-auto mb-3 opacity-60" />
-                          <p className="font-medium text-lg">
-                            {conversationState === 'recording' ? 'Listening for speech...' : 'Paused. Click Resume to continue.'}
-                          </p>
-                        </div>
-                      </div>
-                    ) : (
-                      <AnimatePresence initial={false}>
-                        {transcript.map((line) => (
-                          <motion.div
-                            key={line.id}
-                            layout
-                            initial={{ opacity: 0, y: 20, scale: 0.98 }}
-                            animate={{ opacity: 1, y: 0, scale: 1 }}
-                            exit={{ opacity: 0, y: -10, scale: 0.95 }}
-                            transition={{ type: "spring", stiffness: 300, damping: 25 }}
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-4">
+                        <div className="flex bg-white rounded-lg p-1">
+                          <button
+                            onClick={() => setActiveTab('transcript')}
                             className={cn(
-                              "p-3 rounded-lg border-l-4 text-sm",
-                              line.speaker === 'You' ? "bg-blue-50 border-blue-500 text-blue-900 self-end ml-8" : "bg-gray-100 border-gray-400 text-gray-800 self-start mr-8"
+                              "flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition-colors",
+                              activeTab === 'transcript' 
+                                ? "bg-blue-100 text-blue-700" 
+                                : "text-gray-600 hover:text-gray-800 hover:bg-gray-100"
                             )}
                           >
-                            <div className="flex items-center justify-between mb-0.5 text-xs">
-                              <span className="font-semibold">{line.speaker}</span>
-                              <span className="text-gray-500">{line.timestamp.toLocaleTimeString([], { hour: '2-digit', minute:'2-digit'})}</span>
+                            <MessageSquare className="w-4 h-4" />
+                            Transcript
+                          </button>
+                          <button
+                            onClick={() => setActiveTab('summary')}
+                            className={cn(
+                              "flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition-colors",
+                              activeTab === 'summary' 
+                                ? "bg-blue-100 text-blue-700" 
+                                : "text-gray-600 hover:text-gray-800 hover:bg-gray-100"
+                            )}
+                          >
+                            <FileText className="w-4 h-4" />
+                            Summary
+                            {isSummaryLoading && <RefreshCw className="w-3 h-3 animate-spin" />}
+                          </button>
+                        </div>
+                      </div>
+                      {activeTab === 'summary' && summary && (
+                        <div className="flex items-center gap-2 text-xs text-gray-500">
+                          {summaryLastUpdated && (
+                            <span>Updated {summaryLastUpdated.toLocaleTimeString([], { hour: '2-digit', minute:'2-digit'})}</span>
+                          )}
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            onClick={refreshSummary}
+                            disabled={isSummaryLoading}
+                            className="h-6 w-6 p-1"
+                          >
+                            <RefreshCw className={cn("w-3 h-3", isSummaryLoading && "animate-spin")} />
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                  </CardHeader>
+                  <CardContent className="p-4 flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
+                    
+                    {/* Transcript Tab */}
+                    {activeTab === 'transcript' && (
+                      <div className="space-y-3 h-full">
+                        {transcript.length === 0 ? (
+                          <div className="flex items-center justify-center h-full text-gray-500">
+                            <div className="text-center">
+                              <Clock className="w-10 h-10 mx-auto mb-3 opacity-60" />
+                              <p className="font-medium text-lg">
+                                {conversationState === 'recording' ? 'Listening for speech...' : 'Paused. Click Resume to continue.'}
+                              </p>
                             </div>
-                            <p className="leading-relaxed">{line.text}</p>
-                          </motion.div>
-                        ))}
-                        <div ref={transcriptEndRef} />
-                      </AnimatePresence>
+                          </div>
+                        ) : (
+                          <AnimatePresence initial={false}>
+                            {transcript.map((line) => (
+                              <motion.div
+                                key={line.id}
+                                layout
+                                initial={{ opacity: 0, y: 20, scale: 0.98 }}
+                                animate={{ opacity: 1, y: 0, scale: 1 }}
+                                exit={{ opacity: 0, y: -10, scale: 0.95 }}
+                                transition={{ type: "spring", stiffness: 300, damping: 25 }}
+                                className={cn(
+                                  "p-3 rounded-lg border-l-4 text-sm",
+                                  line.speaker === 'You' ? "bg-blue-50 border-blue-500 text-blue-900 self-end ml-8" : "bg-gray-100 border-gray-400 text-gray-800 self-start mr-8"
+                                )}
+                              >
+                                <div className="flex items-center justify-between mb-0.5 text-xs">
+                                  <span className="font-semibold">{line.speaker}</span>
+                                  <span className="text-gray-500">{line.timestamp.toLocaleTimeString([], { hour: '2-digit', minute:'2-digit'})}</span>
+                                </div>
+                                <p className="leading-relaxed">{line.text}</p>
+                              </motion.div>
+                            ))}
+                            <div ref={transcriptEndRef} />
+                          </AnimatePresence>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Summary Tab */}
+                    {activeTab === 'summary' && (
+                      <div className="space-y-4 h-full">
+                        {summaryError && (
+                          <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-red-700 text-sm">
+                            <div className="flex items-center gap-2 mb-1">
+                              <XCircle className="w-4 h-4" />
+                              <span className="font-medium">Summary Error</span>
+                            </div>
+                            <p>{summaryError}</p>
+                          </div>
+                        )}
+
+                        {!summary && !isSummaryLoading && !summaryError && (
+                          <div className="flex items-center justify-center h-full text-gray-500">
+                            <div className="text-center">
+                              <FileText className="w-10 h-10 mx-auto mb-3 opacity-60" />
+                              <p className="font-medium text-lg mb-2">No Summary Yet</p>
+                              <p className="text-sm">Summary will be generated automatically as the conversation progresses.</p>
+                            </div>
+                          </div>
+                        )}
+
+                        {isSummaryLoading && !summary && (
+                          <div className="flex items-center justify-center h-full text-blue-600">
+                            <div className="text-center">
+                              <RefreshCw className="w-10 h-10 mx-auto mb-3 animate-spin" />
+                              <p className="font-medium text-lg">Generating Summary...</p>
+                            </div>
+                          </div>
+                        )}
+
+                        {summary && (
+                          <div className="space-y-4">
+                            {/* TL;DR Section */}
+                            <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+                              <h3 className="font-semibold text-amber-800 mb-2 flex items-center gap-2">
+                                <TrendingUp className="w-4 h-4" />
+                                TL;DR
+                              </h3>
+                              <p className="text-amber-700 text-sm leading-relaxed">{summary.tldr}</p>
+                            </div>
+
+                            {/* Key Points */}
+                            {summary.keyPoints.length > 0 && (
+                              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                                <h3 className="font-semibold text-blue-800 mb-2 flex items-center gap-2">
+                                  <Hash className="w-4 h-4" />
+                                  Key Points
+                                </h3>
+                                <ul className="space-y-1">
+                                  {summary.keyPoints.map((point, index) => (
+                                    <li key={index} className="text-blue-700 text-sm flex items-start gap-2">
+                                      <span className="text-blue-500 mt-1">•</span>
+                                      <span>{point}</span>
+                                    </li>
+                                  ))}
+                                </ul>
+                              </div>
+                            )}
+
+                            {/* Decisions */}
+                            {summary.decisions.length > 0 && (
+                              <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                                <h3 className="font-semibold text-green-800 mb-2 flex items-center gap-2">
+                                  <CheckSquare className="w-4 h-4" />
+                                  Decisions Made
+                                </h3>
+                                <ul className="space-y-1">
+                                  {summary.decisions.map((decision, index) => (
+                                    <li key={index} className="text-green-700 text-sm flex items-start gap-2">
+                                      <CheckSquare className="w-3 h-3 mt-1 text-green-500" />
+                                      <span>{decision}</span>
+                                    </li>
+                                  ))}
+                                </ul>
+                              </div>
+                            )}
+
+                            {/* Action Items */}
+                            {summary.actionItems.length > 0 && (
+                              <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
+                                <h3 className="font-semibold text-purple-800 mb-2 flex items-center gap-2">
+                                  <ArrowRight className="w-4 h-4" />
+                                  Action Items
+                                </h3>
+                                <ul className="space-y-1">
+                                  {summary.actionItems.map((item, index) => (
+                                    <li key={index} className="text-purple-700 text-sm flex items-start gap-2">
+                                      <ArrowRight className="w-3 h-3 mt-1 text-purple-500" />
+                                      <span>{item}</span>
+                                    </li>
+                                  ))}
+                                </ul>
+                              </div>
+                            )}
+
+                            {/* Next Steps */}
+                            {summary.nextSteps.length > 0 && (
+                              <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
+                                <h3 className="font-semibold text-orange-800 mb-2 flex items-center gap-2">
+                                  <ArrowRight className="w-4 h-4" />
+                                  Next Steps
+                                </h3>
+                                <ul className="space-y-1">
+                                  {summary.nextSteps.map((step, index) => (
+                                    <li key={index} className="text-orange-700 text-sm flex items-start gap-2">
+                                      <span className="text-orange-500 font-bold text-xs mt-1">{index + 1}.</span>
+                                      <span>{step}</span>
+                                    </li>
+                                  ))}
+                                </ul>
+                              </div>
+                            )}
+
+                            {/* Summary Metadata */}
+                            <div className="text-xs text-gray-500 pt-2 border-t">
+                              <div className="flex items-center justify-between">
+                                <span>Status: {summary.progressStatus?.replace('_', ' ')}</span>
+                                <span>Sentiment: {summary.sentiment}</span>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                      </div>
                     )}
                   </CardContent>
                 </Card>
