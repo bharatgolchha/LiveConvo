@@ -135,6 +135,7 @@ export default function App() {
     disconnect
   } = useTranscription();
   const lastTranscriptLen = useRef(0);
+  const lastGuidanceIndex = useRef(0);
 
   // Real-time summary hook
   const fullTranscriptText = transcript.map(t => t.text).join('\n');
@@ -299,10 +300,13 @@ export default function App() {
     }
   }, [transcript, textContext, conversationType, generateGuidance, conversationState, demoGuidances]);
 
-  // Auto-generate guidance when transcript updates
+  // Auto-generate guidance when transcript has two new lines
   useEffect(() => {
-    if (autoGuidance && transcript.length > 0 && transcript.length % 2 === 0 && conversationState === 'recording') {
-      console.log(`Auto-generating guidance: transcript length = ${transcript.length}, every 2nd update`);
+    if (!autoGuidance || conversationState !== 'recording') return;
+
+    if (transcript.length - lastGuidanceIndex.current >= 2) {
+      console.log(`Auto-generating guidance: transcript length = ${transcript.length}`);
+      lastGuidanceIndex.current = transcript.length;
       handleGenerateGuidance();
     }
   }, [transcript, autoGuidance, conversationState, handleGenerateGuidance]);
@@ -557,6 +561,9 @@ export default function App() {
                 <Button variant="ghost" size="sm" onClick={() => setIsFullscreen(!isFullscreen)} title={isFullscreen ? "Exit Fullscreen" : "Enter Fullscreen"} className="hover:bg-gray-100 p-2">
                   {isFullscreen ? <Minimize2 className="w-5 h-5" /> : <Maximize2 className="w-5 h-5" />}
               </Button>
+                <Button variant="ghost" size="sm" onClick={handleGenerateGuidance} title="Generate Guidance" className="hover:bg-gray-100 p-2">
+                  <Lightbulb className="w-5 h-5" />
+                </Button>
                 <Button variant="ghost" size="sm" title="Notifications" className="hover:bg-gray-100 p-2">
                   <Bell className="w-5 h-5" />
                 </Button>
