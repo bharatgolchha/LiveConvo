@@ -13,7 +13,8 @@ export const config = {
 
   // OpenAI API Configuration (server-side only)
   openai: {
-    realtimeModel: 'gpt-4o-mini-realtime-preview',
+    // Default STT model for real-time transcription
+    realtimeModel: 'gpt-4o-mini-transcribe',
     realtimeEndpoint: 'wss://api.openai.com/v1/realtime'
   },
 
