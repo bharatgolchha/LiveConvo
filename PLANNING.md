@@ -195,6 +195,119 @@ frontend/
 
 ---
 
+## 🗺️ Page Structure & User Flows
+
+### Complete Application Page Map
+
+The following table defines the complete page structure for LiveConvo, including both public and authenticated routes:
+
+| # | Route | Title | Primary Job | Must-Have Bits |
+|---|-------|-------|-------------|----------------|
+| 1 | `/login` | Auth | Email → OTP or Google SSO | Form, T&C link, redirect logic |
+| 2 | `/onboarding` | First-Run Setup | Collect user name, default mic/speaker, timezone, optional calendar & template selection | 3-step wizard • Skip button • Progress dots |
+| 3 | `/dashboard` | Open Convos Hub | List open threads • Search • + New Convo | Card stack with "Resume / Add & Resume / View Summary" |
+| 4 | `/app?cid=:id` | Live Call Room | Transcript stream • Guidance chips • Context panel • End Call | WebRTC/STT status • Mute • Red End |
+| 5 | `/summary/:id` | Conversation Report | Review & tweak AI summary • Export | TL;DR • Follow-ups • Full transcript accordion • Mark Done |
+| 6 | `/convos/closed` | Closed Archive | Searchable history • Re-open | Table with filters • Export • Restore |
+| 7 | `/templates` | Template Library | Pick / clone / edit cue sets | Grid • Tag filter • JSON editor |
+| 8 | `/pricing` | Plans & Checkout | Show Free vs Pro vs Team tiers • Hit Stripe checkout | Plan cards • CTA → Stripe session • FAQ |
+| 9 | `/settings` | Account & Billing | Profile • Stripe portal • Integrations | Tabs: Profile • Billing • Integrations |
+| 10 | `/*` | 404 / Error | Catch stray routes / auth guard | Friendly copy • "Back to Dashboard" |
+
+### User Flow Patterns
+
+```
+Unauth user → /login
+                 └─ New user → /onboarding (one time)
+                                       └─ /dashboard
+Returning user → /dashboard
+
+Start new call  → context sheet → /app?cid=xyz → End → /summary/xyz
+Resume call     → /app?cid=abc
+View summary    → /summary/abc
+Closed archive  → /convos/closed
+Upgrade plan    → /pricing → Stripe checkout → /settings#billing
+```
+
+### Route Implementation Notes
+
+#### Public Routes (No Authentication Required)
+- **`/pricing`**: Accessible to all users, linked in top navigation and billing tab
+- **`/login`**: Entry point for unauthenticated users
+- **`/*` (404/Error)**: Global error handling with auth guards
+
+#### Protected Routes (Authentication Required)
+- **`/onboarding`**: One-time redirect after first successful login, then skipped
+- **`/dashboard`**: Main hub for authenticated users
+- **`/app?cid=:id`**: Live conversation interface
+- **`/summary/:id`**: Post-conversation review and export
+- **`/convos/closed`**: Historical conversation archive
+- **`/templates`**: Conversation template management (can be modal or full page)
+- **`/settings`**: Account management and billing portal
+
+### Page Component Structure
+
+Each page should follow this consistent structure:
+
+```typescript
+// Page structure template
+interface PageProps {
+  searchParams?: { [key: string]: string | string[] | undefined };
+  params?: { [key: string]: string };
+}
+
+export default function PageName({ searchParams, params }: PageProps) {
+  return (
+    <AuthGuard requiredAuth={true}> {/* false for public pages */}
+      <PageLayout>
+        <PageHeader title="Page Title" />
+        <PageContent>
+          {/* Page-specific content */}
+        </PageContent>
+        <PageFooter />
+      </PageLayout>
+    </AuthGuard>
+  );
+}
+```
+
+### Navigation Structure
+
+#### Top Navigation (All Pages)
+- **Logo/Brand** → `/dashboard` (if authenticated) or `/` (if not)
+- **Pricing** → `/pricing` (always visible)
+- **User Menu** → `/settings`, `/logout` (authenticated only)
+
+#### Main Navigation (Authenticated Pages)
+- **Dashboard** → `/dashboard`
+- **Active Calls** → `/app?cid=active` (if any)
+- **History** → `/convos/closed`
+- **Templates** → `/templates`
+
+### State Management Patterns
+
+#### Authentication State
+```typescript
+interface AuthState {
+  user: User | null;
+  isAuthenticated: boolean;
+  isLoading: boolean;
+  hasCompletedOnboarding: boolean;
+}
+```
+
+#### Session State
+```typescript
+interface SessionState {
+  activeSession: Session | null;
+  recentSessions: Session[];
+  isRecording: boolean;
+  connectionStatus: 'connected' | 'connecting' | 'disconnected';
+}
+```
+
+---
+
 ## 🎯 Naming Conventions
 
 ### Files & Directories

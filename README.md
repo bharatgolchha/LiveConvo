@@ -24,6 +24,15 @@ Transform how knowledge workers prepare for and conduct critical conversations b
 - **Color-coded guidance**: Ask (green), Clarify (yellow), Avoid (red)
 - **One-click setup**: Upload docs and start recording in <30 seconds
 - **Privacy-first**: Audio purged after summary generation
+- **Comprehensive Summaries**: Detailed conversation review with TL;DR, follow-ups, and exports
+
+### 📋 Summary & Review Features
+- **TL;DR Section**: Quick overview for busy executives
+- **AI Summary (Editable)**: Comprehensive overview with key points, decisions, and action items
+- **Follow-up Manager**: Interactive task management with priorities and assignments
+- **Full Transcript**: Expandable conversation transcript with speaker identification
+- **Export Options**: PDF, Word, Text, and JSON formats with customizable content
+- **Quick Stats**: Audio quality, transcription accuracy, participant count, and metadata
 
 ## 🎯 Target Users
 
