@@ -25,8 +25,10 @@ export async function GET(request: NextRequest) {
     const search = searchParams.get('search');
     const conversationType = searchParams.get('conversation_type');
 
-    // Get current user from Supabase auth
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    // Get current user from Supabase auth using the access token
+    const authHeader = request.headers.get('authorization');
+    const token = authHeader?.split(' ')[1];
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
     
     if (authError || !user) {
       return NextResponse.json(
@@ -128,8 +130,10 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { title, conversation_type, selected_template_id } = body;
 
-    // Get current user from Supabase auth
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    // Get current user from Supabase auth using the access token
+    const authHeader = request.headers.get('authorization');
+    const token = authHeader?.split(' ')[1];
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
     
     if (authError || !user) {
       return NextResponse.json(
