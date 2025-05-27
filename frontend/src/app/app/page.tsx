@@ -307,19 +307,57 @@ export default function App() {
     if (transcript.length - lastGuidanceIndex.current >= 2) {
       console.log(`Auto-generating guidance: transcript length = ${transcript.length}`);
       lastGuidanceIndex.current = transcript.length;
-      handleGenerateGuidance();
+      
+      // Call handleGenerateGuidance with a timeout to prevent immediate re-triggers
+      setTimeout(() => {
+        handleGenerateGuidance();
+      }, 100);
     }
-  }, [transcript, autoGuidance, conversationState, handleGenerateGuidance]);
+  }, [transcript.length, autoGuidance, conversationState, handleGenerateGuidance]);
 
   // Auto-generate guidance at regular time intervals
   useEffect(() => {
     if (!autoGuidance || conversationState !== 'recording') return;
 
     console.log('Setting up guidance interval timer');
-    const interval = setInterval(() => {
+    const interval = setInterval(async () => {
       console.log(`Guidance interval triggered: transcript length = ${latestTranscript.current.length}`);
       if (latestTranscript.current.length > 0 || latestTextContext.current) {
-        handleGenerateGuidance();
+        // Inline guidance generation to avoid dependency issues
+        try {
+          setConversationState('processing');
+          
+          const recentTranscript = latestTranscript.current.slice(-5).map(t => t.text).join('\n');
+          
+          const guidanceRequest: GuidanceRequest = {
+            transcript: recentTranscript,
+            context: latestTextContext.current,
+            conversationType: conversationType,
+          };
+
+          console.log('Sending guidance request (interval):', guidanceRequest);
+          const guidanceResult = await generateGuidance(guidanceRequest);
+          console.log('Received guidance result (interval):', guidanceResult);
+          
+          const guidance = Array.isArray(guidanceResult) ? guidanceResult[0] : guidanceResult;
+
+          if (guidance && guidance.message) {
+            const newGuidance: Guidance = {
+              id: Math.random().toString(36).substring(7),
+              type: guidance.type as GuidanceType,
+              message: guidance.message,
+              confidence: guidance.confidence || Math.floor(80 + Math.random() * 20),
+              timestamp: new Date(),
+              dismissed: false
+            };
+            console.log('Adding new guidance (interval):', newGuidance);
+            setGuidanceList(prev => [newGuidance, ...prev]);
+          }
+        } catch (error) {
+          console.error('Error generating guidance (interval):', error);
+        } finally {
+          setConversationState('recording');
+        }
       }
     }, 15000); // every 15 seconds for testing
 
@@ -327,22 +365,34 @@ export default function App() {
       console.log('Clearing guidance interval timer');
       clearInterval(interval);
     };
-  }, [autoGuidance, conversationState, handleGenerateGuidance]);
+  }, [autoGuidance, conversationState, conversationType, generateGuidance]);
 
   // Other Event Handlers
   const handleStartRecording = async () => {
     try {
+      setConversationState('processing'); // Show processing state
+      
+      // Connect first and wait for it to complete
+      console.log('🔄 Connecting to transcription service...');
       await connect();
+      
+      // Small delay to ensure connection is fully established
+      await new Promise(resolve => setTimeout(resolve, 200));
+      
+      // Start recording
+      console.log('🎤 Starting recording...');
       await startRealtimeRecording();
+      
       setConversationState('recording');
       setSessionDuration(0);
       if (transcript.length > 0 && conversationState !== 'paused') {
         setTranscript([]);
         setGuidanceList([]);
       }
+      console.log('✅ Recording started successfully');
     } catch (err) {
       console.error('Failed to start realtime transcription', err);
-      setErrorMessage('Failed to start realtime transcription');
+      setErrorMessage(`Failed to start realtime transcription: ${err instanceof Error ? err.message : 'Unknown error'}`);
       setConversationState('error');
     }
   };
