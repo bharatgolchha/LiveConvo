@@ -14,8 +14,9 @@ Transform how knowledge workers prepare for and conduct critical conversations b
 - **Context Upload**: Drag-and-drop PDFs, DOCX, TXT, and images (with OCR) up to 25MB
 - **Live Audio Capture**: Browser-based microphone integration via WebRTC
 - **Real-time Guidance**: AI-powered suggestion chips with <2s latency
-- **Smart Transcription**: Streaming speech-to-text with Whisper v3
-- **Instant Summaries**: Structured reports with action items within 30s
+- **Smart Transcription**: Real-time speech-to-text with Deepgram Nova-3 streaming API (default) or OpenAI Realtime API
+- **Intelligent Summary System**: Multi-layered summary generation for single sessions and conversation chains
+- **Conversation Continuity**: Continue previous conversations with full context awareness
 - **Email Export**: One-click sharing of meeting summaries
 - **Analytics Dashboard**: Talk time ratios and conversation insights
 
@@ -34,13 +35,22 @@ Transform how knowledge workers prepare for and conduct critical conversations b
 - **Export Options**: PDF, Word, Text, and JSON formats with customizable content
 - **Quick Stats**: Audio quality, transcription accuracy, participant count, and metadata
 
+### 🔗 Conversation Chain Management
+- **Multi-Session Conversations**: Link related sessions into conversation chains
+- **Contextual Summaries**: Each new session builds on previous conversation history
+- **Progress Tracking**: Monitor evolution and progress across multiple sessions
+- **Smart Context Windows**: Automatically includes relevant context from previous sessions (configurable 1-5 sessions)
+- **Chain Summaries**: Periodic comprehensive summaries covering entire conversation arcs
+- **Action Item Continuity**: Track completion and progress of action items across sessions
+
 ## 🎯 Target Users
 
 | Persona | Use Case | Key Value |
 |---------|----------|-----------|
-| **SaaS Sales Reps** | Discovery calls & demos | Never miss pitch points or next steps |
-| **Freelance Consultants** | Client scoping meetings | Professional summaries for billing |
-| **Job Seekers** | Interviews & networking | Company research at your fingertips |
+| **SaaS Sales Reps** | Multi-call sales cycles | Track decision-makers and objections across calls |
+| **Freelance Consultants** | Project discovery & delivery | Maintain context across project phases |
+| **Job Seekers** | Interview rounds | Remember interviewer feedback and follow-ups |
+| **Account Managers** | Ongoing client relationships | Never lose conversation history or commitments |
 
 ## 🏗️ Technical Architecture
 
@@ -57,7 +67,7 @@ Transform how knowledge workers prepare for and conduct critical conversations b
 - **Storage**: S3/R2 with 24h TTL
 
 ### AI & ML
-- **Speech-to-Text**: Whisper v3 (GPU-accelerated)
+- **Speech-to-Text**: Deepgram streaming API (default) or OpenAI Realtime API
 - **Vector Store**: Pinecone + Redis caching
 - **LLM**: OpenAI GPT-4o with LangChain
 - **Document Processing**: OCR for images, text extraction
@@ -74,7 +84,8 @@ Transform how knowledge workers prepare for and conduct critical conversations b
 - Node.js 18+
 - Docker (for local development)
 - Redis instance
-- OpenAI API key
+- OpenAI API key (for AI guidance)
+- Deepgram API key (for transcription - recommended)
 
 ### Environment Setup
 
@@ -108,6 +119,8 @@ Transform how knowledge workers prepare for and conduct critical conversations b
    STRIPE_SECRET_KEY=your_stripe_key
    
    # Frontend (.env.local)
+   OPENAI_API_KEY=your_openai_key          # Required for AI guidance
+   DEEPGRAM_API_KEY=your_deepgram_key      # Required for transcription (recommended)
    NEXT_PUBLIC_API_URL=http://localhost:8000
    NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=your_stripe_public_key
    ```
