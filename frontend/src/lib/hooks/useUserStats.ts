@@ -27,26 +27,23 @@ export interface UserStatsHookReturn {
  * Hook for fetching and managing user usage statistics
  */
 export function useUserStats(): UserStatsHookReturn {
-  const [stats, setStats] = useState<UserStats | null>(null);
-  const [loading, setLoading] = useState(true);
+  const { user, loading: authLoading, setSessionExpiredMessage } = useAuth();
+  const [stats, setStats] = useState<UserStats | null>(defaultStats);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  const { user } = useAuth();
 
   /**
    * Fetch user statistics from the API
    */
   const fetchStats = useCallback(async () => {
-    if (!user) {
-      setError('User not authenticated');
-      setLoading(false);
+    if (!user || authLoading) {
       return;
     }
 
-    try {
-      setLoading(true);
-      setError(null);
+    setLoading(true);
+    setError(null);
 
+    try {
       const response = await fetch('/api/users/stats', {
         method: 'GET',
         headers: {
@@ -56,11 +53,15 @@ export function useUserStats(): UserStatsHookReturn {
 
       if (!response.ok) {
         const errorData = await response.json();
+        if (response.status === 401 && user) {
+          setSessionExpiredMessage(errorData.message || 'Your session for user stats has expired. Please sign in again.');
+        }
         throw new Error(errorData.message || 'Failed to fetch user stats');
       }
 
       const data: UserStats = await response.json();
       setStats(data);
+      if (user) setSessionExpiredMessage(null);
 
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to fetch user stats';
@@ -69,7 +70,7 @@ export function useUserStats(): UserStatsHookReturn {
     } finally {
       setLoading(false);
     }
-  }, [user]);
+  }, [user, authLoading, setSessionExpiredMessage]);
 
   /**
    * Refresh stats (public method)
@@ -80,14 +81,18 @@ export function useUserStats(): UserStatsHookReturn {
 
   // Initial fetch on mount
   useEffect(() => {
-    if (user) {
+    if (user && !authLoading) {
       fetchStats();
+    } else if (!user && !authLoading) {
+      setStats(defaultStats);
+      setLoading(false);
+      setError(null);
     }
-  }, [user, fetchStats]);
+  }, [user, authLoading, fetchStats]);
 
   return {
     stats,
-    loading,
+    loading: loading || authLoading,
     error,
     refreshStats,
   };

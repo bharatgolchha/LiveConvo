@@ -3,6 +3,8 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react'
 import { User, Session, AuthError } from '@supabase/supabase-js'
 import { supabase, isSupabaseConfigured } from '@/lib/supabase'
+import { Button } from '@/components/ui/Button'
+import { AlertTriangle } from 'lucide-react'
 
 interface AuthContextType {
   user: User | null
@@ -12,6 +14,8 @@ interface AuthContextType {
   signIn: (email: string, password: string) => Promise<{ error: AuthError | null }>
   signInWithGoogle: () => Promise<{ error: AuthError | null }>
   signOut: () => Promise<{ error: AuthError | null }>
+  sessionExpiredMessage: string | null
+  setSessionExpiredMessage: (message: string | null) => void
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
@@ -20,6 +24,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [session, setSession] = useState<Session | null>(null)
   const [loading, setLoading] = useState(true)
+  const [sessionExpiredMessage, setSessionExpiredMessage] = useState<string | null>(null)
 
   // Use the configuration status from supabase.ts
 
@@ -31,15 +36,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return
     }
 
+    setLoading(true);
     // Get initial session
     const getInitialSession = async () => {
       try {
-        const { data: { session } } = await supabase.auth.getSession()
-        setSession(session)
-        setUser(session?.user ?? null)
-        setLoading(false)
+        const { data: { session: initialSession } } = await supabase.auth.getSession()
+        setSession(initialSession)
+        setUser(initialSession?.user ?? null)
       } catch (error) {
         console.error('Error getting session:', error)
+        // setUser and setSession remain null
+      } finally {
         setLoading(false)
       }
     }
@@ -48,10 +55,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        setSession(session)
-        setUser(session?.user ?? null)
-        setLoading(false)
+      async (event, currentSession) => {
+        // setLoading(true) // Optional: indicate loading during auth state change
+        setSession(currentSession)
+        setUser(currentSession?.user ?? null)
+        if (!currentSession) {
+          // If user explicitly signs out or session becomes null,
+          // this is not necessarily an "expired" session from an API call perspective.
+          // We might want to clear the message, or let API call failures handle it.
+          // For now, clearing it here ensures a clean state on logout.
+          setSessionExpiredMessage(null)
+        }
+        setLoading(false) // Auth state change processed
       }
     )
 
@@ -87,6 +102,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         email,
         password,
       })
+      if (!error) {
+        setSessionExpiredMessage(null)
+      }
       return { error }
     } catch (error) {
       return { error: { message: 'Authentication service unavailable' } as any }
@@ -110,14 +128,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  const signOut = async () => {
+  const handleSignOut = async () => {
     if (!isSupabaseConfigured) {
+      setSessionExpiredMessage(null)
       return { error: null }
     }
     try {
       const { error } = await supabase.auth.signOut()
+      setSessionExpiredMessage(null)
+      if (error) {
+        console.error('Sign out error:', error)
+      }
       return { error }
     } catch (error) {
+      setSessionExpiredMessage(null)
       return { error: { message: 'Sign out failed' } as any }
     }
   }
@@ -129,11 +153,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     signUp,
     signIn,
     signInWithGoogle,
-    signOut,
+    signOut: handleSignOut,
+    sessionExpiredMessage,
+    setSessionExpiredMessage,
   }
 
   return (
     <AuthContext.Provider value={value}>
+      {sessionExpiredMessage && (
+        <div className="fixed bottom-0 left-0 right-0 bg-yellow-400 p-4 text-yellow-900 shadow-lg z-50 flex items-center justify-between">
+          <div className="flex items-center">
+            <AlertTriangle className="w-6 h-6 mr-3" />
+            <span>{sessionExpiredMessage}</span>
+          </div>
+          <Button 
+            onClick={handleSignOut} 
+            variant="outline" 
+            className="bg-yellow-500 hover:bg-yellow-600 text-white border-yellow-600 hover:border-yellow-700"
+          >
+            Sign Out
+          </Button>
+        </div>
+      )}
       {children}
     </AuthContext.Provider>
   )

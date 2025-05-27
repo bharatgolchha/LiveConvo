@@ -62,30 +62,28 @@ export interface SessionsHookReturn {
  * Hook for managing sessions data and operations
  */
 export function useSessions(): SessionsHookReturn {
+  const { user, loading: authLoading, setSessionExpiredMessage } = useAuth();
   const [sessions, setSessions] = useState<Session[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [totalCount, setTotalCount] = useState(0);
   const [hasMore, setHasMore] = useState(false);
   const [pagination, setPagination] = useState<SessionsResponse['pagination'] | null>(null);
   const [currentFilters, setCurrentFilters] = useState<SessionFilters>({});
 
-  const { user } = useAuth();
-
   /**
    * Fetch sessions from the API
    */
   const fetchSessions = useCallback(async (filters: SessionFilters = {}) => {
-    if (!user) {
-      setError('User not authenticated');
-      setLoading(false);
+    if (!user || authLoading) {
       return;
     }
 
-    try {
-      setLoading(true);
-      setError(null);
+    setLoading(true);
+    setError(null);
+    setCurrentFilters(filters);
 
+    try {
       // Build query parameters
       const params = new URLSearchParams();
       if (filters.status) params.append('status', filters.status);
@@ -103,10 +101,15 @@ export function useSessions(): SessionsHookReturn {
 
       if (!response.ok) {
         const errorData = await response.json();
+        if (response.status === 401 && user) {
+          setSessionExpiredMessage(errorData.message || 'Your session for sessions has expired. Please sign in again.');
+        }
         throw new Error(errorData.message || 'Failed to fetch sessions');
       }
 
       const data: SessionsResponse = await response.json();
+      
+      if (user) setSessionExpiredMessage(null);
       
       // If this is pagination (offset > 0), append to existing sessions
       if (filters.offset && filters.offset > 0) {
@@ -118,7 +121,6 @@ export function useSessions(): SessionsHookReturn {
       setTotalCount(data.total_count);
       setHasMore(data.has_more);
       setPagination(data.pagination);
-      setCurrentFilters(filters);
 
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to fetch sessions';
@@ -127,14 +129,29 @@ export function useSessions(): SessionsHookReturn {
     } finally {
       setLoading(false);
     }
-  }, [user]);
+  }, [user, authLoading, setSessionExpiredMessage]);
+
+  /**
+   * Generic error handler for PATCH, DELETE, POST
+   */
+  const handleApiError = useCallback((err: any, operation: string, response?: Response) => {
+    const errorMessage = err instanceof Error ? err.message : `Failed to ${operation} session`;
+    setError(errorMessage);
+    console.error(`Session ${operation} error:`, err);
+    if (response && response.status === 401 && user) {
+      response.json().then(errorData => {
+        setSessionExpiredMessage(errorData.message || `Your session expired during ${operation}. Please sign in again.`);
+      }).catch(() => {
+        setSessionExpiredMessage(`Your session expired during ${operation}. Please sign in again.`);
+      });
+    }
+  }, [user, setSessionExpiredMessage]);
 
   /**
    * Update a session
    */
   const updateSession = useCallback(async (id: string, updates: Partial<Session>): Promise<Session | null> => {
-    if (!user) {
-      setError('User not authenticated');
+    if (!user || authLoading) {
       return null;
     }
 
@@ -148,11 +165,12 @@ export function useSessions(): SessionsHookReturn {
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Failed to update session');
+        throw response;
       }
 
       const { session } = await response.json();
+
+      if (user) setSessionExpiredMessage(null);
 
       // Update the session in local state
       setSessions(prev => prev.map(s => s.id === id ? { ...s, ...session } : s));
@@ -160,19 +178,16 @@ export function useSessions(): SessionsHookReturn {
       return session;
 
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to update session';
-      setError(errorMessage);
-      console.error('Session update error:', err);
+      handleApiError(err, 'update', err instanceof Response ? err : undefined);
       return null;
     }
-  }, [user]);
+  }, [user, authLoading, handleApiError, setSessionExpiredMessage]);
 
   /**
    * Delete a session (soft delete)
    */
   const deleteSession = useCallback(async (id: string): Promise<boolean> => {
-    if (!user) {
-      setError('User not authenticated');
+    if (!user || authLoading) {
       return false;
     }
 
@@ -185,9 +200,10 @@ export function useSessions(): SessionsHookReturn {
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Failed to delete session');
+        throw response;
       }
+
+      if (user) setSessionExpiredMessage(null);
 
       // Remove the session from local state
       setSessions(prev => prev.filter(s => s.id !== id));
@@ -196,12 +212,10 @@ export function useSessions(): SessionsHookReturn {
       return true;
 
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to delete session';
-      setError(errorMessage);
-      console.error('Session delete error:', err);
+      handleApiError(err, 'delete', err instanceof Response ? err : undefined);
       return false;
     }
-  }, [user]);
+  }, [user, authLoading, handleApiError, setSessionExpiredMessage]);
 
   /**
    * Create a new session
@@ -211,8 +225,7 @@ export function useSessions(): SessionsHookReturn {
     conversation_type: string; 
     selected_template_id?: string 
   }): Promise<Session | null> => {
-    if (!user) {
-      setError('User not authenticated');
+    if (!user || authLoading) {
       return null;
     }
 
@@ -226,11 +239,12 @@ export function useSessions(): SessionsHookReturn {
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Failed to create session');
+        throw response;
       }
 
       const { session } = await response.json();
+
+      if (user) setSessionExpiredMessage(null);
 
       // Add the new session to the beginning of the list
       setSessions(prev => [session, ...prev]);
@@ -239,12 +253,10 @@ export function useSessions(): SessionsHookReturn {
       return session;
 
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to create session';
-      setError(errorMessage);
-      console.error('Session create error:', err);
+      handleApiError(err, 'create', err instanceof Response ? err : undefined);
       return null;
     }
-  }, [user]);
+  }, [user, authLoading, handleApiError, setSessionExpiredMessage]);
 
   /**
    * Refresh sessions with current filters
@@ -255,14 +267,21 @@ export function useSessions(): SessionsHookReturn {
 
   // Initial fetch on mount
   useEffect(() => {
-    if (user) {
-      fetchSessions();
+    if (user && !authLoading) {
+      fetchSessions(currentFilters);
+    } else if (!user && !authLoading) {
+      setSessions([]);
+      setLoading(false);
+      setError(null);
+      setTotalCount(0);
+      setHasMore(false);
+      setPagination(null);
     }
-  }, [user, fetchSessions]);
+  }, [user, authLoading, fetchSessions]);
 
   return {
     sessions,
-    loading,
+    loading: loading || authLoading,
     error,
     totalCount,
     hasMore,
