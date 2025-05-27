@@ -37,7 +37,21 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Build the query
+    // Get user's current organization
+    const { data: userData, error: userError } = await supabase
+      .from('users')
+      .select('current_organization_id')
+      .eq('id', user.id)
+      .single();
+
+    if (userError || !userData?.current_organization_id) {
+      return NextResponse.json(
+        { error: 'Setup required', message: 'Please complete onboarding first' },
+        { status: 400 }
+      );
+    }
+
+    // Build the query (filter by organization instead of just user)
     let query = supabase
       .from('sessions')
       .select(`
@@ -51,13 +65,13 @@ export async function GET(request: NextRequest) {
         updated_at,
         recording_started_at,
         recording_ended_at,
-        summaries!inner(
+        summaries(
           id,
           generation_status,
           created_at
         )
       `)
-      .eq('user_id', user.id)
+      .eq('organization_id', userData.current_organization_id)
       .order('created_at', { ascending: false });
 
     // Apply filters
@@ -142,15 +156,25 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // For now, we'll assume a default organization_id
-    // In a real implementation, you'd get this from the user's current organization
-    const defaultOrgId = 'default-org-id'; // This should be replaced with actual logic
+    // Get user's current organization
+    const { data: userData, error: userError } = await supabase
+      .from('users')
+      .select('current_organization_id')
+      .eq('id', user.id)
+      .single();
+
+    if (userError || !userData?.current_organization_id) {
+      return NextResponse.json(
+        { error: 'Setup required', message: 'Please complete onboarding first' },
+        { status: 400 }
+      );
+    }
 
     const { data: session, error } = await supabase
       .from('sessions')
       .insert({
         user_id: user.id,
-        organization_id: defaultOrgId,
+        organization_id: userData.current_organization_id,
         title,
         conversation_type,
         selected_template_id,

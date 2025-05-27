@@ -31,11 +31,25 @@ export async function GET(request: NextRequest) {
     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
     const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
 
-    // Get session counts by status
+    // Get user's current organization
+    const { data: userData, error: userError } = await supabase
+      .from('users')
+      .select('current_organization_id')
+      .eq('id', user.id)
+      .single();
+
+    if (userError || !userData?.current_organization_id) {
+      return NextResponse.json(
+        { error: 'Setup required', message: 'Please complete onboarding first' },
+        { status: 400 }
+      );
+    }
+
+    // Get session counts by status (filter by organization)
     const { data: sessionStats, error: sessionStatsError } = await supabase
       .from('sessions')
       .select('status, recording_duration_seconds')
-      .eq('user_id', user.id)
+      .eq('organization_id', userData.current_organization_id)
       .is('deleted_at', null);
 
     if (sessionStatsError) {
@@ -63,7 +77,7 @@ export async function GET(request: NextRequest) {
     const { data: monthlyStats, error: monthlyStatsError } = await supabase
       .from('sessions')
       .select('recording_duration_seconds')
-      .eq('user_id', user.id)
+      .eq('organization_id', userData.current_organization_id)
       .gte('created_at', monthStart.toISOString())
       .lte('created_at', monthEnd.toISOString())
       .is('deleted_at', null);
@@ -92,7 +106,7 @@ export async function GET(request: NextRequest) {
     const { data: recentStats, error: recentStatsError } = await supabase
       .from('sessions')
       .select('created_at, status')
-      .eq('user_id', user.id)
+      .eq('organization_id', userData.current_organization_id)
       .gte('created_at', last30Days.toISOString())
       .is('deleted_at', null);
 

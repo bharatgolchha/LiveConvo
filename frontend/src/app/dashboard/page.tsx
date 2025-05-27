@@ -19,6 +19,7 @@ import {
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import ProtectedRoute from '@/components/auth/ProtectedRoute';
+import { OnboardingModal } from '@/components/auth/OnboardingModal';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSessions, type Session } from '@/lib/hooks/useSessions';
 import { useUserStats, defaultStats } from '@/lib/hooks/useUserStats';
@@ -1004,6 +1005,7 @@ const DashboardPage: React.FC = () => {
   const { user } = useAuth();
   const [activePath, setActivePath] = useState('conversations');
   const [showNewConversationModal, setShowNewConversationModal] = useState(false);
+  const [showOnboardingModal, setShowOnboardingModal] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedSessions, setSelectedSessions] = useState<Set<string>>(new Set());
 
@@ -1030,6 +1032,15 @@ const DashboardPage: React.FC = () => {
     email: user?.email || '',
     plan: 'free' // TODO: Get actual plan from subscription
   };
+
+  // Check if user needs onboarding
+  useEffect(() => {
+    console.log('🔍 Dashboard - checking onboarding:', { sessionsError, user: !!user });
+    if (sessionsError && (sessionsError.includes('Setup required') || sessionsError.includes('Please complete onboarding first'))) {
+      console.log('🚀 Dashboard - showing onboarding modal');
+      setShowOnboardingModal(true);
+    }
+  }, [sessionsError]);
 
   // Filter sessions based on search query
   const filteredSessions = sessions.filter(session => {
@@ -1129,6 +1140,12 @@ const DashboardPage: React.FC = () => {
     );
     await Promise.all(updatePromises);
     setSelectedSessions(new Set());
+  };
+
+  const handleOnboardingComplete = () => {
+    setShowOnboardingModal(false);
+    // Refresh the page to reload data with the new organization
+    window.location.reload();
   };
 
   const activeSessions = filteredSessions.filter(s => s.status === 'active');
@@ -1358,6 +1375,20 @@ const DashboardPage: React.FC = () => {
         onClose={() => setShowNewConversationModal(false)}
         onStart={handleStartConversation}
       />
+
+      {/* Onboarding Modal */}
+      <OnboardingModal
+        isOpen={showOnboardingModal}
+        onClose={() => setShowOnboardingModal(false)}
+        onComplete={handleOnboardingComplete}
+      />
+      
+      {/* Debug info */}
+      {process.env.NODE_ENV === 'development' && (
+        <div className="fixed bottom-4 left-4 bg-black text-white p-2 rounded text-xs">
+          Onboarding: {showOnboardingModal ? 'OPEN' : 'CLOSED'} | Error: {sessionsError || 'none'}
+        </div>
+      )}
     </div>
   );
 };
