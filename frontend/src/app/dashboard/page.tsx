@@ -20,18 +20,10 @@ import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import ProtectedRoute from '@/components/auth/ProtectedRoute';
 import { useAuth } from '@/contexts/AuthContext';
+import { useSessions, type Session } from '@/lib/hooks/useSessions';
+import { useUserStats, defaultStats } from '@/lib/hooks/useUserStats';
 
-// Types
-interface Session {
-  id: string;
-  title: string;
-  status: 'active' | 'completed' | 'draft' | 'archived';
-  conversationType: string;
-  createdAt: string;
-  duration?: number;
-  wordCount?: number;
-  lastActivity?: string;
-}
+// Types (using Session from useSessions hook)
 
 interface User {
   name: string;
@@ -47,90 +39,7 @@ interface UsageStats {
   completedSessions: number;
 }
 
-// Mock data for demonstration - will be replaced with real user data from auth
-const mockUser: User = {
-  name: 'John Doe',
-  email: 'john@example.com',
-  plan: 'free'
-};
-
-const mockSessions: Session[] = [
-  {
-    id: '1',
-    title: 'Sales Discovery Call - TechCorp',
-    status: 'active',
-    conversationType: 'Sales Call',
-    createdAt: '2025-01-27T10:30:00Z',
-    duration: 1245,
-    lastActivity: '2 minutes ago'
-  },
-  {
-    id: '2',
-    title: 'Product Demo - StartupXYZ',
-    status: 'completed',
-    conversationType: 'Product Demo',
-    createdAt: '2025-01-26T15:20:00Z',
-    duration: 2100,
-    wordCount: 450
-  },
-  {
-    id: '3',
-    title: 'Team Standup Meeting',
-    status: 'draft',
-    conversationType: 'Meeting',
-    createdAt: '2025-01-26T09:15:00Z'
-  },
-  {
-    id: '4',
-    title: 'Customer Support Call - Global Inc',
-    status: 'active',
-    conversationType: 'Support Call',
-    createdAt: '2025-01-27T14:15:00Z',
-    duration: 890,
-    lastActivity: '15 minutes ago'
-  },
-  {
-    id: '5',
-    title: 'Quarterly Business Review',
-    status: 'completed',
-    conversationType: 'Business Review',
-    createdAt: '2025-01-25T11:00:00Z',
-    duration: 3600,
-    wordCount: 1240
-  },
-  {
-    id: '6',
-    title: 'Interview - Frontend Developer',
-    status: 'completed',
-    conversationType: 'Interview',
-    createdAt: '2025-01-24T16:30:00Z',
-    duration: 2700,
-    wordCount: 875
-  },
-  {
-    id: '7',
-    title: 'Client Consultation - Legal Matters',
-    status: 'draft',
-    conversationType: 'Consultation',
-    createdAt: '2025-01-24T10:00:00Z'
-  },
-  {
-    id: '8',
-    title: 'Project Kickoff - Mobile App',
-    status: 'completed',
-    conversationType: 'Project Meeting',
-    createdAt: '2025-01-23T13:45:00Z',
-    duration: 1800,
-    wordCount: 620
-  }
-];
-
-const mockUsageStats: UsageStats = {
-  monthlyAudioHours: 4.2,
-  monthlyAudioLimit: 10,
-  totalSessions: 8,
-  completedSessions: 5
-};
+// No mock data - using real data from hooks
 
 // Components
 const DashboardHeader: React.FC<{ user: User; onSearch: (query: string) => void }> = ({ user, onSearch }) => {
@@ -265,7 +174,8 @@ const DashboardSidebar: React.FC<{
   usageStats: UsageStats; 
   activePath: string;
   onNavigate: (path: string) => void;
-}> = ({ usageStats, activePath, onNavigate }) => {
+  currentUser: User;
+}> = ({ usageStats, activePath, onNavigate, currentUser }) => {
   const navItems = [
     { path: 'conversations', label: 'Conversations', icon: MicrophoneIcon, count: usageStats.totalSessions },
     { path: 'templates', label: 'Templates', icon: DocumentTextIcon },
@@ -337,7 +247,7 @@ const DashboardSidebar: React.FC<{
           </div>
 
           {/* Upgrade CTA for free users */}
-          {mockUser.plan === 'free' && (
+          {currentUser.plan === 'free' && (
             <Button 
               variant="primary" 
               size="sm" 
@@ -450,7 +360,7 @@ const ConversationInboxItem: React.FC<{
                 {session.title}
               </h3>
               <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-600 shrink-0">
-                {session.conversationType}
+                {session.conversation_type}
               </span>
             </div>
             
@@ -458,7 +368,7 @@ const ConversationInboxItem: React.FC<{
             <div className="flex items-center gap-3 text-xs text-gray-500">
               <span className="flex items-center gap-1">
                 <ClockIcon className="w-3 h-3" />
-                {formatDate(session.createdAt)}
+                {formatDate(session.created_at)}
               </span>
               
               {session.duration && (
@@ -1092,12 +1002,27 @@ const ContextUploadWidget: React.FC<{
 // Main Dashboard Component
 const DashboardPage: React.FC = () => {
   const { user } = useAuth();
-  const [sessions, setSessions] = useState<Session[]>(mockSessions);
-  const [filteredSessions, setFilteredSessions] = useState<Session[]>(mockSessions);
   const [activePath, setActivePath] = useState('conversations');
   const [showNewConversationModal, setShowNewConversationModal] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedSessions, setSelectedSessions] = useState<Set<string>>(new Set());
+
+  // Get sessions and stats from hooks
+  const { 
+    sessions, 
+    loading: sessionsLoading, 
+    error: sessionsError,
+    fetchSessions,
+    updateSession,
+    deleteSession,
+    createSession 
+  } = useSessions();
+  
+  const { 
+    stats: userStats, 
+    loading: statsLoading,
+    error: statsError 
+  } = useUserStats();
 
   // Create user object from auth data
   const currentUser: User = {
@@ -1107,17 +1032,11 @@ const DashboardPage: React.FC = () => {
   };
 
   // Filter sessions based on search query
-  useEffect(() => {
-    if (!searchQuery) {
-      setFilteredSessions(sessions);
-    } else {
-      const filtered = sessions.filter(session =>
-        session.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        session.conversationType.toLowerCase().includes(searchQuery.toLowerCase())
-      );
-      setFilteredSessions(filtered);
-    }
-  }, [sessions, searchQuery]);
+  const filteredSessions = sessions.filter(session => {
+    if (!searchQuery) return true;
+    return session.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+           session.conversation_type?.toLowerCase().includes(searchQuery.toLowerCase());
+  });
 
   const handleSearch = (query: string) => {
     setSearchQuery(query);
@@ -1127,35 +1046,30 @@ const DashboardPage: React.FC = () => {
     setShowNewConversationModal(true);
   };
 
-  const handleStartConversation = (config: any) => {
-    // Create a new session ID
-    const sessionId = Date.now().toString();
-    
-    // Add the session to the dashboard list
-    const newSession: Session = {
-      id: sessionId,
+  const handleStartConversation = async (config: any) => {
+    // Create a new session via API
+    const newSession = await createSession({
       title: config.title,
-      status: 'active',
-      conversationType: config.conversationType,
-      createdAt: new Date().toISOString(),
-      lastActivity: 'Just started'
-    };
-    setSessions(prev => [newSession, ...prev]);
+      conversation_type: config.conversationType,
+      selected_template_id: config.templateId
+    });
     
-    // Store conversation config in localStorage for the conversation page to pick up
-    const conversationConfig = {
-      id: sessionId,
-      title: config.title,
-      type: config.conversationType,
-      context: config.context || { text: '', files: [] },
-      createdAt: new Date().toISOString()
-    };
-    
-    if (typeof window !== 'undefined') {
-      localStorage.setItem(`conversation_${sessionId}`, JSON.stringify(conversationConfig));
+    if (newSession) {
+      // Store conversation config in localStorage for the conversation page to pick up
+      const conversationConfig = {
+        id: newSession.id,
+        title: config.title,
+        type: config.conversationType,
+        context: config.context || { text: '', files: [] },
+        createdAt: new Date().toISOString()
+      };
       
-      // Navigate to the conversation page with the session ID
-      window.location.href = `/app?cid=${sessionId}`;
+      if (typeof window !== 'undefined') {
+        localStorage.setItem(`conversation_${newSession.id}`, JSON.stringify(conversationConfig));
+        
+        // Navigate to the conversation page with the session ID
+        window.location.href = `/app?cid=${newSession.id}`;
+      }
     }
   };
 
@@ -1167,9 +1081,9 @@ const DashboardPage: React.FC = () => {
       const conversationConfig = {
         id: sessionId,
         title: session.title,
-        type: session.conversationType,
+        type: session.conversation_type,
         context: { text: '', files: [] }, // Context would be loaded from backend in real app
-        createdAt: session.createdAt,
+        createdAt: session.created_at,
         isResuming: true
       };
       
@@ -1184,12 +1098,8 @@ const DashboardPage: React.FC = () => {
     window.location.href = `/summary/${sessionId}`;
   };
 
-  const handleArchiveSession = (sessionId: string) => {
-    setSessions(prev => prev.map(session => 
-      session.id === sessionId 
-        ? { ...session, status: 'archived' as const }
-        : session
-    ));
+  const handleArchiveSession = async (sessionId: string) => {
+    await updateSession(sessionId, { status: 'archived' });
   };
 
   const handleSessionSelect = (sessionId: string) => {
@@ -1212,17 +1122,66 @@ const DashboardPage: React.FC = () => {
     }
   };
 
-  const handleBulkArchive = () => {
-    setSessions(prev => prev.map(session => 
-      selectedSessions.has(session.id) 
-        ? { ...session, status: 'archived' as const }
-        : session
-    ));
+  const handleBulkArchive = async () => {
+    // Update all selected sessions
+    const updatePromises = Array.from(selectedSessions).map(sessionId => 
+      updateSession(sessionId, { status: 'archived' })
+    );
+    await Promise.all(updatePromises);
     setSelectedSessions(new Set());
   };
 
   const activeSessions = filteredSessions.filter(s => s.status === 'active');
   const hasAnySessions = sessions.length > 0;
+
+  // Show loading state while checking authentication
+  if (!user && !sessionsLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50 flex items-center justify-center">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold text-gray-900 mb-4">Authentication Required</h1>
+          <p className="text-gray-600 mb-6">Please sign in to access your dashboard.</p>
+          <div className="space-x-4">
+            <Button onClick={() => window.location.href = '/auth/login'}>
+              Sign In
+            </Button>
+            <Button variant="outline" onClick={() => window.location.href = '/auth/signup'}>
+              Sign Up
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Show error state if there are errors
+  if (sessionsError && sessionsError.includes('sign in')) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50 flex items-center justify-center">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold text-gray-900 mb-4">Authentication Expired</h1>
+          <p className="text-gray-600 mb-6">Your session has expired. Please sign in again.</p>
+          <div className="space-x-4">
+            <Button onClick={() => window.location.href = '/auth/login'}>
+              Sign In
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Show loading state while data is being fetched
+  if (sessionsLoading && sessions.length === 0) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-gray-600">Loading your conversations...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50">
@@ -1230,9 +1189,10 @@ const DashboardPage: React.FC = () => {
       
       <div className="flex h-[calc(100vh-80px)]">
         <DashboardSidebar 
-          usageStats={mockUsageStats}
+          usageStats={userStats || defaultStats}
           activePath={activePath}
           onNavigate={setActivePath}
+          currentUser={currentUser}
         />
         
         <main className="flex-1 overflow-auto">
