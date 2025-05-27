@@ -661,6 +661,27 @@ CREATE TRIGGER update_subscriptions_updated_at BEFORE UPDATE ON subscriptions
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
 -- =============================================================================
+-- HELPER FUNCTIONS
+-- =============================================================================
+
+-- Check if a user is an active member of a given organization
+CREATE OR REPLACE FUNCTION is_active_org_member(p_user_id UUID, p_org_id UUID)
+RETURNS BOOLEAN
+LANGUAGE SQL
+STABLE
+SECURITY DEFINER
+AS $$
+  SELECT EXISTS (
+    SELECT 1 FROM organization_members
+    WHERE user_id = p_user_id
+      AND organization_id = p_org_id
+      AND status = 'active'
+  );
+$$;
+
+GRANT EXECUTE ON FUNCTION is_active_org_member(UUID, UUID) TO authenticated, anon, service_role;
+
+-- =============================================================================
 -- ROW LEVEL SECURITY (RLS) POLICIES
 -- =============================================================================
 
@@ -695,11 +716,7 @@ CREATE POLICY organizations_policy ON organizations
 
 CREATE POLICY organization_members_policy ON organization_members
     FOR ALL USING (
-        organization_id IN (
-            SELECT organization_id 
-            FROM organization_members 
-            WHERE user_id = auth.uid() AND status = 'active'
-        )
+        is_active_org_member(auth.uid(), organization_id)
     );
 
 CREATE POLICY organization_invitations_policy ON organization_invitations
