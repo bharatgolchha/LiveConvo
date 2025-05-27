@@ -40,7 +40,13 @@ import {
   TrendingUp,
   CheckSquare,
   ArrowRight,
-  Hash
+  Hash,
+  Clock3,
+  MapPin,
+  Target,
+  MessageCircle,
+  Handshake,
+  ShieldCheck
 } from 'lucide-react';
 
 import { Button } from '@/components/ui/Button';
@@ -49,7 +55,7 @@ import Link from 'next/link';
 import { GuidanceType } from '@/components/guidance/GuidanceChip';
 import { useAIGuidance, ContextDocument, GuidanceRequest } from '@/lib/aiGuidance';
 import { useTranscription } from '@/lib/useTranscription';
-import { useRealtimeSummary, ConversationSummary } from '@/lib/useRealtimeSummary';
+import { useRealtimeSummary, ConversationSummary, TimelineEvent } from '@/lib/useRealtimeSummary';
 import { cn } from '@/lib/utils';
 import { updateTalkStats, TalkStats } from '@/lib/transcriptUtils';
 
@@ -94,6 +100,7 @@ export default function App() {
   const [conversationTitle, setConversationTitle] = useState('New Conversation');
   const [textContext, setTextContext] = useState('');
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
+  const [systemAudioStream, setSystemAudioStream] = useState<MediaStream | null>(null);
 
   // Refs to keep latest state values for interval callbacks
   const latestTranscript = useRef<TranscriptLine[]>([]);
@@ -105,7 +112,7 @@ export default function App() {
   const [audioEnabled, setAudioEnabled] = useState(true);
   // Auto-guidance removed - using manual button instead
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'transcript' | 'summary'>('transcript');
+  const [activeTab, setActiveTab] = useState<'transcript' | 'summary' | 'timeline'>('transcript');
 
   const transcriptEndRef = useRef<null | HTMLDivElement>(null);
 
@@ -195,6 +202,13 @@ export default function App() {
   useEffect(() => {
     latestTextContext.current = textContext;
   }, [textContext]);
+
+  // Auto-scroll transcript to bottom when new messages arrive
+  useEffect(() => {
+    if (transcriptEndRef.current && activeTab === 'transcript') {
+      transcriptEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [transcript, activeTab]);
 
   // Session timer
   useEffect(() => {
@@ -347,6 +361,7 @@ export default function App() {
 
       if (systemStream) {
         setThemAudioStream(systemStream);
+        setSystemAudioStream(systemStream); // Store for resume
       }
 
       await Promise.all([connectMy(), connectThem()]);
@@ -375,14 +390,55 @@ export default function App() {
     disconnectMy();
     disconnectThem();
     setConversationState('completed');
+    
+    // Cleanup system audio stream
+    if (systemAudioStream) {
+      systemAudioStream.getTracks().forEach(track => track.stop());
+      setSystemAudioStream(null);
+    }
   };
 
   const handlePauseRecording = () => {
+    console.log('⏸️ Pausing recording and disconnecting from Deepgram...');
+    
+    // Stop the recording and disconnect from Deepgram
+    stopMyRecording();
+    stopThemRecording();
+    disconnectMy();
+    disconnectThem();
+    
     setConversationState('paused');
+    console.log('✅ Recording paused and Deepgram disconnected');
   };
 
-  const handleResumeRecording = () => {
-    setConversationState('recording');
+  const handleResumeRecording = async () => {
+    console.log('▶️ Resuming recording and reconnecting to Deepgram...');
+    
+    try {
+      setConversationState('processing');
+
+      // Restore system audio stream if it was previously captured
+      if (systemAudioStream) {
+        console.log('🎵 Restoring system audio stream for remote speaker');
+        setThemAudioStream(systemAudioStream);
+      }
+
+      // Reconnect to Deepgram services
+      await Promise.all([connectMy(), connectThem()]);
+
+      // Wait a moment for connections to establish
+      await new Promise(resolve => setTimeout(resolve, 200));
+
+      // Resume recording
+      await Promise.all([startMyRecording(), startThemRecording()]);
+
+      setConversationState('recording');
+      console.log('✅ Recording resumed and Deepgram reconnected');
+    } catch (err) {
+      console.error('Failed to resume realtime transcription', err);
+      setErrorMessage(`Failed to resume realtime transcription: ${err instanceof Error ? err.message : 'Unknown error'}`);
+      setConversationState('error');
+    }
   };
 
   const handleLiveTranscript = (newTranscriptText: string, speaker: 'ME' | 'THEM') => {
@@ -479,6 +535,12 @@ export default function App() {
     setConversationTitle('New Conversation');
     setConversationType('sales');
     setErrorMessage(null);
+    
+    // Cleanup system audio stream
+    if (systemAudioStream) {
+      systemAudioStream.getTracks().forEach(track => track.stop());
+      setSystemAudioStream(null);
+    }
   };
 
   // Helper Functions
@@ -513,6 +575,31 @@ export default function App() {
       case 'warn': return {className: 'bg-red-50 border-red-200 text-red-800', Icon};
       default: return {className: 'bg-gray-50 border-gray-200 text-gray-800', Icon };
     }
+  };
+
+  const getTimelineEventStyle = (type: TimelineEvent['type'], importance: TimelineEvent['importance']): {
+    iconBgColor: string, 
+    Icon: React.ElementType,
+    textColor: string
+  } => {
+    const styles = {
+      milestone: { Icon: Target, color: 'purple' },
+      decision: { Icon: ShieldCheck, color: 'green' },
+      topic_shift: { Icon: MessageCircle, color: 'blue' },
+      action_item: { Icon: CheckSquare, color: 'orange' },
+      question: { Icon: MessageCircle, color: 'yellow' },
+      agreement: { Icon: Handshake, color: 'emerald' }
+    };
+
+    const style = styles[type] || styles.milestone;
+    const intensityMap = { high: '600', medium: '500', low: '400' };
+    const intensity = intensityMap[importance];
+
+    return {
+      iconBgColor: `bg-${style.color}-100`,
+      Icon: style.Icon,
+      textColor: `text-${style.color}-${intensity}`
+    };
   };
 
   const activeGuidance = guidanceList.filter(g => !g.dismissed).slice(0, 5); // Show up to 5 active guidance
@@ -727,7 +814,7 @@ export default function App() {
         </AnimatePresence>
 
         {/* Main Conversation Area */}
-        <div className="flex-1 flex flex-col relative p-4 sm:p-6 lg:p-8 overflow-y-auto">
+        <div className="flex-1 flex flex-col relative p-4 sm:p-6 lg:p-8 overflow-hidden">
           
           {!showContextPanel && !isFullscreen && (
             <Button onClick={() => setShowContextPanel(true)} variant="outline" size="sm" className="absolute top-4 left-4 z-20 bg-white shadow hover:bg-gray-50">
@@ -776,18 +863,18 @@ export default function App() {
           )}
 
           {(conversationState === 'recording' || conversationState === 'paused' || conversationState === 'processing') && (
-            <div className="flex flex-col h-full">
+            <div className="flex-1 flex flex-col min-h-0">
               {/* Top Controls for Recording/Paused State */}
-              <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} className="mb-4 flex items-center justify-center gap-4 sticky top-0 bg-slate-100/80 backdrop-blur-sm py-3 z-10 rounded-lg">
+              <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} className="mb-4 flex items-center justify-center gap-4 sticky top-0 bg-slate-100/80 backdrop-blur-sm py-3 z-10 rounded-lg flex-shrink-0">
                 <MainActionButton />
                 <SecondaryActionButton />
               </motion.div>
 
               {/* Transcript & Guidance Layout */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 flex-1 overflow-hidden">
+              <div className="flex flex-col md:flex-row gap-6 flex-1 min-h-0 max-h-full overflow-hidden">
                 {/* Transcript/Summary Column */}
-                <Card className="md:col-span-2 flex flex-col h-full shadow-lg">
-                  <CardHeader className="border-b bg-gray-50 rounded-t-lg">
+                <Card className="flex-1 md:flex-[2] flex flex-col h-full min-h-0 max-h-full shadow-lg">
+                  <CardHeader className="border-b bg-gray-50 rounded-t-lg flex-shrink-0">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-4">
                         <div className="flex bg-white rounded-lg p-1">
@@ -816,9 +903,21 @@ export default function App() {
                             Summary
                             {isSummaryLoading && <RefreshCw className="w-3 h-3 animate-spin" />}
                           </button>
+                          <button
+                            onClick={() => setActiveTab('timeline')}
+                            className={cn(
+                              "flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition-colors",
+                              activeTab === 'timeline' 
+                                ? "bg-blue-100 text-blue-700" 
+                                : "text-gray-600 hover:text-gray-800 hover:bg-gray-100"
+                            )}
+                          >
+                            <Clock3 className="w-4 h-4" />
+                            Timeline
+                          </button>
                         </div>
                       </div>
-                      {activeTab === 'summary' && summary && (
+                      {(activeTab === 'summary' || activeTab === 'timeline') && summary && (
                         <div className="flex items-center gap-2 text-xs text-gray-500">
                           {summaryLastUpdated && (
                             <span>Updated {summaryLastUpdated.toLocaleTimeString([], { hour: '2-digit', minute:'2-digit'})}</span>
@@ -836,11 +935,11 @@ export default function App() {
                       )}
                     </div>
                   </CardHeader>
-                  <CardContent className="p-4 flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
+                  <CardContent className="p-4 flex-1 overflow-hidden min-h-0 max-h-full">
                     
                     {/* Transcript Tab */}
                     {activeTab === 'transcript' && (
-                      <div className="space-y-3 h-full">
+                      <div className="h-full flex flex-col">
                         {transcript.length === 0 ? (
                           <div className="flex items-center justify-center h-full text-gray-500">
                             <div className="text-center">
@@ -851,35 +950,37 @@ export default function App() {
                             </div>
                           </div>
                         ) : (
-                          <AnimatePresence initial={false}>
-                            {transcript.map((line) => (
-                              <motion.div
-                                key={line.id}
-                                layout
-                                initial={{ opacity: 0, y: 20, scale: 0.98 }}
-                                animate={{ opacity: 1, y: 0, scale: 1 }}
-                                exit={{ opacity: 0, y: -10, scale: 0.95 }}
-                                transition={{ type: "spring", stiffness: 300, damping: 25 }}
-                                className="p-3 rounded-lg border-l-4 text-sm bg-gray-50 border-gray-300 text-gray-800"
-                              >
-                                <div className="flex items-center justify-between mb-0.5 text-xs">
-                                  <span className="font-medium text-gray-600">{line.speaker}</span>
-                                  <span className="text-gray-500">{line.timestamp.toLocaleTimeString([], { hour: '2-digit', minute:'2-digit'})}</span>
-                                </div>
-                                <p className="leading-relaxed">{line.text}</p>
-                              </motion.div>
-                            ))}
-                            <div ref={transcriptEndRef} />
-                          </AnimatePresence>
+                          <div className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100 space-y-3 pr-2">
+                            <AnimatePresence initial={false}>
+                              {transcript.map((line) => (
+                                <motion.div
+                                  key={line.id}
+                                  layout
+                                  initial={{ opacity: 0, y: 20, scale: 0.98 }}
+                                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                                  exit={{ opacity: 0, y: -10, scale: 0.95 }}
+                                  transition={{ type: "spring", stiffness: 300, damping: 25 }}
+                                  className="p-3 rounded-lg border-l-4 text-sm bg-gray-50 border-gray-300 text-gray-800"
+                                >
+                                  <div className="flex items-center justify-between mb-0.5 text-xs">
+                                    <span className="font-medium text-gray-600">{line.speaker}</span>
+                                    <span className="text-gray-500">{line.timestamp.toLocaleTimeString([], { hour: '2-digit', minute:'2-digit'})}</span>
+                                  </div>
+                                  <p className="leading-relaxed">{line.text}</p>
+                                </motion.div>
+                              ))}
+                              <div ref={transcriptEndRef} />
+                            </AnimatePresence>
+                          </div>
                         )}
                       </div>
                     )}
 
                     {/* Summary Tab */}
                     {activeTab === 'summary' && (
-                      <div className="space-y-4 h-full">
+                      <div className="h-full flex flex-col">
                         {summaryError && (
-                          <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-red-700 text-sm">
+                          <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-red-700 text-sm mb-4">
                             <div className="flex items-center gap-2 mb-1">
                               <XCircle className="w-4 h-4" />
                               <span className="font-medium">Summary Error</span>
@@ -908,7 +1009,7 @@ export default function App() {
                         )}
 
                         {summary && (
-                          <div className="space-y-4">
+                          <div className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100 space-y-4 pr-2">
                             {/* TL;DR Section */}
                             <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
                               <h3 className="font-semibold text-amber-800 mb-2 flex items-center gap-2">
@@ -1001,17 +1102,123 @@ export default function App() {
                         )}
                       </div>
                     )}
+
+                    {/* Timeline Tab */}
+                    {activeTab === 'timeline' && (
+                      <div className="h-full flex flex-col">
+                        {summaryError && (
+                          <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-red-700 text-sm mb-4">
+                            <div className="flex items-center gap-2 mb-1">
+                              <XCircle className="w-4 h-4" />
+                              <span className="font-medium">Timeline Error</span>
+                            </div>
+                            <p>{summaryError}</p>
+                          </div>
+                        )}
+
+                        {!summary?.timeline && !isSummaryLoading && !summaryError && (
+                          <div className="flex items-center justify-center h-full text-gray-500">
+                            <div className="text-center">
+                              <Clock3 className="w-10 h-10 mx-auto mb-3 opacity-60" />
+                              <p className="font-medium text-lg mb-2">No Timeline Yet</p>
+                              <p className="text-sm">Timeline will be generated automatically as the conversation progresses.</p>
+                            </div>
+                          </div>
+                        )}
+
+                        {isSummaryLoading && !summary?.timeline && (
+                          <div className="flex items-center justify-center h-full text-blue-600">
+                            <div className="text-center">
+                              <RefreshCw className="w-10 h-10 mx-auto mb-3 animate-spin" />
+                              <p className="font-medium text-lg">Generating Timeline...</p>
+                            </div>
+                          </div>
+                        )}
+
+                        {summary?.timeline && summary.timeline.length > 0 && (
+                          <div className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100 pr-2">
+                            <div className="relative">
+                              {/* Timeline Line */}
+                              <div className="absolute left-6 top-0 bottom-0 w-0.5 bg-gray-200"></div>
+                              
+                              {/* Timeline Events */}
+                              <div className="space-y-6">
+                                {summary.timeline.map((event, index) => {
+                                  const { iconBgColor, Icon, textColor } = getTimelineEventStyle(event.type, event.importance);
+                                  return (
+                                    <motion.div
+                                      key={event.id}
+                                      initial={{ opacity: 0, x: -20 }}
+                                      animate={{ opacity: 1, x: 0 }}
+                                      transition={{ delay: index * 0.1 }}
+                                      className="relative flex items-start gap-4"
+                                    >
+                                      {/* Timeline Icon */}
+                                      <div className={cn(
+                                        "relative z-10 flex items-center justify-center w-12 h-12 rounded-full border-2 border-white shadow-md",
+                                        iconBgColor
+                                      )}>
+                                        <Icon className={cn("w-5 h-5", textColor)} />
+                                      </div>
+                                      
+                                      {/* Event Content */}
+                                      <div className="flex-1 min-w-0 pb-6">
+                                        <div className="bg-white rounded-lg border border-gray-200 p-4 shadow-sm hover:shadow-md transition-shadow">
+                                          <div className="flex items-center justify-between mb-2">
+                                            <h4 className={cn("font-semibold text-sm", textColor)}>
+                                              {event.title}
+                                            </h4>
+                                            <div className="flex items-center gap-2 text-xs text-gray-500">
+                                              <span className={cn(
+                                                "px-2 py-1 rounded-full text-xs font-medium",
+                                                event.importance === 'high' ? 'bg-red-100 text-red-700' :
+                                                event.importance === 'medium' ? 'bg-yellow-100 text-yellow-700' :
+                                                'bg-gray-100 text-gray-700'
+                                              )}>
+                                                {event.importance}
+                                              </span>
+                                              <span>{event.timestamp.toLocaleTimeString([], { hour: '2-digit', minute:'2-digit'})}</span>
+                                            </div>
+                                          </div>
+                                          <p className="text-gray-700 text-sm leading-relaxed">
+                                            {event.description}
+                                          </p>
+                                          <div className="mt-2 flex items-center gap-2">
+                                            <span className={cn(
+                                              "inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium",
+                                              event.type === 'milestone' ? 'bg-purple-100 text-purple-700' :
+                                              event.type === 'decision' ? 'bg-green-100 text-green-700' :
+                                              event.type === 'topic_shift' ? 'bg-blue-100 text-blue-700' :
+                                              event.type === 'action_item' ? 'bg-orange-100 text-orange-700' :
+                                              event.type === 'question' ? 'bg-yellow-100 text-yellow-700' :
+                                              'bg-emerald-100 text-emerald-700'
+                                            )}>
+                                              <Icon className="w-3 h-3" />
+                                              {event.type.replace('_', ' ')}
+                                            </span>
+                                          </div>
+                                        </div>
+                                      </div>
+                                    </motion.div>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
 
                 {/* Guidance Column */}
-                <Card className="md:col-span-1 flex flex-col h-full shadow-lg">
-                  <CardHeader className="border-b bg-gray-50 rounded-t-lg">
+                <Card className="flex-1 md:flex-[1] flex flex-col h-full min-h-0 max-h-full shadow-lg">
+                  <CardHeader className="border-b bg-gray-50 rounded-t-lg flex-shrink-0">
                     <CardTitle className="flex items-center gap-2 text-lg">
                       <Lightbulb className="w-5 h-5 text-yellow-500" /> AI Guidance
                     </CardTitle>
                   </CardHeader>
-                  <CardContent className="p-4 flex-1 overflow-y-auto space-y-3 scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
+                  <CardContent className="p-4 flex-1 overflow-y-auto space-y-3 scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100 min-h-0 max-h-full">
                     {activeGuidance.length === 0 && !isGenerating && (
                       <div className="flex items-center justify-center h-full text-gray-500">
                         <div className="text-center">

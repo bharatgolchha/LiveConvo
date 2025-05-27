@@ -224,6 +224,9 @@ CREATE TABLE sessions (
     user_talk_time_seconds INTEGER DEFAULT 0,
     silence_periods_count INTEGER DEFAULT 0,
     
+    -- Real-time Cache
+    realtime_summary_cache JSONB, -- Stores the latest ConversationSummary object from real-time processing
+    
     -- Privacy & Retention
     audio_deleted_at TIMESTAMP WITH TIME ZONE,
     data_retention_days INTEGER DEFAULT 30,
@@ -791,3 +794,27 @@ LiveConvo's summary system generates comprehensive summaries for individual conv
 **Schema Version**: 1.0  
 **Last Updated**: 2025-01-27  
 **Next Review**: Before Sprint 1 development begins 
+
+### Session Timeline Events
+Stores chronological timeline events for a session, generated during real-time analysis.
+
+```sql
+CREATE TABLE session_timeline_events (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    session_id UUID NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
+    
+    event_timestamp TIMESTAMP WITH TIME ZONE NOT NULL,
+    title VARCHAR(255) NOT NULL,
+    description TEXT,
+    type VARCHAR(50) NOT NULL, -- 'milestone', 'decision', 'topic_shift', 'action_item', 'question', 'agreement'
+    importance VARCHAR(20) NOT NULL, -- 'low', 'medium', 'high'
+    
+    -- Timestamps
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_session_timeline_events_session_id ON session_timeline_events(session_id);
+CREATE INDEX idx_session_timeline_events_event_timestamp ON session_timeline_events(event_timestamp DESC);
+CREATE INDEX idx_session_timeline_events_type ON session_timeline_events(type);
+CREATE INDEX idx_session_timeline_events_importance ON session_timeline_events(importance);
+``` 

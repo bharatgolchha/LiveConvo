@@ -109,7 +109,8 @@ export async function PATCH(
       'recording_duration_seconds',
       'total_words_spoken',
       'recording_started_at',
-      'recording_ended_at'
+      'recording_ended_at',
+      'realtime_summary_cache'
     ];
 
     const updateData: any = {};

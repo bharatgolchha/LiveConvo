@@ -126,6 +126,25 @@
   - [x] Create default organization for individual users ✅
   - [x] Update sign-up flow to handle organization assignment ✅
 
+- [x] **Fix Transcript Scrolling and Add AI Timeline** (2025-01-27) ✅
+  - [x] Fix infinite scrolling issue in transcript section on /app page ✅
+  - [x] Add proper height constraints and scroll behavior to transcript container ✅
+  - [x] Add AI-powered timeline view to summary section ✅
+  - [x] Generate timeline events every 30 seconds during conversation ✅
+  - [x] Create intuitive timeline UI with conversation milestones ✅
+  - [x] **NEW**: Accumulate timeline events in UI (newest on top, growing list) (2025-01-28) ✅
+  - [x] **NEW**: Update database schema to store transcript, summary cache, and timeline events (2025-01-28) ✅
+  - [x] **NEW**: Create backend APIs to save transcript lines (2025-01-28) ✅
+  - [x] **NEW**: Create backend APIs to save timeline events (2025-01-28) ✅
+  - [x] **NEW**: Update session API to save real-time summary cache (2025-01-28) ✅
+  - [ ] **NEW**: Integrate frontend to call new APIs for saving transcript, timeline, and summary cache (2025-01-28)
+
+- [x] **Fix Deepgram Pause/Resume Functionality** (2025-01-28) ✅
+  - [x] Stop Deepgram recording and disconnect on pause button ✅
+  - [x] Reconnect and resume Deepgram recording on resume button ✅
+  - [x] Ensure proper state management for pause/resume cycles ✅
+  - [x] Test pause/resume functionality with both local and remote audio streams ✅
+
 #### Sprint 0: Project Foundation (Week 0)
 - [ ] **Repository Scaffolding**
   - [ ] Initialize backend directory with FastAPI structure

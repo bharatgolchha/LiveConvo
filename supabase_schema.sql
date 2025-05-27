@@ -260,6 +260,29 @@ CREATE INDEX idx_sessions_status ON sessions(status);
 CREATE INDEX idx_sessions_created_at ON sessions(created_at);
 CREATE INDEX idx_sessions_conversation_type ON sessions(conversation_type);
 
+-- Add realtime_summary_cache to sessions table
+ALTER TABLE sessions ADD COLUMN realtime_summary_cache JSONB;
+
+-- Session Timeline Events table - stores chronological timeline events for a session
+CREATE TABLE session_timeline_events (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    session_id UUID NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
+    
+    event_timestamp TIMESTAMP WITH TIME ZONE NOT NULL,
+    title VARCHAR(255) NOT NULL,
+    description TEXT,
+    type VARCHAR(50) NOT NULL, -- 'milestone', 'decision', 'topic_shift', 'action_item', 'question', 'agreement'
+    importance VARCHAR(20) NOT NULL, -- 'low', 'medium', 'high'
+    
+    -- Timestamps
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Session Timeline Events indexes
+CREATE INDEX idx_session_timeline_events_session_id ON session_timeline_events(session_id);
+CREATE INDEX idx_session_timeline_events_event_timestamp ON session_timeline_events(event_timestamp DESC);
+CREATE INDEX idx_session_timeline_events_type ON session_timeline_events(type);
+CREATE INDEX idx_session_timeline_events_importance ON session_timeline_events(importance);
 
 -- Documents table - stores uploaded context files and their processed content
 CREATE TABLE documents (
@@ -634,8 +657,6 @@ CREATE TRIGGER update_organization_invitations_updated_at BEFORE UPDATE ON organ
 CREATE TRIGGER update_users_updated_at BEFORE UPDATE ON users
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
-
-
 CREATE TRIGGER update_sessions_updated_at BEFORE UPDATE ON sessions
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
@@ -742,8 +763,6 @@ CREATE POLICY users_update_policy ON users
 
 CREATE POLICY users_delete_policy ON users
     FOR DELETE USING (auth.uid() = id);
-
-
 
 CREATE POLICY sessions_policy ON sessions
     FOR ALL USING (
