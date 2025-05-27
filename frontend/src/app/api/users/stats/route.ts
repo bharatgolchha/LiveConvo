@@ -14,8 +14,10 @@ import { supabase } from '@/lib/supabase';
  */
 export async function GET(request: NextRequest) {
   try {
-    // Get current user from Supabase auth
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    // Get current user from Supabase auth using the access token
+    const authHeader = request.headers.get('authorization');
+    const token = authHeader?.split(' ')[1];
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
     
     if (authError || !user) {
       return NextResponse.json(
