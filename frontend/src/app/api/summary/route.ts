@@ -94,7 +94,17 @@ Return a JSON object with this exact structure:
   "nextSteps": ["Next step 1", "Next step 2"],
   "topics": ["Topic 1", "Topic 2", "Topic 3"],
   "sentiment": "positive|neutral|negative",
-  "progressStatus": "just_started|building_momentum|making_progress|wrapping_up"
+  "progressStatus": "just_started|building_momentum|making_progress|wrapping_up",
+  "timeline": [
+    {
+      "id": "event_1",
+      "timestamp": "2025-01-27T10:30:00Z",
+      "title": "Meeting Started",
+      "description": "Brief description of what happened",
+      "type": "milestone|decision|topic_shift|action_item|question|agreement",
+      "importance": "low|medium|high"
+    }
+  ]
 }
 
 GUIDELINES:
@@ -103,7 +113,14 @@ GUIDELINES:
 - Include only the most important points (max 5 items per array)
 - Use present tense for ongoing discussions
 - Be specific about decisions and action items
-- Consider the conversation type context`;
+- Consider the conversation type context
+
+TIMELINE GUIDELINES:
+- Create 3-7 timeline events capturing key conversation milestones
+- Use ISO 8601 timestamp format (estimate based on conversation flow)
+- Event types: milestone (major progress), decision (choices made), topic_shift (subject changes), action_item (tasks identified), question (important questions), agreement (consensus reached)
+- Importance levels: high (critical outcomes), medium (significant progress), low (minor updates)
+- Titles should be brief (3-6 words), descriptions should explain the impact or significance`;
 
   const typeSpecificPrompts = {
     sales: `
@@ -157,6 +174,9 @@ Please analyze this ongoing conversation and provide a real-time summary focusin
 3. Action items identified
 4. Important topics covered
 5. Overall progress and next steps
+6. Timeline of key conversation milestones and events
+
+For the timeline, identify and chronologically order the most significant events that have occurred during this conversation. Estimate timestamps based on the conversation flow and natural progression of topics.
 
 Remember this is a live conversation in progress, so focus on what has happened so far rather than trying to predict future outcomes.`;
 } 

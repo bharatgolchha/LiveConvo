@@ -1,5 +1,14 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 
+export interface TimelineEvent {
+  id: string;
+  timestamp: Date;
+  title: string;
+  description: string;
+  type: 'milestone' | 'decision' | 'topic_shift' | 'action_item' | 'question' | 'agreement';
+  importance: 'low' | 'medium' | 'high';
+}
+
 export interface ConversationSummary {
   tldr: string;
   keyPoints: string[];
@@ -9,6 +18,7 @@ export interface ConversationSummary {
   topics: string[];
   sentiment: 'positive' | 'neutral' | 'negative';
   progressStatus: 'just_started' | 'building_momentum' | 'making_progress' | 'wrapping_up';
+  timeline?: TimelineEvent[];
 }
 
 interface SummaryResponse {
@@ -33,6 +43,7 @@ export function useRealtimeSummary({
   refreshIntervalMs = 45000 // 45 seconds - optimal balance between freshness and API costs
 }: UseRealtimeSummaryProps) {
   const [summary, setSummary] = useState<ConversationSummary | null>(null);
+  const [accumulatedTimeline, setAccumulatedTimeline] = useState<TimelineEvent[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
@@ -88,6 +99,27 @@ export function useRealtimeSummary({
       }
 
       const data: SummaryResponse = await response.json();
+      
+      // Parse timeline timestamps if they exist
+      let currentAccumulatedTimeline = accumulatedTimeline; // Capture current state
+      if (data.summary.timeline) {
+        const newTimelineEvents = data.summary.timeline.map(event => ({
+          ...event,
+          timestamp: new Date(event.timestamp)
+        }));
+        
+        // Update accumulated timeline state, ensuring newest are first overall
+        setAccumulatedTimeline(prevTimeline => {
+          currentAccumulatedTimeline = [...newTimelineEvents, ...prevTimeline].sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
+          return currentAccumulatedTimeline;
+        });
+        // Include all accumulated timeline events in the current summary object for display
+        data.summary.timeline = currentAccumulatedTimeline; // Use the updated accumulator
+      } else {
+        // If API returns no timeline, keep using the current accumulated one for display
+        data.summary.timeline = [...currentAccumulatedTimeline].sort((a,b) => b.timestamp.getTime() - a.timestamp.getTime());
+      }
+      
       setSummary(data.summary);
       setLastUpdated(new Date(data.generatedAt));
       setError(null);
@@ -98,7 +130,7 @@ export function useRealtimeSummary({
     } finally {
       setIsLoading(false);
     }
-  }, [transcript, sessionId, conversationType, isRecording]);
+  }, [transcript, sessionId, conversationType, isRecording, accumulatedTimeline]);
 
   // Auto-refresh effect
   useEffect(() => {
@@ -132,7 +164,7 @@ export function useRealtimeSummary({
     
     // Set default summary when not recording or insufficient content
     if (!isRecording || currentLength < 10) {
-      const defaultSummary = {
+      const defaultSummary: ConversationSummary = {
         tldr: 'Not enough conversation content to generate a summary yet.',
         keyPoints: [],
         decisions: [],
@@ -140,15 +172,17 @@ export function useRealtimeSummary({
         nextSteps: [],
         topics: [],
         sentiment: 'neutral' as const,
-        progressStatus: 'just_started' as const
+        progressStatus: 'just_started' as const,
+        timeline: [] // Reset timeline when not recording or insufficient content
       };
       
-      if (!summary || summary.tldr !== defaultSummary.tldr) {
+      if (!summary || summary.tldr !== defaultSummary.tldr || summary.timeline?.length !== 0) {
         setSummary(defaultSummary);
+        setAccumulatedTimeline([]); // Clear accumulated timeline too
       }
       initialSummaryGenerated.current = false;
     }
-  }, [isRecording]); // Only depend on isRecording to avoid infinite loops
+  }, [isRecording, summary]); // Add summary to dependencies to correctly reset timeline display
 
   // Generate initial summary when recording starts with sufficient content
   useEffect(() => {
