@@ -27,7 +27,7 @@ export interface UserStatsHookReturn {
  * Hook for fetching and managing user usage statistics
  */
 export function useUserStats(): UserStatsHookReturn {
-  const { user, loading: authLoading, setSessionExpiredMessage } = useAuth();
+  const { user, session, loading: authLoading, setSessionExpiredMessage } = useAuth();
   const [stats, setStats] = useState<UserStats | null>(defaultStats);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -44,12 +44,15 @@ export function useUserStats(): UserStatsHookReturn {
     setError(null);
 
     try {
+      const headers: HeadersInit = { 'Content-Type': 'application/json' }
+      if (session?.access_token) {
+        headers['Authorization'] = `Bearer ${session.access_token}`
+      }
+
       const response = await fetch('/api/users/stats', {
         method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
+        headers,
+      })
 
       if (!response.ok) {
         const errorData = await response.json();

@@ -11,8 +11,10 @@ export async function GET(
   try {
     const sessionId = params.id;
 
-    // Get current user from Supabase auth
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    // Get current user from Supabase auth using the access token
+    const authHeader = request.headers.get('authorization');
+    const token = authHeader?.split(' ')[1];
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
     
     if (authError || !user) {
       return NextResponse.json(
@@ -87,8 +89,10 @@ export async function PATCH(
     const sessionId = params.id;
     const body = await request.json();
 
-    // Get current user from Supabase auth
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    // Get current user from Supabase auth using the access token
+    const authHeader = request.headers.get('authorization');
+    const token = authHeader?.split(' ')[1];
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
     
     if (authError || !user) {
       return NextResponse.json(
@@ -162,8 +166,10 @@ export async function DELETE(
   try {
     const sessionId = params.id;
 
-    // Get current user from Supabase auth
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    // Get current user from Supabase auth using the access token
+    const authHeader = request.headers.get('authorization');
+    const token = authHeader?.split(' ')[1];
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
     
     if (authError || !user) {
       return NextResponse.json(

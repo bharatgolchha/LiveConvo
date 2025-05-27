@@ -62,7 +62,7 @@ export interface SessionsHookReturn {
  * Hook for managing sessions data and operations
  */
 export function useSessions(): SessionsHookReturn {
-  const { user, loading: authLoading, setSessionExpiredMessage } = useAuth();
+  const { user, session, loading: authLoading, setSessionExpiredMessage } = useAuth();
   const [sessions, setSessions] = useState<Session[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -92,12 +92,15 @@ export function useSessions(): SessionsHookReturn {
       if (filters.limit) params.append('limit', filters.limit.toString());
       if (filters.offset) params.append('offset', filters.offset.toString());
 
+      const headers: HeadersInit = { 'Content-Type': 'application/json' }
+      if (session?.access_token) {
+        headers['Authorization'] = `Bearer ${session.access_token}`
+      }
+
       const response = await fetch(`/api/sessions?${params.toString()}`, {
         method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
+        headers,
+      })
 
       if (!response.ok) {
         const errorData = await response.json();
@@ -156,13 +159,16 @@ export function useSessions(): SessionsHookReturn {
     }
 
     try {
+      const headers: HeadersInit = { 'Content-Type': 'application/json' }
+      if (session?.access_token) {
+        headers['Authorization'] = `Bearer ${session.access_token}`
+      }
+
       const response = await fetch(`/api/sessions/${id}`, {
         method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers,
         body: JSON.stringify(updates),
-      });
+      })
 
       if (!response.ok) {
         throw response;
@@ -192,12 +198,15 @@ export function useSessions(): SessionsHookReturn {
     }
 
     try {
+      const headers: HeadersInit = { 'Content-Type': 'application/json' }
+      if (session?.access_token) {
+        headers['Authorization'] = `Bearer ${session.access_token}`
+      }
+
       const response = await fetch(`/api/sessions/${id}`, {
         method: 'DELETE',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
+        headers,
+      })
 
       if (!response.ok) {
         throw response;
@@ -230,13 +239,16 @@ export function useSessions(): SessionsHookReturn {
     }
 
     try {
+      const headers: HeadersInit = { 'Content-Type': 'application/json' }
+      if (session?.access_token) {
+        headers['Authorization'] = `Bearer ${session.access_token}`
+      }
+
       const response = await fetch('/api/sessions', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers,
         body: JSON.stringify(data),
-      });
+      })
 
       if (!response.ok) {
         throw response;
