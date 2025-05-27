@@ -10,6 +10,133 @@ CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 -- CORE TABLES
 -- =============================================================================
 
+-- Organizations table - manages company/team information and settings
+CREATE TABLE organizations (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    
+    -- Organization Identity
+    name VARCHAR(255) NOT NULL,
+    display_name VARCHAR(255),
+    slug VARCHAR(100) UNIQUE NOT NULL, -- URL-friendly identifier
+    description TEXT,
+    
+    -- Contact Information
+    website_url VARCHAR(512),
+    contact_email VARCHAR(255),
+    phone VARCHAR(50),
+    
+    -- Address Information
+    address_line_1 VARCHAR(255),
+    address_line_2 VARCHAR(255),
+    city VARCHAR(100),
+    state_province VARCHAR(100),
+    postal_code VARCHAR(20),
+    country_code VARCHAR(2),
+    
+    -- Organization Settings
+    default_timezone VARCHAR(50) DEFAULT 'UTC',
+    default_language VARCHAR(10) DEFAULT 'en',
+    branding_logo_url VARCHAR(512),
+    branding_primary_color VARCHAR(7), -- hex color code
+    
+    -- Billing Information
+    tax_id VARCHAR(100), -- VAT/EIN/etc
+    billing_email VARCHAR(255),
+    
+    -- Organization Limits (from subscription)
+    monthly_audio_hours_limit INTEGER,
+    max_members INTEGER DEFAULT 10,
+    max_sessions_per_month INTEGER,
+    
+    -- Organization Status
+    is_active BOOLEAN DEFAULT TRUE,
+    is_verified BOOLEAN DEFAULT FALSE,
+    verification_requested_at TIMESTAMP WITH TIME ZONE,
+    
+    -- Timestamps
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    deleted_at TIMESTAMP WITH TIME ZONE
+);
+
+-- Organizations indexes
+CREATE INDEX idx_organizations_slug ON organizations(slug);
+CREATE INDEX idx_organizations_is_active ON organizations(is_active);
+CREATE INDEX idx_organizations_created_at ON organizations(created_at);
+
+-- Organization Members table - manages user membership in organizations with role-based access
+CREATE TABLE organization_members (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    organization_id UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    
+    -- Member Role & Permissions
+    role VARCHAR(20) NOT NULL DEFAULT 'member', -- 'owner', 'admin', 'member'
+    permissions JSONB DEFAULT '[]'::jsonb, -- array of specific permissions
+    
+    -- Member Status
+    status VARCHAR(20) DEFAULT 'active', -- 'active', 'inactive', 'pending'
+    
+    -- Member Limits (individual within organization)
+    monthly_audio_hours_limit INTEGER, -- null inherits from organization
+    max_sessions_per_month INTEGER, -- null inherits from organization
+    
+    -- Member Statistics
+    total_sessions_count INTEGER DEFAULT 0,
+    total_audio_hours_used DECIMAL(6,2) DEFAULT 0,
+    last_session_at TIMESTAMP WITH TIME ZONE,
+    
+    -- Timestamps
+    joined_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    
+    -- Ensure unique user per organization
+    UNIQUE(organization_id, user_id)
+);
+
+-- Organization Members indexes
+CREATE INDEX idx_organization_members_org_id ON organization_members(organization_id);
+CREATE INDEX idx_organization_members_user_id ON organization_members(user_id);
+CREATE INDEX idx_organization_members_role ON organization_members(role);
+CREATE INDEX idx_organization_members_status ON organization_members(status);
+
+-- Organization Invitations table - manages pending invitations to join organizations
+CREATE TABLE organization_invitations (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    organization_id UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+    invited_by_user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    
+    -- Invitation Details
+    email VARCHAR(255) NOT NULL,
+    role VARCHAR(20) NOT NULL DEFAULT 'member', -- role to assign when accepted
+    personal_message TEXT,
+    
+    -- Invitation Token
+    invitation_token VARCHAR(255) UNIQUE NOT NULL,
+    expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
+    
+    -- Invitation Status
+    status VARCHAR(20) DEFAULT 'pending', -- 'pending', 'accepted', 'declined', 'expired'
+    accepted_by_user_id UUID REFERENCES users(id),
+    accepted_at TIMESTAMP WITH TIME ZONE,
+    declined_at TIMESTAMP WITH TIME ZONE,
+    
+    -- Timestamps
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    
+    -- Ensure unique pending invitation per email per organization
+    UNIQUE(organization_id, email, status) DEFERRABLE INITIALLY DEFERRED
+);
+
+-- Organization Invitations indexes
+CREATE INDEX idx_organization_invitations_org_id ON organization_invitations(organization_id);
+CREATE INDEX idx_organization_invitations_email ON organization_invitations(email);
+CREATE INDEX idx_organization_invitations_token ON organization_invitations(invitation_token);
+CREATE INDEX idx_organization_invitations_status ON organization_invitations(status);
+CREATE INDEX idx_organization_invitations_expires_at ON organization_invitations(expires_at);
+
 -- Users table - manages user accounts, authentication, and profile information
 CREATE TABLE users (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -25,8 +152,12 @@ CREATE TABLE users (
     google_id VARCHAR(255) UNIQUE,
     last_login_at TIMESTAMP WITH TIME ZONE,
     
+    -- Organization Context
+    current_organization_id UUID REFERENCES organizations(id) ON DELETE SET NULL,
+    
     -- Onboarding & Preferences
     has_completed_onboarding BOOLEAN DEFAULT FALSE,
+    has_completed_organization_setup BOOLEAN DEFAULT FALSE,
     default_microphone_id VARCHAR(255),
     default_speaker_id VARCHAR(255),
     
@@ -43,6 +174,7 @@ CREATE TABLE users (
 -- Users indexes
 CREATE INDEX idx_users_email ON users(email);
 CREATE INDEX idx_users_google_id ON users(google_id);
+CREATE INDEX idx_users_current_organization ON users(current_organization_id);
 CREATE INDEX idx_users_created_at ON users(created_at);
 
 
@@ -51,12 +183,14 @@ CREATE INDEX idx_users_created_at ON users(created_at);
 CREATE TABLE templates (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID REFERENCES users(id) ON DELETE CASCADE, -- null for system templates
+    organization_id UUID REFERENCES organizations(id) ON DELETE CASCADE, -- null for system templates
     
     -- Template Information
     name VARCHAR(255) NOT NULL,
     description TEXT,
     conversation_type VARCHAR(50), -- 'sales_call', 'interview', 'meeting', 'consultation'
     is_system_template BOOLEAN DEFAULT FALSE,
+    is_organization_template BOOLEAN DEFAULT FALSE,
     is_public BOOLEAN DEFAULT FALSE,
     
     -- Template Content
@@ -79,14 +213,17 @@ CREATE TABLE templates (
 
 -- Templates indexes
 CREATE INDEX idx_templates_user_id ON templates(user_id);
+CREATE INDEX idx_templates_organization_id ON templates(organization_id);
 CREATE INDEX idx_templates_conversation_type ON templates(conversation_type);
 CREATE INDEX idx_templates_is_system ON templates(is_system_template);
+CREATE INDEX idx_templates_is_organization ON templates(is_organization_template);
 CREATE INDEX idx_templates_is_public ON templates(is_public);
 
 -- Sessions table - manages conversation sessions and their metadata
 CREATE TABLE sessions (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    organization_id UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
     
     -- Session Metadata
     title VARCHAR(255),
@@ -120,6 +257,7 @@ CREATE TABLE sessions (
 
 -- Sessions indexes
 CREATE INDEX idx_sessions_user_id ON sessions(user_id);
+CREATE INDEX idx_sessions_organization_id ON sessions(organization_id);
 CREATE INDEX idx_sessions_status ON sessions(status);
 CREATE INDEX idx_sessions_created_at ON sessions(created_at);
 CREATE INDEX idx_sessions_conversation_type ON sessions(conversation_type);
@@ -130,6 +268,7 @@ CREATE TABLE documents (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     session_id UUID NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    organization_id UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
     
     -- File Information
     original_filename VARCHAR(255) NOT NULL,
@@ -158,6 +297,7 @@ CREATE TABLE documents (
 -- Documents indexes
 CREATE INDEX idx_documents_session_id ON documents(session_id);
 CREATE INDEX idx_documents_user_id ON documents(user_id);
+CREATE INDEX idx_documents_organization_id ON documents(organization_id);
 CREATE INDEX idx_documents_file_type ON documents(file_type);
 CREATE INDEX idx_documents_processing_status ON documents(processing_status);
 
@@ -232,6 +372,7 @@ CREATE TABLE summaries (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     session_id UUID NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    organization_id UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
     
     -- Summary Content
     title VARCHAR(255),
@@ -265,6 +406,7 @@ CREATE TABLE summaries (
 -- Summaries indexes
 CREATE INDEX idx_summaries_session_id ON summaries(session_id);
 CREATE INDEX idx_summaries_user_id ON summaries(user_id);
+CREATE INDEX idx_summaries_organization_id ON summaries(organization_id);
 CREATE INDEX idx_summaries_status ON summaries(generation_status);
 CREATE INDEX idx_summaries_marked_done ON summaries(is_marked_done);
 
@@ -277,9 +419,10 @@ CREATE TABLE plans (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     
     -- Plan Identity
-    name VARCHAR(50) UNIQUE NOT NULL, -- 'free', 'pro', 'team', 'enterprise'
-    display_name VARCHAR(100) NOT NULL, -- 'Free Tier', 'Pro Plan', 'Team Plan'
+    name VARCHAR(50) UNIQUE NOT NULL, -- 'individual_free', 'individual_pro', 'org_starter', 'org_professional', 'org_enterprise'
+    display_name VARCHAR(100) NOT NULL, -- 'Individual Free', 'Individual Pro', 'Organization Starter', etc.
     description TEXT,
+    plan_type VARCHAR(20) NOT NULL DEFAULT 'individual', -- 'individual', 'organization'
     
     -- Pricing
     price_monthly DECIMAL(8,2), -- null for free plan
@@ -292,6 +435,7 @@ CREATE TABLE plans (
     max_documents_per_session INTEGER DEFAULT 10,
     max_file_size_mb INTEGER DEFAULT 25,
     max_sessions_per_month INTEGER, -- null for unlimited
+    max_organization_members INTEGER, -- null for individual plans, number for org plans
     
     -- Feature Flags
     has_real_time_guidance BOOLEAN DEFAULT TRUE,
@@ -321,13 +465,15 @@ CREATE TABLE plans (
 
 -- Plans indexes
 CREATE INDEX idx_plans_name ON plans(name);
+CREATE INDEX idx_plans_type ON plans(plan_type);
 CREATE INDEX idx_plans_is_active ON plans(is_active);
 CREATE INDEX idx_plans_sort_order ON plans(sort_order);
 
 -- Subscriptions table - manages user subscription plans and billing
 CREATE TABLE subscriptions (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    organization_id UUID REFERENCES organizations(id) ON DELETE CASCADE, -- null for individual subscriptions
+    user_id UUID REFERENCES users(id) ON DELETE CASCADE, -- null for organization subscriptions
     plan_id UUID NOT NULL REFERENCES plans(id),
     
     -- Stripe Integration
@@ -354,6 +500,7 @@ CREATE TABLE subscriptions (
 );
 
 -- Subscriptions indexes
+CREATE INDEX idx_subscriptions_organization_id ON subscriptions(organization_id);
 CREATE INDEX idx_subscriptions_user_id ON subscriptions(user_id);
 CREATE INDEX idx_subscriptions_plan_id ON subscriptions(plan_id);
 CREATE INDEX idx_subscriptions_stripe_customer ON subscriptions(stripe_customer_id);
@@ -363,6 +510,7 @@ CREATE INDEX idx_subscriptions_current_period ON subscriptions(current_period_st
 -- Usage Records table - tracks user usage for billing purposes
 CREATE TABLE usage_records (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    organization_id UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     subscription_id UUID REFERENCES subscriptions(id) ON DELETE SET NULL,
     session_id UUID REFERENCES sessions(id) ON DELETE SET NULL,
@@ -384,6 +532,7 @@ CREATE TABLE usage_records (
 );
 
 -- Usage Records indexes
+CREATE INDEX idx_usage_records_organization_id ON usage_records(organization_id);
 CREATE INDEX idx_usage_records_user_id ON usage_records(user_id);
 CREATE INDEX idx_usage_records_subscription_id ON usage_records(subscription_id);
 CREATE INDEX idx_usage_records_session_id ON usage_records(session_id);
@@ -475,6 +624,15 @@ END;
 $$ language 'plpgsql';
 
 -- Apply updated_at triggers to relevant tables
+CREATE TRIGGER update_organizations_updated_at BEFORE UPDATE ON organizations
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER update_organization_members_updated_at BEFORE UPDATE ON organization_members
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER update_organization_invitations_updated_at BEFORE UPDATE ON organization_invitations
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
 CREATE TRIGGER update_users_updated_at BEFORE UPDATE ON users
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
@@ -509,6 +667,9 @@ CREATE TRIGGER update_subscriptions_updated_at BEFORE UPDATE ON subscriptions
 -- =============================================================================
 
 -- Enable RLS on user-specific tables
+ALTER TABLE organizations ENABLE ROW LEVEL SECURITY;
+ALTER TABLE organization_members ENABLE ROW LEVEL SECURITY;
+ALTER TABLE organization_invitations ENABLE ROW LEVEL SECURITY;
 ALTER TABLE users ENABLE ROW LEVEL SECURITY;
 
 ALTER TABLE sessions ENABLE ROW LEVEL SECURITY;
@@ -524,6 +685,35 @@ ALTER TABLE user_app_sessions ENABLE ROW LEVEL SECURITY;
 -- Plans table is public (read-only for all users)
 ALTER TABLE plans ENABLE ROW LEVEL SECURITY;
 
+-- Organization policies - users can only access organizations they're members of
+CREATE POLICY organizations_policy ON organizations
+    FOR ALL USING (
+        id IN (
+            SELECT organization_id 
+            FROM organization_members 
+            WHERE user_id = auth.uid() AND status = 'active'
+        )
+    );
+
+CREATE POLICY organization_members_policy ON organization_members
+    FOR ALL USING (
+        organization_id IN (
+            SELECT organization_id 
+            FROM organization_members 
+            WHERE user_id = auth.uid() AND status = 'active'
+        )
+    );
+
+CREATE POLICY organization_invitations_policy ON organization_invitations
+    FOR ALL USING (
+        organization_id IN (
+            SELECT organization_id 
+            FROM organization_members 
+            WHERE user_id = auth.uid() AND status = 'active' AND role IN ('owner', 'admin')
+        ) OR 
+        email = (SELECT email FROM users WHERE id = auth.uid())
+    );
+
 -- Users can only access their own data
 CREATE POLICY users_policy ON users
     FOR ALL USING (auth.uid() = id);
@@ -531,33 +721,87 @@ CREATE POLICY users_policy ON users
 
 
 CREATE POLICY sessions_policy ON sessions
-    FOR ALL USING (auth.uid() = user_id);
+    FOR ALL USING (
+        organization_id IN (
+            SELECT organization_id 
+            FROM organization_members 
+            WHERE user_id = auth.uid() AND status = 'active'
+        )
+    );
 
 CREATE POLICY documents_policy ON documents
-    FOR ALL USING (auth.uid() = user_id);
+    FOR ALL USING (
+        organization_id IN (
+            SELECT organization_id 
+            FROM organization_members 
+            WHERE user_id = auth.uid() AND status = 'active'
+        )
+    );
 
 CREATE POLICY transcripts_policy ON transcripts
-    FOR ALL USING (auth.uid() IN (SELECT user_id FROM sessions WHERE id = session_id));
+    FOR ALL USING (
+        session_id IN (
+            SELECT id FROM sessions 
+            WHERE organization_id IN (
+                SELECT organization_id 
+                FROM organization_members 
+                WHERE user_id = auth.uid() AND status = 'active'
+            )
+        )
+    );
 
 CREATE POLICY guidance_policy ON guidance
-    FOR ALL USING (auth.uid() IN (SELECT user_id FROM sessions WHERE id = session_id));
+    FOR ALL USING (
+        session_id IN (
+            SELECT id FROM sessions 
+            WHERE organization_id IN (
+                SELECT organization_id 
+                FROM organization_members 
+                WHERE user_id = auth.uid() AND status = 'active'
+            )
+        )
+    );
 
 CREATE POLICY summaries_policy ON summaries
-    FOR ALL USING (auth.uid() = user_id);
+    FOR ALL USING (
+        organization_id IN (
+            SELECT organization_id 
+            FROM organization_members 
+            WHERE user_id = auth.uid() AND status = 'active'
+        )
+    );
 
--- Templates: users can access their own templates + public templates
+-- Templates: users can access their own templates + organization templates + public templates
 CREATE POLICY templates_policy ON templates
     FOR ALL USING (
         auth.uid() = user_id OR 
+        organization_id IN (
+            SELECT organization_id 
+            FROM organization_members 
+            WHERE user_id = auth.uid() AND status = 'active'
+        ) OR
         is_public = true OR 
         is_system_template = true
     );
 
 CREATE POLICY subscriptions_policy ON subscriptions
-    FOR ALL USING (auth.uid() = user_id);
+    FOR ALL USING (
+        auth.uid() = user_id OR
+        organization_id IN (
+            SELECT organization_id 
+            FROM organization_members 
+            WHERE user_id = auth.uid() AND status = 'active'
+        )
+    );
 
 CREATE POLICY usage_records_policy ON usage_records
-    FOR ALL USING (auth.uid() = user_id);
+    FOR ALL USING (
+        organization_id IN (
+            SELECT organization_id 
+            FROM organization_members 
+            WHERE user_id = auth.uid() AND status = 'active'
+        )
+    );
 
 CREATE POLICY user_app_sessions_policy ON user_app_sessions
     FOR ALL USING (auth.uid() = user_id);
@@ -571,12 +815,14 @@ CREATE POLICY plans_policy ON plans
 -- =============================================================================
 
 -- Insert default plans
-INSERT INTO plans (name, display_name, description, price_monthly, price_yearly, stripe_price_id_monthly, stripe_price_id_yearly, monthly_audio_hours_limit, max_documents_per_session, max_file_size_mb, max_sessions_per_month, has_real_time_guidance, has_advanced_summaries, has_export_options, has_email_summaries, has_api_access, has_custom_templates, has_priority_support, has_analytics_dashboard, has_team_collaboration, ai_model_access, max_guidance_requests_per_session, summary_generation_priority, is_active, is_featured, sort_order)
+INSERT INTO plans (name, display_name, description, plan_type, price_monthly, price_yearly, stripe_price_id_monthly, stripe_price_id_yearly, monthly_audio_hours_limit, max_documents_per_session, max_file_size_mb, max_sessions_per_month, max_organization_members, has_real_time_guidance, has_advanced_summaries, has_export_options, has_email_summaries, has_api_access, has_custom_templates, has_priority_support, has_analytics_dashboard, has_team_collaboration, ai_model_access, max_guidance_requests_per_session, summary_generation_priority, is_active, is_featured, sort_order)
 VALUES 
+-- Individual Plans
 (
-    'free',
-    'Free Tier',
+    'individual_free',
+    'Individual Free',
     'Perfect for trying out LiveConvo with basic features',
+    'individual',
     NULL, -- free
     NULL, -- free
     NULL,
@@ -585,6 +831,7 @@ VALUES
     5, -- max 5 documents per session
     10, -- max 10MB files
     10, -- max 10 sessions per month
+    NULL, -- not applicable for individual plans
     true, -- has real-time guidance
     false, -- basic summaries only
     false, -- no export options
@@ -602,17 +849,19 @@ VALUES
     1
 ),
 (
-    'pro',
-    'Pro Plan',
-    'Unlimited conversations with advanced AI features',
-    39.00,
-    390.00, -- $390/year (2 months free)
-    'price_pro_monthly', -- Replace with actual Stripe price ID
-    'price_pro_yearly', -- Replace with actual Stripe price ID
+    'individual_pro',
+    'Individual Pro',
+    'Unlimited conversations with advanced AI features for individuals',
+    'individual',
+    29.00,
+    290.00, -- $290/year (2 months free)
+    'price_individual_pro_monthly',
+    'price_individual_pro_yearly',
     NULL, -- unlimited
     25, -- max 25 documents per session
     25, -- max 25MB files
     NULL, -- unlimited sessions
+    NULL, -- not applicable for individual plans
     true, -- has real-time guidance
     true, -- has advanced summaries
     true, -- has export options
@@ -629,18 +878,51 @@ VALUES
     true, -- featured plan
     2
 ),
+-- Organization Plans
 (
-    'team',
-    'Team Plan',
-    'Everything in Pro plus team collaboration and priority support',
-    99.00,
-    990.00, -- $990/year (2 months free)
-    'price_team_monthly', -- Replace with actual Stripe price ID
-    'price_team_yearly', -- Replace with actual Stripe price ID
-    NULL, -- unlimited
+    'org_starter',
+    'Organization Starter',
+    'Perfect for small teams getting started with LiveConvo',
+    'organization',
+    79.00,
+    790.00, -- $790/year (2 months free)
+    'price_org_starter_monthly',
+    'price_org_starter_yearly',
+    50, -- 50 hours per month shared across team
+    15, -- max 15 documents per session
+    25, -- max 25MB files
+    NULL, -- unlimited sessions
+    5, -- max 5 organization members
+    true, -- has real-time guidance
+    true, -- has advanced summaries
+    true, -- has export options
+    true, -- has email summaries
+    false, -- no API access
+    true, -- has custom templates
+    false, -- no priority support
+    true, -- has analytics dashboard
+    true, -- has team collaboration
+    '["gpt-4o-mini", "gpt-4o"]'::jsonb,
+    100, -- max 100 guidance requests per session
+    2, -- medium priority summaries
+    true,
+    false,
+    3
+),
+(
+    'org_professional',
+    'Organization Professional',
+    'Advanced features for growing teams and businesses',
+    'organization',
+    149.00,
+    1490.00, -- $1490/year (2 months free)
+    'price_org_professional_monthly',
+    'price_org_professional_yearly',
+    200, -- 200 hours per month shared across team
     50, -- max 50 documents per session
     100, -- max 100MB files
     NULL, -- unlimited sessions
+    25, -- max 25 organization members
     true, -- has real-time guidance
     true, -- has advanced summaries
     true, -- has export options
@@ -654,8 +936,38 @@ VALUES
     200, -- max 200 guidance requests per session
     1, -- high priority summaries
     true,
+    true, -- featured plan
+    4
+),
+(
+    'org_enterprise',
+    'Organization Enterprise',
+    'Custom solutions for large organizations with unlimited everything',
+    'organization',
+    499.00,
+    4990.00, -- $4990/year (2 months free)
+    'price_org_enterprise_monthly',
+    'price_org_enterprise_yearly',
+    NULL, -- unlimited hours
+    NULL, -- unlimited documents per session
+    500, -- max 500MB files
+    NULL, -- unlimited sessions
+    NULL, -- unlimited organization members
+    true, -- has real-time guidance
+    true, -- has advanced summaries
+    true, -- has export options
+    true, -- has email summaries
+    true, -- has API access
+    true, -- has custom templates
+    true, -- has priority support
+    true, -- has analytics dashboard
+    true, -- has team collaboration
+    '["gpt-4o-mini", "gpt-4o"]'::jsonb,
+    500, -- max 500 guidance requests per session
+    1, -- high priority summaries
+    true,
     false,
-    3
+    5
 );
 
 -- Insert default system templates
@@ -703,10 +1015,11 @@ VALUES
 DO $$
 BEGIN
     RAISE NOTICE 'LiveConvo database schema setup completed successfully!';
-    RAISE NOTICE 'Tables created: users, sessions, documents, transcripts, guidance, summaries, templates, plans, subscriptions, usage_records, user_app_sessions, system_logs';
-    RAISE NOTICE 'Row Level Security (RLS) enabled with appropriate policies';
-    RAISE NOTICE 'Updated_at triggers configured';
-    RAISE NOTICE 'Default plans inserted: Free Tier, Pro Plan, Team Plan';
+    RAISE NOTICE 'Tables created: organizations, organization_members, organization_invitations, users, sessions, documents, transcripts, guidance, summaries, templates, plans, subscriptions, usage_records, user_app_sessions, system_logs';
+    RAISE NOTICE 'Organization & Team Management System enabled with role-based access';
+    RAISE NOTICE 'Row Level Security (RLS) enabled with organization-scoped policies';
+    RAISE NOTICE 'Updated_at triggers configured for all tables';
+    RAISE NOTICE 'Default plans inserted: Individual Free, Individual Pro, Organization Starter, Organization Professional, Organization Enterprise';
     RAISE NOTICE 'System templates inserted: Sales Discovery, Technical Interview, Project Review';
-    RAISE NOTICE 'Ready for LiveConvo application deployment!';
+    RAISE NOTICE 'Ready for LiveConvo application deployment with full organization support!';
 END $$; 

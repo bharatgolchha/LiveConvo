@@ -89,6 +89,18 @@
   - [x] Updated relationships documentation to reflect proper foreign keys ✅
   - [x] Verified complete consistency between schema.md and supabase_schema.sql ✅
 
+- [x] **Organization & Team Management System** (2025-01-27) ✅
+  - [x] Design organization-based architecture with shared billing and usage ✅
+  - [x] Create organizations table with company info and settings ✅
+  - [x] Create organization_members table with role-based access (owner, admin, member) ✅
+  - [x] Create organization_invitations table for team member invites ✅
+  - [x] Update subscriptions table to be organization-based instead of user-based ✅
+  - [x] Update usage_records to track both individual and organization usage ✅
+  - [x] Update plans table to support organization plans vs individual plans ✅
+  - [x] Implement Row Level Security for organization data isolation ✅
+  - [x] Update relationships documentation for organization system ✅
+  - [ ] Create organization onboarding flow and UI components
+
 #### Sprint 0: Project Foundation (Week 0)
 - [ ] **Repository Scaffolding**
   - [ ] Initialize backend directory with FastAPI structure
