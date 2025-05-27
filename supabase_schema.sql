@@ -10,6 +10,42 @@ CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 -- CORE TABLES
 -- =============================================================================
 
+-- Users table - manages user accounts, authentication, and profile information
+CREATE TABLE users (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    email VARCHAR(255) UNIQUE NOT NULL,
+    email_verified BOOLEAN DEFAULT FALSE,
+    
+    -- Profile Information
+    full_name VARCHAR(255),
+    timezone VARCHAR(50) DEFAULT 'UTC',
+    
+    -- Authentication
+    password_hash VARCHAR(255), -- nullable for OAuth-only users
+    google_id VARCHAR(255) UNIQUE,
+    last_login_at TIMESTAMP WITH TIME ZONE,
+    
+    -- Onboarding & Preferences
+    has_completed_onboarding BOOLEAN DEFAULT FALSE,
+    has_completed_organization_setup BOOLEAN DEFAULT FALSE,
+    default_microphone_id VARCHAR(255),
+    default_speaker_id VARCHAR(255),
+    
+    -- Account Status
+    is_active BOOLEAN DEFAULT TRUE,
+    is_email_verified BOOLEAN DEFAULT FALSE,
+    
+    -- Timestamps
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    deleted_at TIMESTAMP WITH TIME ZONE
+);
+
+-- Users indexes
+CREATE INDEX idx_users_email ON users(email);
+CREATE INDEX idx_users_google_id ON users(google_id);
+CREATE INDEX idx_users_created_at ON users(created_at);
+
 -- Organizations table - manages company/team information and settings
 CREATE TABLE organizations (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -137,47 +173,9 @@ CREATE INDEX idx_organization_invitations_token ON organization_invitations(invi
 CREATE INDEX idx_organization_invitations_status ON organization_invitations(status);
 CREATE INDEX idx_organization_invitations_expires_at ON organization_invitations(expires_at);
 
--- Users table - manages user accounts, authentication, and profile information
-CREATE TABLE users (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    email VARCHAR(255) UNIQUE NOT NULL,
-    email_verified BOOLEAN DEFAULT FALSE,
-    
-    -- Profile Information
-    full_name VARCHAR(255),
-    timezone VARCHAR(50) DEFAULT 'UTC',
-    
-    -- Authentication
-    password_hash VARCHAR(255), -- nullable for OAuth-only users
-    google_id VARCHAR(255) UNIQUE,
-    last_login_at TIMESTAMP WITH TIME ZONE,
-    
-    -- Organization Context
-    current_organization_id UUID REFERENCES organizations(id) ON DELETE SET NULL,
-    
-    -- Onboarding & Preferences
-    has_completed_onboarding BOOLEAN DEFAULT FALSE,
-    has_completed_organization_setup BOOLEAN DEFAULT FALSE,
-    default_microphone_id VARCHAR(255),
-    default_speaker_id VARCHAR(255),
-    
-    -- Account Status
-    is_active BOOLEAN DEFAULT TRUE,
-    is_email_verified BOOLEAN DEFAULT FALSE,
-    
-    -- Timestamps
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    deleted_at TIMESTAMP WITH TIME ZONE
-);
-
--- Users indexes
-CREATE INDEX idx_users_email ON users(email);
-CREATE INDEX idx_users_google_id ON users(google_id);
+-- Now add the current_organization_id column to users table
+ALTER TABLE users ADD COLUMN current_organization_id UUID REFERENCES organizations(id) ON DELETE SET NULL;
 CREATE INDEX idx_users_current_organization ON users(current_organization_id);
-CREATE INDEX idx_users_created_at ON users(created_at);
-
-
 
 -- Templates table - manages conversation templates and AI guidance cue sets
 CREATE TABLE templates (
