@@ -174,14 +174,14 @@ export function useSessions(): SessionsHookReturn {
         throw response;
       }
 
-      const { session } = await response.json();
+      const { session: updatedSession } = await response.json();
 
       if (user) setSessionExpiredMessage(null);
 
       // Update the session in local state
-      setSessions(prev => prev.map(s => s.id === id ? { ...s, ...session } : s));
+      setSessions(prev => prev.map(s => s.id === id ? { ...s, ...updatedSession } : s));
 
-      return session;
+      return updatedSession;
 
     } catch (err) {
       handleApiError(err, 'update', err instanceof Response ? err : undefined);
@@ -254,15 +254,15 @@ export function useSessions(): SessionsHookReturn {
         throw response;
       }
 
-      const { session } = await response.json();
+      const { session: newSession } = await response.json();
 
       if (user) setSessionExpiredMessage(null);
 
       // Add the new session to the beginning of the list
-      setSessions(prev => [session, ...prev]);
+      setSessions(prev => [newSession, ...prev]);
       setTotalCount(prev => prev + 1);
 
-      return session;
+      return newSession;
 
     } catch (err) {
       handleApiError(err, 'create', err instanceof Response ? err : undefined);
