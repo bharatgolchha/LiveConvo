@@ -55,6 +55,45 @@ CREATE INDEX idx_users_google_id ON users(google_id);
 CREATE INDEX idx_users_created_at ON users(created_at);
 ```
 
+### Conversation Chains
+Manages multi-session conversations and their overall context.
+
+```sql
+CREATE TABLE conversation_chains (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    
+    -- Chain Metadata
+    title VARCHAR(255) NOT NULL,
+    description TEXT,
+    conversation_type VARCHAR(50), -- 'sales_call', 'interview', 'meeting', 'consultation'
+    
+    -- Chain Status
+    status VARCHAR(20) DEFAULT 'active', -- 'active', 'completed', 'archived'
+    total_sessions INTEGER DEFAULT 0,
+    
+    -- Overall Context
+    shared_context TEXT, -- persistent context across sessions
+    participant_names JSONB, -- array of participant names
+    key_topics JSONB, -- array of key conversation topics
+    
+    -- Chain Statistics
+    total_duration_seconds INTEGER DEFAULT 0,
+    total_words_spoken INTEGER DEFAULT 0,
+    
+    -- Timestamps
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    last_session_at TIMESTAMP WITH TIME ZONE,
+    deleted_at TIMESTAMP WITH TIME ZONE
+);
+
+CREATE INDEX idx_conversation_chains_user_id ON conversation_chains(user_id);
+CREATE INDEX idx_conversation_chains_status ON conversation_chains(status);
+CREATE INDEX idx_conversation_chains_type ON conversation_chains(conversation_type);
+CREATE INDEX idx_conversation_chains_last_session ON conversation_chains(last_session_at);
+```
+
 ### Sessions
 Manages conversation sessions and their metadata.
 
@@ -67,6 +106,11 @@ CREATE TABLE sessions (
     title VARCHAR(255),
     conversation_type VARCHAR(50), -- 'sales_call', 'interview', 'meeting', 'consultation'
     status VARCHAR(20) DEFAULT 'draft', -- 'draft', 'active', 'completed', 'archived'
+    
+    -- Conversation Chain Management
+    conversation_chain_id UUID REFERENCES conversation_chains(id),
+    parent_session_id UUID REFERENCES sessions(id), -- for direct session continuations
+    session_sequence_number INTEGER DEFAULT 1, -- order within conversation chain
     
     -- Session Configuration
     selected_template_id UUID REFERENCES templates(id),
@@ -96,6 +140,8 @@ CREATE INDEX idx_sessions_user_id ON sessions(user_id);
 CREATE INDEX idx_sessions_status ON sessions(status);
 CREATE INDEX idx_sessions_created_at ON sessions(created_at);
 CREATE INDEX idx_sessions_conversation_type ON sessions(conversation_type);
+CREATE INDEX idx_sessions_conversation_chain ON sessions(conversation_chain_id);
+CREATE INDEX idx_sessions_parent_session ON sessions(parent_session_id);
 ```
 
 ### Documents
@@ -210,35 +256,59 @@ CREATE INDEX idx_guidance_was_displayed ON guidance(was_displayed);
 ```
 
 ### Summaries
-Stores post-session summaries and action items.
+Stores post-session summaries and action items with support for conversation chains.
 
 ```sql
 CREATE TABLE summaries (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    session_id UUID NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
+    session_id UUID REFERENCES sessions(id) ON DELETE CASCADE,
+    conversation_chain_id UUID REFERENCES conversation_chains(id) ON DELETE CASCADE,
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    
+    -- Summary Type & Scope
+    summary_type VARCHAR(20) DEFAULT 'session', -- 'session', 'chain', 'cumulative'
+    includes_previous_sessions BOOLEAN DEFAULT FALSE,
+    session_range_start INTEGER, -- first session sequence number included
+    session_range_end INTEGER, -- last session sequence number included
     
     -- Summary Content
     title VARCHAR(255),
     tldr TEXT,
-    key_decisions JSONB, -- array of decision strings
-    action_items JSONB, -- array of action item objects
+    key_decisions JSONB, -- array of decision strings with session attribution
+    action_items JSONB, -- array of action item objects with priorities and sessions
     follow_up_questions JSONB, -- array of follow-up questions
+    conversation_highlights JSONB, -- key moments across sessions
+    
+    -- Evolution Tracking
+    progress_since_last_session TEXT, -- what changed/progressed
+    new_topics_introduced JSONB, -- topics not covered in previous sessions
+    recurring_themes JSONB, -- themes that appear across multiple sessions
     
     -- Full Content
     full_transcript TEXT,
     structured_notes TEXT,
+    session_comparison TEXT, -- differences/evolution from previous sessions
+    
+    -- Context Integration
+    previous_session_references JSONB, -- references to relevant previous content
+    carry_forward_items JSONB, -- action items and decisions from previous sessions
+    context_continuity_score DECIMAL(3,2), -- how well context was maintained (0-1)
     
     -- Generation Metadata
     generation_status VARCHAR(20) DEFAULT 'pending', -- 'pending', 'generating', 'completed', 'failed'
     generation_error TEXT,
     model_used VARCHAR(50), -- 'gpt-4o', 'gpt-4o-mini'
     generation_time_seconds DECIMAL(6,2),
+    context_tokens_used INTEGER, -- tokens used from previous sessions
     
     -- Export & Sharing
     export_count INTEGER DEFAULT 0,
     last_exported_at TIMESTAMP WITH TIME ZONE,
     is_marked_done BOOLEAN DEFAULT FALSE,
+    
+    -- Auto-generation Settings
+    auto_generate_chain_summary BOOLEAN DEFAULT TRUE,
+    include_session_count_in_summary INTEGER DEFAULT 3, -- how many previous sessions to include
     
     -- Timestamps
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
@@ -247,9 +317,12 @@ CREATE TABLE summaries (
 );
 
 CREATE INDEX idx_summaries_session_id ON summaries(session_id);
+CREATE INDEX idx_summaries_chain_id ON summaries(conversation_chain_id);
 CREATE INDEX idx_summaries_user_id ON summaries(user_id);
+CREATE INDEX idx_summaries_type ON summaries(summary_type);
 CREATE INDEX idx_summaries_status ON summaries(generation_status);
 CREATE INDEX idx_summaries_marked_done ON summaries(is_marked_done);
+CREATE INDEX idx_summaries_auto_generate ON summaries(auto_generate_chain_summary);
 ```
 
 ### Templates
@@ -448,12 +521,16 @@ CREATE INDEX idx_system_logs_session_id ON system_logs(session_id);
 ## Relationships Summary
 
 ### Primary Relationships
+- **Users** → **Conversation Chains** (1:many)
 - **Users** → **Sessions** (1:many)
 - **Users** → **Subscriptions** (1:many, but typically 1:1 for latest)
+- **Conversation Chains** → **Sessions** (1:many)
+- **Sessions** → **Sessions** (1:many, via parent_session_id for direct continuations)
 - **Sessions** → **Documents** (1:many)
 - **Sessions** → **Transcripts** (1:many)
 - **Sessions** → **Guidance** (1:many)
-- **Sessions** → **Summaries** (1:1)
+- **Sessions** → **Summaries** (1:many, session-level summaries)
+- **Conversation Chains** → **Summaries** (1:many, chain-level summaries)
 - **Users** → **Templates** (1:many)
 - **Templates** → **Sessions** (1:many, via selected_template_id)
 
@@ -462,6 +539,78 @@ All foreign keys include appropriate CASCADE/SET NULL policies:
 - User deletion cascades to all user-owned data
 - Session deletion cascades to related transcripts, guidance, documents
 - Soft deletes used for user-facing data (users, sessions, summaries, templates)
+
+---
+
+## Summary Generation System
+
+### Overview
+LiveConvo's summary system supports both individual session summaries and comprehensive conversation chain summaries that maintain context across multiple related sessions.
+
+### Summary Types
+
+#### 1. Session Summary (`summary_type = 'session'`)
+- Generated after each individual session ends
+- Contains standard summary elements (TL;DR, action items, key decisions)
+- Links to a single `session_id`
+- Generated within 30 seconds of session completion
+
+#### 2. Chain Summary (`summary_type = 'chain'`)
+- Generated periodically for ongoing conversation chains
+- Aggregates insights across multiple sessions in the chain
+- Tracks conversation evolution and progress over time
+- Links to `conversation_chain_id` with `session_range_start` and `session_range_end`
+
+#### 3. Cumulative Summary (`summary_type = 'cumulative'`)
+- Comprehensive summary including context from previous sessions
+- Generated when a new session starts that references previous sessions
+- Includes `carry_forward_items` and `previous_session_references`
+- Helps maintain conversation continuity
+
+### Auto-Generation Logic
+
+```sql
+-- Trigger conditions for automatic summary generation:
+
+-- 1. Session Summary: Always generated when session status = 'completed'
+-- 2. Chain Summary: Generated when total_sessions % 3 = 0 (every 3 sessions)
+-- 3. Cumulative Summary: Generated when includes_previous_sessions = TRUE
+
+-- Example: User sets up new session with "Continue previous conversation"
+-- System automatically:
+-- 1. Creates/updates conversation_chain if needed
+-- 2. Links session to chain with incremented sequence_number
+-- 3. Generates cumulative summary including last N sessions (configurable)
+-- 4. Provides AI guidance with full chain context
+```
+
+### Context Integration Features
+
+#### Conversation Continuity
+- **Previous Session References**: Automatically link to relevant moments from earlier sessions
+- **Carry Forward Items**: Action items and decisions from previous sessions are tracked
+- **Context Continuity Score**: AI-calculated score (0-1) measuring how well context was maintained
+
+#### Evolution Tracking
+- **Progress Since Last Session**: What was accomplished or changed
+- **New Topics Introduced**: Topics not covered in previous sessions
+- **Recurring Themes**: Patterns that emerge across multiple sessions
+
+#### Smart Context Window
+- Uses `include_session_count_in_summary` (default: 3) to limit context window
+- Prioritizes recent sessions but includes key decisions from entire chain
+- Optimizes token usage while maintaining conversation coherence
+
+### Implementation Workflow
+
+```
+1. Session Ends → Session Summary Generated
+2. If part of chain → Update chain statistics
+3. If chain milestone → Generate chain summary  
+4. If user starts new session → Check for chain continuation
+5. If continuation → Generate cumulative summary with context
+6. Provide AI guidance with full chain awareness
+```
 
 ---
 

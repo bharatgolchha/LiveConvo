@@ -1,18 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 /**
- * API route to securely provide OpenAI API key to authenticated frontend
- * GET /api/config - Get OpenAI API key for frontend use
+ * API route to securely provide API keys to authenticated frontend
+ * GET /api/config - Get OpenAI and Deepgram API keys for frontend use
  */
 export async function GET(request: NextRequest) {
   try {
-    // Get the OpenAI API key from environment variables
-    const apiKey = process.env.OPENAI_API_KEY;
+    // Get API keys from environment variables
+    const openaiApiKey = process.env.OPENAI_API_KEY;
+    const deepgramApiKey = process.env.DEEPGRAM_API_KEY;
     
-    if (!apiKey) {
-      console.error('❌ OpenAI API key not configured');
+    if (!openaiApiKey && !deepgramApiKey) {
+      console.error('❌ No API keys configured');
       return NextResponse.json(
-        { error: 'OpenAI API key not configured' },
+        { error: 'No API keys configured. Please set OPENAI_API_KEY or DEEPGRAM_API_KEY in your environment variables.' },
         { status: 500 }
       );
     }
@@ -24,11 +25,15 @@ export async function GET(request: NextRequest) {
     //   return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     // }
 
-    console.log('✅ Providing OpenAI API key to frontend');
+    console.log('✅ Providing API keys to frontend', {
+      hasOpenAI: !!openaiApiKey,
+      hasDeepgram: !!deepgramApiKey
+    });
     
     return NextResponse.json({
       success: true,
-      apiKey: apiKey
+      apiKey: openaiApiKey, // Keep for backward compatibility
+      deepgramApiKey: deepgramApiKey
     });
     
   } catch (error) {

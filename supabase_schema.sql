@@ -1,0 +1,787 @@
+-- LiveConvo Database Schema for Supabase
+-- Version: 1.0
+-- Date: 2025-01-27
+
+-- Enable required extensions
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+CREATE EXTENSION IF NOT EXISTS "pgcrypto";
+
+-- =============================================================================
+-- CORE TABLES
+-- =============================================================================
+
+-- Users table - manages user accounts, authentication, and profile information
+CREATE TABLE users (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    email VARCHAR(255) UNIQUE NOT NULL,
+    email_verified BOOLEAN DEFAULT FALSE,
+    
+    -- Profile Information
+    full_name VARCHAR(255),
+    timezone VARCHAR(50) DEFAULT 'UTC',
+    
+    -- Authentication
+    password_hash VARCHAR(255), -- nullable for OAuth-only users
+    google_id VARCHAR(255) UNIQUE,
+    last_login_at TIMESTAMP WITH TIME ZONE,
+    
+    -- Onboarding & Preferences
+    has_completed_onboarding BOOLEAN DEFAULT FALSE,
+    default_microphone_id VARCHAR(255),
+    default_speaker_id VARCHAR(255),
+    
+    -- Account Status
+    is_active BOOLEAN DEFAULT TRUE,
+    is_email_verified BOOLEAN DEFAULT FALSE,
+    
+    -- Timestamps
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    deleted_at TIMESTAMP WITH TIME ZONE
+);
+
+-- Users indexes
+CREATE INDEX idx_users_email ON users(email);
+CREATE INDEX idx_users_google_id ON users(google_id);
+CREATE INDEX idx_users_created_at ON users(created_at);
+
+-- Conversation Chains table - manages multi-session conversations
+CREATE TABLE conversation_chains (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    
+    -- Chain Metadata
+    title VARCHAR(255) NOT NULL,
+    description TEXT,
+    conversation_type VARCHAR(50), -- 'sales_call', 'interview', 'meeting', 'consultation'
+    
+    -- Chain Status
+    status VARCHAR(20) DEFAULT 'active', -- 'active', 'completed', 'archived'
+    total_sessions INTEGER DEFAULT 0,
+    
+    -- Overall Context
+    shared_context TEXT, -- persistent context across sessions
+    participant_names JSONB, -- array of participant names
+    key_topics JSONB, -- array of key conversation topics
+    
+    -- Chain Statistics
+    total_duration_seconds INTEGER DEFAULT 0,
+    total_words_spoken INTEGER DEFAULT 0,
+    
+    -- Timestamps
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    last_session_at TIMESTAMP WITH TIME ZONE,
+    deleted_at TIMESTAMP WITH TIME ZONE
+);
+
+-- Conversation Chains indexes
+CREATE INDEX idx_conversation_chains_user_id ON conversation_chains(user_id);
+CREATE INDEX idx_conversation_chains_status ON conversation_chains(status);
+CREATE INDEX idx_conversation_chains_type ON conversation_chains(conversation_type);
+CREATE INDEX idx_conversation_chains_last_session ON conversation_chains(last_session_at);
+
+-- Templates table - manages conversation templates and AI guidance cue sets
+CREATE TABLE templates (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID REFERENCES users(id) ON DELETE CASCADE, -- null for system templates
+    
+    -- Template Information
+    name VARCHAR(255) NOT NULL,
+    description TEXT,
+    conversation_type VARCHAR(50), -- 'sales_call', 'interview', 'meeting', 'consultation'
+    is_system_template BOOLEAN DEFAULT FALSE,
+    is_public BOOLEAN DEFAULT FALSE,
+    
+    -- Template Content
+    guidance_prompts JSONB, -- array of guidance prompt objects
+    context_instructions TEXT,
+    summary_template TEXT,
+    
+    -- Usage Statistics
+    usage_count INTEGER DEFAULT 0,
+    last_used_at TIMESTAMP WITH TIME ZONE,
+    
+    -- Template Status
+    is_active BOOLEAN DEFAULT TRUE,
+    
+    -- Timestamps
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    deleted_at TIMESTAMP WITH TIME ZONE
+);
+
+-- Templates indexes
+CREATE INDEX idx_templates_user_id ON templates(user_id);
+CREATE INDEX idx_templates_conversation_type ON templates(conversation_type);
+CREATE INDEX idx_templates_is_system ON templates(is_system_template);
+CREATE INDEX idx_templates_is_public ON templates(is_public);
+
+-- Sessions table - manages conversation sessions and their metadata
+CREATE TABLE sessions (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    
+    -- Session Metadata
+    title VARCHAR(255),
+    conversation_type VARCHAR(50), -- 'sales_call', 'interview', 'meeting', 'consultation'
+    status VARCHAR(20) DEFAULT 'draft', -- 'draft', 'active', 'completed', 'archived'
+    
+    -- Conversation Chain Management
+    conversation_chain_id UUID REFERENCES conversation_chains(id),
+    parent_session_id UUID REFERENCES sessions(id), -- for direct session continuations
+    session_sequence_number INTEGER DEFAULT 1, -- order within conversation chain
+    
+    -- Session Configuration
+    selected_template_id UUID REFERENCES templates(id),
+    
+    -- Audio & Recording
+    audio_file_url VARCHAR(512), -- S3/R2 URL (temporary storage)
+    recording_duration_seconds INTEGER DEFAULT 0,
+    recording_started_at TIMESTAMP WITH TIME ZONE,
+    recording_ended_at TIMESTAMP WITH TIME ZONE,
+    
+    -- Session Statistics
+    total_words_spoken INTEGER DEFAULT 0,
+    user_talk_time_seconds INTEGER DEFAULT 0,
+    silence_periods_count INTEGER DEFAULT 0,
+    
+    -- Privacy & Retention
+    audio_deleted_at TIMESTAMP WITH TIME ZONE,
+    data_retention_days INTEGER DEFAULT 30,
+    
+    -- Timestamps
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    deleted_at TIMESTAMP WITH TIME ZONE
+);
+
+-- Sessions indexes
+CREATE INDEX idx_sessions_user_id ON sessions(user_id);
+CREATE INDEX idx_sessions_status ON sessions(status);
+CREATE INDEX idx_sessions_created_at ON sessions(created_at);
+CREATE INDEX idx_sessions_conversation_type ON sessions(conversation_type);
+CREATE INDEX idx_sessions_conversation_chain ON sessions(conversation_chain_id);
+CREATE INDEX idx_sessions_parent_session ON sessions(parent_session_id);
+
+-- Documents table - stores uploaded context files and their processed content
+CREATE TABLE documents (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    session_id UUID NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    
+    -- File Information
+    original_filename VARCHAR(255) NOT NULL,
+    file_type VARCHAR(50) NOT NULL, -- 'pdf', 'docx', 'txt', 'png', 'jpg'
+    file_size_bytes INTEGER NOT NULL,
+    file_url VARCHAR(512), -- S3/R2 URL
+    
+    -- Content Processing
+    extracted_text TEXT,
+    processing_status VARCHAR(20) DEFAULT 'pending', -- 'pending', 'processing', 'completed', 'failed'
+    processing_error TEXT,
+    
+    -- Vector Embeddings
+    embedding_status VARCHAR(20) DEFAULT 'pending', -- 'pending', 'processing', 'completed', 'failed'
+    pinecone_vector_id VARCHAR(255),
+    
+    -- OCR Results (for images)
+    ocr_confidence_score DECIMAL(3,2), -- 0.00 to 1.00
+    
+    -- Timestamps
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    deleted_at TIMESTAMP WITH TIME ZONE
+);
+
+-- Documents indexes
+CREATE INDEX idx_documents_session_id ON documents(session_id);
+CREATE INDEX idx_documents_user_id ON documents(user_id);
+CREATE INDEX idx_documents_file_type ON documents(file_type);
+CREATE INDEX idx_documents_processing_status ON documents(processing_status);
+
+-- Transcripts table - stores real-time transcript data with timestamps
+CREATE TABLE transcripts (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    session_id UUID NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
+    
+    -- Transcript Content
+    content TEXT NOT NULL,
+    speaker VARCHAR(50) DEFAULT 'user', -- 'user', 'system', 'other'
+    confidence_score DECIMAL(3,2), -- 0.00 to 1.00
+    
+    -- Timing Information
+    start_time_seconds DECIMAL(10,3) NOT NULL, -- relative to session start
+    end_time_seconds DECIMAL(10,3),
+    duration_seconds DECIMAL(8,3),
+    
+    -- Processing Metadata
+    stt_provider VARCHAR(50), -- 'deepgram', 'openai_realtime', 'whisper', 'assembly_ai'
+    is_final BOOLEAN DEFAULT FALSE,
+    
+    -- Timestamps
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Transcripts indexes
+CREATE INDEX idx_transcripts_session_id ON transcripts(session_id);
+CREATE INDEX idx_transcripts_start_time ON transcripts(start_time_seconds);
+CREATE INDEX idx_transcripts_is_final ON transcripts(is_final);
+
+-- Guidance table - stores AI-generated guidance chips and their context
+CREATE TABLE guidance (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    session_id UUID NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
+    
+    -- Guidance Content
+    content TEXT NOT NULL,
+    guidance_type VARCHAR(20) NOT NULL, -- 'ask', 'clarify', 'avoid', 'suggest', 'warn'
+    priority INTEGER DEFAULT 1, -- 1=high, 2=medium, 3=low
+    
+    -- Context & Timing
+    triggered_by_transcript_id UUID REFERENCES transcripts(id),
+    context_snippet TEXT, -- relevant transcript excerpt
+    triggered_at_seconds DECIMAL(10,3), -- relative to session start
+    
+    -- User Interaction
+    was_displayed BOOLEAN DEFAULT FALSE,
+    was_clicked BOOLEAN DEFAULT FALSE,
+    was_dismissed BOOLEAN DEFAULT FALSE,
+    user_feedback VARCHAR(20), -- 'helpful', 'irrelevant', 'too_late'
+    
+    -- AI Model Information
+    model_used VARCHAR(50), -- 'gpt-4o-mini', 'gpt-4o'
+    prompt_template_id UUID REFERENCES templates(id),
+    processing_time_ms INTEGER,
+    
+    -- Timestamps
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Guidance indexes
+CREATE INDEX idx_guidance_session_id ON guidance(session_id);
+CREATE INDEX idx_guidance_type ON guidance(guidance_type);
+CREATE INDEX idx_guidance_triggered_at ON guidance(triggered_at_seconds);
+CREATE INDEX idx_guidance_was_displayed ON guidance(was_displayed);
+
+-- Summaries table - stores post-session summaries and action items with support for conversation chains
+CREATE TABLE summaries (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    session_id UUID REFERENCES sessions(id) ON DELETE CASCADE,
+    conversation_chain_id UUID REFERENCES conversation_chains(id) ON DELETE CASCADE,
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    
+    -- Summary Type & Scope
+    summary_type VARCHAR(20) DEFAULT 'session', -- 'session', 'chain', 'cumulative'
+    includes_previous_sessions BOOLEAN DEFAULT FALSE,
+    session_range_start INTEGER, -- first session sequence number included
+    session_range_end INTEGER, -- last session sequence number included
+    
+    -- Summary Content
+    title VARCHAR(255),
+    tldr TEXT,
+    key_decisions JSONB, -- array of decision strings with session attribution
+    action_items JSONB, -- array of action item objects with priorities and sessions
+    follow_up_questions JSONB, -- array of follow-up questions
+    conversation_highlights JSONB, -- key moments across sessions
+    
+    -- Evolution Tracking
+    progress_since_last_session TEXT, -- what changed/progressed
+    new_topics_introduced JSONB, -- topics not covered in previous sessions
+    recurring_themes JSONB, -- themes that appear across multiple sessions
+    
+    -- Full Content
+    full_transcript TEXT,
+    structured_notes TEXT,
+    session_comparison TEXT, -- differences/evolution from previous sessions
+    
+    -- Context Integration
+    previous_session_references JSONB, -- references to relevant previous content
+    carry_forward_items JSONB, -- action items and decisions from previous sessions
+    context_continuity_score DECIMAL(3,2), -- how well context was maintained (0-1)
+    
+    -- Generation Metadata
+    generation_status VARCHAR(20) DEFAULT 'pending', -- 'pending', 'generating', 'completed', 'failed'
+    generation_error TEXT,
+    model_used VARCHAR(50), -- 'gpt-4o', 'gpt-4o-mini'
+    generation_time_seconds DECIMAL(6,2),
+    context_tokens_used INTEGER, -- tokens used from previous sessions
+    
+    -- Export & Sharing
+    export_count INTEGER DEFAULT 0,
+    last_exported_at TIMESTAMP WITH TIME ZONE,
+    is_marked_done BOOLEAN DEFAULT FALSE,
+    
+    -- Auto-generation Settings
+    auto_generate_chain_summary BOOLEAN DEFAULT TRUE,
+    include_session_count_in_summary INTEGER DEFAULT 3, -- how many previous sessions to include
+    
+    -- Timestamps
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    deleted_at TIMESTAMP WITH TIME ZONE
+);
+
+-- Summaries indexes
+CREATE INDEX idx_summaries_session_id ON summaries(session_id);
+CREATE INDEX idx_summaries_chain_id ON summaries(conversation_chain_id);
+CREATE INDEX idx_summaries_user_id ON summaries(user_id);
+CREATE INDEX idx_summaries_type ON summaries(summary_type);
+CREATE INDEX idx_summaries_status ON summaries(generation_status);
+CREATE INDEX idx_summaries_marked_done ON summaries(is_marked_done);
+CREATE INDEX idx_summaries_auto_generate ON summaries(auto_generate_chain_summary);
+
+-- =============================================================================
+-- BILLING & SUBSCRIPTION TABLES
+-- =============================================================================
+
+-- Plans table - defines available subscription plans and their features
+CREATE TABLE plans (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    
+    -- Plan Identity
+    name VARCHAR(50) UNIQUE NOT NULL, -- 'free', 'pro', 'team', 'enterprise'
+    display_name VARCHAR(100) NOT NULL, -- 'Free Tier', 'Pro Plan', 'Team Plan'
+    description TEXT,
+    
+    -- Pricing
+    price_monthly DECIMAL(8,2), -- null for free plan
+    price_yearly DECIMAL(8,2), -- null for free plan
+    stripe_price_id_monthly VARCHAR(255),
+    stripe_price_id_yearly VARCHAR(255),
+    
+    -- Usage Limits
+    monthly_audio_hours_limit INTEGER, -- null for unlimited
+    max_documents_per_session INTEGER DEFAULT 10,
+    max_file_size_mb INTEGER DEFAULT 25,
+    max_sessions_per_month INTEGER, -- null for unlimited
+    max_conversation_chains INTEGER, -- null for unlimited
+    
+    -- Feature Flags
+    has_real_time_guidance BOOLEAN DEFAULT TRUE,
+    has_conversation_chains BOOLEAN DEFAULT FALSE,
+    has_advanced_summaries BOOLEAN DEFAULT FALSE,
+    has_export_options BOOLEAN DEFAULT FALSE,
+    has_email_summaries BOOLEAN DEFAULT FALSE,
+    has_api_access BOOLEAN DEFAULT FALSE,
+    has_custom_templates BOOLEAN DEFAULT FALSE,
+    has_priority_support BOOLEAN DEFAULT FALSE,
+    has_analytics_dashboard BOOLEAN DEFAULT FALSE,
+    has_team_collaboration BOOLEAN DEFAULT FALSE,
+    
+    -- AI Features
+    ai_model_access JSONB DEFAULT '["gpt-4o-mini"]'::jsonb, -- array of available models
+    max_guidance_requests_per_session INTEGER DEFAULT 50,
+    summary_generation_priority INTEGER DEFAULT 3, -- 1=high, 2=medium, 3=low
+    
+    -- Plan Status
+    is_active BOOLEAN DEFAULT TRUE,
+    is_featured BOOLEAN DEFAULT FALSE,
+    sort_order INTEGER DEFAULT 0,
+    
+    -- Timestamps
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Plans indexes
+CREATE INDEX idx_plans_name ON plans(name);
+CREATE INDEX idx_plans_is_active ON plans(is_active);
+CREATE INDEX idx_plans_sort_order ON plans(sort_order);
+
+-- Subscriptions table - manages user subscription plans and billing
+CREATE TABLE subscriptions (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    plan_id UUID NOT NULL REFERENCES plans(id),
+    
+    -- Stripe Integration
+    stripe_customer_id VARCHAR(255) UNIQUE,
+    stripe_subscription_id VARCHAR(255) UNIQUE,
+    stripe_price_id VARCHAR(255),
+    
+    -- Subscription Details
+    plan_type VARCHAR(20) NOT NULL, -- 'monthly', 'yearly', 'lifetime'
+    status VARCHAR(20) NOT NULL, -- 'active', 'past_due', 'canceled', 'unpaid', 'trialing'
+    
+    -- Billing Cycle
+    current_period_start TIMESTAMP WITH TIME ZONE,
+    current_period_end TIMESTAMP WITH TIME ZONE,
+    
+    -- Usage Limits
+    monthly_audio_hours_limit INTEGER, -- null for unlimited
+    monthly_audio_hours_used DECIMAL(6,2) DEFAULT 0,
+    
+    -- Timestamps
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    canceled_at TIMESTAMP WITH TIME ZONE
+);
+
+-- Subscriptions indexes
+CREATE INDEX idx_subscriptions_user_id ON subscriptions(user_id);
+CREATE INDEX idx_subscriptions_plan_id ON subscriptions(plan_id);
+CREATE INDEX idx_subscriptions_stripe_customer ON subscriptions(stripe_customer_id);
+CREATE INDEX idx_subscriptions_status ON subscriptions(status);
+CREATE INDEX idx_subscriptions_current_period ON subscriptions(current_period_start, current_period_end);
+
+-- Usage Records table - tracks user usage for billing purposes
+CREATE TABLE usage_records (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    subscription_id UUID REFERENCES subscriptions(id) ON DELETE SET NULL,
+    session_id UUID REFERENCES sessions(id) ON DELETE SET NULL,
+    
+    -- Usage Information
+    usage_type VARCHAR(50) NOT NULL, -- 'audio_processing', 'document_upload', 'api_call'
+    quantity DECIMAL(10,3) NOT NULL,
+    unit VARCHAR(20) NOT NULL, -- 'hours', 'minutes', 'mb', 'count'
+    
+    -- Billing Period
+    billing_period_start TIMESTAMP WITH TIME ZONE,
+    billing_period_end TIMESTAMP WITH TIME ZONE,
+    
+    -- Metadata
+    metadata JSONB,
+    
+    -- Timestamps
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Usage Records indexes
+CREATE INDEX idx_usage_records_user_id ON usage_records(user_id);
+CREATE INDEX idx_usage_records_subscription_id ON usage_records(subscription_id);
+CREATE INDEX idx_usage_records_session_id ON usage_records(session_id);
+CREATE INDEX idx_usage_records_billing_period ON usage_records(billing_period_start, billing_period_end);
+CREATE INDEX idx_usage_records_usage_type ON usage_records(usage_type);
+
+-- =============================================================================
+-- ANALYTICS & MONITORING TABLES
+-- =============================================================================
+
+-- User App Sessions table - tracks user application sessions for analytics
+CREATE TABLE user_app_sessions (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+    
+    -- Session Information
+    session_token VARCHAR(255) UNIQUE,
+    ip_address INET,
+    user_agent TEXT,
+    
+    -- Geographic Data
+    country_code VARCHAR(2),
+    city VARCHAR(100),
+    
+    -- Session Timing
+    started_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    last_activity_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    ended_at TIMESTAMP WITH TIME ZONE,
+    duration_seconds INTEGER,
+    
+    -- Page Views
+    page_views INTEGER DEFAULT 0,
+    
+    -- Device Information
+    device_type VARCHAR(20), -- 'desktop', 'tablet', 'mobile'
+    browser VARCHAR(50),
+    os VARCHAR(50)
+);
+
+-- User App Sessions indexes
+CREATE INDEX idx_user_app_sessions_user_id ON user_app_sessions(user_id);
+CREATE INDEX idx_user_app_sessions_started_at ON user_app_sessions(started_at);
+
+-- System Logs table - stores application logs for debugging and monitoring
+CREATE TABLE system_logs (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    
+    -- Log Metadata
+    level VARCHAR(10) NOT NULL, -- 'DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'
+    logger_name VARCHAR(100),
+    message TEXT NOT NULL,
+    
+    -- Context
+    user_id UUID REFERENCES users(id) ON DELETE SET NULL,
+    session_id UUID REFERENCES sessions(id) ON DELETE SET NULL,
+    
+    -- Technical Details
+    module VARCHAR(100),
+    function_name VARCHAR(100),
+    line_number INTEGER,
+    exception_traceback TEXT,
+    
+    -- Request Context
+    request_id VARCHAR(100),
+    ip_address INET,
+    endpoint VARCHAR(255),
+    
+    -- Timestamps
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- System Logs indexes
+CREATE INDEX idx_system_logs_level ON system_logs(level);
+CREATE INDEX idx_system_logs_created_at ON system_logs(created_at);
+CREATE INDEX idx_system_logs_user_id ON system_logs(user_id);
+CREATE INDEX idx_system_logs_session_id ON system_logs(session_id);
+
+-- =============================================================================
+-- TRIGGERS FOR UPDATED_AT TIMESTAMPS
+-- =============================================================================
+
+-- Function to update the updated_at timestamp
+CREATE OR REPLACE FUNCTION update_updated_at_column()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.updated_at = CURRENT_TIMESTAMP;
+    RETURN NEW;
+END;
+$$ language 'plpgsql';
+
+-- Apply updated_at triggers to relevant tables
+CREATE TRIGGER update_users_updated_at BEFORE UPDATE ON users
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER update_conversation_chains_updated_at BEFORE UPDATE ON conversation_chains
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER update_sessions_updated_at BEFORE UPDATE ON sessions
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER update_documents_updated_at BEFORE UPDATE ON documents
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER update_transcripts_updated_at BEFORE UPDATE ON transcripts
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER update_guidance_updated_at BEFORE UPDATE ON guidance
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER update_summaries_updated_at BEFORE UPDATE ON summaries
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER update_templates_updated_at BEFORE UPDATE ON templates
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER update_plans_updated_at BEFORE UPDATE ON plans
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER update_subscriptions_updated_at BEFORE UPDATE ON subscriptions
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+-- =============================================================================
+-- ROW LEVEL SECURITY (RLS) POLICIES
+-- =============================================================================
+
+-- Enable RLS on user-specific tables
+ALTER TABLE users ENABLE ROW LEVEL SECURITY;
+ALTER TABLE conversation_chains ENABLE ROW LEVEL SECURITY;
+ALTER TABLE sessions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE documents ENABLE ROW LEVEL SECURITY;
+ALTER TABLE transcripts ENABLE ROW LEVEL SECURITY;
+ALTER TABLE guidance ENABLE ROW LEVEL SECURITY;
+ALTER TABLE summaries ENABLE ROW LEVEL SECURITY;
+ALTER TABLE templates ENABLE ROW LEVEL SECURITY;
+ALTER TABLE subscriptions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE usage_records ENABLE ROW LEVEL SECURITY;
+ALTER TABLE user_app_sessions ENABLE ROW LEVEL SECURITY;
+
+-- Plans table is public (read-only for all users)
+ALTER TABLE plans ENABLE ROW LEVEL SECURITY;
+
+-- Users can only access their own data
+CREATE POLICY users_policy ON users
+    FOR ALL USING (auth.uid() = id);
+
+CREATE POLICY conversation_chains_policy ON conversation_chains
+    FOR ALL USING (auth.uid() = user_id);
+
+CREATE POLICY sessions_policy ON sessions
+    FOR ALL USING (auth.uid() = user_id);
+
+CREATE POLICY documents_policy ON documents
+    FOR ALL USING (auth.uid() = user_id);
+
+CREATE POLICY transcripts_policy ON transcripts
+    FOR ALL USING (auth.uid() IN (SELECT user_id FROM sessions WHERE id = session_id));
+
+CREATE POLICY guidance_policy ON guidance
+    FOR ALL USING (auth.uid() IN (SELECT user_id FROM sessions WHERE id = session_id));
+
+CREATE POLICY summaries_policy ON summaries
+    FOR ALL USING (auth.uid() = user_id);
+
+-- Templates: users can access their own templates + public templates
+CREATE POLICY templates_policy ON templates
+    FOR ALL USING (
+        auth.uid() = user_id OR 
+        is_public = true OR 
+        is_system_template = true
+    );
+
+CREATE POLICY subscriptions_policy ON subscriptions
+    FOR ALL USING (auth.uid() = user_id);
+
+CREATE POLICY usage_records_policy ON usage_records
+    FOR ALL USING (auth.uid() = user_id);
+
+CREATE POLICY user_app_sessions_policy ON user_app_sessions
+    FOR ALL USING (auth.uid() = user_id);
+
+-- Plans are readable by all authenticated users
+CREATE POLICY plans_policy ON plans
+    FOR SELECT USING (is_active = true);
+
+-- =============================================================================
+-- INITIAL SYSTEM DATA
+-- =============================================================================
+
+-- Insert default plans
+INSERT INTO plans (name, display_name, description, price_monthly, price_yearly, stripe_price_id_monthly, stripe_price_id_yearly, monthly_audio_hours_limit, max_documents_per_session, max_file_size_mb, max_sessions_per_month, max_conversation_chains, has_real_time_guidance, has_conversation_chains, has_advanced_summaries, has_export_options, has_email_summaries, has_api_access, has_custom_templates, has_priority_support, has_analytics_dashboard, has_team_collaboration, ai_model_access, max_guidance_requests_per_session, summary_generation_priority, is_active, is_featured, sort_order)
+VALUES 
+(
+    'free',
+    'Free Tier',
+    'Perfect for trying out LiveConvo with basic features',
+    NULL, -- free
+    NULL, -- free
+    NULL,
+    NULL,
+    3, -- 3 hours per month
+    5, -- max 5 documents per session
+    10, -- max 10MB files
+    10, -- max 10 sessions per month
+    1, -- max 1 conversation chain
+    true, -- has real-time guidance
+    false, -- no conversation chains
+    false, -- basic summaries only
+    false, -- no export options
+    false, -- no email summaries
+    false, -- no API access
+    false, -- no custom templates
+    false, -- no priority support
+    false, -- no analytics dashboard
+    false, -- no team collaboration
+    '["gpt-4o-mini"]'::jsonb,
+    25, -- max 25 guidance requests per session
+    3, -- low priority summaries
+    true,
+    false,
+    1
+),
+(
+    'pro',
+    'Pro Plan',
+    'Unlimited conversations with advanced AI features',
+    39.00,
+    390.00, -- $390/year (2 months free)
+    'price_pro_monthly', -- Replace with actual Stripe price ID
+    'price_pro_yearly', -- Replace with actual Stripe price ID
+    NULL, -- unlimited
+    25, -- max 25 documents per session
+    25, -- max 25MB files
+    NULL, -- unlimited sessions
+    NULL, -- unlimited conversation chains
+    true, -- has real-time guidance
+    true, -- has conversation chains
+    true, -- has advanced summaries
+    true, -- has export options
+    true, -- has email summaries
+    false, -- no API access
+    true, -- has custom templates
+    false, -- no priority support
+    true, -- has analytics dashboard
+    false, -- no team collaboration
+    '["gpt-4o-mini", "gpt-4o"]'::jsonb,
+    100, -- max 100 guidance requests per session
+    2, -- medium priority summaries
+    true,
+    true, -- featured plan
+    2
+),
+(
+    'team',
+    'Team Plan',
+    'Everything in Pro plus team collaboration and priority support',
+    99.00,
+    990.00, -- $990/year (2 months free)
+    'price_team_monthly', -- Replace with actual Stripe price ID
+    'price_team_yearly', -- Replace with actual Stripe price ID
+    NULL, -- unlimited
+    50, -- max 50 documents per session
+    100, -- max 100MB files
+    NULL, -- unlimited sessions
+    NULL, -- unlimited conversation chains
+    true, -- has real-time guidance
+    true, -- has conversation chains
+    true, -- has advanced summaries
+    true, -- has export options
+    true, -- has email summaries
+    true, -- has API access
+    true, -- has custom templates
+    true, -- has priority support
+    true, -- has analytics dashboard
+    true, -- has team collaboration
+    '["gpt-4o-mini", "gpt-4o"]'::jsonb,
+    200, -- max 200 guidance requests per session
+    1, -- high priority summaries
+    true,
+    false,
+    3
+);
+
+-- Insert default system templates
+INSERT INTO templates (id, name, description, conversation_type, is_system_template, is_public, guidance_prompts, context_instructions, summary_template)
+VALUES 
+(
+    gen_random_uuid(),
+    'Sales Call - Discovery',
+    'Template for initial sales discovery calls',
+    'sales_call',
+    true,
+    true,
+    '["Ask about their current challenges", "Identify decision makers", "Understand budget and timeline", "Clarify next steps"]'::jsonb,
+    'Focus on understanding the prospect''s needs, pain points, and decision-making process. Be consultative and avoid being pushy.',
+    'Sales Discovery Summary: {{title}} - {{date}}\n\nProspect: {{company_name}}\nKey Points:\n- Pain Points: {{pain_points}}\n- Budget: {{budget}}\n- Timeline: {{timeline}}\n- Decision Makers: {{decision_makers}}\n\nNext Steps:\n{{action_items}}'
+),
+(
+    gen_random_uuid(),
+    'Job Interview - Technical',
+    'Template for technical job interviews',
+    'interview',
+    true,
+    true,
+    '["Ask about specific technologies used", "Inquire about team structure", "Understand company culture", "Discuss growth opportunities"]'::jsonb,
+    'Focus on technical skills, cultural fit, and mutual alignment. Prepare thoughtful questions about the role and company.',
+    'Interview Summary: {{position}} at {{company}} - {{date}}\n\nInterviewer: {{interviewer_name}}\nKey Discussion Points:\n- Technical Requirements: {{tech_requirements}}\n- Team Structure: {{team_info}}\n- Company Culture: {{culture_notes}}\n\nNext Steps:\n{{action_items}}'
+),
+(
+    gen_random_uuid(),
+    'Client Meeting - Project Review',
+    'Template for client project review meetings',
+    'meeting',
+    true,
+    true,
+    '["Review project progress", "Address any blockers", "Discuss timeline adjustments", "Confirm next deliverables"]'::jsonb,
+    'Keep the meeting focused on project status, deliverables, and any issues that need resolution. Document decisions clearly.',
+    'Project Review: {{project_name}} - {{date}}\n\nAttendees: {{attendees}}\nProgress Update:\n{{progress_summary}}\n\nDecisions Made:\n{{decisions}}\n\nAction Items:\n{{action_items}}\n\nNext Meeting: {{next_meeting_date}}'
+);
+
+-- =============================================================================
+-- COMPLETION MESSAGE
+-- =============================================================================
+
+-- Display completion message
+DO $$
+BEGIN
+    RAISE NOTICE 'LiveConvo database schema setup completed successfully!';
+    RAISE NOTICE 'Tables created: users, conversation_chains, sessions, documents, transcripts, guidance, summaries, templates, plans, subscriptions, usage_records, user_app_sessions, system_logs';
+    RAISE NOTICE 'Row Level Security (RLS) enabled with appropriate policies';
+    RAISE NOTICE 'Updated_at triggers configured';
+    RAISE NOTICE 'Default plans inserted: Free Tier, Pro Plan, Team Plan';
+    RAISE NOTICE 'System templates inserted: Sales Discovery, Technical Interview, Project Review';
+    RAISE NOTICE 'Ready for LiveConvo application deployment!';
+END $$; 
