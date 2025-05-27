@@ -8,6 +8,7 @@ interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   children: React.ReactNode;
   variant?: 'primary' | 'secondary' | 'ghost' | 'outline' | 'destructive' | 'link';
   size?: 'sm' | 'md' | 'lg';
+  loading?: boolean;
 }
 
 export const Button: React.FC<ButtonProps> = ({ 
@@ -16,6 +17,7 @@ export const Button: React.FC<ButtonProps> = ({
   variant = 'primary',
   size = 'md',
   disabled,
+  loading = false,
   ...props 
 }) => {
   const variants = {
@@ -39,13 +41,20 @@ export const Button: React.FC<ButtonProps> = ({
         'inline-flex items-center justify-center font-medium rounded-lg border transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2',
         variants[variant],
         sizes[size],
-        disabled && 'opacity-50 cursor-not-allowed',
+        (disabled || loading) && 'opacity-50 cursor-not-allowed',
         className
       )}
-      disabled={disabled}
+      disabled={disabled || loading}
       {...props}
     >
-      {children}
+      {loading ? (
+        <div className="flex items-center gap-2">
+          <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
+          {children}
+        </div>
+      ) : (
+        children
+      )}
     </button>
   );
 };
