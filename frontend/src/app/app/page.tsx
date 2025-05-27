@@ -51,12 +51,13 @@ import { useAIGuidance, ContextDocument, GuidanceRequest } from '@/lib/aiGuidanc
 import { useTranscription } from '@/lib/useTranscription';
 import { useRealtimeSummary, ConversationSummary } from '@/lib/useRealtimeSummary';
 import { cn } from '@/lib/utils';
+import { updateTalkStats, TalkStats } from '@/lib/transcriptUtils';
 
 interface TranscriptLine {
   id: string;
   text: string;
   timestamp: Date;
-  speaker?: string;
+  speaker: 'ME' | 'THEM';
   confidence?: number;
 }
 
@@ -88,6 +89,7 @@ export default function App() {
   const [transcript, setTranscript] = useState<TranscriptLine[]>([]);
   const [guidanceList, setGuidanceList] = useState<Guidance[]>([]);
   const [sessionDuration, setSessionDuration] = useState(0);
+  const [talkStats, setTalkStats] = useState<TalkStats>({ meWords: 0, themWords: 0 });
   const [conversationType, setConversationType] = useState<'sales' | 'support' | 'meeting' | 'interview'>('sales');
   const [conversationTitle, setConversationTitle] = useState('New Conversation');
   const [textContext, setTextContext] = useState('');
@@ -126,15 +128,26 @@ export default function App() {
     { type: 'warn', message: "Be mindful of the time, we have 10 minutes left.", confidence: 90 },
   ];
 
-  // Realtime transcription hook
+  // Realtime transcription hooks for local (ME) and remote (THEM) audio
   const {
-    transcript: liveTranscript,
-    connect,
-    startRecording: startRealtimeRecording,
-    stopRecording: stopRealtimeRecording,
-    disconnect
+    transcript: myLiveTranscript,
+    connect: connectMy,
+    startRecording: startMyRecording,
+    stopRecording: stopMyRecording,
+    disconnect: disconnectMy
   } = useTranscription();
-  const lastTranscriptLen = useRef(0);
+
+  const {
+    transcript: theirLiveTranscript,
+    connect: connectThem,
+    startRecording: startThemRecording,
+    stopRecording: stopThemRecording,
+    disconnect: disconnectThem,
+    setCustomAudioStream: setThemAudioStream
+  } = useTranscription();
+
+  const lastMyTranscriptLen = useRef(0);
+  const lastTheirTranscriptLen = useRef(0);
   const lastGuidanceIndex = useRef(0);
 
   // Real-time summary hook
@@ -155,14 +168,24 @@ export default function App() {
   });
 
   useEffect(() => {
-    if (liveTranscript.length > lastTranscriptLen.current) {
-      const newSeg = liveTranscript.slice(lastTranscriptLen.current).trim();
+    if (myLiveTranscript.length > lastMyTranscriptLen.current) {
+      const newSeg = myLiveTranscript.slice(lastMyTranscriptLen.current).trim();
       if (newSeg) {
-        handleLiveTranscript(newSeg);
+        handleLiveTranscript(newSeg, 'ME');
       }
-      lastTranscriptLen.current = liveTranscript.length;
+      lastMyTranscriptLen.current = myLiveTranscript.length;
     }
-  }, [liveTranscript]);
+  }, [myLiveTranscript]);
+
+  useEffect(() => {
+    if (theirLiveTranscript.length > lastTheirTranscriptLen.current) {
+      const newSeg = theirLiveTranscript.slice(lastTheirTranscriptLen.current).trim();
+      if (newSeg) {
+        handleLiveTranscript(newSeg, 'THEM');
+      }
+      lastTheirTranscriptLen.current = theirLiveTranscript.length;
+    }
+  }, [theirLiveTranscript]);
 
   // Keep refs in sync with latest transcript and text context
   useEffect(() => {
@@ -300,20 +323,19 @@ export default function App() {
     }
   }, [transcript, textContext, conversationType, generateGuidance, conversationState, demoGuidances]);
 
-  // Auto-generate guidance when transcript has two new lines
+  // Auto-generate guidance when there are two new lines and the last speaker was THEM
   useEffect(() => {
     if (!autoGuidance || conversationState !== 'recording') return;
 
-    if (transcript.length - lastGuidanceIndex.current >= 2) {
+    if (transcript.length - lastGuidanceIndex.current >= 2 && transcript[transcript.length - 1]?.speaker === 'THEM') {
       console.log(`Auto-generating guidance: transcript length = ${transcript.length}`);
       lastGuidanceIndex.current = transcript.length;
-      
-      // Call handleGenerateGuidance with a timeout to prevent immediate re-triggers
+
       setTimeout(() => {
         handleGenerateGuidance();
       }, 100);
     }
-  }, [transcript.length, autoGuidance, conversationState, handleGenerateGuidance]);
+  }, [transcript, autoGuidance, conversationState, handleGenerateGuidance]);
 
   // Auto-generate guidance at regular time intervals
   useEffect(() => {
@@ -322,7 +344,7 @@ export default function App() {
     console.log('Setting up guidance interval timer');
     const interval = setInterval(async () => {
       console.log(`Guidance interval triggered: transcript length = ${latestTranscript.current.length}`);
-      if (latestTranscript.current.length > 0 || latestTextContext.current) {
+      if ((latestTranscript.current.length > 0 || latestTextContext.current) && latestTranscript.current[latestTranscript.current.length - 1]?.speaker === 'THEM') {
         // Inline guidance generation to avoid dependency issues
         try {
           setConversationState('processing');
@@ -370,19 +392,33 @@ export default function App() {
   // Other Event Handlers
   const handleStartRecording = async () => {
     try {
-      setConversationState('processing'); // Show processing state
-      
-      // Connect first and wait for it to complete
-      console.log('🔄 Connecting to transcription service...');
-      await connect();
-      
-      // Small delay to ensure connection is fully established
+      setConversationState('processing');
+
+      console.log('🔄 Connecting to transcription services...');
+
+      // Capture system audio for remote speaker
+      let systemStream: MediaStream | null = null;
+      if (navigator.mediaDevices && (navigator.mediaDevices as any).getDisplayMedia) {
+        try {
+          const displayStream = await (navigator.mediaDevices as any).getDisplayMedia({ audio: true, video: true });
+          systemStream = new MediaStream(displayStream.getAudioTracks());
+          // Stop video tracks immediately
+          displayStream.getVideoTracks().forEach(t => t.stop());
+        } catch (err) {
+          console.warn('System audio capture failed', err);
+        }
+      }
+
+      if (systemStream) {
+        setThemAudioStream(systemStream);
+      }
+
+      await Promise.all([connectMy(), connectThem()]);
+
       await new Promise(resolve => setTimeout(resolve, 200));
-      
-      // Start recording
-      console.log('🎤 Starting recording...');
-      await startRealtimeRecording();
-      
+
+      await Promise.all([startMyRecording(), startThemRecording()]);
+
       setConversationState('recording');
       setSessionDuration(0);
       if (transcript.length > 0 && conversationState !== 'paused') {
@@ -398,8 +434,10 @@ export default function App() {
   };
 
   const handleStopRecording = () => {
-    stopRealtimeRecording();
-    disconnect();
+    stopMyRecording();
+    stopThemRecording();
+    disconnectMy();
+    disconnectThem();
     setConversationState('completed');
   };
 
@@ -411,17 +449,21 @@ export default function App() {
     setConversationState('recording');
   };
 
-  const handleLiveTranscript = (newTranscriptText: string, speaker?: string) => {
-    if (newTranscriptText && newTranscriptText.trim().length > 0) { // Min length 1
-        const newLine: TranscriptLine = {
-          id: Math.random().toString(36).substring(7),
-          text: newTranscriptText.trim(),
-          timestamp: new Date(),
-        // No speaker assignment since we can't reliably identify speakers with current setup
-        confidence: 0.85 + Math.random() * 0.15 // Random confidence
-        };
-        setTranscript(prev => [...prev, newLine]);
+  const handleLiveTranscript = (newTranscriptText: string, speaker: 'ME' | 'THEM') => {
+    if (newTranscriptText && newTranscriptText.trim().length > 0) {
+      const newLine: TranscriptLine = {
+        id: Math.random().toString(36).substring(7),
+        text: newTranscriptText.trim(),
+        timestamp: new Date(),
+        speaker,
+        confidence: 0.85 + Math.random() * 0.15
+      };
+      setTranscript(prev => [...prev, newLine]);
+      setTalkStats(prev => updateTalkStats(prev, speaker, newTranscriptText));
+      if (speaker === 'THEM') {
+        handleGenerateGuidance();
       }
+    }
   };
 
   const handleFileUpload = (newFiles: File[]) => {
@@ -889,7 +931,8 @@ export default function App() {
                                 transition={{ type: "spring", stiffness: 300, damping: 25 }}
                                 className="p-3 rounded-lg border-l-4 text-sm bg-gray-50 border-gray-300 text-gray-800"
                               >
-                                <div className="flex items-center justify-end mb-0.5 text-xs">
+                                <div className="flex items-center justify-between mb-0.5 text-xs">
+                                  <span className="font-medium text-gray-600">{line.speaker}</span>
                                   <span className="text-gray-500">{line.timestamp.toLocaleTimeString([], { hour: '2-digit', minute:'2-digit'})}</span>
                                 </div>
                                 <p className="leading-relaxed">{line.text}</p>
@@ -1107,7 +1150,7 @@ export default function App() {
               </div>
               <h2 className="text-3xl font-bold text-gray-800 mb-3">Session Complete!</h2>
               <p className="text-gray-600 mb-8 text-lg">
-                Duration: {formatDuration(sessionDuration)} • Transcript Lines: {transcript.length}
+                Duration: {formatDuration(sessionDuration)} • Transcript Lines: {transcript.length} • Talk Ratio: {talkStats.meWords + talkStats.themWords > 0 ? Math.round((talkStats.meWords / (talkStats.meWords + talkStats.themWords)) * 100) : 0}% Me
               </p>
               <div className="flex gap-4 justify-center">
                 <MainActionButton />
