@@ -15,8 +15,7 @@ Transform how knowledge workers prepare for and conduct critical conversations b
 - **Live Audio Capture**: Browser-based microphone integration via WebRTC
 - **Real-time Guidance**: AI-powered suggestion chips with <2s latency
 - **Smart Transcription**: Real-time speech-to-text with Deepgram Nova-3 streaming API (default) or OpenAI Realtime API
-- **Intelligent Summary System**: Multi-layered summary generation for single sessions and conversation chains
-- **Conversation Continuity**: Continue previous conversations with full context awareness
+- **Intelligent Summary System**: Comprehensive summary generation for individual sessions
 - **Email Export**: One-click sharing of meeting summaries
 - **Analytics Dashboard**: Talk time ratios and conversation insights
 
@@ -35,22 +34,16 @@ Transform how knowledge workers prepare for and conduct critical conversations b
 - **Export Options**: PDF, Word, Text, and JSON formats with customizable content
 - **Quick Stats**: Audio quality, transcription accuracy, participant count, and metadata
 
-### 🔗 Conversation Chain Management
-- **Multi-Session Conversations**: Link related sessions into conversation chains
-- **Contextual Summaries**: Each new session builds on previous conversation history
-- **Progress Tracking**: Monitor evolution and progress across multiple sessions
-- **Smart Context Windows**: Automatically includes relevant context from previous sessions (configurable 1-5 sessions)
-- **Chain Summaries**: Periodic comprehensive summaries covering entire conversation arcs
-- **Action Item Continuity**: Track completion and progress of action items across sessions
+
 
 ## 🎯 Target Users
 
 | Persona | Use Case | Key Value |
 |---------|----------|-----------|
-| **SaaS Sales Reps** | Multi-call sales cycles | Track decision-makers and objections across calls |
-| **Freelance Consultants** | Project discovery & delivery | Maintain context across project phases |
-| **Job Seekers** | Interview rounds | Remember interviewer feedback and follow-ups |
-| **Account Managers** | Ongoing client relationships | Never lose conversation history or commitments |
+| **SaaS Sales Reps** | Discovery calls and demos | Get real-time guidance and structured summaries |
+| **Freelance Consultants** | Client meetings and project calls | Professional summaries and action item tracking |
+| **Job Seekers** | Interview preparation and execution | AI guidance and detailed interview summaries |
+| **Account Managers** | Client check-ins and reviews | Comprehensive meeting documentation and follow-ups |
 
 ## 🏗️ Technical Architecture
 
