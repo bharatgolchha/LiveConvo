@@ -38,6 +38,7 @@ export class DeepgramTranscriptionService {
   private eventCallbacks: ((event: TranscriptEvent) => void)[] = [];
   private audioBuffer: Float32Array[] = [];
   private bufferInterval: NodeJS.Timeout | null = null;
+  private customAudioStream: MediaStream | null = null; // Store custom audio stream
 
   constructor(config: DeepgramConfig) {
     this.config = {
@@ -49,6 +50,14 @@ export class DeepgramTranscriptionService {
       vadEvents: true,
       ...config
     };
+  }
+
+  /**
+   * Set a custom audio stream to use instead of microphone
+   */
+  setCustomAudioStream(stream: MediaStream): void {
+    console.log('🎵 Setting custom audio stream for Deepgram');
+    this.customAudioStream = stream;
   }
 
   /**
@@ -195,16 +204,23 @@ export class DeepgramTranscriptionService {
     try {
       console.log('🎤 Starting audio capture...');
       
-      // Get microphone access
-      const stream = await navigator.mediaDevices.getUserMedia({ 
-        audio: {
-          sampleRate: 16000,
-          channelCount: 1,
-          echoCancellation: true,
-          noiseSuppression: true,
-          autoGainControl: true
-        } 
-      });
+      // Use custom audio stream if available, otherwise get microphone access
+      let stream: MediaStream;
+      if (this.customAudioStream) {
+        console.log('🎵 Using custom audio stream');
+        stream = this.customAudioStream;
+      } else {
+        console.log('🎤 Getting microphone access');
+        stream = await navigator.mediaDevices.getUserMedia({ 
+          audio: {
+            sampleRate: 16000,
+            channelCount: 1,
+            echoCancellation: true,
+            noiseSuppression: true,
+            autoGainControl: true
+          } 
+        });
+      }
 
       // Set up audio context for processing
       this.audioContext = new AudioContext({ sampleRate: 16000 });
@@ -473,6 +489,11 @@ export function useDeepgramTranscription() {
     setIsRecording(false);
   }, [service]);
 
+  const setCustomAudioStream = React.useCallback((stream: MediaStream) => {
+    if (!service) return;
+    service.setCustomAudioStream(stream);
+  }, [service]);
+
   return {
     isConnected,
     isRecording,
@@ -483,6 +504,7 @@ export function useDeepgramTranscription() {
     startRecording,
     stopRecording,
     disconnect,
+    setCustomAudioStream,
     service
   };
 } 

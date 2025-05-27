@@ -103,7 +103,7 @@ export default function App() {
   const [showContextPanel, setShowContextPanel] = useState(true);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [audioEnabled, setAudioEnabled] = useState(true);
-  const [autoGuidance, setAutoGuidance] = useState(true);
+  // Auto-guidance removed - using manual button instead
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'transcript' | 'summary'>('transcript');
 
@@ -148,10 +148,10 @@ export default function App() {
 
   const lastMyTranscriptLen = useRef(0);
   const lastTheirTranscriptLen = useRef(0);
-  const lastGuidanceIndex = useRef(0);
+  // lastGuidanceIndex removed - auto-guidance no longer used
 
-  // Real-time summary hook
-  const fullTranscriptText = transcript.map(t => t.text).join('\n');
+  // Real-time summary hook - include speaker tags for better context
+  const fullTranscriptText = transcript.map(t => `${t.speaker}: ${t.text}`).join('\n');
   const {
     summary,
     isLoading: isSummaryLoading,
@@ -277,7 +277,7 @@ export default function App() {
     setConversationState('processing');
     
     try {
-      const recentTranscript = transcript.slice(-5).map(t => t.text).join('\n');
+      const recentTranscript = transcript.slice(-5).map(t => `${t.speaker}: ${t.text}`).join('\n');
       
       const guidanceRequest: GuidanceRequest = {
         transcript: recentTranscript,
@@ -323,71 +323,7 @@ export default function App() {
     }
   }, [transcript, textContext, conversationType, generateGuidance, conversationState, demoGuidances]);
 
-  // Auto-generate guidance when there are two new lines and the last speaker was THEM
-  useEffect(() => {
-    if (!autoGuidance || conversationState !== 'recording') return;
-
-    if (transcript.length - lastGuidanceIndex.current >= 2 && transcript[transcript.length - 1]?.speaker === 'THEM') {
-      console.log(`Auto-generating guidance: transcript length = ${transcript.length}`);
-      lastGuidanceIndex.current = transcript.length;
-
-      setTimeout(() => {
-        handleGenerateGuidance();
-      }, 100);
-    }
-  }, [transcript, autoGuidance, conversationState, handleGenerateGuidance]);
-
-  // Auto-generate guidance at regular time intervals
-  useEffect(() => {
-    if (!autoGuidance || conversationState !== 'recording') return;
-
-    console.log('Setting up guidance interval timer');
-    const interval = setInterval(async () => {
-      console.log(`Guidance interval triggered: transcript length = ${latestTranscript.current.length}`);
-      if ((latestTranscript.current.length > 0 || latestTextContext.current) && latestTranscript.current[latestTranscript.current.length - 1]?.speaker === 'THEM') {
-        // Inline guidance generation to avoid dependency issues
-        try {
-          setConversationState('processing');
-          
-          const recentTranscript = latestTranscript.current.slice(-5).map(t => t.text).join('\n');
-          
-          const guidanceRequest: GuidanceRequest = {
-            transcript: recentTranscript,
-            context: latestTextContext.current,
-            conversationType: conversationType,
-          };
-
-          console.log('Sending guidance request (interval):', guidanceRequest);
-          const guidanceResult = await generateGuidance(guidanceRequest);
-          console.log('Received guidance result (interval):', guidanceResult);
-          
-          const guidance = Array.isArray(guidanceResult) ? guidanceResult[0] : guidanceResult;
-
-          if (guidance && guidance.message) {
-            const newGuidance: Guidance = {
-              id: Math.random().toString(36).substring(7),
-              type: guidance.type as GuidanceType,
-              message: guidance.message,
-              confidence: guidance.confidence || Math.floor(80 + Math.random() * 20),
-              timestamp: new Date(),
-              dismissed: false
-            };
-            console.log('Adding new guidance (interval):', newGuidance);
-            setGuidanceList(prev => [newGuidance, ...prev]);
-          }
-        } catch (error) {
-          console.error('Error generating guidance (interval):', error);
-        } finally {
-          setConversationState('recording');
-        }
-      }
-    }, 15000); // every 15 seconds for testing
-
-    return () => {
-      console.log('Clearing guidance interval timer');
-      clearInterval(interval);
-    };
-  }, [autoGuidance, conversationState, conversationType, generateGuidance]);
+  // Auto-guidance functionality removed - now using manual button for guidance generation
 
   // Other Event Handlers
   const handleStartRecording = async () => {
@@ -403,7 +339,7 @@ export default function App() {
           const displayStream = await (navigator.mediaDevices as any).getDisplayMedia({ audio: true, video: true });
           systemStream = new MediaStream(displayStream.getAudioTracks());
           // Stop video tracks immediately
-          displayStream.getVideoTracks().forEach(t => t.stop());
+          displayStream.getVideoTracks().forEach((track: MediaStreamTrack) => track.stop());
         } catch (err) {
           console.warn('System audio capture failed', err);
         }
@@ -460,9 +396,7 @@ export default function App() {
       };
       setTranscript(prev => [...prev, newLine]);
       setTalkStats(prev => updateTalkStats(prev, speaker, newTranscriptText));
-      if (speaker === 'THEM') {
-        handleGenerateGuidance();
-      }
+      // Auto-guidance removed - use manual button instead
     }
   };
 
@@ -772,10 +706,7 @@ export default function App() {
                 {/* Settings Toggles */}
                 <div className="pt-4 border-t border-gray-200 space-y-3">
                   <h3 className="text-md font-semibold text-gray-700">Options</h3>
-                  <label className="flex items-center justify-between cursor-pointer">
-                    <span className="text-sm text-gray-600">Auto-generate AI guidance</span>
-                    <input type="checkbox" checked={autoGuidance} onChange={(e) => setAutoGuidance(e.target.checked)} className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 h-4 w-4"/>
-                  </label>
+                  {/* Auto-guidance checkbox removed - now using manual button */}
                   <label className="flex items-center justify-between cursor-pointer">
                     <span className="text-sm text-gray-600">Enable audio feedback</span>
                     <input type="checkbox" checked={audioEnabled} onChange={(e) => setAudioEnabled(e.target.checked)} className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 h-4 w-4"/>

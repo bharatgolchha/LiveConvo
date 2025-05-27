@@ -65,13 +65,29 @@
 ### 📝 TODO Tasks
 
 #### 🔄 Recent Additions (2025-01-27)
-- [x] **Conversation Chain & Summary System Design** (2025-01-27) ✅
-  - [x] Enhanced database schema with conversation_chains table ✅
-  - [x] Updated sessions table with chain linkage and parent session references ✅
-  - [x] Enhanced summaries table with multi-session support and context tracking ✅
-  - [x] Added comprehensive summary system documentation to schema.md ✅
-  - [x] Updated README.md with conversation chain management features ✅
-  - [x] Added detailed Sprint 4 tasks for implementation ✅
+- [x] **Conversation Chain & Summary System Design** (2025-01-27) ✅ ❌ REMOVED
+  - [x] Enhanced database schema with conversation_chains table ✅ ❌ REMOVED
+  - [x] Updated sessions table with chain linkage and parent session references ✅ ❌ REMOVED
+  - [x] Enhanced summaries table with multi-session support and context tracking ✅ ❌ REMOVED
+  - [x] Added comprehensive summary system documentation to schema.md ✅ ❌ REMOVED
+  - [x] Updated README.md with conversation chain management features ✅ ❌ REMOVED
+  - [x] Added detailed Sprint 4 tasks for implementation ✅ ❌ REMOVED
+
+- [x] **Remove Conversation Chain Functionality** (2025-01-27) ✅
+  - [x] Remove conversation_chains table from database schema ✅
+  - [x] Simplify sessions table to remove chain-related fields ✅
+  - [x] Simplify summaries table to only support individual session summaries ✅
+  - [x] Update documentation to reflect unique conversation approach ✅
+  - [x] Remove any frontend components implementing conversation threading ✅
+  - [x] Update README.md to remove conversation chain references ✅
+
+- [x] **Schema Consistency & Cleanup** (2025-01-27) ✅
+  - [x] Fixed transcripts table to include Deepgram as default STT provider ✅
+  - [x] Added missing Plans table to schema.md documentation ✅
+  - [x] Fixed Subscriptions table to include plan_id foreign key reference ✅
+  - [x] Synchronized Usage Records table structure between both schema files ✅
+  - [x] Updated relationships documentation to reflect proper foreign keys ✅
+  - [x] Verified complete consistency between schema.md and supabase_schema.sql ✅
 
 #### Sprint 0: Project Foundation (Week 0)
 - [ ] **Repository Scaffolding**
@@ -186,18 +202,18 @@
   - [ ] WebSocket real-time communication
   - [ ] Caching strategies
 
-#### Sprint 4: Advanced Summary & Conversation Chain System (Week 4)
-- [ ] **Multi-Session Conversation System**
-  - [ ] Conversation chain database models and API endpoints
-  - [ ] Session linking and continuation functionality
-  - [ ] Conversation chain management UI components
-  - [ ] Session sequence tracking and ordering
+#### Sprint 4: Summary Generation & UI Polish (Week 4)
+- [ ] **Session Summary Generation Engine**
+  - [ ] Individual session summary generation (TL;DR, action items, decisions)
+  - [ ] Summary generation API endpoints and database storage
+  - [ ] Export functionality (PDF, Word, Text, JSON)
+  - [ ] Email sharing capabilities
 
-- [ ] **Enhanced Summary Generation Engine**
-  - [ ] Session-level summary generation (basic summaries)
-  - [ ] Chain-level summary generation (multi-session context)
-  - [ ] Cumulative summary generation (context-aware summaries)
-  - [ ] Action item tracking across multiple sessions
+- [ ] **UI Polish & Performance Optimization**
+  - [ ] Final UI/UX polish and responsive design
+  - [ ] Performance optimization for real-time features
+  - [ ] Error handling and user feedback improvements
+  - [ ] Comprehensive user testing and bug fixes
   - [ ] Progress tracking and evolution analysis
 
 - [ ] **Context Integration & Continuity**
@@ -327,6 +343,37 @@
 ## 🔧 Latest Fixes & Updates
 
 ### January 27, 2025 - Critical Bug Fixes
+- ✅ **Enhanced Transcript Context for AI Services**: Added speaker tags to summary and guidance generation
+  - **Improvement**: Now includes "ME:" and "THEM:" speaker tags when sending transcript to AI services
+  - **Implementation**:
+    - Updated `fullTranscriptText` for summary generation to include speaker context
+    - Updated `recentTranscript` for guidance generation to include speaker context
+    - Format: "ME: [text]" and "THEM: [text]" instead of plain text
+  - **Benefits**: AI can now understand conversation flow and provide more contextual summaries and guidance
+  - **Status**: ✅ Both summary and guidance APIs now receive speaker-tagged transcripts
+
+- ✅ **Replaced Auto-Guidance with Manual Button**: Removed automatic guidance generation in favor of on-demand button
+  - **Rationale**: Better user control and easier testing/debugging
+  - **Implementation**:
+    - Removed auto-guidance useEffect hooks (transcript-based and interval-based triggers)
+    - Removed auto-guidance trigger from `handleLiveTranscript` function
+    - Removed `autoGuidance` state variable and settings checkbox
+    - Kept existing "Get Fresh Guidance" button for manual generation
+    - Cleaned up unused variables (`lastGuidanceIndex`)
+  - **Status**: ✅ Guidance now generates only when user clicks the button
+  - **UI Location**: "Get Fresh Guidance" button appears at bottom of Guidance panel when transcript exists
+
+- ✅ **Fixed setCustomAudioStream Error in Deepgram Integration**: Resolved `TypeError: setThemAudioStream is not a function` in app page
+  - **Root Cause**: Deepgram transcription hook was missing `setCustomAudioStream` function that exists in OpenAI/WebRTC hook
+  - **Solution**: Added `setCustomAudioStream` method to `DeepgramTranscriptionService` class
+  - **Implementation**: 
+    - Added private `customAudioStream` property to store custom audio streams
+    - Implemented `setCustomAudioStream(stream: MediaStream)` method in service class
+    - Modified `startRecording()` to use custom stream if available, otherwise fallback to microphone
+    - Added `setCustomAudioStream` callback to `useDeepgramTranscription` hook return value
+  - **Status**: ✅ App page now works with both OpenAI and Deepgram providers without errors
+  - **Testing**: Verified that system audio capture (for "them" audio) now works correctly with Deepgram
+
 - ✅ **Fixed Deepgram Connection Timing Issues**: Resolved race condition where recording started before WebSocket connection was fully established
   - Updated `connect()` method to properly wait for connection events
   - Added connection timeout handling (10s) with proper error handling

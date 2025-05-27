@@ -45,41 +45,7 @@ CREATE INDEX idx_users_email ON users(email);
 CREATE INDEX idx_users_google_id ON users(google_id);
 CREATE INDEX idx_users_created_at ON users(created_at);
 
--- Conversation Chains table - manages multi-session conversations
-CREATE TABLE conversation_chains (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    
-    -- Chain Metadata
-    title VARCHAR(255) NOT NULL,
-    description TEXT,
-    conversation_type VARCHAR(50), -- 'sales_call', 'interview', 'meeting', 'consultation'
-    
-    -- Chain Status
-    status VARCHAR(20) DEFAULT 'active', -- 'active', 'completed', 'archived'
-    total_sessions INTEGER DEFAULT 0,
-    
-    -- Overall Context
-    shared_context TEXT, -- persistent context across sessions
-    participant_names JSONB, -- array of participant names
-    key_topics JSONB, -- array of key conversation topics
-    
-    -- Chain Statistics
-    total_duration_seconds INTEGER DEFAULT 0,
-    total_words_spoken INTEGER DEFAULT 0,
-    
-    -- Timestamps
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    last_session_at TIMESTAMP WITH TIME ZONE,
-    deleted_at TIMESTAMP WITH TIME ZONE
-);
 
--- Conversation Chains indexes
-CREATE INDEX idx_conversation_chains_user_id ON conversation_chains(user_id);
-CREATE INDEX idx_conversation_chains_status ON conversation_chains(status);
-CREATE INDEX idx_conversation_chains_type ON conversation_chains(conversation_type);
-CREATE INDEX idx_conversation_chains_last_session ON conversation_chains(last_session_at);
 
 -- Templates table - manages conversation templates and AI guidance cue sets
 CREATE TABLE templates (
@@ -127,10 +93,6 @@ CREATE TABLE sessions (
     conversation_type VARCHAR(50), -- 'sales_call', 'interview', 'meeting', 'consultation'
     status VARCHAR(20) DEFAULT 'draft', -- 'draft', 'active', 'completed', 'archived'
     
-    -- Conversation Chain Management
-    conversation_chain_id UUID REFERENCES conversation_chains(id),
-    parent_session_id UUID REFERENCES sessions(id), -- for direct session continuations
-    session_sequence_number INTEGER DEFAULT 1, -- order within conversation chain
     
     -- Session Configuration
     selected_template_id UUID REFERENCES templates(id),
@@ -161,8 +123,7 @@ CREATE INDEX idx_sessions_user_id ON sessions(user_id);
 CREATE INDEX idx_sessions_status ON sessions(status);
 CREATE INDEX idx_sessions_created_at ON sessions(created_at);
 CREATE INDEX idx_sessions_conversation_type ON sessions(conversation_type);
-CREATE INDEX idx_sessions_conversation_chain ON sessions(conversation_chain_id);
-CREATE INDEX idx_sessions_parent_session ON sessions(parent_session_id);
+
 
 -- Documents table - stores uploaded context files and their processed content
 CREATE TABLE documents (
@@ -266,57 +227,34 @@ CREATE INDEX idx_guidance_type ON guidance(guidance_type);
 CREATE INDEX idx_guidance_triggered_at ON guidance(triggered_at_seconds);
 CREATE INDEX idx_guidance_was_displayed ON guidance(was_displayed);
 
--- Summaries table - stores post-session summaries and action items with support for conversation chains
+-- Summaries table - stores post-session summaries and action items for individual sessions
 CREATE TABLE summaries (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    session_id UUID REFERENCES sessions(id) ON DELETE CASCADE,
-    conversation_chain_id UUID REFERENCES conversation_chains(id) ON DELETE CASCADE,
+    session_id UUID NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    
-    -- Summary Type & Scope
-    summary_type VARCHAR(20) DEFAULT 'session', -- 'session', 'chain', 'cumulative'
-    includes_previous_sessions BOOLEAN DEFAULT FALSE,
-    session_range_start INTEGER, -- first session sequence number included
-    session_range_end INTEGER, -- last session sequence number included
     
     -- Summary Content
     title VARCHAR(255),
     tldr TEXT,
-    key_decisions JSONB, -- array of decision strings with session attribution
-    action_items JSONB, -- array of action item objects with priorities and sessions
+    key_decisions JSONB, -- array of decision strings
+    action_items JSONB, -- array of action item objects with priorities
     follow_up_questions JSONB, -- array of follow-up questions
-    conversation_highlights JSONB, -- key moments across sessions
-    
-    -- Evolution Tracking
-    progress_since_last_session TEXT, -- what changed/progressed
-    new_topics_introduced JSONB, -- topics not covered in previous sessions
-    recurring_themes JSONB, -- themes that appear across multiple sessions
+    conversation_highlights JSONB, -- key moments from the session
     
     -- Full Content
     full_transcript TEXT,
     structured_notes TEXT,
-    session_comparison TEXT, -- differences/evolution from previous sessions
-    
-    -- Context Integration
-    previous_session_references JSONB, -- references to relevant previous content
-    carry_forward_items JSONB, -- action items and decisions from previous sessions
-    context_continuity_score DECIMAL(3,2), -- how well context was maintained (0-1)
     
     -- Generation Metadata
     generation_status VARCHAR(20) DEFAULT 'pending', -- 'pending', 'generating', 'completed', 'failed'
     generation_error TEXT,
     model_used VARCHAR(50), -- 'gpt-4o', 'gpt-4o-mini'
     generation_time_seconds DECIMAL(6,2),
-    context_tokens_used INTEGER, -- tokens used from previous sessions
     
     -- Export & Sharing
     export_count INTEGER DEFAULT 0,
     last_exported_at TIMESTAMP WITH TIME ZONE,
     is_marked_done BOOLEAN DEFAULT FALSE,
-    
-    -- Auto-generation Settings
-    auto_generate_chain_summary BOOLEAN DEFAULT TRUE,
-    include_session_count_in_summary INTEGER DEFAULT 3, -- how many previous sessions to include
     
     -- Timestamps
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
@@ -326,12 +264,9 @@ CREATE TABLE summaries (
 
 -- Summaries indexes
 CREATE INDEX idx_summaries_session_id ON summaries(session_id);
-CREATE INDEX idx_summaries_chain_id ON summaries(conversation_chain_id);
 CREATE INDEX idx_summaries_user_id ON summaries(user_id);
-CREATE INDEX idx_summaries_type ON summaries(summary_type);
 CREATE INDEX idx_summaries_status ON summaries(generation_status);
 CREATE INDEX idx_summaries_marked_done ON summaries(is_marked_done);
-CREATE INDEX idx_summaries_auto_generate ON summaries(auto_generate_chain_summary);
 
 -- =============================================================================
 -- BILLING & SUBSCRIPTION TABLES
@@ -357,11 +292,9 @@ CREATE TABLE plans (
     max_documents_per_session INTEGER DEFAULT 10,
     max_file_size_mb INTEGER DEFAULT 25,
     max_sessions_per_month INTEGER, -- null for unlimited
-    max_conversation_chains INTEGER, -- null for unlimited
     
     -- Feature Flags
     has_real_time_guidance BOOLEAN DEFAULT TRUE,
-    has_conversation_chains BOOLEAN DEFAULT FALSE,
     has_advanced_summaries BOOLEAN DEFAULT FALSE,
     has_export_options BOOLEAN DEFAULT FALSE,
     has_email_summaries BOOLEAN DEFAULT FALSE,
@@ -545,8 +478,7 @@ $$ language 'plpgsql';
 CREATE TRIGGER update_users_updated_at BEFORE UPDATE ON users
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
-CREATE TRIGGER update_conversation_chains_updated_at BEFORE UPDATE ON conversation_chains
-    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
 
 CREATE TRIGGER update_sessions_updated_at BEFORE UPDATE ON sessions
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
@@ -578,7 +510,7 @@ CREATE TRIGGER update_subscriptions_updated_at BEFORE UPDATE ON subscriptions
 
 -- Enable RLS on user-specific tables
 ALTER TABLE users ENABLE ROW LEVEL SECURITY;
-ALTER TABLE conversation_chains ENABLE ROW LEVEL SECURITY;
+
 ALTER TABLE sessions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE documents ENABLE ROW LEVEL SECURITY;
 ALTER TABLE transcripts ENABLE ROW LEVEL SECURITY;
@@ -596,8 +528,7 @@ ALTER TABLE plans ENABLE ROW LEVEL SECURITY;
 CREATE POLICY users_policy ON users
     FOR ALL USING (auth.uid() = id);
 
-CREATE POLICY conversation_chains_policy ON conversation_chains
-    FOR ALL USING (auth.uid() = user_id);
+
 
 CREATE POLICY sessions_policy ON sessions
     FOR ALL USING (auth.uid() = user_id);
@@ -640,7 +571,7 @@ CREATE POLICY plans_policy ON plans
 -- =============================================================================
 
 -- Insert default plans
-INSERT INTO plans (name, display_name, description, price_monthly, price_yearly, stripe_price_id_monthly, stripe_price_id_yearly, monthly_audio_hours_limit, max_documents_per_session, max_file_size_mb, max_sessions_per_month, max_conversation_chains, has_real_time_guidance, has_conversation_chains, has_advanced_summaries, has_export_options, has_email_summaries, has_api_access, has_custom_templates, has_priority_support, has_analytics_dashboard, has_team_collaboration, ai_model_access, max_guidance_requests_per_session, summary_generation_priority, is_active, is_featured, sort_order)
+INSERT INTO plans (name, display_name, description, price_monthly, price_yearly, stripe_price_id_monthly, stripe_price_id_yearly, monthly_audio_hours_limit, max_documents_per_session, max_file_size_mb, max_sessions_per_month, has_real_time_guidance, has_advanced_summaries, has_export_options, has_email_summaries, has_api_access, has_custom_templates, has_priority_support, has_analytics_dashboard, has_team_collaboration, ai_model_access, max_guidance_requests_per_session, summary_generation_priority, is_active, is_featured, sort_order)
 VALUES 
 (
     'free',
@@ -654,9 +585,7 @@ VALUES
     5, -- max 5 documents per session
     10, -- max 10MB files
     10, -- max 10 sessions per month
-    1, -- max 1 conversation chain
     true, -- has real-time guidance
-    false, -- no conversation chains
     false, -- basic summaries only
     false, -- no export options
     false, -- no email summaries
@@ -684,9 +613,7 @@ VALUES
     25, -- max 25 documents per session
     25, -- max 25MB files
     NULL, -- unlimited sessions
-    NULL, -- unlimited conversation chains
     true, -- has real-time guidance
-    true, -- has conversation chains
     true, -- has advanced summaries
     true, -- has export options
     true, -- has email summaries
@@ -714,9 +641,7 @@ VALUES
     50, -- max 50 documents per session
     100, -- max 100MB files
     NULL, -- unlimited sessions
-    NULL, -- unlimited conversation chains
     true, -- has real-time guidance
-    true, -- has conversation chains
     true, -- has advanced summaries
     true, -- has export options
     true, -- has email summaries
@@ -778,7 +703,7 @@ VALUES
 DO $$
 BEGIN
     RAISE NOTICE 'LiveConvo database schema setup completed successfully!';
-    RAISE NOTICE 'Tables created: users, conversation_chains, sessions, documents, transcripts, guidance, summaries, templates, plans, subscriptions, usage_records, user_app_sessions, system_logs';
+    RAISE NOTICE 'Tables created: users, sessions, documents, transcripts, guidance, summaries, templates, plans, subscriptions, usage_records, user_app_sessions, system_logs';
     RAISE NOTICE 'Row Level Security (RLS) enabled with appropriate policies';
     RAISE NOTICE 'Updated_at triggers configured';
     RAISE NOTICE 'Default plans inserted: Free Tier, Pro Plan, Team Plan';
