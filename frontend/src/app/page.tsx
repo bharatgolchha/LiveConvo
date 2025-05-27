@@ -7,12 +7,13 @@ import {
   FileText, 
   MessageSquare, 
   User, 
-  Crown,
   ArrowRight,
   CheckCircle,
   Zap,
   Shield,
-  Mic
+  Mic,
+  LogIn,
+  UserPlus
 } from 'lucide-react';
 
 import { Button } from '@/components/ui/Button';
@@ -32,32 +33,24 @@ export default function Home() {
             </div>
             
             <div className="flex items-center gap-4">
-              <Link href="/app">
-                <Button variant="default">
-                  <MessageSquare className="w-4 h-4 mr-2" />
-                  Launch App
-                </Button>
-              </Link>
               <Link href="/app-demo">
                 <Button variant="outline">
                   <MessageSquare className="w-4 h-4 mr-2" />
                   Try Demo
                 </Button>
               </Link>
-              <Link href="/demo">
-                <Button variant="outline">
-                  <FileText className="w-4 h-4 mr-2" />
-                  ShadCN Demo
+              <Link href="/auth/login">
+                <Button variant="ghost">
+                  <LogIn className="w-4 h-4 mr-2" />
+                  Sign In
                 </Button>
               </Link>
-              <Button variant="outline">
-                <Crown className="w-4 h-4 mr-2" />
-                Upgrade to Pro
-              </Button>
-              <Button variant="ghost">
-                <User className="w-4 h-4 mr-2" />
-                Profile
-              </Button>
+              <Link href="/auth/signup">
+                <Button variant="primary">
+                  <UserPlus className="w-4 h-4 mr-2" />
+                  Sign Up
+                </Button>
+              </Link>
             </div>
           </div>
         </div>
@@ -89,10 +82,10 @@ export default function Home() {
             transition={{ duration: 0.6, delay: 0.2 }}
             className="flex flex-col sm:flex-row gap-4 justify-center"
           >
-            <Link href="/app">
+            <Link href="/auth/signup">
               <Button size="lg" className="px-8 py-4 text-lg">
-                <Mic className="w-5 h-5 mr-2" />
-                Start Conversation
+                <UserPlus className="w-5 h-5 mr-2" />
+                Get Started Free
                 <ArrowRight className="w-5 h-5 ml-2" />
               </Button>
             </Link>
@@ -103,6 +96,15 @@ export default function Home() {
               </Button>
             </Link>
           </motion.div>
+
+          <motion.p
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.6, delay: 0.4 }}
+            className="text-sm text-gray-500"
+          >
+            No credit card required • Free trial • 5 minutes to setup
+          </motion.p>
         </div>
 
         {/* Features Grid */}
@@ -143,11 +145,11 @@ export default function Home() {
               <FileText className="w-8 h-8" />
             </div>
             <h3 className="text-xl font-semibold text-gray-900 mb-4">
-              Context Aware
+              Smart Summaries
             </h3>
             <p className="text-gray-600 leading-relaxed">
-              Upload documents and provide context to get more 
-              relevant and personalized guidance.
+              Get comprehensive summaries with action items, 
+              key points, and next steps automatically generated.
             </p>
           </Card>
         </motion.div>
@@ -172,9 +174,9 @@ export default function Home() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             {[
               { title: 'Sales Calls', icon: '💼', desc: 'Discovery, objection handling, closing' },
-              { title: 'Support', icon: '🎧', desc: 'Customer service, troubleshooting' },
-              { title: 'Meetings', icon: '👥', desc: 'Team meetings, client discussions' },
-              { title: 'Interviews', icon: '🎯', desc: 'Job interviews, candidate screening' }
+              { title: 'Customer Support', icon: '🎧', desc: 'Help customers, solve problems efficiently' },
+              { title: 'Team Meetings', icon: '👥', desc: 'Collaborate better, track decisions' },
+              { title: 'Interviews', icon: '🎯', desc: 'Structured conversations, better hiring' }
             ].map((useCase, index) => (
               <Card key={index} className="p-6 text-center hover:shadow-md transition-shadow">
                 <div className="text-3xl mb-4">{useCase.icon}</div>
@@ -218,37 +220,114 @@ export default function Home() {
           </div>
         </motion.div>
 
-        {/* CTA Section */}
+        {/* Social Proof / Stats */}
         <motion.div
           initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, delay: 1.0 }}
+          className="mt-20"
+        >
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 text-center">
+            <div>
+              <div className="text-4xl font-bold text-blue-600 mb-2">95%</div>
+              <div className="text-gray-600">Conversation Quality Improvement</div>
+            </div>
+            <div>
+              <div className="text-4xl font-bold text-blue-600 mb-2">10k+</div>
+              <div className="text-gray-600">Conversations Analyzed</div>
+            </div>
+            <div>
+              <div className="text-4xl font-bold text-blue-600 mb-2">50%</div>
+              <div className="text-gray-600">Faster Onboarding</div>
+            </div>
+          </div>
+        </motion.div>
+
+        {/* CTA Section */}
+        <motion.div
+          initial={{ opacity: 0, y: 30 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, delay: 1.2 }}
           className="mt-20 text-center bg-gradient-to-r from-blue-600 to-purple-600 rounded-2xl p-12 text-white"
         >
           <h2 className="text-3xl font-bold mb-4">
             Ready to Transform Your Conversations?
           </h2>
           <p className="text-xl opacity-90 mb-8 max-w-2xl mx-auto">
-            Experience the power of AI-guided conversations. 
-            Start your free trial today and see the difference.
+            Join thousands of professionals using AI to improve their communication. 
+            Start your free trial today.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Link href="/app">
+            <Link href="/auth/signup">
               <Button size="lg" variant="secondary" className="px-8 py-4 text-lg">
-                <Mic className="w-5 h-5 mr-2" />
-                Launch App
+                <UserPlus className="w-5 h-5 mr-2" />
+                Get Started Free
                 <ArrowRight className="w-5 h-5 ml-2" />
               </Button>
             </Link>
             <Link href="/app-demo">
               <Button size="lg" variant="outline" className="px-8 py-4 text-lg border-white text-white hover:bg-white hover:text-blue-600">
                 <MessageSquare className="w-5 h-5 mr-2" />
-                Try Demo
+                Watch Demo
               </Button>
             </Link>
           </div>
+          <p className="text-sm opacity-80 mt-4">
+            No credit card required • Setup in 5 minutes
+          </p>
         </motion.div>
       </main>
+
+      {/* Footer */}
+      <footer className="bg-gray-900 text-white py-12 mt-20">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
+            <div>
+              <div className="flex items-center gap-2 mb-4">
+                <Brain className="w-6 h-6 text-blue-400" />
+                <span className="text-lg font-bold">LiveConvo</span>
+              </div>
+              <p className="text-gray-400 text-sm">
+                AI-powered conversation intelligence for professionals.
+              </p>
+            </div>
+            
+            <div>
+              <h4 className="font-semibold mb-4">Product</h4>
+              <ul className="space-y-2 text-sm text-gray-400">
+                <li><Link href="/app-demo" className="hover:text-white">Demo</Link></li>
+                <li><Link href="/auth/signup" className="hover:text-white">Get Started</Link></li>
+                <li><a href="#" className="hover:text-white">Pricing</a></li>
+                <li><a href="#" className="hover:text-white">Features</a></li>
+              </ul>
+            </div>
+            
+            <div>
+              <h4 className="font-semibold mb-4">Company</h4>
+              <ul className="space-y-2 text-sm text-gray-400">
+                <li><a href="#" className="hover:text-white">About</a></li>
+                <li><a href="#" className="hover:text-white">Blog</a></li>
+                <li><a href="#" className="hover:text-white">Careers</a></li>
+                <li><a href="#" className="hover:text-white">Contact</a></li>
+              </ul>
+            </div>
+            
+            <div>
+              <h4 className="font-semibold mb-4">Support</h4>
+              <ul className="space-y-2 text-sm text-gray-400">
+                <li><a href="#" className="hover:text-white">Help Center</a></li>
+                <li><a href="#" className="hover:text-white">Documentation</a></li>
+                <li><a href="#" className="hover:text-white">Privacy Policy</a></li>
+                <li><a href="#" className="hover:text-white">Terms of Service</a></li>
+              </ul>
+            </div>
+          </div>
+          
+          <div className="border-t border-gray-800 mt-8 pt-8 text-center text-sm text-gray-400">
+            © 2024 LiveConvo. All rights reserved.
+          </div>
+        </div>
+      </footer>
     </div>
   );
 }

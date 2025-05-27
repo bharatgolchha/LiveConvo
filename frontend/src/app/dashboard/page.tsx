@@ -12,10 +12,14 @@ import {
   Cog6ToothIcon,
   UserCircleIcon,
   DocumentTextIcon,
-  ArchiveBoxIcon
+  ArchiveBoxIcon,
+  ArrowRightOnRectangleIcon,
+  ChevronDownIcon
 } from '@heroicons/react/24/outline';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
+import ProtectedRoute from '@/components/auth/ProtectedRoute';
+import { useAuth } from '@/contexts/AuthContext';
 
 // Types
 interface Session {
@@ -43,7 +47,7 @@ interface UsageStats {
   completedSessions: number;
 }
 
-// Mock data for demonstration
+// Mock data for demonstration - will be replaced with real user data from auth
 const mockUser: User = {
   name: 'John Doe',
   email: 'john@example.com',
@@ -131,6 +135,31 @@ const mockUsageStats: UsageStats = {
 // Components
 const DashboardHeader: React.FC<{ user: User; onSearch: (query: string) => void }> = ({ user, onSearch }) => {
   const [searchQuery, setSearchQuery] = useState('');
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const { signOut } = useAuth();
+
+  const handleLogout = async () => {
+    const { error } = await signOut();
+    if (error) {
+      console.error('Logout error:', error);
+    }
+    // The ProtectedRoute component will handle the redirect
+  };
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as HTMLElement;
+      if (!target.closest('.user-menu-container')) {
+        setUserMenuOpen(false);
+      }
+    };
+
+    if (userMenuOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
+    }
+  }, [userMenuOpen]);
 
   return (
     <motion.header 
@@ -175,12 +204,56 @@ const DashboardHeader: React.FC<{ user: User; onSearch: (query: string) => void 
           </button>
 
           {/* User Menu */}
-          <div className="flex items-center space-x-2">
-            <UserCircleIcon className="w-8 h-8 text-gray-400" />
-            <div className="hidden sm:block">
-              <p className="text-sm font-medium text-gray-900">{user.name}</p>
-              <p className="text-xs text-gray-500 capitalize">{user.plan} Plan</p>
-            </div>
+          <div className="relative user-menu-container">
+            <button
+              onClick={() => setUserMenuOpen(!userMenuOpen)}
+              className="flex items-center space-x-2 p-2 rounded-lg hover:bg-gray-100 transition-colors"
+            >
+              <UserCircleIcon className="w-8 h-8 text-gray-400" />
+              <div className="hidden sm:block text-left">
+                <p className="text-sm font-medium text-gray-900">{user.name}</p>
+                <p className="text-xs text-gray-500 capitalize">{user.plan} Plan</p>
+              </div>
+              <ChevronDownIcon className="w-4 h-4 text-gray-400" />
+            </button>
+
+            {/* Dropdown Menu */}
+            <AnimatePresence>
+              {userMenuOpen && (
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.95, y: -10 }}
+                  animate={{ opacity: 1, scale: 1, y: 0 }}
+                  exit={{ opacity: 0, scale: 0.95, y: -10 }}
+                  transition={{ duration: 0.1 }}
+                  className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50"
+                >
+                  <div className="px-4 py-2 border-b border-gray-100">
+                    <p className="text-sm font-medium text-gray-900">{user.name}</p>
+                    <p className="text-xs text-gray-500">{user.email}</p>
+                  </div>
+                  
+                  <button className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center space-x-2">
+                    <Cog6ToothIcon className="w-4 h-4" />
+                    <span>Settings</span>
+                  </button>
+                  
+                  <button className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center space-x-2">
+                    <UserCircleIcon className="w-4 h-4" />
+                    <span>Profile</span>
+                  </button>
+                  
+                  <div className="border-t border-gray-100 mt-1 pt-1">
+                    <button
+                      onClick={handleLogout}
+                      className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center space-x-2"
+                    >
+                      <ArrowRightOnRectangleIcon className="w-4 h-4" />
+                      <span>Sign Out</span>
+                    </button>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
         </div>
       </div>
@@ -1018,12 +1091,20 @@ const ContextUploadWidget: React.FC<{
 
 // Main Dashboard Component
 const DashboardPage: React.FC = () => {
+  const { user } = useAuth();
   const [sessions, setSessions] = useState<Session[]>(mockSessions);
   const [filteredSessions, setFilteredSessions] = useState<Session[]>(mockSessions);
   const [activePath, setActivePath] = useState('conversations');
   const [showNewConversationModal, setShowNewConversationModal] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedSessions, setSelectedSessions] = useState<Set<string>>(new Set());
+
+  // Create user object from auth data
+  const currentUser: User = {
+    name: user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'User',
+    email: user?.email || '',
+    plan: 'free' // TODO: Get actual plan from subscription
+  };
 
   // Filter sessions based on search query
   useEffect(() => {
@@ -1145,7 +1226,7 @@ const DashboardPage: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50">
-      <DashboardHeader user={mockUser} onSearch={handleSearch} />
+      <DashboardHeader user={currentUser} onSearch={handleSearch} />
       
       <div className="flex h-[calc(100vh-80px)]">
         <DashboardSidebar 
@@ -1165,7 +1246,7 @@ const DashboardPage: React.FC = () => {
               >
                 <div className="flex items-center justify-between">
                   <div>
-                    <h1 className="text-2xl font-bold mb-2">Welcome back, {mockUser.name}!</h1>
+                    <h1 className="text-2xl font-bold mb-2">Welcome back, {currentUser.name}!</h1>
                     <p className="text-blue-100">
                       {activeSessions.length > 0 
                         ? `You have ${activeSessions.length} active conversation${activeSessions.length === 1 ? '' : 's'}`
@@ -1321,4 +1402,10 @@ const DashboardPage: React.FC = () => {
   );
 };
 
-export default DashboardPage; 
+const ProtectedDashboard = () => (
+  <ProtectedRoute>
+    <DashboardPage />
+  </ProtectedRoute>
+);
+
+export default ProtectedDashboard; 
