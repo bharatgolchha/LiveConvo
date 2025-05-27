@@ -2,7 +2,7 @@
 
 ## Environment Variables
 
-To enable authentication, add these variables to your `.env.local` file:
+To enable authentication, add these variables to your `frontend/.env.local` file:
 
 ```bash
 # Supabase Configuration (Required for Authentication)
@@ -25,7 +25,7 @@ DEEPGRAM_API_KEY=your_deepgram_api_key
    - In Supabase Dashboard: Authentication > Providers
    - Enable Google provider
    - Add your Google OAuth credentials
-   - Set redirect URL to: `http://localhost:3004/auth/callback` (for development)
+   - Set redirect URL to: `http://localhost:3000/auth/callback` (for development)
 
 3. **Database Schema**
    - The authentication system uses Supabase's built-in auth tables
@@ -59,7 +59,7 @@ DEEPGRAM_API_KEY=your_deepgram_api_key
 
 ## Next Steps
 
-1. Add your Supabase credentials to `.env.local`
+1. Add your Supabase credentials to `frontend/.env.local`
 2. Test the authentication flow
 3. Customize the redirect URLs for your production domain
 4. Add additional user profile fields as needed 
