@@ -716,7 +716,7 @@ CREATE POLICY organizations_policy ON organizations
 
 CREATE POLICY organization_members_policy ON organization_members
     FOR ALL USING (
-        is_active_org_member(auth.uid(), organization_id)
+        user_id = auth.uid() AND status = 'active'
     );
 
 CREATE POLICY organization_invitations_policy ON organization_invitations
@@ -730,8 +730,18 @@ CREATE POLICY organization_invitations_policy ON organization_invitations
     );
 
 -- Users can only access their own data
+-- Allow authenticated users to insert their own record and access their own data
 CREATE POLICY users_policy ON users
-    FOR ALL USING (auth.uid() = id);
+    FOR SELECT USING (auth.uid() = id);
+
+CREATE POLICY users_insert_policy ON users
+    FOR INSERT WITH CHECK (auth.uid() = id);
+
+CREATE POLICY users_update_policy ON users
+    FOR UPDATE USING (auth.uid() = id) WITH CHECK (auth.uid() = id);
+
+CREATE POLICY users_delete_policy ON users
+    FOR DELETE USING (auth.uid() = id);
 
 
 
