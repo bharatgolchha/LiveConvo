@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Send, 
@@ -10,12 +10,12 @@ import {
   MessageCircle, 
   Sparkles,
   ThumbsUp,
-  Clock,
   Zap,
   Target,
   CheckCircle,
   ArrowRight,
-  MoreHorizontal
+  MoreHorizontal,
+  ChevronUp
 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { cn } from '@/lib/utils';
@@ -196,34 +196,6 @@ export const ChatGuidance: React.FC<ChatGuidanceProps> = ({
 
   return (
     <div className="h-full flex flex-col bg-gradient-to-b from-gray-50 to-white">
-      {/* Chat Header */}
-      <div className="flex-shrink-0 p-4 border-b border-gray-200 bg-white/80 backdrop-blur-sm">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center shadow-md">
-              <Sparkles className="w-5 h-5 text-white" />
-            </div>
-            <div>
-              <h3 className="font-semibold text-gray-800">AI Coach</h3>
-              <p className="text-xs text-gray-500">
-                {isLoading ? 'Thinking...' : 'Ready to help'}
-              </p>
-            </div>
-          </div>
-          
-          <div className="flex items-center gap-1">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setShowQuickActions(!showQuickActions)}
-              className="h-8 w-8 p-1"
-            >
-              <Zap className="w-4 h-4" />
-            </Button>
-          </div>
-        </div>
-      </div>
-
       {/* Quick Actions */}
       <AnimatePresence>
         {showQuickActions && (
@@ -248,9 +220,35 @@ export const ChatGuidance: React.FC<ChatGuidanceProps> = ({
                 </button>
               ))}
             </div>
+            <div className="flex justify-center mt-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowQuickActions(false)}
+                className="h-6 text-xs text-gray-500 hover:text-gray-700"
+              >
+                <ChevronUp className="w-3 h-3 mr-1" />
+                Hide
+              </Button>
+            </div>
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Show Quick Actions Button (when hidden) */}
+      {!showQuickActions && (
+        <div className="flex-shrink-0 p-2 bg-white border-b border-gray-100 flex justify-center">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setShowQuickActions(true)}
+            className="h-6 text-xs text-gray-500 hover:text-gray-700"
+          >
+            <Zap className="w-3 h-3 mr-1" />
+            Quick Actions
+          </Button>
+        </div>
+      )}
 
       {/* Messages */}
       <div className="flex-1 overflow-y-auto p-4 space-y-0 scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-transparent">

@@ -7,22 +7,15 @@ import {
   Brain, 
   MessageSquare,
   User, 
-  Settings,
   Bell,
   ArrowLeft,
   Mic,
-  MicOff,
   Square,
   Play,
   FileText,
   Users,
   Clock,
   Lightbulb,
-  ChevronRight,
-  ChevronDown,
-  MoreVertical,
-  Download,
-  Save,
   Trash2,
   Volume2,
   VolumeX,
@@ -42,13 +35,12 @@ import {
   ArrowRight,
   Hash,
   Clock3,
-  MapPin,
   Target,
   MessageCircle,
   Handshake,
   ShieldCheck,
   Quote,
-  Sparkles
+  Download
 } from 'lucide-react';
 
 import { Button } from '@/components/ui/Button';
@@ -61,7 +53,8 @@ import { useIncrementalTimeline, TimelineEvent } from '@/lib/useIncrementalTimel
 import { useChatGuidance } from '@/lib/useChatGuidance';
 import { cn } from '@/lib/utils';
 import { updateTalkStats, TalkStats } from '@/lib/transcriptUtils';
-import { ChatGuidance } from '@/components/guidance/ChatGuidance';
+import { FloatingChatGuidance } from '@/components/guidance/FloatingChatGuidance';
+import { CompactTimeline } from '@/components/timeline/CompactTimeline';
 
 interface TranscriptLine {
   id: string;
@@ -701,7 +694,7 @@ export default function App() {
               animate={{ width: 384, opacity: 1, paddingLeft: '1rem', paddingRight: '1rem' }} // 96 in Tailwind is 24rem or 384px
               exit={{ width: 0, opacity: 0, padding: 0 }}
               transition={{ type: "spring", stiffness: 300, damping: 30 }}
-              className="bg-white border-r border-gray-200 flex flex-col shadow-lg z-30 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100"
+              className="bg-white border-r border-gray-200 flex flex-col shadow-lg z-30 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100 h-full"
             >
               <div className="p-4 pt-5 border-b border-gray-100 sticky top-0 bg-white z-10">
                 <div className="flex items-center justify-between">
@@ -815,7 +808,7 @@ export default function App() {
         </AnimatePresence>
 
         {/* Main Conversation Area */}
-        <div className="flex-1 flex flex-col relative p-4 sm:p-6 lg:p-8 overflow-hidden h-full">
+        <div className="flex-1 flex flex-col relative overflow-hidden h-full max-h-full">
           
           {!showContextPanel && !isFullscreen && (
             <Button onClick={() => setShowContextPanel(true)} variant="outline" size="sm" className="absolute top-4 left-4 z-20 bg-white shadow hover:bg-gray-50">
@@ -837,7 +830,7 @@ export default function App() {
           )}
 
           {/* State-based Interface Views */}
-          {conversationState === 'setup' && (
+          <div className="flex-1 overflow-hidden h-full max-h-full p-4 sm:p-6 lg:p-8">{conversationState === 'setup' && (
             <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="m-auto text-center max-w-lg p-8 bg-white rounded-xl shadow-2xl">
               <div className="w-24 h-24 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-6 ring-4 ring-blue-200">
                 <Settings2 className="w-12 h-12 text-blue-600" />
@@ -864,7 +857,7 @@ export default function App() {
           )}
 
           {(conversationState === 'recording' || conversationState === 'paused' || conversationState === 'processing') && (
-            <div className="flex-1 flex flex-col min-h-0 h-full">
+            <div className="h-full max-h-full flex flex-col overflow-hidden">
               {/* Floating Controls for Recording/Paused State */}
               <motion.div 
                 initial={{ opacity: 0, y: -20 }} 
@@ -933,9 +926,9 @@ export default function App() {
               </motion.div>
 
               {/* Transcript & Guidance Layout */}
-              <div className="flex flex-col md:flex-row gap-6 flex-1 min-h-0 h-full max-h-full overflow-hidden">
-                {/* Transcript/Summary Column */}
-                <Card className="flex-1 md:flex-[2] flex flex-col h-full min-h-0 max-h-full shadow-lg">
+              <div className="flex-1 h-full max-h-full overflow-hidden">
+                {/* Single Transcript/Summary Column - Now Full Width */}
+                <Card className="w-full h-full max-h-full flex flex-col shadow-lg overflow-hidden">
                   <CardHeader className="border-b bg-gray-50 rounded-t-lg flex-shrink-0">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-4">
@@ -997,11 +990,11 @@ export default function App() {
                       )}
                     </div>
                   </CardHeader>
-                  <CardContent className="p-4 flex-1 overflow-hidden min-h-0 max-h-full">
+                  <CardContent className="p-4 flex-1 overflow-hidden h-full max-h-full">
                     
                     {/* Transcript Tab */}
                     {activeTab === 'transcript' && (
-                      <div className="h-full flex flex-col">
+                      <div className="h-full max-h-full flex flex-col overflow-hidden">
                         {transcript.length === 0 ? (
                           <div className="flex items-center justify-center h-full text-gray-500">
                             <div className="text-center">
@@ -1012,7 +1005,7 @@ export default function App() {
                             </div>
                           </div>
                         ) : (
-                          <div className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100 space-y-3 pr-2">
+                          <div className="flex-1 h-full max-h-full overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100 space-y-3 pr-2">
                             <AnimatePresence initial={false}>
                               {transcript.map((line) => (
                                 <motion.div
@@ -1040,9 +1033,9 @@ export default function App() {
 
                     {/* Summary Tab */}
                     {activeTab === 'summary' && (
-                      <div className="h-full flex flex-col">
+                      <div className="h-full max-h-full flex flex-col overflow-hidden">
                         {summaryError && (
-                          <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-red-700 text-sm mb-4">
+                          <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-red-700 text-sm mb-4 flex-shrink-0">
                             <div className="flex items-center gap-2 mb-1">
                               <XCircle className="w-4 h-4" />
                               <span className="font-medium">Summary Error</span>
@@ -1071,27 +1064,27 @@ export default function App() {
                         )}
 
                         {summary && (
-                          <div className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100 space-y-4 pr-2">
-                            {/* TL;DR Section */}
-                            <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
-                              <h3 className="font-semibold text-amber-800 mb-2 flex items-center gap-2">
+                          <div className="flex-1 h-full max-h-full overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100 space-y-4 pr-2">
+                            {/* TL;DR */}
+                            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                              <h3 className="font-semibold text-blue-800 mb-2 flex items-center gap-2">
                                 <TrendingUp className="w-4 h-4" />
                                 TL;DR
                               </h3>
-                              <p className="text-amber-700 text-sm leading-relaxed">{summary.tldr}</p>
+                              <p className="text-blue-700 text-sm leading-relaxed">{summary.tldr}</p>
                             </div>
 
                             {/* Key Points */}
                             {summary.keyPoints.length > 0 && (
-                              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                                <h3 className="font-semibold text-blue-800 mb-2 flex items-center gap-2">
+                              <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                                <h3 className="font-semibold text-gray-800 mb-2 flex items-center gap-2">
                                   <Hash className="w-4 h-4" />
                                   Key Points
                                 </h3>
                                 <ul className="space-y-1">
                                   {summary.keyPoints.map((point, index) => (
-                                    <li key={index} className="text-blue-700 text-sm flex items-start gap-2">
-                                      <span className="text-blue-500 mt-1">•</span>
+                                    <li key={index} className="text-gray-700 text-sm flex items-start gap-2">
+                                      <span className="text-gray-500 font-bold text-xs mt-1">•</span>
                                       <span>{point}</span>
                                     </li>
                                   ))}
@@ -1099,11 +1092,28 @@ export default function App() {
                               </div>
                             )}
 
+                            {/* Topics */}
+                            {summary.topics.length > 0 && (
+                              <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-4">
+                                <h3 className="font-semibold text-indigo-800 mb-2 flex items-center gap-2">
+                                  <MessageCircle className="w-4 h-4" />
+                                  Topics Discussed
+                                </h3>
+                                <div className="flex flex-wrap gap-2">
+                                  {summary.topics.map((topic, index) => (
+                                    <span key={index} className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-indigo-100 text-indigo-700">
+                                      {topic}
+                                    </span>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+
                             {/* Decisions */}
                             {summary.decisions.length > 0 && (
                               <div className="bg-green-50 border border-green-200 rounded-lg p-4">
                                 <h3 className="font-semibold text-green-800 mb-2 flex items-center gap-2">
-                                  <CheckSquare className="w-4 h-4" />
+                                  <Handshake className="w-4 h-4" />
                                   Decisions Made
                                 </h3>
                                 <ul className="space-y-1">
@@ -1167,178 +1177,30 @@ export default function App() {
 
                     {/* Timeline Tab */}
                     {activeTab === 'timeline' && (
-                      <div className="h-full flex flex-col">
-                        {timelineError && (
-                          <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-red-700 text-sm mb-4">
-                            <div className="flex items-center gap-2 mb-1">
-                              <XCircle className="w-4 h-4" />
-                              <span className="font-medium">Timeline Error</span>
-                            </div>
-                            <p>{timelineError}</p>
-                          </div>
-                        )}
-
-                        {!timeline && !isTimelineLoading && !timelineError && (
-                          <div className="flex items-center justify-center h-full text-gray-500">
-                            <div className="text-center">
-                              <Clock3 className="w-10 h-10 mx-auto mb-3 opacity-60" />
-                              <p className="font-medium text-lg mb-2">No Timeline Yet</p>
-                              <p className="text-sm">Timeline will be generated automatically as the conversation progresses.</p>
-                            </div>
-                          </div>
-                        )}
-
-                        {isTimelineLoading && !timeline?.length && (
-                          <div className="flex items-center justify-center h-full text-blue-600">
-                            <div className="text-center">
-                              <RefreshCw className="w-10 h-10 mx-auto mb-3 animate-spin" />
-                              <p className="font-medium text-lg">Generating Timeline...</p>
-                            </div>
-                          </div>
-                        )}
-
-                        {timeline && timeline.length > 0 && (
-                          <div className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100 pr-2">
-                            {/* Timeline Header with refresh info */}
-                            <div className="flex items-center justify-between mb-4 pb-2 border-b border-gray-200">
-                              <div className="flex items-center gap-2">
-                                <Clock3 className="w-4 h-4 text-gray-500" />
-                                <span className="text-sm text-gray-600">
-                                  {timeline.length} events • Updates every 15s
-                                </span>
-                              </div>
-                              <div className="flex items-center gap-2">
-                                {timelineLastUpdated && (
-                                  <span className="text-xs text-gray-500">
-                                    Updated {timelineLastUpdated.toLocaleTimeString([], { hour: '2-digit', minute:'2-digit'})}
-                                  </span>
-                                )}
-                                <Button 
-                                  variant="ghost" 
-                                  size="sm" 
-                                  onClick={refreshTimeline}
-                                  disabled={isTimelineLoading}
-                                  className="h-6 w-6 p-1"
-                                >
-                                  <RefreshCw className={cn("w-3 h-3", isTimelineLoading && "animate-spin")} />
-                                </Button>
-                              </div>
-                            </div>
-
-                            <div className="relative">
-                              {/* Timeline Line */}
-                              <div className="absolute left-6 top-0 bottom-0 w-0.5 bg-gray-200"></div>
-                              
-                              {/* Timeline Events */}
-                              <div className="space-y-6">
-                                {timeline.map((event, index) => {
-                                  const { iconBgColor, Icon, textColor } = getTimelineEventStyle(event.type, event.importance);
-                                  return (
-                                    <motion.div
-                                      key={event.id}
-                                      initial={{ opacity: 0, x: -20 }}
-                                      animate={{ opacity: 1, x: 0 }}
-                                      transition={{ delay: index * 0.1 }}
-                                      className="relative flex items-start gap-4"
-                                    >
-                                      {/* Timeline Icon */}
-                                      <div className={cn(
-                                        "relative z-10 flex items-center justify-center w-12 h-12 rounded-full border-2 border-white shadow-md",
-                                        iconBgColor
-                                      )}>
-                                        <Icon className={cn("w-5 h-5", textColor)} />
-                                      </div>
-                                      
-                                      {/* Event Content */}
-                                      <div className="flex-1 min-w-0 pb-6">
-                                        <div className="bg-white rounded-lg border border-gray-200 p-4 shadow-sm hover:shadow-md transition-shadow">
-                                          <div className="flex items-center justify-between mb-2">
-                                            <h4 className={cn("font-semibold text-sm", textColor)}>
-                                              {event.title}
-                                            </h4>
-                                            <div className="flex items-center gap-2 text-xs text-gray-500">
-                                              {event.speaker && (
-                                                <span className={cn(
-                                                  "px-2 py-1 rounded-full text-xs font-medium",
-                                                  event.speaker === 'ME' 
-                                                    ? 'bg-blue-100 text-blue-700' 
-                                                    : 'bg-green-100 text-green-700'
-                                                )}>
-                                                  {event.speaker}
-                                                </span>
-                                              )}
-                                              <span className={cn(
-                                                "px-2 py-1 rounded-full text-xs font-medium",
-                                                event.importance === 'high' ? 'bg-red-100 text-red-700' :
-                                                event.importance === 'medium' ? 'bg-yellow-100 text-yellow-700' :
-                                                'bg-gray-100 text-gray-700'
-                                              )}>
-                                                {event.importance}
-                                              </span>
-                                              <span>{event.timestamp.toLocaleTimeString([], { hour: '2-digit', minute:'2-digit'})}</span>
-                                            </div>
-                                          </div>
-                                          <p className="text-gray-700 text-sm leading-relaxed mb-2">
-                                            {event.description}
-                                          </p>
-                                          {event.content && (
-                                            <div className="bg-gray-50 border-l-4 border-gray-300 p-2 mt-2 rounded-r-md">
-                                              <div className="flex items-center gap-1 mb-1">
-                                                <Quote className="w-3 h-3 text-gray-500" />
-                                                <span className="text-xs font-medium text-gray-600">Quote</span>
-                                              </div>
-                                              <p className="text-xs text-gray-600 italic">"{event.content}"</p>
-                                            </div>
-                                          )}
-                                          <div className="mt-2 flex items-center gap-2">
-                                            <span className={cn(
-                                              "inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium",
-                                              event.type === 'milestone' ? 'bg-purple-100 text-purple-700' :
-                                              event.type === 'decision' ? 'bg-green-100 text-green-700' :
-                                              event.type === 'topic_shift' ? 'bg-blue-100 text-blue-700' :
-                                              event.type === 'action_item' ? 'bg-orange-100 text-orange-700' :
-                                              event.type === 'question' ? 'bg-yellow-100 text-yellow-700' :
-                                              event.type === 'agreement' ? 'bg-emerald-100 text-emerald-700' :
-                                              event.type === 'speaker_change' ? 'bg-gray-100 text-gray-700' :
-                                              'bg-indigo-100 text-indigo-700'
-                                            )}>
-                                              <Icon className="w-3 h-3" />
-                                              {event.type.replace('_', ' ')}
-                                            </span>
-                                          </div>
-                                        </div>
-                                      </div>
-                                    </motion.div>
-                                  );
-                                })}
-                              </div>
-                            </div>
-                          </div>
-                        )}
+                      <div className="h-full max-h-full overflow-hidden">
+                        <CompactTimeline
+                          timeline={timeline || []}
+                          isLoading={isTimelineLoading}
+                          error={timelineError}
+                          lastUpdated={timelineLastUpdated}
+                          onRefresh={refreshTimeline}
+                        />
                       </div>
                     )}
                   </CardContent>
                 </Card>
 
-                {/* AI Chat Guidance Column */}
-                <Card className="flex-1 md:flex-[1] flex flex-col h-full min-h-0 max-h-full shadow-lg">
-                  <CardHeader className="border-b bg-gray-50 rounded-t-lg flex-shrink-0">
-                    <CardTitle className="flex items-center gap-2 text-lg">
-                      <Sparkles className="w-5 h-5 text-purple-500" /> AI Conversation Coach
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="p-0 flex-1 overflow-hidden min-h-0 max-h-full">
-                    <ChatGuidance
-                      messages={chatMessages}
-                      isLoading={isChatLoading}
-                      inputValue={chatInputValue}
-                      setInputValue={setChatInputValue}
-                      sendMessage={sendChatMessage}
-                      sendQuickAction={sendQuickAction}
-                      messagesEndRef={messagesEndRef}
-                    />
-                  </CardContent>
-                </Card>
+                {/* Floating AI Chat Guidance */}
+                <FloatingChatGuidance
+                  messages={chatMessages}
+                  isLoading={isChatLoading}
+                  inputValue={chatInputValue}
+                  setInputValue={setChatInputValue}
+                  sendMessage={sendChatMessage}
+                  sendQuickAction={sendQuickAction}
+                  messagesEndRef={messagesEndRef}
+                  isRecording={conversationState === 'recording'}
+                />
               </div>
             </div>
           )}
@@ -1374,6 +1236,7 @@ export default function App() {
               <MainActionButton />
             </motion.div>
           )}
+          </div>
 
         </div>
       </main>
