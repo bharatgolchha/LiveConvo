@@ -815,7 +815,7 @@ export default function App() {
         </AnimatePresence>
 
         {/* Main Conversation Area */}
-        <div className="flex-1 flex flex-col relative p-4 sm:p-6 lg:p-8 overflow-hidden">
+        <div className="flex-1 flex flex-col relative p-4 sm:p-6 lg:p-8 overflow-hidden h-full">
           
           {!showContextPanel && !isFullscreen && (
             <Button onClick={() => setShowContextPanel(true)} variant="outline" size="sm" className="absolute top-4 left-4 z-20 bg-white shadow hover:bg-gray-50">
@@ -864,7 +864,7 @@ export default function App() {
           )}
 
           {(conversationState === 'recording' || conversationState === 'paused' || conversationState === 'processing') && (
-            <div className="flex-1 flex flex-col min-h-0">
+            <div className="flex-1 flex flex-col min-h-0 h-full">
               {/* Floating Controls for Recording/Paused State */}
               <motion.div 
                 initial={{ opacity: 0, y: -20 }} 
@@ -933,7 +933,7 @@ export default function App() {
               </motion.div>
 
               {/* Transcript & Guidance Layout */}
-              <div className="flex flex-col md:flex-row gap-6 flex-1 min-h-0 max-h-full overflow-hidden">
+              <div className="flex flex-col md:flex-row gap-6 flex-1 min-h-0 h-full max-h-full overflow-hidden">
                 {/* Transcript/Summary Column */}
                 <Card className="flex-1 md:flex-[2] flex flex-col h-full min-h-0 max-h-full shadow-lg">
                   <CardHeader className="border-b bg-gray-50 rounded-t-lg flex-shrink-0">
