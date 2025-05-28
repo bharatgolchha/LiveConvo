@@ -60,6 +60,8 @@ import { FloatingChatGuidance } from '@/components/guidance/FloatingChatGuidance
 import { CompactTimeline } from '@/components/timeline/CompactTimeline';
 import { useSessions, Session } from '@/lib/hooks/useSessions';
 import { GuidanceChip, GuidanceType } from '@/components/guidance/GuidanceChip';
+import { useAuth } from '@/contexts/AuthContext';
+import { authenticatedFetch } from '@/lib/api';
 
 interface TranscriptLine {
   id: string;
@@ -72,7 +74,7 @@ interface TranscriptLine {
 type ConversationState = 'setup' | 'ready' | 'recording' | 'paused' | 'processing' | 'completed' | 'error';
 
 // Database saving functions
-const saveTranscriptToDatabase = async (sessionId: string, transcriptLines: TranscriptLine[]) => {
+const saveTranscriptToDatabase = async (sessionId: string, transcriptLines: TranscriptLine[], session: any) => {
   try {
     const transcriptData = transcriptLines.map((line, index) => ({
       session_id: sessionId,
@@ -84,11 +86,8 @@ const saveTranscriptToDatabase = async (sessionId: string, transcriptLines: Tran
       stt_provider: 'deepgram'
     }));
 
-    const response = await fetch(`/api/sessions/${sessionId}/transcript`, {
+    const response = await authenticatedFetch(`/api/sessions/${sessionId}/transcript`, session, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
       body: JSON.stringify(transcriptData)
     });
 
@@ -100,7 +99,7 @@ const saveTranscriptToDatabase = async (sessionId: string, transcriptLines: Tran
   }
 };
 
-const saveTimelineToDatabase = async (sessionId: string, timelineEvents: TimelineEvent[]) => {
+const saveTimelineToDatabase = async (sessionId: string, timelineEvents: TimelineEvent[], session: any) => {
   try {
     const timelineData = timelineEvents.map(event => ({
       session_id: sessionId,
@@ -111,11 +110,8 @@ const saveTimelineToDatabase = async (sessionId: string, timelineEvents: Timelin
       importance: event.importance
     }));
 
-    const response = await fetch(`/api/sessions/${sessionId}/timeline`, {
+    const response = await authenticatedFetch(`/api/sessions/${sessionId}/timeline`, session, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
       body: JSON.stringify(timelineData)
     });
 
@@ -127,13 +123,10 @@ const saveTimelineToDatabase = async (sessionId: string, timelineEvents: Timelin
   }
 };
 
-const saveSummaryToDatabase = async (sessionId: string, summary: ConversationSummary) => {
+const saveSummaryToDatabase = async (sessionId: string, summary: ConversationSummary, session: any) => {
   try {
-    const response = await fetch(`/api/sessions/${sessionId}`, {
+    const response = await authenticatedFetch(`/api/sessions/${sessionId}`, session, {
       method: 'PATCH',
-      headers: {
-        'Content-Type': 'application/json',
-      },
       body: JSON.stringify({
         realtime_summary_cache: summary
       })
@@ -150,6 +143,7 @@ const saveSummaryToDatabase = async (sessionId: string, summary: ConversationSum
 export default function App() {
   const searchParams = useSearchParams();
   const conversationId = searchParams.get('cid');
+  const { session, loading: authLoading } = useAuth(); // Add auth hook
   
   // Core State
   const [conversationState, setConversationState] = useState<ConversationState>('setup');
@@ -161,6 +155,23 @@ export default function App() {
   const [textContext, setTextContext] = useState('');
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
   const [systemAudioStream, setSystemAudioStream] = useState<MediaStream | null>(null);
+
+  // Save conversation state to localStorage whenever it changes
+  useEffect(() => {
+    if (conversationId && typeof window !== 'undefined') {
+      const stateToSave = {
+        conversationState,
+        sessionDuration,
+        transcript: transcript.slice(-50), // Only save last 50 lines to avoid storage bloat
+        talkStats,
+        conversationType,
+        conversationTitle,
+        textContext,
+        updatedAt: new Date().toISOString()
+      };
+      localStorage.setItem(`conversation_state_${conversationId}`, JSON.stringify(stateToSave));
+    }
+  }, [conversationState, sessionDuration, transcript, talkStats, conversationType, conversationTitle, textContext, conversationId]);
 
   // Refs to keep latest state values for interval callbacks
   const latestTranscript = useRef<TranscriptLine[]>([]);
@@ -291,24 +302,24 @@ export default function App() {
     if (conversationId && transcript.length > 0 && (conversationState === 'recording' || conversationState === 'completed')) {
       // Debounce saving to avoid too many API calls
       const timeoutId = setTimeout(() => {
-        saveTranscriptToDatabase(conversationId, transcript);
+        saveTranscriptToDatabase(conversationId, transcript, session);
       }, 2000); // Save after 2 seconds of no changes
       
       return () => clearTimeout(timeoutId);
     }
-  }, [transcript, conversationId, conversationState]);
+  }, [transcript, conversationId, conversationState, session]);
 
   // Auto-save summary to database when summary changes
   useEffect(() => {
     if (conversationId && summary && (conversationState === 'recording' || conversationState === 'completed')) {
       // Debounce saving to avoid too many API calls
       const timeoutId = setTimeout(() => {
-        saveSummaryToDatabase(conversationId, summary);
+        saveSummaryToDatabase(conversationId, summary, session);
       }, 1000); // Save after 1 second of no changes
       
       return () => clearTimeout(timeoutId);
     }
-  }, [summary, conversationId, conversationState]);
+  }, [summary, conversationId, conversationState, session]);
 
   // Auto-save timeline to database when timeline changes
   useEffect(() => {
@@ -324,17 +335,17 @@ export default function App() {
         }));
         
         if (supportedTimeline.length > 0) {
-          saveTimelineToDatabase(conversationId, supportedTimeline);
+          saveTimelineToDatabase(conversationId, supportedTimeline, session);
         }
       }, 1000); // Save after 1 second of no changes
       
       return () => clearTimeout(timeoutId);
     }
-  }, [timeline, conversationId, conversationState]);
+  }, [timeline, conversationId, conversationState, session]);
 
   // Update session status in database when recording starts/stops
   useEffect(() => {
-    if (conversationId && conversationState) {
+    if (conversationId && conversationState && session && !authLoading) {
       const updateSessionStatus = async () => {
         try {
           const sessionData: any = {
@@ -351,13 +362,15 @@ export default function App() {
             sessionData.total_words_spoken = transcript.reduce((total, line) => total + line.text.split(' ').length, 0);
           }
 
-          await fetch(`/api/sessions/${conversationId}`, {
+          const response = await authenticatedFetch(`/api/sessions/${conversationId}`, session, {
             method: 'PATCH',
-            headers: {
-              'Content-Type': 'application/json',
-            },
             body: JSON.stringify(sessionData)
           });
+
+          if (!response.ok) {
+            const errorText = await response.text();
+            console.error('Session update failed:', response.status, errorText);
+          }
         } catch (error) {
           console.error('Error updating session status:', error);
         }
@@ -365,7 +378,7 @@ export default function App() {
 
       updateSessionStatus();
     }
-  }, [conversationState, conversationId, sessionDuration, transcript]);
+  }, [conversationState, conversationId, sessionDuration, transcript, session, authLoading]);
 
   useEffect(() => {
     if (myLiveTranscript.length > lastMyTranscriptLen.current) {
@@ -489,33 +502,31 @@ export default function App() {
     if (!sessionsLoading && sessions.length === 0) {
       fetchSessions();
     }
-  }, [conversationId, addUserContext, addContext, sessionsLoading, sessions.length, fetchSessions]);
+  }, [conversationId, addUserContext, addContext, sessionsLoading, sessions.length, fetchSessions, session]);
 
   // Integrate selected previous conversations into AI context
   useEffect(() => {
     const fetchAndIntegrateConversationSummaries = async () => {
-      if (selectedPreviousConversations.length > 0 && sessions.length > 0) {
-        const selectedSessions = sessions.filter(session => 
-          selectedPreviousConversations.includes(session.id)
+      if (selectedPreviousConversations.length > 0 && sessions.length > 0 && session && !authLoading) {
+        const selectedSessions = sessions.filter(sessionItem => 
+          selectedPreviousConversations.includes(sessionItem.id)
         );
         
         // Clear previous conversation context first
-        selectedSessions.forEach(session => {
+        selectedSessions.forEach(sessionItem => {
           addContext({
-            id: `previous_${session.id}`,
-            name: `Previous: ${session.title}`,
+            id: `previous_${sessionItem.id}`,
+            name: `Previous: ${sessionItem.title}`,
             type: 'txt',
-            content: `Loading detailed summary for: ${session.title}...`,
-            uploadedAt: new Date(session.created_at)
+            content: `Loading detailed summary for: ${sessionItem.title}...`,
+            uploadedAt: new Date(sessionItem.created_at)
           });
         });
 
         // Fetch detailed session data with summaries
-        for (const session of selectedSessions) {
+        for (const sessionItem of selectedSessions) {
           try {
-            // Note: In a real implementation, you'd get the auth token properly
-            // For now, this will work as the sessions endpoint already filters by user
-            const response = await fetch(`/api/sessions/${session.id}`);
+            const response = await authenticatedFetch(`/api/sessions/${sessionItem.id}`, session);
 
             if (response.ok) {
               const { session: detailedSession } = await response.json();
@@ -538,7 +549,7 @@ export default function App() {
 
               // Update the context with detailed information
               addContext({
-                id: `previous_${session.id}`,
+                id: `previous_${sessionItem.id}`,
                 name: `Previous: ${detailedSession.title}`,
                 type: 'txt',
                 content: contextContent,
@@ -546,14 +557,14 @@ export default function App() {
               });
             }
           } catch (error) {
-            console.error(`Error fetching summary for session ${session.id}:`, error);
+            console.error(`Error fetching summary for session ${sessionItem.id}:`, error);
             // Fallback to basic context if detailed fetch fails
             addContext({
-              id: `previous_${session.id}`,
-              name: `Previous: ${session.title}`,
+              id: `previous_${sessionItem.id}`,
+              name: `Previous: ${sessionItem.title}`,
               type: 'txt',
-              content: `Previous conversation summary:\nTitle: ${session.title}\nType: ${session.conversation_type}\nDate: ${new Date(session.created_at).toLocaleDateString()}\nSummary: This was a ${session.conversation_type} conversation that took place on ${new Date(session.created_at).toLocaleDateString()}. Context will be retrieved from the session summary when available.`,
-              uploadedAt: new Date(session.created_at)
+              content: `Previous conversation summary:\nTitle: ${sessionItem.title}\nType: ${sessionItem.conversation_type}\nDate: ${new Date(sessionItem.created_at).toLocaleDateString()}\nSummary: This was a ${sessionItem.conversation_type} conversation that took place on ${new Date(sessionItem.created_at).toLocaleDateString()}. Context will be retrieved from the session summary when available.`,
+              uploadedAt: new Date(sessionItem.created_at)
             });
           }
         }
@@ -561,7 +572,7 @@ export default function App() {
     };
 
     fetchAndIntegrateConversationSummaries();
-  }, [selectedPreviousConversations, sessions, addContext]);
+  }, [selectedPreviousConversations, sessions, addContext, session, authLoading]);
 
   // Event Handlers - Define handleGenerateGuidance before useEffect hooks
   const handleGenerateGuidance = React.useCallback(async () => {
