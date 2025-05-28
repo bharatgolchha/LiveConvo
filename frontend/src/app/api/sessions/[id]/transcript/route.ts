@@ -27,10 +27,10 @@ type TranscriptLineInput = z.infer<typeof transcriptLineSchema>;
  */
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const pathSessionId = params.id;
+    const { id: pathSessionId } = await params;
     const body = await request.json();
 
     // Get current user (optional, based on your auth strategy for internal service calls)

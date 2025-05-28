@@ -3,7 +3,6 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { ThemeProvider } from "@/contexts/ThemeContext";
-import { StagewiseToolbar } from "@stagewise/toolbar-next";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -20,11 +19,6 @@ export const metadata: Metadata = {
   description: "Transform your conversations with AI-powered real-time guidance and intelligent summaries",
 };
 
-// Stagewise configuration
-const stagewiseConfig = {
-  plugins: []
-};
-
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -32,25 +26,6 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <head>
-        {process.env.NODE_ENV === 'development' && (
-          <script
-            dangerouslySetInnerHTML={{
-              __html: `
-                // Suppress custom element duplication errors in development
-                if (typeof customElements !== 'undefined') {
-                  const originalDefine = customElements.define;
-                  customElements.define = function(name, constructor, options) {
-                    if (!customElements.get(name)) {
-                      return originalDefine.call(this, name, constructor, options);
-                    }
-                  };
-                }
-              `,
-            }}
-          />
-        )}
-      </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
@@ -59,9 +34,6 @@ export default function RootLayout({
             {children}
           </AuthProvider>
         </ThemeProvider>
-        {process.env.NODE_ENV === 'development' && (
-          <StagewiseToolbar config={stagewiseConfig} />
-        )}
       </body>
     </html>
   );

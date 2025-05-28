@@ -210,7 +210,7 @@ export default function App() {
   const [audioEnabled, setAudioEnabled] = useState(true);
   // Auto-guidance removed - using manual button instead
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'transcript' | 'summary' | 'timeline'>('transcript');
+  const [activeTab, setActiveTab] = useState<'transcript' | 'summary' | 'timeline'>('summary');
   const [activeContextTab, setActiveContextTab] = useState<'setup' | 'files' | 'previous'>('setup');
   const [selectedPreviousConversations, setSelectedPreviousConversations] = useState<string[]>([]);
   const [previousConversationSearch, setPreviousConversationSearch] = useState('');
@@ -317,12 +317,12 @@ export default function App() {
     sessionId: conversationId || undefined
   });
 
-  // Initialize chat when recording starts
+  // Initialize chat guidance when app loads, not just when recording starts
   useEffect(() => {
-    if (conversationState === 'recording' && chatMessages.length === 0) {
+    if (chatMessages.length === 0) {
       initializeChat();
     }
-  }, [conversationState, chatMessages.length, initializeChat]);
+  }, [chatMessages.length, initializeChat]);
 
   // Auto-save transcript to database when transcript changes and we have a conversationId
   useEffect(() => {
@@ -874,6 +874,29 @@ export default function App() {
     }
   };
 
+  const handleEndConversationAndSummarize = async () => {
+    // First stop the recording
+    handleStopRecording();
+    
+    // Set to processing state while generating final summary
+    setConversationState('processing');
+    
+    try {
+      // Trigger a final summary refresh to ensure we have the most up-to-date summary
+      await refreshSummary();
+      
+      // Wait a moment for the summary to be generated
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      
+      // Set to completed state
+      setConversationState('completed');
+    } catch (error) {
+      console.error('Error generating final summary:', error);
+      setErrorMessage('Failed to generate final summary. The recording has been stopped.');
+      setConversationState('completed'); // Still show as completed even if summary fails
+    }
+  };
+
   // Helper Functions
   const formatDuration = (seconds: number) => {
     const hours = Math.floor(seconds / 3600);
@@ -979,6 +1002,74 @@ export default function App() {
                       <span>{stateText}</span>
                       {conversationState === 'recording' && <span className="font-mono">{formatDuration(sessionDuration)}</span>}
                     </div>
+                  </div>
+                  
+                  {/* Dedicated Recording Controls */}
+                  <div className="hidden sm:flex items-center gap-2 ml-4">
+                    {(conversationState === 'setup' || conversationState === 'ready') && (
+                      <Button 
+                        onClick={conversationState === 'setup' ? () => { if (textContext) addUserContext(textContext); setConversationState('ready'); } : handleStartRecording}
+                        size="sm" 
+                        className="bg-green-600 hover:bg-green-700 text-white"
+                      >
+                        <Mic className="w-4 h-4 mr-2" />
+                        {conversationState === 'setup' ? 'Get Ready' : 'Start Recording'}
+                      </Button>
+                    )}
+                    
+                    {conversationState === 'recording' && (
+                      <>
+                        <Button 
+                          onClick={handlePauseRecording}
+                          size="sm" 
+                          variant="outline"
+                          className="border-yellow-500 text-yellow-600 hover:bg-yellow-50"
+                        >
+                          <PauseCircle className="w-4 h-4 mr-2" />
+                          Pause
+                        </Button>
+                        <Button 
+                          onClick={handleEndConversationAndSummarize}
+                          size="sm" 
+                          className="bg-blue-600 hover:bg-blue-700 text-white"
+                        >
+                          <FileText className="w-4 h-4 mr-2" />
+                          End & Summarize
+                        </Button>
+                      </>
+                    )}
+                    
+                    {conversationState === 'paused' && (
+                      <>
+                        <Button 
+                          onClick={handleResumeRecording}
+                          size="sm" 
+                          className="bg-green-600 hover:bg-green-700 text-white"
+                        >
+                          <Play className="w-4 h-4 mr-2" />
+                          Resume
+                        </Button>
+                        <Button 
+                          onClick={handleEndConversationAndSummarize}
+                          size="sm" 
+                          className="bg-blue-600 hover:bg-blue-700 text-white"
+                        >
+                          <FileText className="w-4 h-4 mr-2" />
+                          End & Summarize
+                        </Button>
+                      </>
+                    )}
+                    
+                    {(conversationState === 'completed' || conversationState === 'error') && (
+                      <Button 
+                        onClick={handleResetSession}
+                        size="sm" 
+                        variant="outline"
+                      >
+                        <RotateCcw className="w-4 h-4 mr-2" />
+                        New Session
+                      </Button>
+                    )}
                   </div>
               </div>
             </div>
@@ -1325,7 +1416,7 @@ export default function App() {
           )}
         </AnimatePresence>
 
-        {/* Main Conversation Area */}
+        {/* Main Content Area - Always Present */}
         <div className="flex-1 flex flex-col relative overflow-hidden h-full max-h-full">
           
           {!showContextPanel && !isFullscreen && (
@@ -1334,6 +1425,7 @@ export default function App() {
             </Button>
           )}
 
+          {/* Error Message Display */}
           {errorMessage && (
             <motion.div 
               initial={{opacity: 0, y: -20}} animate={{opacity:1, y:0}} exit={{opacity:0, y:-20}}
@@ -1347,416 +1439,417 @@ export default function App() {
             </motion.div>
           )}
 
-          {/* State-based Interface Views */}
-          <div className="flex-1 overflow-hidden h-full max-h-full p-4 sm:p-6 lg:p-8">{conversationState === 'setup' && (
-            <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="m-auto text-center max-w-lg p-8 bg-card rounded-xl shadow-2xl">
-              <div className="w-24 h-24 bg-app-info-light rounded-full flex items-center justify-center mx-auto mb-6 ring-4 ring-app-info/20">
-                <Settings2 className="w-12 h-12 text-app-info" />
-              </div>
-              <h2 className="text-3xl font-bold text-foreground mb-3">Let's Get Started</h2>
-              <p className="text-muted-foreground mb-8 text-lg">
-                Configure your conversation title, type, and add any context on the left panel. Then, click "Get Ready".
-              </p>
-              <MainActionButton />
-            </motion.div>
-          )}
-
-          {conversationState === 'ready' && (
-            <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="m-auto text-center max-w-lg p-8 bg-card rounded-xl shadow-2xl">
-              <div className="w-32 h-32 bg-app-success-light rounded-full flex items-center justify-center mx-auto mb-6 cursor-pointer hover:bg-app-success/20 transition-colors ring-4 ring-app-success/20" onClick={handleStartRecording}>
-                <Mic className="w-16 h-16 text-app-success" />
-              </div>
-              <h2 className="text-3xl font-bold text-foreground mb-3">Ready to Record!</h2>
-              <p className="text-muted-foreground mb-8 text-lg">
-                Click the microphone above or the button below to start your conversation and get live AI assistance.
-              </p>
-              <MainActionButton />
-            </motion.div>
-          )}
-
+          {/* Floating Controls for Recording/Paused State - Only show when recording/paused/processing */}
           {(conversationState === 'recording' || conversationState === 'paused' || conversationState === 'processing') && (
-            <div className="h-full max-h-full flex flex-col overflow-hidden">
-              {/* Floating Controls for Recording/Paused State */}
-              <motion.div 
-                initial={{ opacity: 0, y: -20 }} 
-                animate={{ opacity: 1, y: 0 }} 
-                className="fixed top-20 right-4 z-50 flex items-center gap-2 bg-card/95 backdrop-blur-sm shadow-lg rounded-full px-3 py-2 border border-border"
-              >
-                <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
-                  {conversationState === 'recording' && (
-                    <>
-                      <motion.div
-                        animate={{ scale: [1, 1.2, 1] }}
-                        transition={{ repeat: Infinity, duration: 1 }}
-                        className="w-2 h-2 bg-recording-active rounded-full"
-                      />
-                      <span>{formatDuration(sessionDuration)}</span>
-                    </>
-                  )}
-                  {conversationState === 'paused' && (
-                    <>
-                      <div className="w-2 h-2 bg-recording-paused rounded-sm" />
-                      <span>Paused • {formatDuration(sessionDuration)}</span>
-                    </>
-                  )}
-                  {conversationState === 'processing' && (
-                    <>
-                      <motion.div
-                        animate={{ rotate: 360 }}
-                        transition={{ repeat: Infinity, duration: 1 }}
-                        className="w-2 h-2 border border-app-info border-t-transparent rounded-full"
-                      />
-                      <span>Processing</span>
-                    </>
-                  )}
-                </div>
-                <div className="w-px h-4 bg-border" />
-                <div className="flex items-center gap-1">
-                  {conversationState === 'recording' && (
-                    <Button 
-                      onClick={handlePauseRecording} 
-                      variant="ghost" 
-                      size="sm" 
-                      className="h-8 w-8 p-1 hover:bg-app-warning/10 text-app-warning"
-                    >
-                      <PauseCircle className="w-4 h-4" />
-                    </Button>
-                  )}
-                  {conversationState === 'paused' && (
-                    <Button 
-                      onClick={handleResumeRecording} 
-                      variant="ghost" 
-                      size="sm" 
-                      className="h-8 w-8 p-1 hover:bg-app-success/10 text-app-success"
-                    >
-                      <Play className="w-4 h-4" />
-                    </Button>
-                  )}
+            <motion.div 
+              initial={{ opacity: 0, y: -20 }} 
+              animate={{ opacity: 1, y: 0 }} 
+              className="absolute top-4 right-4 z-50 flex items-center gap-2 bg-card/95 backdrop-blur-sm shadow-lg rounded-full px-3 py-2 border border-border"
+            >
+              <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
+                {conversationState === 'recording' && (
+                  <>
+                    <motion.div
+                      animate={{ scale: [1, 1.2, 1] }}
+                      transition={{ repeat: Infinity, duration: 1 }}
+                      className="w-2 h-2 bg-recording-active rounded-full"
+                    />
+                    <span>{formatDuration(sessionDuration)}</span>
+                  </>
+                )}
+                {conversationState === 'paused' && (
+                  <>
+                    <div className="w-2 h-2 bg-recording-paused rounded-sm" />
+                    <span>Paused • {formatDuration(sessionDuration)}</span>
+                  </>
+                )}
+                {conversationState === 'processing' && (
+                  <>
+                    <motion.div
+                      animate={{ rotate: 360 }}
+                      transition={{ repeat: Infinity, duration: 1 }}
+                      className="w-2 h-2 border border-app-info border-t-transparent rounded-full"
+                    />
+                    <span>Processing</span>
+                  </>
+                )}
+              </div>
+              <div className="w-px h-4 bg-border" />
+              <div className="flex items-center gap-1">
+                {conversationState === 'recording' && (
                   <Button 
-                    onClick={handleStopRecording} 
+                    onClick={handlePauseRecording} 
                     variant="ghost" 
                     size="sm" 
-                    className="h-8 w-8 p-1 hover:bg-app-error/10 text-app-error"
+                    className="h-8 w-8 p-1 hover:bg-app-warning/10 text-app-warning"
                   >
-                    <Square className="w-4 h-4" />
+                    <PauseCircle className="w-4 h-4" />
                   </Button>
-                </div>
-              </motion.div>
+                )}
+                {conversationState === 'paused' && (
+                  <Button 
+                    onClick={handleResumeRecording} 
+                    variant="ghost" 
+                    size="sm" 
+                    className="h-8 w-8 p-1 hover:bg-app-success/10 text-app-success"
+                  >
+                    <Play className="w-4 h-4" />
+                  </Button>
+                )}
+                <Button 
+                  onClick={handleStopRecording} 
+                  variant="ghost" 
+                  size="sm" 
+                  className="h-8 w-8 p-1 hover:bg-app-error/10 text-app-error"
+                >
+                  <Square className="w-4 h-4" />
+                </Button>
+              </div>
+            </motion.div>
+          )}
 
-              {/* Transcript & Guidance Layout */}
-              <div className="flex-1 h-full max-h-full overflow-hidden">
-                {/* Single Transcript/Summary Column - Now Full Width */}
-                <Card className="w-full h-full max-h-full flex flex-col shadow-lg overflow-hidden">
-                  <CardHeader className="border-b bg-muted/50 rounded-t-lg flex-shrink-0">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-4">
-                        <div className="flex bg-background rounded-lg p-1">
-                          <button
-                            onClick={() => setActiveTab('transcript')}
-                            className={cn(
-                              "flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition-colors",
-                              activeTab === 'transcript' 
-                                ? "bg-app-primary/10 text-app-primary" 
-                                : "text-muted-foreground hover:text-foreground hover:bg-accent"
-                            )}
-                          >
-                            <MessageSquare className="w-4 h-4" />
-                            Transcript
-                          </button>
-                          <button
-                            onClick={() => setActiveTab('summary')}
-                            className={cn(
-                              "flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition-colors",
-                              activeTab === 'summary' 
-                                ? "bg-app-primary/10 text-app-primary" 
-                                : "text-muted-foreground hover:text-foreground hover:bg-accent"
-                            )}
-                          >
-                            <FileText className="w-4 h-4" />
-                            Summary
-                            {isSummaryLoading && <RefreshCw className="w-3 h-3 animate-spin" />}
-                          </button>
-                          <button
-                            onClick={() => setActiveTab('timeline')}
-                            className={cn(
-                              "flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition-colors",
-                              activeTab === 'timeline' 
-                                ? "bg-app-primary/10 text-app-primary" 
-                                : "text-muted-foreground hover:text-foreground hover:bg-accent"
-                            )}
-                          >
-                            <Clock3 className="w-4 h-4" />
-                            Timeline
-                          </button>
+          {/* Core Interface - Summary/Transcript/Timeline - Always Visible */}
+          <div className="flex-1 h-full max-h-full overflow-hidden p-4 sm:p-6 lg:p-8">
+            {conversationState === 'setup' && (
+              <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="m-auto text-center max-w-lg p-8 bg-card rounded-xl shadow-2xl">
+                <div className="w-24 h-24 bg-app-info-light rounded-full flex items-center justify-center mx-auto mb-6 ring-4 ring-app-info/20">
+                  <Settings2 className="w-12 h-12 text-app-info" />
+                </div>
+                <h2 className="text-3xl font-bold text-foreground mb-3">Let's Get Started</h2>
+                <p className="text-muted-foreground mb-8 text-lg">
+                  Configure your conversation title, type, and add any context on the left panel. Then, click "Get Ready".
+                </p>
+                <MainActionButton />
+              </motion.div>
+            )}
+
+            {conversationState === 'ready' && (
+              <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="m-auto text-center max-w-lg p-8 bg-card rounded-xl shadow-2xl">
+                <div className="w-32 h-32 bg-app-success-light rounded-full flex items-center justify-center mx-auto mb-6 cursor-pointer hover:bg-app-success/20 transition-colors ring-4 ring-app-success/20" onClick={handleStartRecording}>
+                  <Mic className="w-16 h-16 text-app-success" />
+                </div>
+                <h2 className="text-3xl font-bold text-foreground mb-3">Ready to Record!</h2>
+                <p className="text-muted-foreground mb-8 text-lg">
+                  Click the microphone above or the button below to start your conversation and get live AI assistance.
+                </p>
+                <MainActionButton />
+              </motion.div>
+            )}
+
+            {/* Main Content Area - Show Summary and Chat Guidance by default */}
+            {(conversationState === 'ready' || conversationState === 'recording' || conversationState === 'paused' || conversationState === 'processing') && (
+              <div className="h-full max-h-full flex flex-col overflow-hidden">
+                {/* Transcript & Guidance Layout */}
+                <div className="flex-1 h-full max-h-full overflow-hidden">
+                  <Card className="rounded-lg transition-all duration-200 bg-card text-card-foreground border border-border w-full h-full max-h-full flex flex-col shadow-lg overflow-hidden">
+                    {/* Header with Tabs and Controls */}
+                    <CardHeader className="border-b bg-muted/50 rounded-t-lg flex-shrink-0">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-4">
+                          <div className="flex bg-background rounded-lg p-1">
+                            <button 
+                              onClick={() => setActiveTab('transcript')}
+                              className={cn(
+                                "flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition-colors",
+                                activeTab === 'transcript' 
+                                  ? "bg-app-primary/10 text-app-primary" 
+                                  : "text-muted-foreground hover:text-foreground hover:bg-accent"
+                              )}
+                            >
+                              <MessageSquare className="w-4 h-4" />
+                              Transcript
+                            </button>
+                            <button 
+                              onClick={() => setActiveTab('summary')}
+                              className={cn(
+                                "flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition-colors",
+                                activeTab === 'summary' 
+                                  ? "bg-app-primary/10 text-app-primary" 
+                                  : "text-muted-foreground hover:text-foreground hover:bg-accent"
+                              )}
+                            >
+                              <FileText className="w-4 h-4" />
+                              Summary
+                            </button>
+                            <button 
+                              onClick={() => setActiveTab('timeline')}
+                              className={cn(
+                                "flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition-colors",
+                                activeTab === 'timeline' 
+                                  ? "bg-app-primary/10 text-app-primary" 
+                                  : "text-muted-foreground hover:text-foreground hover:bg-accent"
+                              )}
+                            >
+                              <Clock3 className="w-4 h-4" />
+                              Timeline
+                            </button>
+                          </div>
                         </div>
-                      </div>
-                      {(activeTab === 'summary' || activeTab === 'timeline') && summary && (
+                        
                         <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                          {summaryLastUpdated && (
-                            <span>Updated {summaryLastUpdated.toLocaleTimeString([], { hour: '2-digit', minute:'2-digit'})}</span>
-                          )}
-                          <Button 
-                            variant="ghost" 
-                            size="sm" 
-                            onClick={refreshSummary}
-                            disabled={isSummaryLoading}
-                            className="h-6 w-6 p-1"
-                          >
-                            <RefreshCw className={cn("w-3 h-3", isSummaryLoading && "animate-spin")} />
+                          <Button variant="ghost" size="sm" onClick={refreshTimeline} className="text-sm h-6 w-6 p-1">
+                            <RefreshCw className="w-3 h-3" />
+                          </Button>
+                          <Button variant="ghost" size="sm" onClick={handleExportSession} className="text-sm h-6 w-6 p-1">
+                            <Download className="w-3 h-3" />
+                          </Button>
+                          <Button variant="ghost" size="sm" onClick={() => setIsFullscreen(!isFullscreen)} className="text-sm h-6 w-6 p-1">
+                            {isFullscreen ? <Minimize2 className="w-3 h-3" /> : <Maximize2 className="w-3 h-3" />}
                           </Button>
                         </div>
-                      )}
-                    </div>
-                  </CardHeader>
-                  <CardContent className="p-4 flex-1 overflow-hidden h-full max-h-full">
-                    
-                    {/* Transcript Tab */}
-                    {activeTab === 'transcript' && (
-                      <div className="h-full max-h-full flex flex-col overflow-hidden">
-                        {transcript.length === 0 ? (
-                          <div className="flex items-center justify-center h-full text-muted-foreground">
-                            <div className="text-center">
-                              <Clock className="w-10 h-10 mx-auto mb-3 opacity-60" />
-                              <p className="font-medium text-lg">
-                                {conversationState === 'recording' ? 'Listening for speech...' : 'Paused. Click Resume to continue.'}
-                              </p>
-                            </div>
-                          </div>
-                        ) : (
-                          <div className="flex-1 h-full max-h-full overflow-y-auto space-y-3 pr-2">
-                            <AnimatePresence initial={false}>
-                              {transcript.map((line) => (
-                                <motion.div
-                                  key={line.id}
-                                  layout
-                                  initial={{ opacity: 0, y: 20, scale: 0.98 }}
-                                  animate={{ opacity: 1, y: 0, scale: 1 }}
-                                  exit={{ opacity: 0, y: -10, scale: 0.95 }}
-                                  transition={{ type: "spring", stiffness: 300, damping: 25 }}
-                                  className="p-3 rounded-lg border-l-4 text-sm bg-muted/50 border-border text-foreground"
-                                >
-                                  <div className="flex items-center justify-between mb-0.5 text-xs">
-                                    <span className="font-medium text-muted-foreground">{line.speaker}</span>
-                                    <span className="text-muted-foreground">{line.timestamp.toLocaleTimeString([], { hour: '2-digit', minute:'2-digit'})}</span>
-                                  </div>
-                                  <p className="leading-relaxed">{line.text}</p>
-                                </motion.div>
-                              ))}
-                              <div ref={transcriptEndRef} />
-                            </AnimatePresence>
-                          </div>
-                        )}
                       </div>
-                    )}
+                    </CardHeader>
 
-                    {/* Summary Tab */}
-                    {activeTab === 'summary' && (
-                      <div className="h-full max-h-full flex flex-col overflow-hidden">
-                        {summaryError && (
-                          <div className="bg-app-error-light border border-app-error rounded-lg p-3 text-app-error text-sm mb-4 flex-shrink-0">
-                            <div className="flex items-center gap-2 mb-1">
-                              <XCircle className="w-4 h-4" />
-                              <span className="font-medium">Summary Error</span>
+                    {/* Tab Content */}
+                    <CardContent className="flex-1 overflow-hidden p-0">
+                      {/* Transcript Tab */}
+                      {activeTab === 'transcript' && (
+                        <div className="h-full max-h-full overflow-hidden">
+                          {transcript.length > 0 ? (
+                            <div className="flex-1 h-full max-h-full overflow-y-auto space-y-3 p-6 pr-2">
+                              <AnimatePresence initial={false}>
+                                {transcript.map((line) => (
+                                  <motion.div
+                                    key={line.id}
+                                    layout
+                                    initial={{ opacity: 0, y: 20, scale: 0.98 }}
+                                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                                    exit={{ opacity: 0, y: -10, scale: 0.95 }}
+                                    transition={{ type: "spring", stiffness: 300, damping: 25 }}
+                                    className="p-3 rounded-lg border-l-4 text-sm bg-muted/50 border-border text-foreground"
+                                  >
+                                    <div className="flex items-center justify-between mb-0.5 text-xs">
+                                      <span className="font-medium text-muted-foreground">{line.speaker}</span>
+                                      <span className="text-muted-foreground">{line.timestamp.toLocaleTimeString([], { hour: '2-digit', minute:'2-digit'})}</span>
+                                    </div>
+                                    <p className="leading-relaxed">{line.text}</p>
+                                  </motion.div>
+                                ))}
+                                <div ref={transcriptEndRef} />
+                              </AnimatePresence>
                             </div>
-                            <p>{summaryError}</p>
-                          </div>
-                        )}
-
-                        {!summary && !isSummaryLoading && !summaryError && (
-                          <div className="flex items-center justify-center h-full text-muted-foreground">
-                            <div className="text-center">
-                              <FileText className="w-10 h-10 mx-auto mb-3 opacity-60" />
-                              <p className="font-medium text-lg mb-2">No Summary Yet</p>
-                              <p className="text-sm">Summary will be generated automatically as the conversation progresses.</p>
-                            </div>
-                          </div>
-                        )}
-
-                        {isSummaryLoading && !summary && (
-                          <div className="flex items-center justify-center h-full text-app-primary">
-                            <div className="text-center">
-                              <RefreshCw className="w-10 h-10 mx-auto mb-3 animate-spin" />
-                              <p className="font-medium text-lg">Generating Summary...</p>
-                            </div>
-                          </div>
-                        )}
-
-                        {summary && (
-                          <div className="flex-1 h-full max-h-full overflow-y-auto space-y-4 pr-2">
-                            {/* TL;DR */}
-                            <div className="bg-app-info-light border border-app-info/20 rounded-lg p-4">
-                              <h3 className="font-semibold text-app-info mb-2 flex items-center gap-2">
-                                <TrendingUp className="w-4 h-4" />
-                                TL;DR
-                              </h3>
-                              <p className="text-app-info text-sm leading-relaxed">{summary.tldr}</p>
-                            </div>
-
-                            {/* Key Points */}
-                            {summary.keyPoints.length > 0 && (
-                              <div className="bg-muted/50 border border-border rounded-lg p-4">
-                                <h3 className="font-semibold text-foreground mb-2 flex items-center gap-2">
-                                  <Hash className="w-4 h-4" />
-                                  Key Points
-                                </h3>
-                                <ul className="space-y-1">
-                                  {summary.keyPoints.map((point, index) => (
-                                    <li key={index} className="text-foreground text-sm flex items-start gap-2">
-                                      <span className="text-muted-foreground font-bold text-xs mt-1">•</span>
-                                      <span>{point}</span>
-                                    </li>
-                                  ))}
-                                </ul>
+                          ) : (
+                            <div className="flex items-center justify-center h-full text-muted-foreground">
+                              <div className="text-center">
+                                <Clock className="w-10 h-10 mx-auto mb-3 opacity-60" />
+                                <p className="font-medium text-lg">
+                                  No transcript yet. Start recording to see conversation content.
+                                </p>
                               </div>
-                            )}
+                            </div>
+                          )}
+                        </div>
+                      )}
 
-                            {/* Topics */}
-                            {summary.topics.length > 0 && (
-                              <div className="bg-app-primary-light/10 border border-app-primary/20 rounded-lg p-4">
-                                <h3 className="font-semibold text-app-primary mb-2 flex items-center gap-2">
-                                  <MessageCircle className="w-4 h-4" />
-                                  Topics Discussed
+                      {/* Summary Tab */}
+                      {activeTab === 'summary' && (
+                        <div className="h-full max-h-full overflow-hidden p-6">
+                          {summaryError && (
+                            <div className="bg-app-error-light border border-app-error text-app-error p-4 rounded-lg mb-4">
+                              <h3 className="font-semibold mb-1">Summary Error</h3>
+                              <p className="text-sm">{summaryError}</p>
+                            </div>
+                          )}
+
+                          {!summary && !isSummaryLoading && !summaryError && (
+                            <div className="space-y-6">
+                              {/* Default TL;DR */}
+                              <div className="bg-app-info-light border border-app-info/20 rounded-lg p-4">
+                                <h3 className="font-semibold text-app-info mb-2 flex items-center gap-2">
+                                  <TrendingUp className="w-4 h-4" />
+                                  TL;DR
                                 </h3>
-                                <div className="flex flex-wrap gap-2">
-                                  {summary.topics.map((topic, index) => (
-                                    <span key={index} className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-app-primary/10 text-app-primary">
-                                      {topic}
-                                    </span>
-                                  ))}
+                                <p className="text-app-info text-sm leading-relaxed">
+                                  {conversationState === 'ready' 
+                                    ? "Summary will be generated as you speak during the conversation."
+                                    : "Not enough conversation content to generate a summary yet."
+                                  }
+                                </p>
+                              </div>
+
+                              {/* Summary Metadata */}
+                              <div className="text-xs text-muted-foreground pt-2 border-t border-border">
+                                <div className="flex items-center justify-between">
+                                  <span>Status: {conversationState === 'ready' ? 'waiting to start' : conversationState}</span>
+                                  <span>Sentiment: neutral</span>
                                 </div>
                               </div>
-                            )}
 
-                            {/* Decisions */}
-                            {summary.decisions.length > 0 && (
-                              <div className="bg-app-success-light/10 border border-app-success/20 rounded-lg p-4">
-                                <h3 className="font-semibold text-app-success mb-2 flex items-center gap-2">
-                                  <Handshake className="w-4 h-4" />
-                                  Decisions Made
-                                </h3>
-                                <ul className="space-y-1">
-                                  {summary.decisions.map((decision, index) => (
-                                    <li key={index} className="text-app-success text-sm flex items-start gap-2">
-                                      <CheckSquare className="w-3 h-3 mt-1 text-app-success" />
-                                      <span>{decision}</span>
-                                    </li>
-                                  ))}
-                                </ul>
-                              </div>
-                            )}
+                              {/* Call to action when ready */}
+                              {conversationState === 'ready' && (
+                                <div className="flex items-center justify-center py-8">
+                                  <div className="text-center max-w-md">
+                                    <Mic className="w-12 h-12 mx-auto mb-4 opacity-60 text-muted-foreground" />
+                                    <h4 className="font-semibold text-base mb-2 text-foreground">Ready to start</h4>
+                                    <p className="text-sm text-muted-foreground mb-4">
+                                      Begin your conversation to see AI-powered insights and real-time summary generation.
+                                    </p>
+                                    <Button 
+                                      onClick={handleStartRecording}
+                                      size="sm"
+                                      className="bg-app-success hover:bg-app-success/90 text-white"
+                                    >
+                                      <Mic className="w-4 h-4 mr-2" />
+                                      Start Recording
+                                    </Button>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          )}
 
-                            {/* Action Items */}
-                            {summary.actionItems.length > 0 && (
-                              <div className="bg-app-warning-light/10 border border-app-warning/20 rounded-lg p-4">
-                                <h3 className="font-semibold text-app-warning mb-2 flex items-center gap-2">
-                                  <ArrowRight className="w-4 h-4" />
-                                  Action Items
-                                </h3>
-                                <ul className="space-y-1">
-                                  {summary.actionItems.map((item, index) => (
-                                    <li key={index} className="text-app-warning text-sm flex items-start gap-2">
-                                      <ArrowRight className="w-3 h-3 mt-1 text-app-warning" />
-                                      <span>{item}</span>
-                                    </li>
-                                  ))}
-                                </ul>
-                              </div>
-                            )}
-
-                            {/* Next Steps */}
-                            {summary.nextSteps.length > 0 && (
-                              <div className="bg-app-info-light/10 border border-app-info/20 rounded-lg p-4">
-                                <h3 className="font-semibold text-app-info mb-2 flex items-center gap-2">
-                                  <ArrowRight className="w-4 h-4" />
-                                  Next Steps
-                                </h3>
-                                <ul className="space-y-1">
-                                  {summary.nextSteps.map((step, index) => (
-                                    <li key={index} className="text-app-info text-sm flex items-start gap-2">
-                                      <span className="text-app-info font-bold text-xs mt-1">{index + 1}.</span>
-                                      <span>{step}</span>
-                                    </li>
-                                  ))}
-                                </ul>
-                              </div>
-                            )}
-
-                            {/* Summary Metadata */}
-                            <div className="text-xs text-muted-foreground pt-2 border-t border-border">
-                              <div className="flex items-center justify-between">
-                                <span>Status: {summary.progressStatus?.replace('_', ' ')}</span>
-                                <span>Sentiment: {summary.sentiment}</span>
+                          {isSummaryLoading && !summary && (
+                            <div className="flex items-center justify-center h-full text-app-primary">
+                              <div className="text-center">
+                                <RefreshCw className="w-10 h-10 mx-auto mb-3 animate-spin" />
+                                <p className="font-medium text-lg">Generating Summary...</p>
                               </div>
                             </div>
-                          </div>
-                        )}
-                      </div>
-                    )}
+                          )}
 
-                    {/* Timeline Tab */}
-                    {activeTab === 'timeline' && (
-                      <div className="h-full max-h-full overflow-hidden">
-                        <CompactTimeline
-                          timeline={timeline || []}
-                          isLoading={isTimelineLoading}
-                          error={timelineError}
-                          lastUpdated={timelineLastUpdated}
-                          onRefresh={refreshTimeline}
-                        />
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
+                          {summary && (
+                            <div className="flex-1 h-full max-h-full overflow-y-auto space-y-4 pr-2">
+                              {/* TL;DR */}
+                              <div className="bg-app-info-light border border-app-info/20 rounded-lg p-4">
+                                <h3 className="font-semibold text-app-info mb-2 flex items-center gap-2">
+                                  <TrendingUp className="w-4 h-4" />
+                                  TL;DR
+                                </h3>
+                                <p className="text-app-info text-sm leading-relaxed">{summary.tldr}</p>
+                              </div>
 
-                {/* Floating AI Chat Guidance */}
-                <FloatingChatGuidance
-                  messages={chatMessages}
-                  isLoading={isChatLoading}
-                  inputValue={chatInputValue}
-                  setInputValue={setChatInputValue}
-                  sendMessage={sendChatMessage}
-                  sendQuickAction={sendQuickAction}
-                  messagesEndRef={messagesEndRef}
-                  isRecording={conversationState === 'recording'}
-                  markMessagesAsRead={markMessagesAsRead}
-                />
-              </div>
-            </div>
-          )}
+                              {/* Key Points */}
+                              {summary.keyPoints.length > 0 && (
+                                <div className="bg-muted/50 border border-border rounded-lg p-4">
+                                  <h3 className="font-semibold text-foreground mb-2 flex items-center gap-2">
+                                    <Hash className="w-4 h-4" />
+                                    Key Points
+                                  </h3>
+                                  <ul className="space-y-1">
+                                    {summary.keyPoints.map((point, index) => (
+                                      <li key={index} className="text-foreground text-sm flex items-start gap-2">
+                                        <span className="text-muted-foreground font-bold text-xs mt-1">•</span>
+                                        <span>{point}</span>
+                                      </li>
+                                    ))}
+                                  </ul>
+                                </div>
+                              )}
 
-          {conversationState === 'completed' && (
-            <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="m-auto text-center max-w-lg p-8 bg-card rounded-xl shadow-2xl">
-              <div className="w-24 h-24 bg-app-success-light rounded-full flex items-center justify-center mx-auto mb-6 ring-4 ring-app-success/20">
-                <CheckCircle className="w-12 h-12 text-app-success" />
-              </div>
-              <h2 className="text-3xl font-bold text-foreground mb-3">Session Complete!</h2>
-              <p className="text-muted-foreground mb-8 text-lg">
-                Duration: {formatDuration(sessionDuration)} • Transcript Lines: {transcript.length} • Talk Ratio: {talkStats.meWords + talkStats.themWords > 0 ? Math.round((talkStats.meWords / (talkStats.meWords + talkStats.themWords)) * 100) : 0}% Me
-              </p>
-              <div className="flex gap-4 justify-center">
-                <MainActionButton />
-                <SecondaryActionButton />
-              </div>
-               <Link href={`/summary/${conversationId || 'new'}`} className="mt-6 inline-block">
-                 <Button variant="link">View Detailed Summary</Button>
-               </Link>
-            </motion.div>
-          )}
+                              {/* Topics */}
+                              {summary.topics.length > 0 && (
+                                <div className="bg-app-primary-light/10 border border-app-primary/20 rounded-lg p-4">
+                                  <h3 className="font-semibold text-app-primary mb-2 flex items-center gap-2">
+                                    <MessageCircle className="w-4 h-4" />
+                                    Topics Discussed
+                                  </h3>
+                                  <div className="flex flex-wrap gap-2">
+                                    {summary.topics.map((topic, index) => (
+                                      <span key={index} className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-app-primary/10 text-app-primary">
+                                        {topic}
+                                      </span>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
 
-          {conversationState === 'error' && (
-             <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="m-auto text-center max-w-lg p-8 bg-card rounded-xl shadow-2xl">
-              <div className="w-24 h-24 bg-app-error-light rounded-full flex items-center justify-center mx-auto mb-6 ring-4 ring-app-error/20">
-                <XCircle className="w-12 h-12 text-app-error" />
+                              {/* Decisions */}
+                              {summary.decisions.length > 0 && (
+                                <div className="bg-app-success-light/10 border border-app-success/20 rounded-lg p-4">
+                                  <h3 className="font-semibold text-app-success mb-2 flex items-center gap-2">
+                                    <Handshake className="w-4 h-4" />
+                                    Decisions Made
+                                  </h3>
+                                  <ul className="space-y-1">
+                                    {summary.decisions.map((decision, index) => (
+                                      <li key={index} className="text-app-success text-sm flex items-start gap-2">
+                                        <CheckSquare className="w-3 h-3 mt-1 text-app-success" />
+                                        <span>{decision}</span>
+                                      </li>
+                                    ))}
+                                  </ul>
+                                </div>
+                              )}
+
+                              {/* Action Items */}
+                              {summary.actionItems.length > 0 && (
+                                <div className="bg-app-warning-light/10 border border-app-warning/20 rounded-lg p-4">
+                                  <h3 className="font-semibold text-app-warning mb-2 flex items-center gap-2">
+                                    <ArrowRight className="w-4 h-4" />
+                                    Action Items
+                                  </h3>
+                                  <ul className="space-y-1">
+                                    {summary.actionItems.map((item, index) => (
+                                      <li key={index} className="text-app-warning text-sm flex items-start gap-2">
+                                        <ArrowRight className="w-3 h-3 mt-1 text-app-warning" />
+                                        <span>{item}</span>
+                                      </li>
+                                    ))}
+                                  </ul>
+                                </div>
+                              )}
+
+                              {/* Next Steps */}
+                              {summary.nextSteps.length > 0 && (
+                                <div className="bg-app-info-light/10 border border-app-info/20 rounded-lg p-4">
+                                  <h3 className="font-semibold text-app-info mb-2 flex items-center gap-2">
+                                    <ArrowRight className="w-4 h-4" />
+                                    Next Steps
+                                  </h3>
+                                  <ul className="space-y-1">
+                                    {summary.nextSteps.map((step, index) => (
+                                      <li key={index} className="text-app-info text-sm flex items-start gap-2">
+                                        <span className="text-app-info font-bold text-xs mt-1">{index + 1}.</span>
+                                        <span>{step}</span>
+                                      </li>
+                                    ))}
+                                  </ul>
+                                </div>
+                              )}
+
+                              {/* Summary Metadata */}
+                              <div className="text-xs text-muted-foreground pt-2 border-t border-border">
+                                <div className="flex items-center justify-between">
+                                  <span>Status: {summary.progressStatus?.replace('_', ' ')}</span>
+                                  <span>Sentiment: {summary.sentiment}</span>
+                                </div>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Timeline Tab */}
+                      {activeTab === 'timeline' && (
+                        <div className="h-full max-h-full overflow-hidden">
+                          <CompactTimeline
+                            timeline={timeline || []}
+                            isLoading={isTimelineLoading}
+                            error={timelineError}
+                            lastUpdated={timelineLastUpdated}
+                            onRefresh={refreshTimeline}
+                          />
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                </div>
               </div>
-              <h2 className="text-3xl font-bold text-foreground mb-3">An Error Occurred</h2>
-              <p className="text-app-error mb-8 text-lg">
-                {errorMessage || "Something went wrong. Please try resetting the session."}
-              </p>
-              <MainActionButton />
-            </motion.div>
-          )}
+            )}
           </div>
 
+          {/* Floating AI Chat Guidance - Always Visible */}
+          <FloatingChatGuidance
+            messages={chatMessages}
+            isLoading={isChatLoading}
+            inputValue={chatInputValue}
+            setInputValue={setChatInputValue}
+            sendMessage={sendChatMessage}
+            sendQuickAction={sendQuickAction}
+            messagesEndRef={messagesEndRef}
+            isRecording={conversationState === 'recording'}
+            markMessagesAsRead={markMessagesAsRead}
+          />
         </div>
       </main>
     </div>
