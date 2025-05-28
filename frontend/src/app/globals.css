@@ -369,8 +369,3 @@
     color: hsl(var(--timeline-question));
   }
 }
-
-/* Suppress custom element duplication errors in development */
-@media (max-width: 0) {
-  /* This media query never matches, but creates a safe place for the script */
-}

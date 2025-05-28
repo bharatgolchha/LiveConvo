@@ -6,10 +6,10 @@ import { supabase } from '@/lib/supabase';
  */
 export async function GET(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: { id: string } }
 ) {
   try {
-    const { id: sessionId } = await params;
+    const { id: sessionId } = params;
 
     // Get current user from Supabase auth using the access token
     const authHeader = request.headers.get('authorization');
@@ -83,10 +83,10 @@ export async function GET(
  */
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: { id: string } }
 ) {
   try {
-    const { id: sessionId } = await params;
+    const { id: sessionId } = params;
     const body = await request.json();
 
     // Get current user from Supabase auth using the access token
@@ -162,10 +162,10 @@ export async function PATCH(
  */
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: { id: string } }
 ) {
   try {
-    const { id: sessionId } = await params;
+    const { id: sessionId } = params;
 
     // Get current user from Supabase auth using the access token
     const authHeader = request.headers.get('authorization');
