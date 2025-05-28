@@ -45,6 +45,7 @@ import {
 
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/Card';
+import { ThemeToggle } from '@/components/ui/ThemeToggle';
 import Link from 'next/link';
 import { useAIGuidance, ContextDocument, GuidanceRequest } from '@/lib/aiGuidance';
 import { useTranscription } from '@/lib/useTranscription';
@@ -179,6 +180,7 @@ export default function App() {
     sendQuickAction,
     addAutoGuidance,
     initializeChat,
+    markMessagesAsRead,
     messagesEndRef
   } = useChatGuidance({
     transcript: fullTranscriptText,
@@ -631,27 +633,24 @@ export default function App() {
 
   // UI Render
   return (
-    <div className={cn(
-      "min-h-screen flex flex-col bg-gradient-to-br from-slate-100 to-sky-100",
-      isFullscreen ? 'p-0' : ''
-    )}>
+    <div className={cn("min-h-screen flex flex-col", isFullscreen ? 'h-screen overflow-hidden' : '')}>
       {/* Header */}
       {!isFullscreen && (
-        <header className="bg-white/80 backdrop-blur-md border-b border-gray-200 sticky top-0 z-40">
-        <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="flex items-center justify-between h-16">
+        <header className="bg-card/80 backdrop-blur-sm border-b border-border shadow-sm z-40 flex-shrink-0">
+          <div className="px-4 sm:px-6 lg:px-8 py-3">
+            <div className="flex items-center justify-between">
               <div className="flex items-center gap-4">
-                <Link href="/dashboard" className="flex items-center gap-2 text-gray-600 hover:text-gray-900 transition-colors p-2 rounded-md hover:bg-gray-100">
+                <Link href="/dashboard" className="flex items-center gap-2 text-muted-foreground hover:text-app-primary transition-colors">
                   <ArrowLeft className="w-5 h-5" />
-                  <span className="hidden sm:inline font-medium">Dashboard</span>
+                  <span className="text-sm font-medium">Dashboard</span>
                 </Link>
-                
-                <div className="h-8 w-px bg-gray-200 hidden sm:block"></div>
+
+                <div className="h-8 w-px bg-border hidden sm:block"></div>
 
             <div className="flex items-center gap-3">
-                  <Brain className="w-7 h-7 text-blue-600" />
+                  <Brain className="w-7 h-7 text-app-primary" />
                   <div>
-                    <h1 className="font-semibold text-gray-800 text-lg">{conversationTitle}</h1>
+                    <h1 className="font-semibold text-foreground text-lg">{conversationTitle}</h1>
                     <div className={cn("flex items-center gap-2 text-sm font-medium px-2 py-0.5 rounded-full", stateColorClass)}>
                       {StateIcon && <StateIcon className="w-3.5 h-3.5" />}
                       <span>{stateText}</span>
@@ -662,19 +661,20 @@ export default function App() {
             </div>
             
               <div className="flex items-center gap-1">
-                <Button variant="ghost" size="sm" onClick={() => setAudioEnabled(!audioEnabled)} title={audioEnabled ? "Mute Audio Feedback" : "Unmute Audio Feedback"} className={cn(audioEnabled ? 'text-blue-600' : 'text-gray-500', "hover:bg-gray-100 p-2")} >
+                <Button variant="ghost" size="sm" onClick={() => setAudioEnabled(!audioEnabled)} title={audioEnabled ? "Mute Audio Feedback" : "Unmute Audio Feedback"} className={cn(audioEnabled ? 'text-app-primary' : 'text-muted-foreground', "hover:bg-accent p-2")} >
                   {audioEnabled ? <Volume2 className="w-5 h-5" /> : <VolumeX className="w-5 h-5" />}
               </Button>
-                <Button variant="ghost" size="sm" onClick={() => setIsFullscreen(!isFullscreen)} title={isFullscreen ? "Exit Fullscreen" : "Enter Fullscreen"} className="hover:bg-gray-100 p-2">
+                <Button variant="ghost" size="sm" onClick={() => setIsFullscreen(!isFullscreen)} title={isFullscreen ? "Exit Fullscreen" : "Enter Fullscreen"} className="hover:bg-accent p-2">
                   {isFullscreen ? <Minimize2 className="w-5 h-5" /> : <Maximize2 className="w-5 h-5" />}
               </Button>
-                <Button variant="ghost" size="sm" onClick={handleGenerateGuidance} title="Generate Guidance" className="hover:bg-gray-100 p-2">
+                <Button variant="ghost" size="sm" onClick={handleGenerateGuidance} title="Generate Guidance" className="hover:bg-accent p-2">
                   <Lightbulb className="w-5 h-5" />
                 </Button>
-                <Button variant="ghost" size="sm" title="Notifications" className="hover:bg-gray-100 p-2">
+                <Button variant="ghost" size="sm" title="Notifications" className="hover:bg-accent p-2">
                   <Bell className="w-5 h-5" />
                 </Button>
-                <Button variant="ghost" size="sm" title="User Settings" className="hover:bg-gray-100 p-2">
+                <ThemeToggle />
+                <Button variant="ghost" size="sm" title="User Settings" className="hover:bg-accent p-2">
                   <User className="w-5 h-5" />
                 </Button>
               </div>
@@ -694,13 +694,13 @@ export default function App() {
               animate={{ width: 384, opacity: 1, paddingLeft: '1rem', paddingRight: '1rem' }} // 96 in Tailwind is 24rem or 384px
               exit={{ width: 0, opacity: 0, padding: 0 }}
               transition={{ type: "spring", stiffness: 300, damping: 30 }}
-              className="bg-white border-r border-gray-200 flex flex-col shadow-lg z-30 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100 h-full"
+              className="bg-card border-r border-border flex flex-col shadow-lg z-30 overflow-y-auto h-full"
             >
-              <div className="p-4 pt-5 border-b border-gray-100 sticky top-0 bg-white z-10">
+              <div className="p-4 pt-5 border-b border-border sticky top-0 bg-card z-10">
                 <div className="flex items-center justify-between">
-                  <h2 className="text-xl font-semibold text-gray-800">Setup & Context</h2>
-                  <Button variant="ghost" size="sm" onClick={() => setShowContextPanel(false)} title="Close Context Panel" className="hover:bg-gray-100 p-2">
-                    <SidebarClose className="w-5 h-5 text-gray-600" />
+                  <h2 className="text-xl font-semibold text-foreground">Setup & Context</h2>
+                  <Button variant="ghost" size="sm" onClick={() => setShowContextPanel(false)} title="Close Context Panel" className="hover:bg-accent p-2">
+                    <SidebarClose className="w-5 h-5 text-muted-foreground" />
                   </Button>
           </div>
         </div>
@@ -708,26 +708,26 @@ export default function App() {
               <div className="p-4 space-y-6 flex-1">
                 {/* Conversation Title Input */}
                 <div>
-                  <label htmlFor="convTitle" className="block text-sm font-medium text-gray-700 mb-1">Conversation Title</label>
+                  <label htmlFor="convTitle" className="block text-sm font-medium text-foreground mb-1">Conversation Title</label>
                   <input 
                     id="convTitle"
                     type="text" 
                     value={conversationTitle} 
                     onChange={(e) => setConversationTitle(e.target.value)} 
                     placeholder="E.g., Sales Call with Acme Corp"
-                    className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-shadow text-sm"
+                    className="w-full p-2 border border-input rounded-lg focus:ring-2 focus:ring-app-primary focus:border-app-primary transition-shadow text-sm bg-background text-foreground"
                     disabled={conversationState === 'recording' || conversationState === 'paused'}
           />
         </div>
 
                 {/* Conversation Type Select */}
                 <div>
-                  <label htmlFor="convType" className="block text-sm font-medium text-gray-700 mb-1">Conversation Type</label>
+                  <label htmlFor="convType" className="block text-sm font-medium text-foreground mb-1">Conversation Type</label>
                   <select 
                     id="convType"
                     value={conversationType} 
                     onChange={(e) => setConversationType(e.target.value as any)} 
-                    className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-shadow text-sm bg-white"
+                    className="w-full p-2 border border-input rounded-lg focus:ring-2 focus:ring-app-primary focus:border-app-primary transition-shadow text-sm bg-background text-foreground"
                     disabled={conversationState === 'recording' || conversationState === 'paused'}
                   >
                     <option value="sales">Sales Call</option>
@@ -739,23 +739,23 @@ export default function App() {
                 
                 {/* Text Context Input */}
                 <div>
-                  <label htmlFor="textContext" className="block text-sm font-medium text-gray-700 mb-1">Background / Notes</label>
+                  <label htmlFor="textContext" className="block text-sm font-medium text-foreground mb-1">Background / Notes</label>
                   <textarea 
                     id="textContext"
                     value={textContext} 
                     onChange={(e) => handleTextContextChange(e.target.value)} 
                     placeholder="Add key talking points, goals, or background information here..."
                     rows={5} 
-                    className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-shadow resize-none text-sm"
+                    className="w-full p-2 border border-input rounded-lg focus:ring-2 focus:ring-app-primary focus:border-app-primary transition-shadow resize-none text-sm bg-background text-foreground"
                     disabled={conversationState === 'recording' || conversationState === 'paused'}
             />
           </div>
 
                 {/* File Upload Section */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Context Documents</label>
-                  <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center hover:border-blue-400 transition-colors bg-gray-50">
-                    <UploadCloud className="w-8 h-8 text-gray-400 mx-auto mb-2" />
+                  <label className="block text-sm font-medium text-foreground mb-1">Context Documents</label>
+                  <div className="border-2 border-dashed border-border rounded-lg p-4 text-center hover:border-app-primary transition-colors bg-muted/50">
+                    <UploadCloud className="w-8 h-8 text-muted-foreground mx-auto mb-2" />
                     <input 
                       type="file" 
                       multiple 
@@ -765,18 +765,18 @@ export default function App() {
                       disabled={conversationState === 'recording' || conversationState === 'paused'}
                       accept=".txt,.pdf,.doc,.docx,.md"
                     />
-                    <label htmlFor="fileUploadInput" className="text-sm text-blue-600 hover:text-blue-700 font-medium cursor-pointer">
+                    <label htmlFor="fileUploadInput" className="text-sm text-app-primary hover:text-app-primary-dark font-medium cursor-pointer">
                       Upload files
                     </label>
-                    <p className="text-xs text-gray-500 mt-1">or drag and drop (TXT, PDF, DOCX, MD)</p>
+                    <p className="text-xs text-muted-foreground mt-1">or drag and drop (TXT, PDF, DOCX, MD)</p>
                   </div>
                   {uploadedFiles.length > 0 && (
                     <div className="mt-3 space-y-2">
                       {uploadedFiles.map(file => (
-                        <div key={file.name} className="flex items-center justify-between p-2 bg-gray-100 rounded-md text-sm">
-                          <span className="truncate w-4/5" title={file.name}>{file.name}</span>
-                          <Button variant="ghost" size="sm" onClick={() => handleRemoveFile(file.name)} className="w-6 h-6 p-1 hover:bg-red-100">
-                            <Trash2 className="w-3.5 h-3.5 text-red-500"/>
+                        <div key={file.name} className="flex items-center justify-between p-2 bg-muted rounded-md text-sm">
+                          <span className="truncate w-4/5 text-foreground" title={file.name}>{file.name}</span>
+                          <Button variant="ghost" size="sm" onClick={() => handleRemoveFile(file.name)} className="w-6 h-6 p-1 hover:bg-destructive/10">
+                            <Trash2 className="w-3.5 h-3.5 text-destructive"/>
                           </Button>
                         </div>
                       ))}
@@ -785,19 +785,19 @@ export default function App() {
           </div>
 
                 {/* Settings Toggles */}
-                <div className="pt-4 border-t border-gray-200 space-y-3">
-                  <h3 className="text-md font-semibold text-gray-700">Options</h3>
+                <div className="pt-4 border-t border-border space-y-3">
+                  <h3 className="text-md font-semibold text-foreground">Options</h3>
                   {/* Auto-guidance checkbox removed - now using manual button */}
                   <label className="flex items-center justify-between cursor-pointer">
-                    <span className="text-sm text-gray-600">Enable audio feedback</span>
-                    <input type="checkbox" checked={audioEnabled} onChange={(e) => setAudioEnabled(e.target.checked)} className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 h-4 w-4"/>
+                    <span className="text-sm text-muted-foreground">Enable audio feedback</span>
+                    <input type="checkbox" checked={audioEnabled} onChange={(e) => setAudioEnabled(e.target.checked)} className="rounded border-input text-app-primary focus:ring-app-primary h-4 w-4"/>
                   </label>
                 </div>
 
                 {/* Session Actions (Reset) */}
                 {(transcript.length > 0 || sessionDuration > 0 || conversationState !== 'setup') && (
-                    <div className="pt-4 border-t border-gray-200">
-                      <Button onClick={handleResetSession} variant="outline" size="sm" className="w-full text-red-600 hover:text-red-700 hover:bg-red-50 border-red-300 hover:border-red-400">
+                    <div className="pt-4 border-t border-border">
+                      <Button onClick={handleResetSession} variant="outline" size="sm" className="w-full text-destructive hover:text-destructive hover:bg-destructive/10 border-destructive/30 hover:border-destructive">
                         <RotateCcw className="w-4 h-4 mr-2" /> Reset Session & Start Over
                       </Button>
                     </div>
@@ -811,7 +811,7 @@ export default function App() {
         <div className="flex-1 flex flex-col relative overflow-hidden h-full max-h-full">
           
           {!showContextPanel && !isFullscreen && (
-            <Button onClick={() => setShowContextPanel(true)} variant="outline" size="sm" className="absolute top-4 left-4 z-20 bg-white shadow hover:bg-gray-50">
+            <Button onClick={() => setShowContextPanel(true)} variant="outline" size="sm" className="absolute top-4 left-4 z-20 bg-background shadow hover:bg-accent">
               <SidebarOpen className="w-4 h-4 mr-2" /> Show Context Panel
             </Button>
           )}
@@ -819,11 +819,11 @@ export default function App() {
           {errorMessage && (
             <motion.div 
               initial={{opacity: 0, y: -20}} animate={{opacity:1, y:0}} exit={{opacity:0, y:-20}}
-              className="absolute top-4 left-1/2 -translate-x-1/2 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-md shadow-lg z-50 flex items-center gap-2"
+              className="absolute top-4 left-1/2 -translate-x-1/2 bg-app-error-light border border-app-error text-app-error px-4 py-3 rounded-md shadow-lg z-50 flex items-center gap-2"
             >
               <XCircle className="w-5 h-5"/> 
               <span>{errorMessage}</span>
-              <Button variant="ghost" size="sm" onClick={() => setErrorMessage(null)} className="h-6 w-6 p-1 text-red-700 hover:bg-red-200">
+              <Button variant="ghost" size="sm" onClick={() => setErrorMessage(null)} className="h-6 w-6 p-1 text-app-error hover:bg-app-error/10">
                  <XCircle className="w-4 h-4"/>
               </Button>
             </motion.div>
@@ -831,12 +831,12 @@ export default function App() {
 
           {/* State-based Interface Views */}
           <div className="flex-1 overflow-hidden h-full max-h-full p-4 sm:p-6 lg:p-8">{conversationState === 'setup' && (
-            <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="m-auto text-center max-w-lg p-8 bg-white rounded-xl shadow-2xl">
-              <div className="w-24 h-24 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-6 ring-4 ring-blue-200">
-                <Settings2 className="w-12 h-12 text-blue-600" />
+            <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="m-auto text-center max-w-lg p-8 bg-card rounded-xl shadow-2xl">
+              <div className="w-24 h-24 bg-app-info-light rounded-full flex items-center justify-center mx-auto mb-6 ring-4 ring-app-info/20">
+                <Settings2 className="w-12 h-12 text-app-info" />
               </div>
-              <h2 className="text-3xl font-bold text-gray-800 mb-3">Let's Get Started</h2>
-              <p className="text-gray-600 mb-8 text-lg">
+              <h2 className="text-3xl font-bold text-foreground mb-3">Let's Get Started</h2>
+              <p className="text-muted-foreground mb-8 text-lg">
                 Configure your conversation title, type, and add any context on the left panel. Then, click "Get Ready".
               </p>
               <MainActionButton />
@@ -844,12 +844,12 @@ export default function App() {
           )}
 
           {conversationState === 'ready' && (
-            <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="m-auto text-center max-w-lg p-8 bg-white rounded-xl shadow-2xl">
-              <div className="w-32 h-32 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6 cursor-pointer hover:bg-green-200 transition-colors ring-4 ring-green-200" onClick={handleStartRecording}>
-                <Mic className="w-16 h-16 text-green-600" />
+            <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="m-auto text-center max-w-lg p-8 bg-card rounded-xl shadow-2xl">
+              <div className="w-32 h-32 bg-app-success-light rounded-full flex items-center justify-center mx-auto mb-6 cursor-pointer hover:bg-app-success/20 transition-colors ring-4 ring-app-success/20" onClick={handleStartRecording}>
+                <Mic className="w-16 h-16 text-app-success" />
               </div>
-              <h2 className="text-3xl font-bold text-gray-800 mb-3">Ready to Record!</h2>
-              <p className="text-gray-600 mb-8 text-lg">
+              <h2 className="text-3xl font-bold text-foreground mb-3">Ready to Record!</h2>
+              <p className="text-muted-foreground mb-8 text-lg">
                 Click the microphone above or the button below to start your conversation and get live AI assistance.
               </p>
               <MainActionButton />
@@ -862,22 +862,22 @@ export default function App() {
               <motion.div 
                 initial={{ opacity: 0, y: -20 }} 
                 animate={{ opacity: 1, y: 0 }} 
-                className="fixed top-20 right-4 z-50 flex items-center gap-2 bg-white/95 backdrop-blur-sm shadow-lg rounded-full px-3 py-2 border border-gray-200"
+                className="fixed top-20 right-4 z-50 flex items-center gap-2 bg-card/95 backdrop-blur-sm shadow-lg rounded-full px-3 py-2 border border-border"
               >
-                <div className="flex items-center gap-2 text-xs font-medium text-gray-600">
+                <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
                   {conversationState === 'recording' && (
                     <>
                       <motion.div
                         animate={{ scale: [1, 1.2, 1] }}
                         transition={{ repeat: Infinity, duration: 1 }}
-                        className="w-2 h-2 bg-red-500 rounded-full"
+                        className="w-2 h-2 bg-recording-active rounded-full"
                       />
                       <span>{formatDuration(sessionDuration)}</span>
                     </>
                   )}
                   {conversationState === 'paused' && (
                     <>
-                      <div className="w-2 h-2 bg-yellow-500 rounded-sm" />
+                      <div className="w-2 h-2 bg-recording-paused rounded-sm" />
                       <span>Paused • {formatDuration(sessionDuration)}</span>
                     </>
                   )}
@@ -886,20 +886,20 @@ export default function App() {
                       <motion.div
                         animate={{ rotate: 360 }}
                         transition={{ repeat: Infinity, duration: 1 }}
-                        className="w-2 h-2 border border-purple-500 border-t-transparent rounded-full"
+                        className="w-2 h-2 border border-app-info border-t-transparent rounded-full"
                       />
                       <span>Processing</span>
                     </>
                   )}
                 </div>
-                <div className="w-px h-4 bg-gray-300" />
+                <div className="w-px h-4 bg-border" />
                 <div className="flex items-center gap-1">
                   {conversationState === 'recording' && (
                     <Button 
                       onClick={handlePauseRecording} 
                       variant="ghost" 
                       size="sm" 
-                      className="h-8 w-8 p-1 hover:bg-yellow-100 text-yellow-600"
+                      className="h-8 w-8 p-1 hover:bg-app-warning/10 text-app-warning"
                     >
                       <PauseCircle className="w-4 h-4" />
                     </Button>
@@ -909,7 +909,7 @@ export default function App() {
                       onClick={handleResumeRecording} 
                       variant="ghost" 
                       size="sm" 
-                      className="h-8 w-8 p-1 hover:bg-green-100 text-green-600"
+                      className="h-8 w-8 p-1 hover:bg-app-success/10 text-app-success"
                     >
                       <Play className="w-4 h-4" />
                     </Button>
@@ -918,7 +918,7 @@ export default function App() {
                     onClick={handleStopRecording} 
                     variant="ghost" 
                     size="sm" 
-                    className="h-8 w-8 p-1 hover:bg-red-100 text-red-600"
+                    className="h-8 w-8 p-1 hover:bg-app-error/10 text-app-error"
                   >
                     <Square className="w-4 h-4" />
                   </Button>
@@ -929,17 +929,17 @@ export default function App() {
               <div className="flex-1 h-full max-h-full overflow-hidden">
                 {/* Single Transcript/Summary Column - Now Full Width */}
                 <Card className="w-full h-full max-h-full flex flex-col shadow-lg overflow-hidden">
-                  <CardHeader className="border-b bg-gray-50 rounded-t-lg flex-shrink-0">
+                  <CardHeader className="border-b bg-muted/50 rounded-t-lg flex-shrink-0">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-4">
-                        <div className="flex bg-white rounded-lg p-1">
+                        <div className="flex bg-background rounded-lg p-1">
                           <button
                             onClick={() => setActiveTab('transcript')}
                             className={cn(
                               "flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition-colors",
                               activeTab === 'transcript' 
-                                ? "bg-blue-100 text-blue-700" 
-                                : "text-gray-600 hover:text-gray-800 hover:bg-gray-100"
+                                ? "bg-app-primary/10 text-app-primary" 
+                                : "text-muted-foreground hover:text-foreground hover:bg-accent"
                             )}
                           >
                             <MessageSquare className="w-4 h-4" />
@@ -950,8 +950,8 @@ export default function App() {
                             className={cn(
                               "flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition-colors",
                               activeTab === 'summary' 
-                                ? "bg-blue-100 text-blue-700" 
-                                : "text-gray-600 hover:text-gray-800 hover:bg-gray-100"
+                                ? "bg-app-primary/10 text-app-primary" 
+                                : "text-muted-foreground hover:text-foreground hover:bg-accent"
                             )}
                           >
                             <FileText className="w-4 h-4" />
@@ -963,8 +963,8 @@ export default function App() {
                             className={cn(
                               "flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition-colors",
                               activeTab === 'timeline' 
-                                ? "bg-blue-100 text-blue-700" 
-                                : "text-gray-600 hover:text-gray-800 hover:bg-gray-100"
+                                ? "bg-app-primary/10 text-app-primary" 
+                                : "text-muted-foreground hover:text-foreground hover:bg-accent"
                             )}
                           >
                             <Clock3 className="w-4 h-4" />
@@ -973,7 +973,7 @@ export default function App() {
                         </div>
                       </div>
                       {(activeTab === 'summary' || activeTab === 'timeline') && summary && (
-                        <div className="flex items-center gap-2 text-xs text-gray-500">
+                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
                           {summaryLastUpdated && (
                             <span>Updated {summaryLastUpdated.toLocaleTimeString([], { hour: '2-digit', minute:'2-digit'})}</span>
                           )}
@@ -996,7 +996,7 @@ export default function App() {
                     {activeTab === 'transcript' && (
                       <div className="h-full max-h-full flex flex-col overflow-hidden">
                         {transcript.length === 0 ? (
-                          <div className="flex items-center justify-center h-full text-gray-500">
+                          <div className="flex items-center justify-center h-full text-muted-foreground">
                             <div className="text-center">
                               <Clock className="w-10 h-10 mx-auto mb-3 opacity-60" />
                               <p className="font-medium text-lg">
@@ -1005,7 +1005,7 @@ export default function App() {
                             </div>
                           </div>
                         ) : (
-                          <div className="flex-1 h-full max-h-full overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100 space-y-3 pr-2">
+                          <div className="flex-1 h-full max-h-full overflow-y-auto space-y-3 pr-2">
                             <AnimatePresence initial={false}>
                               {transcript.map((line) => (
                                 <motion.div
@@ -1015,11 +1015,11 @@ export default function App() {
                                   animate={{ opacity: 1, y: 0, scale: 1 }}
                                   exit={{ opacity: 0, y: -10, scale: 0.95 }}
                                   transition={{ type: "spring", stiffness: 300, damping: 25 }}
-                                  className="p-3 rounded-lg border-l-4 text-sm bg-gray-50 border-gray-300 text-gray-800"
+                                  className="p-3 rounded-lg border-l-4 text-sm bg-muted/50 border-border text-foreground"
                                 >
                                   <div className="flex items-center justify-between mb-0.5 text-xs">
-                                    <span className="font-medium text-gray-600">{line.speaker}</span>
-                                    <span className="text-gray-500">{line.timestamp.toLocaleTimeString([], { hour: '2-digit', minute:'2-digit'})}</span>
+                                    <span className="font-medium text-muted-foreground">{line.speaker}</span>
+                                    <span className="text-muted-foreground">{line.timestamp.toLocaleTimeString([], { hour: '2-digit', minute:'2-digit'})}</span>
                                   </div>
                                   <p className="leading-relaxed">{line.text}</p>
                                 </motion.div>
@@ -1035,7 +1035,7 @@ export default function App() {
                     {activeTab === 'summary' && (
                       <div className="h-full max-h-full flex flex-col overflow-hidden">
                         {summaryError && (
-                          <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-red-700 text-sm mb-4 flex-shrink-0">
+                          <div className="bg-app-error-light border border-app-error rounded-lg p-3 text-app-error text-sm mb-4 flex-shrink-0">
                             <div className="flex items-center gap-2 mb-1">
                               <XCircle className="w-4 h-4" />
                               <span className="font-medium">Summary Error</span>
@@ -1045,7 +1045,7 @@ export default function App() {
                         )}
 
                         {!summary && !isSummaryLoading && !summaryError && (
-                          <div className="flex items-center justify-center h-full text-gray-500">
+                          <div className="flex items-center justify-center h-full text-muted-foreground">
                             <div className="text-center">
                               <FileText className="w-10 h-10 mx-auto mb-3 opacity-60" />
                               <p className="font-medium text-lg mb-2">No Summary Yet</p>
@@ -1055,7 +1055,7 @@ export default function App() {
                         )}
 
                         {isSummaryLoading && !summary && (
-                          <div className="flex items-center justify-center h-full text-blue-600">
+                          <div className="flex items-center justify-center h-full text-app-primary">
                             <div className="text-center">
                               <RefreshCw className="w-10 h-10 mx-auto mb-3 animate-spin" />
                               <p className="font-medium text-lg">Generating Summary...</p>
@@ -1064,27 +1064,27 @@ export default function App() {
                         )}
 
                         {summary && (
-                          <div className="flex-1 h-full max-h-full overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100 space-y-4 pr-2">
+                          <div className="flex-1 h-full max-h-full overflow-y-auto space-y-4 pr-2">
                             {/* TL;DR */}
-                            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                              <h3 className="font-semibold text-blue-800 mb-2 flex items-center gap-2">
+                            <div className="bg-app-info-light border border-app-info/20 rounded-lg p-4">
+                              <h3 className="font-semibold text-app-info mb-2 flex items-center gap-2">
                                 <TrendingUp className="w-4 h-4" />
                                 TL;DR
                               </h3>
-                              <p className="text-blue-700 text-sm leading-relaxed">{summary.tldr}</p>
+                              <p className="text-app-info text-sm leading-relaxed">{summary.tldr}</p>
                             </div>
 
                             {/* Key Points */}
                             {summary.keyPoints.length > 0 && (
-                              <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-                                <h3 className="font-semibold text-gray-800 mb-2 flex items-center gap-2">
+                              <div className="bg-muted/50 border border-border rounded-lg p-4">
+                                <h3 className="font-semibold text-foreground mb-2 flex items-center gap-2">
                                   <Hash className="w-4 h-4" />
                                   Key Points
                                 </h3>
                                 <ul className="space-y-1">
                                   {summary.keyPoints.map((point, index) => (
-                                    <li key={index} className="text-gray-700 text-sm flex items-start gap-2">
-                                      <span className="text-gray-500 font-bold text-xs mt-1">•</span>
+                                    <li key={index} className="text-foreground text-sm flex items-start gap-2">
+                                      <span className="text-muted-foreground font-bold text-xs mt-1">•</span>
                                       <span>{point}</span>
                                     </li>
                                   ))}
@@ -1094,14 +1094,14 @@ export default function App() {
 
                             {/* Topics */}
                             {summary.topics.length > 0 && (
-                              <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-4">
-                                <h3 className="font-semibold text-indigo-800 mb-2 flex items-center gap-2">
+                              <div className="bg-app-primary-light/10 border border-app-primary/20 rounded-lg p-4">
+                                <h3 className="font-semibold text-app-primary mb-2 flex items-center gap-2">
                                   <MessageCircle className="w-4 h-4" />
                                   Topics Discussed
                                 </h3>
                                 <div className="flex flex-wrap gap-2">
                                   {summary.topics.map((topic, index) => (
-                                    <span key={index} className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-indigo-100 text-indigo-700">
+                                    <span key={index} className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-app-primary/10 text-app-primary">
                                       {topic}
                                     </span>
                                   ))}
@@ -1111,15 +1111,15 @@ export default function App() {
 
                             {/* Decisions */}
                             {summary.decisions.length > 0 && (
-                              <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-                                <h3 className="font-semibold text-green-800 mb-2 flex items-center gap-2">
+                              <div className="bg-app-success-light/10 border border-app-success/20 rounded-lg p-4">
+                                <h3 className="font-semibold text-app-success mb-2 flex items-center gap-2">
                                   <Handshake className="w-4 h-4" />
                                   Decisions Made
                                 </h3>
                                 <ul className="space-y-1">
                                   {summary.decisions.map((decision, index) => (
-                                    <li key={index} className="text-green-700 text-sm flex items-start gap-2">
-                                      <CheckSquare className="w-3 h-3 mt-1 text-green-500" />
+                                    <li key={index} className="text-app-success text-sm flex items-start gap-2">
+                                      <CheckSquare className="w-3 h-3 mt-1 text-app-success" />
                                       <span>{decision}</span>
                                     </li>
                                   ))}
@@ -1129,15 +1129,15 @@ export default function App() {
 
                             {/* Action Items */}
                             {summary.actionItems.length > 0 && (
-                              <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
-                                <h3 className="font-semibold text-purple-800 mb-2 flex items-center gap-2">
+                              <div className="bg-app-warning-light/10 border border-app-warning/20 rounded-lg p-4">
+                                <h3 className="font-semibold text-app-warning mb-2 flex items-center gap-2">
                                   <ArrowRight className="w-4 h-4" />
                                   Action Items
                                 </h3>
                                 <ul className="space-y-1">
                                   {summary.actionItems.map((item, index) => (
-                                    <li key={index} className="text-purple-700 text-sm flex items-start gap-2">
-                                      <ArrowRight className="w-3 h-3 mt-1 text-purple-500" />
+                                    <li key={index} className="text-app-warning text-sm flex items-start gap-2">
+                                      <ArrowRight className="w-3 h-3 mt-1 text-app-warning" />
                                       <span>{item}</span>
                                     </li>
                                   ))}
@@ -1147,15 +1147,15 @@ export default function App() {
 
                             {/* Next Steps */}
                             {summary.nextSteps.length > 0 && (
-                              <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
-                                <h3 className="font-semibold text-orange-800 mb-2 flex items-center gap-2">
+                              <div className="bg-app-info-light/10 border border-app-info/20 rounded-lg p-4">
+                                <h3 className="font-semibold text-app-info mb-2 flex items-center gap-2">
                                   <ArrowRight className="w-4 h-4" />
                                   Next Steps
                                 </h3>
                                 <ul className="space-y-1">
                                   {summary.nextSteps.map((step, index) => (
-                                    <li key={index} className="text-orange-700 text-sm flex items-start gap-2">
-                                      <span className="text-orange-500 font-bold text-xs mt-1">{index + 1}.</span>
+                                    <li key={index} className="text-app-info text-sm flex items-start gap-2">
+                                      <span className="text-app-info font-bold text-xs mt-1">{index + 1}.</span>
                                       <span>{step}</span>
                                     </li>
                                   ))}
@@ -1164,7 +1164,7 @@ export default function App() {
                             )}
 
                             {/* Summary Metadata */}
-                            <div className="text-xs text-gray-500 pt-2 border-t">
+                            <div className="text-xs text-muted-foreground pt-2 border-t border-border">
                               <div className="flex items-center justify-between">
                                 <span>Status: {summary.progressStatus?.replace('_', ' ')}</span>
                                 <span>Sentiment: {summary.sentiment}</span>
@@ -1200,18 +1200,19 @@ export default function App() {
                   sendQuickAction={sendQuickAction}
                   messagesEndRef={messagesEndRef}
                   isRecording={conversationState === 'recording'}
+                  markMessagesAsRead={markMessagesAsRead}
                 />
               </div>
             </div>
           )}
 
           {conversationState === 'completed' && (
-            <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="m-auto text-center max-w-lg p-8 bg-white rounded-xl shadow-2xl">
-              <div className="w-24 h-24 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6 ring-4 ring-green-200">
-                <CheckCircle className="w-12 h-12 text-green-600" />
+            <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="m-auto text-center max-w-lg p-8 bg-card rounded-xl shadow-2xl">
+              <div className="w-24 h-24 bg-app-success-light rounded-full flex items-center justify-center mx-auto mb-6 ring-4 ring-app-success/20">
+                <CheckCircle className="w-12 h-12 text-app-success" />
               </div>
-              <h2 className="text-3xl font-bold text-gray-800 mb-3">Session Complete!</h2>
-              <p className="text-gray-600 mb-8 text-lg">
+              <h2 className="text-3xl font-bold text-foreground mb-3">Session Complete!</h2>
+              <p className="text-muted-foreground mb-8 text-lg">
                 Duration: {formatDuration(sessionDuration)} • Transcript Lines: {transcript.length} • Talk Ratio: {talkStats.meWords + talkStats.themWords > 0 ? Math.round((talkStats.meWords / (talkStats.meWords + talkStats.themWords)) * 100) : 0}% Me
               </p>
               <div className="flex gap-4 justify-center">
@@ -1225,12 +1226,12 @@ export default function App() {
           )}
 
           {conversationState === 'error' && (
-             <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="m-auto text-center max-w-lg p-8 bg-white rounded-xl shadow-2xl">
-              <div className="w-24 h-24 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-6 ring-4 ring-red-200">
-                <XCircle className="w-12 h-12 text-red-600" />
+             <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="m-auto text-center max-w-lg p-8 bg-card rounded-xl shadow-2xl">
+              <div className="w-24 h-24 bg-app-error-light rounded-full flex items-center justify-center mx-auto mb-6 ring-4 ring-app-error/20">
+                <XCircle className="w-12 h-12 text-app-error" />
               </div>
-              <h2 className="text-3xl font-bold text-gray-800 mb-3">An Error Occurred</h2>
-              <p className="text-red-600 mb-8 text-lg">
+              <h2 className="text-3xl font-bold text-foreground mb-3">An Error Occurred</h2>
+              <p className="text-app-error mb-8 text-lg">
                 {errorMessage || "Something went wrong. Please try resetting the session."}
               </p>
               <MainActionButton />

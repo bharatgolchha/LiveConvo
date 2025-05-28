@@ -21,12 +21,12 @@ export const Button: React.FC<ButtonProps> = ({
   ...props 
 }) => {
   const variants = {
-    primary: 'bg-blue-600 hover:bg-blue-700 text-white border-transparent',
-    secondary: 'bg-gray-100 hover:bg-gray-200 text-gray-900 border-gray-200',
-    ghost: 'bg-transparent hover:bg-gray-100 text-gray-700 border-transparent',
-    outline: 'bg-transparent hover:bg-gray-50 text-gray-700 border-gray-300',
-    destructive: 'bg-red-600 hover:bg-red-700 text-white border-transparent',
-    link: 'bg-transparent hover:bg-transparent text-blue-600 hover:text-blue-700 underline border-transparent p-0'
+    primary: 'bg-app-primary hover:bg-app-primary-dark text-white border-transparent',
+    secondary: 'bg-secondary hover:bg-secondary/80 text-secondary-foreground border-border',
+    ghost: 'bg-transparent hover:bg-accent text-foreground border-transparent',
+    outline: 'bg-transparent hover:bg-accent text-foreground border-border',
+    destructive: 'bg-destructive hover:bg-destructive/90 text-destructive-foreground border-transparent',
+    link: 'bg-transparent hover:bg-transparent text-app-primary hover:text-app-primary-dark underline border-transparent p-0'
   };
 
   const sizes = {
@@ -38,7 +38,7 @@ export const Button: React.FC<ButtonProps> = ({
   return (
     <button 
       className={cn(
-        'inline-flex items-center justify-center font-medium rounded-lg border transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2',
+        'inline-flex items-center justify-center font-medium rounded-lg border transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-app-primary focus:ring-offset-2 focus:ring-offset-background',
         variants[variant],
         sizes[size],
         (disabled || loading) && 'opacity-50 cursor-not-allowed',

@@ -145,6 +145,21 @@
   - [x] Ensure proper state management for pause/resume cycles ✅
   - [x] Test pause/resume functionality with both local and remote audio streams ✅
 
+- [x] **Redesign Timeline Section with Height Constraints** (2025-01-28) ✅
+  - [x] Complete redesign of timeline section from scratch ✅
+  - [x] Fix height constraints to prevent timeline extending below screen ✅
+  - [x] Create new CompactTimeline component with collapsible events ✅
+  - [x] Add proper overflow handling and internal scrolling ✅
+  - [x] Ensure header stays visible at all times ✅
+  - [x] Implement expandable event cards with smart truncation ✅
+
+- [x] **Stagewise Dev-Tool Integration** (2025-01-28) ✅
+  - [x] Install @stagewise/toolbar-next package for Next.js integration ✅
+  - [x] Add stagewise toolbar to root layout with development-only rendering ✅
+  - [x] Configure basic toolbar setup with empty plugins array ✅
+  - [x] Ensure toolbar only appears in development mode ✅
+  - [x] Implement proper integration without interfering with main app ✅
+
 #### Sprint 0: Project Foundation (Week 0)
 - [ ] **Repository Scaffolding**
   - [ ] Initialize backend directory with FastAPI structure
@@ -473,4 +488,14 @@
   - [x] Create session statistics calculation from real data ✅
   - [x] Add real-time session updates and status changes ✅
   - [x] Implement user-specific session filtering based on authentication ✅
-  - [x] Test dashboard with real data and multiple session states ✅ 
+  - [x] Test dashboard with real data and multiple session states ✅
+
+- [x] **Fix Colors and Implement Comprehensive Theme System** (2025-01-28) ✅
+  - [x] Remove hardcoded colors from app page (bg-white, text-gray-*, bg-blue-*, etc.) ✅
+  - [x] Update all components to use CSS variables and theme-aware classes ✅
+  - [x] Enhance global CSS with better contrast ratios and accessibility ✅
+  - [x] Fix sidebar styling to use proper theme variables ✅
+  - [x] Update form inputs and interactive elements to use theme colors ✅
+  - [x] Ensure all state indicators (recording, paused, etc.) use theme variables ✅
+  - [x] Test dark/light mode switching across all components ✅
+  - [x] Add smooth transitions for theme changes ✅ 

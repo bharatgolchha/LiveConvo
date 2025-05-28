@@ -21,6 +21,7 @@ interface FloatingChatGuidanceProps {
   sendQuickAction: (action: string) => void;
   messagesEndRef: React.RefObject<HTMLDivElement | null>;
   isRecording: boolean;
+  markMessagesAsRead: () => void;
 }
 
 export const FloatingChatGuidance: React.FC<FloatingChatGuidanceProps> = ({
@@ -31,14 +32,15 @@ export const FloatingChatGuidance: React.FC<FloatingChatGuidanceProps> = ({
   sendMessage,
   sendQuickAction,
   messagesEndRef,
-  isRecording
+  isRecording,
+  markMessagesAsRead
 }) => {
   const [isOpen, setIsOpen] = useState(false);
 
   const hasNewMessages = messages.length > 0;
   const unreadCount = messages.filter(msg => 
-    msg.type === 'auto-guidance' || 
-    (msg.type === 'ai' && msg.metadata?.isResponse)
+    (msg.type === 'auto-guidance' || (msg.type === 'ai' && msg.metadata?.isResponse)) &&
+    msg.read === false
   ).length;
 
   // Show initial hint after recording starts
@@ -55,6 +57,11 @@ export const FloatingChatGuidance: React.FC<FloatingChatGuidanceProps> = ({
   const toggleDrawer = () => {
     setIsOpen(!isOpen);
     setShowInitialHint(false); // Hide hint when opening
+    
+    // Mark messages as read when opening the drawer
+    if (!isOpen) {
+      markMessagesAsRead();
+    }
   };
 
   const closeDrawer = () => {

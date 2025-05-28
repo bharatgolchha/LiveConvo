@@ -6,53 +6,149 @@
 
 @layer base {
   :root {
+    /* Legacy variables for compatibility */
     --foreground-rgb: 0, 0, 0;
     --background-start-rgb: 214, 219, 220;
     --background-end-rgb: 255, 255, 255;
     
-    /* ShadCN CSS Variables */
+    /* Enhanced ShadCN Light Theme */
     --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
+    --foreground: 240 10% 3.9%;
     --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
+    --card-foreground: 240 10% 3.9%;
     --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
-    --primary: 222.2 47.4% 11.2%;
-    --primary-foreground: 210 40% 98%;
-    --secondary: 210 40% 96%;
-    --secondary-foreground: 222.2 84% 4.9%;
-    --muted: 210 40% 96%;
-    --muted-foreground: 215.4 16.3% 46.9%;
-    --accent: 210 40% 96%;
-    --accent-foreground: 222.2 84% 4.9%;
+    --popover-foreground: 240 10% 3.9%;
+    --primary: 240 5.9% 10%;
+    --primary-foreground: 0 0% 98%;
+    --secondary: 240 4.8% 95.9%;
+    --secondary-foreground: 240 5.9% 10%;
+    --muted: 240 4.8% 95.9%;
+    --muted-foreground: 240 3.8% 46.1%;
+    --accent: 240 4.8% 95.9%;
+    --accent-foreground: 240 5.9% 10%;
     --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 222.2 84% 4.9%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 240 5.9% 90%;
+    --input: 240 5.9% 90%;
+    --ring: 240 5.9% 10%;
     --radius: 0.5rem;
+
+    /* LiveConvo Application Colors - Light */
+    --app-primary: 239 84% 67%;         /* Blue-500 */
+    --app-primary-dark: 239 84% 57%;    /* Blue-600 */
+    --app-primary-light: 239 84% 77%;   /* Blue-400 */
+    --app-success: 142 76% 36%;         /* Green-600 */
+    --app-success-light: 142 69% 58%;   /* Green-500 */
+    --app-warning: 32 95% 44%;          /* Orange-500 */
+    --app-warning-light: 43 96% 56%;    /* Yellow-400 */
+    --app-error: 0 84% 60%;             /* Red-500 */
+    --app-error-light: 0 93% 94%;       /* Red-50 */
+    --app-info: 199 89% 48%;            /* Sky-500 */
+    --app-info-light: 204 94% 94%;      /* Sky-50 */
+
+    /* Guidance Colors - Light */
+    --guidance-ask: 142 76% 36%;        /* Green */
+    --guidance-ask-bg: 142 76% 96%;
+    --guidance-clarify: 32 95% 44%;     /* Orange */
+    --guidance-clarify-bg: 32 95% 95%;
+    --guidance-suggest: 239 84% 67%;    /* Blue */
+    --guidance-suggest-bg: 239 84% 96%;
+    --guidance-avoid: 0 84% 60%;        /* Red */
+    --guidance-avoid-bg: 0 84% 96%;
+    --guidance-warn: 270 95% 60%;       /* Purple */
+    --guidance-warn-bg: 270 95% 96%;
+
+    /* Recording States - Light */
+    --recording-active: 0 84% 60%;      /* Red-500 */
+    --recording-paused: 32 95% 44%;     /* Orange-500 */
+    --recording-stopped: 240 3.8% 46.1%; /* Gray-600 */
+    --recording-ready: 142 76% 36%;     /* Green-600 */
+
+    /* Sidebar & Navigation - Light */
+    --sidebar-bg: 240 4.8% 95.9%;
+    --sidebar-border: 240 5.9% 90%;
+    --nav-item-hover: 240 4.8% 92%;
+    --nav-item-active: 239 84% 96%;
+
+    /* Timeline Colors - Light */
+    --timeline-milestone: 239 84% 67%;
+    --timeline-milestone-bg: 239 84% 96%;
+    --timeline-decision: 142 76% 36%;
+    --timeline-decision-bg: 142 76% 96%;
+    --timeline-action: 32 95% 44%;
+    --timeline-action-bg: 32 95% 95%;
+    --timeline-question: 199 89% 48%;
+    --timeline-question-bg: 204 94% 94%;
   }
 
   .dark {
-    --background: 222.2 84% 4.9%;
-    --foreground: 210 40% 98%;
-    --card: 222.2 84% 4.9%;
-    --card-foreground: 210 40% 98%;
-    --popover: 222.2 84% 4.9%;
-    --popover-foreground: 210 40% 98%;
-    --primary: 210 40% 98%;
-    --primary-foreground: 222.2 47.4% 11.2%;
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
+    /* Enhanced ShadCN Dark Theme */
+    --background: 240 10% 3.9%;
+    --foreground: 0 0% 98%;
+    --card: 240 10% 3.9%;
+    --card-foreground: 0 0% 98%;
+    --popover: 240 10% 3.9%;
+    --popover-foreground: 0 0% 98%;
+    --primary: 0 0% 98%;
+    --primary-foreground: 240 5.9% 10%;
+    --secondary: 240 3.7% 15.9%;
+    --secondary-foreground: 0 0% 98%;
+    --muted: 240 3.7% 15.9%;
+    --muted-foreground: 240 5% 64.9%;
+    --accent: 240 3.7% 15.9%;
+    --accent-foreground: 0 0% 98%;
     --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 212.7 26.8% 83.9%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 240 3.7% 15.9%;
+    --input: 240 3.7% 15.9%;
+    --ring: 240 4.9% 83.9%;
+
+    /* LiveConvo Application Colors - Dark */
+    --app-primary: 239 84% 67%;         /* Blue-400 */
+    --app-primary-dark: 239 84% 57%;    /* Blue-500 */
+    --app-primary-light: 239 84% 77%;   /* Blue-300 */
+    --app-success: 142 69% 58%;         /* Green-400 */
+    --app-success-light: 142 76% 36%;   /* Green-600 */
+    --app-warning: 43 96% 56%;          /* Yellow-400 */
+    --app-warning-light: 32 95% 44%;    /* Orange-500 */
+    --app-error: 0 84% 60%;             /* Red-400 */
+    --app-error-light: 0 62% 15%;       /* Red-950 */
+    --app-info: 199 89% 48%;            /* Sky-400 */
+    --app-info-light: 199 95% 8%;       /* Sky-950 */
+
+    /* Guidance Colors - Dark */
+    --guidance-ask: 142 69% 58%;        /* Green-400 */
+    --guidance-ask-bg: 142 69% 8%;      /* Green-950 */
+    --guidance-clarify: 43 96% 56%;     /* Yellow-400 */
+    --guidance-clarify-bg: 43 96% 8%;   /* Yellow-950 */
+    --guidance-suggest: 239 84% 67%;    /* Blue-400 */
+    --guidance-suggest-bg: 239 84% 8%;  /* Blue-950 */
+    --guidance-avoid: 0 84% 60%;        /* Red-400 */
+    --guidance-avoid-bg: 0 84% 8%;      /* Red-950 */
+    --guidance-warn: 270 95% 70%;       /* Purple-400 */
+    --guidance-warn-bg: 270 95% 8%;     /* Purple-950 */
+
+    /* Recording States - Dark */
+    --recording-active: 0 84% 60%;      /* Red-400 */
+    --recording-paused: 43 96% 56%;     /* Yellow-400 */
+    --recording-stopped: 240 5% 64.9%;  /* Gray-400 */
+    --recording-ready: 142 69% 58%;     /* Green-400 */
+
+    /* Sidebar & Navigation - Dark */
+    --sidebar-bg: 240 3.7% 15.9%;
+    --sidebar-border: 240 3.7% 20%;
+    --nav-item-hover: 240 3.7% 20%;
+    --nav-item-active: 239 84% 12%;
+
+    /* Timeline Colors - Dark */
+    --timeline-milestone: 239 84% 67%;
+    --timeline-milestone-bg: 239 84% 8%;
+    --timeline-decision: 142 69% 58%;
+    --timeline-decision-bg: 142 69% 8%;
+    --timeline-action: 43 96% 56%;
+    --timeline-action-bg: 43 96% 8%;
+    --timeline-question: 199 89% 48%;
+    --timeline-question-bg: 199 95% 8%;
   }
 
   @media (prefers-color-scheme: dark) {
@@ -73,39 +169,49 @@
   body {
     max-width: 100vw;
     overflow-x: hidden;
-    overflow-y: hidden;
-    height: 100vh;
-    max-height: 100vh;
     font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     font-feature-settings: 'cv11', 'ss01';
     font-variation-settings: 'opsz' 32;
+    background-color: hsl(var(--background));
+    color: hsl(var(--foreground));
   }
 
   /* Focus styles */
   *:focus-visible {
-    outline: 2px solid #3b82f6;
+    outline: 2px solid hsl(var(--app-primary));
     outline-offset: 2px;
+  }
+
+  /* Smooth transitions for theme changes */
+  * {
+    transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease;
   }
 }
 
 @layer components {
-  /* Custom scrollbar */
+  /* Custom scrollbar - Dark mode aware */
   ::-webkit-scrollbar {
     width: 6px;
   }
 
   ::-webkit-scrollbar-track {
-    background: #f1f5f9;
+    background: hsl(var(--muted));
     border-radius: 3px;
   }
 
   ::-webkit-scrollbar-thumb {
-    background: #cbd5e1;
+    background: hsl(var(--muted-foreground) / 0.3);
     border-radius: 3px;
   }
 
   ::-webkit-scrollbar-thumb:hover {
-    background: #94a3b8;
+    background: hsl(var(--muted-foreground) / 0.5);
+  }
+
+  /* Scrollbar for Firefox */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: hsl(var(--muted-foreground) / 0.3) hsl(var(--muted));
   }
 
   /* Line clamp utilities */
@@ -130,16 +236,136 @@
     -webkit-line-clamp: 3;
   }
 
-  /* Custom utilities */
+  /* Enhanced custom utilities */
   .glass {
-    backdrop-filter: blur(10px);
-    background-color: rgba(255, 255, 255, 0.8);
+    backdrop-filter: blur(16px);
+    background-color: hsl(var(--background) / 0.8);
+    border: 1px solid hsl(var(--border) / 0.5);
+  }
+
+  .glass-dark {
+    backdrop-filter: blur(16px);
+    background-color: hsl(var(--card) / 0.8);
+    border: 1px solid hsl(var(--border) / 0.5);
   }
 
   .text-gradient {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: linear-gradient(135deg, hsl(var(--app-primary)) 0%, hsl(var(--app-primary-dark)) 100%);
     background-clip: text;
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
+  }
+
+  .text-gradient-success {
+    background: linear-gradient(135deg, hsl(var(--app-success)) 0%, hsl(var(--app-success-light)) 100%);
+    background-clip: text;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  /* Recording pulse animation */
+  .recording-pulse {
+    animation: recordingPulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  }
+
+  @keyframes recordingPulse {
+    0%, 100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.5;
+    }
+  }
+
+  /* Enhanced animation for guidance chips */
+  .guidance-enter {
+    animation: guidanceEnter 0.3s ease-out;
+  }
+
+  @keyframes guidanceEnter {
+    from {
+      opacity: 0;
+      transform: translateY(10px) scale(0.95);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+  }
+}
+
+/* Application-specific color utilities */
+@layer utilities {
+  .bg-app-primary {
+    background-color: hsl(var(--app-primary));
+  }
+  
+  .bg-app-primary-dark {
+    background-color: hsl(var(--app-primary-dark));
+  }
+  
+  .text-app-primary {
+    color: hsl(var(--app-primary));
+  }
+  
+  .border-app-primary {
+    border-color: hsl(var(--app-primary));
+  }
+
+  .bg-guidance-ask {
+    background-color: hsl(var(--guidance-ask-bg));
+    color: hsl(var(--guidance-ask));
+  }
+  
+  .bg-guidance-clarify {
+    background-color: hsl(var(--guidance-clarify-bg));
+    color: hsl(var(--guidance-clarify));
+  }
+  
+  .bg-guidance-suggest {
+    background-color: hsl(var(--guidance-suggest-bg));
+    color: hsl(var(--guidance-suggest));
+  }
+  
+  .bg-guidance-avoid {
+    background-color: hsl(var(--guidance-avoid-bg));
+    color: hsl(var(--guidance-avoid));
+  }
+  
+  .bg-guidance-warn {
+    background-color: hsl(var(--guidance-warn-bg));
+    color: hsl(var(--guidance-warn));
+  }
+
+  .bg-recording-active {
+    background-color: hsl(var(--recording-active));
+  }
+  
+  .bg-recording-paused {
+    background-color: hsl(var(--recording-paused));
+  }
+  
+  .bg-recording-ready {
+    background-color: hsl(var(--recording-ready));
+  }
+
+  .bg-timeline-milestone {
+    background-color: hsl(var(--timeline-milestone-bg));
+    color: hsl(var(--timeline-milestone));
+  }
+  
+  .bg-timeline-decision {
+    background-color: hsl(var(--timeline-decision-bg));
+    color: hsl(var(--timeline-decision));
+  }
+  
+  .bg-timeline-action {
+    background-color: hsl(var(--timeline-action-bg));
+    color: hsl(var(--timeline-action));
+  }
+  
+  .bg-timeline-question {
+    background-color: hsl(var(--timeline-question-bg));
+    color: hsl(var(--timeline-question));
   }
 }

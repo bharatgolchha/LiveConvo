@@ -49,6 +49,60 @@ module.exports = {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
         },
+        // LiveConvo Application Colors
+        app: {
+          primary: "hsl(var(--app-primary))",
+          'primary-dark': "hsl(var(--app-primary-dark))",
+          'primary-light': "hsl(var(--app-primary-light))",
+          success: "hsl(var(--app-success))",
+          'success-light': "hsl(var(--app-success-light))",
+          warning: "hsl(var(--app-warning))",
+          'warning-light': "hsl(var(--app-warning-light))",
+          error: "hsl(var(--app-error))",
+          'error-light': "hsl(var(--app-error-light))",
+          info: "hsl(var(--app-info))",
+          'info-light': "hsl(var(--app-info-light))",
+        },
+        // Guidance Colors
+        guidance: {
+          ask: "hsl(var(--guidance-ask))",
+          'ask-bg': "hsl(var(--guidance-ask-bg))",
+          clarify: "hsl(var(--guidance-clarify))",
+          'clarify-bg': "hsl(var(--guidance-clarify-bg))",
+          suggest: "hsl(var(--guidance-suggest))",
+          'suggest-bg': "hsl(var(--guidance-suggest-bg))",
+          avoid: "hsl(var(--guidance-avoid))",
+          'avoid-bg': "hsl(var(--guidance-avoid-bg))",
+          warn: "hsl(var(--guidance-warn))",
+          'warn-bg': "hsl(var(--guidance-warn-bg))",
+        },
+        // Recording States
+        recording: {
+          active: "hsl(var(--recording-active))",
+          paused: "hsl(var(--recording-paused))",
+          stopped: "hsl(var(--recording-stopped))",
+          ready: "hsl(var(--recording-ready))",
+        },
+        // Sidebar & Navigation
+        sidebar: {
+          bg: "hsl(var(--sidebar-bg))",
+          border: "hsl(var(--sidebar-border))",
+        },
+        nav: {
+          'item-hover': "hsl(var(--nav-item-hover))",
+          'item-active': "hsl(var(--nav-item-active))",
+        },
+        // Timeline Colors
+        timeline: {
+          milestone: "hsl(var(--timeline-milestone))",
+          'milestone-bg': "hsl(var(--timeline-milestone-bg))",
+          decision: "hsl(var(--timeline-decision))",
+          'decision-bg': "hsl(var(--timeline-decision-bg))",
+          action: "hsl(var(--timeline-action))",
+          'action-bg': "hsl(var(--timeline-action-bg))",
+          question: "hsl(var(--timeline-question))",
+          'question-bg': "hsl(var(--timeline-question-bg))",
+        },
       },
       borderRadius: {
         lg: "var(--radius)",
@@ -61,6 +115,8 @@ module.exports = {
       animation: {
         'fade-in-up': 'fadeInUp 0.5s ease-out',
         'pulse-ring': 'pulseRing 1.25s cubic-bezier(0.215, 0.61, 0.355, 1) infinite',
+        'recording-pulse': 'recordingPulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+        'guidance-enter': 'guidanceEnter 0.3s ease-out',
       },
       keyframes: {
         fadeInUp: {
@@ -83,6 +139,24 @@ module.exports = {
           '100%': {
             opacity: '0',
             transform: 'scale(1.33)',
+          },
+        },
+        recordingPulse: {
+          '0%, 100%': {
+            opacity: '1',
+          },
+          '50%': {
+            opacity: '0.5',
+          },
+        },
+        guidanceEnter: {
+          'from': {
+            opacity: '0',
+            transform: 'translateY(10px) scale(0.95)',
+          },
+          'to': {
+            opacity: '1',
+            transform: 'translateY(0) scale(1)',
           },
         },
       },

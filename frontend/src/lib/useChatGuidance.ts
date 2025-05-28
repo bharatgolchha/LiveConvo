@@ -5,6 +5,7 @@ export interface ChatMessage {
   type: 'user' | 'ai' | 'system' | 'auto-guidance';
   content: string;
   timestamp: Date;
+  read?: boolean;
   metadata?: {
     confidence?: number;
     guidanceType?: string;
@@ -49,7 +50,9 @@ export function useChatGuidance({
     const newMessage: ChatMessage = {
       ...message,
       id: `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-      timestamp: new Date()
+      timestamp: new Date(),
+      // User messages are automatically read, AI/auto-guidance messages start as unread
+      read: message.type === 'user' ? true : false
     };
     
     setMessages(prev => [...prev, newMessage]);
@@ -174,6 +177,13 @@ export function useChatGuidance({
     }
   }, [messages.length, addMessage]);
 
+  // Mark messages as read
+  const markMessagesAsRead = useCallback(() => {
+    setMessages(prev => 
+      prev.map(msg => ({ ...msg, read: true }))
+    );
+  }, []);
+
   return {
     messages,
     isLoading,
@@ -185,6 +195,7 @@ export function useChatGuidance({
     addAutoGuidance,
     clearChat,
     initializeChat,
+    markMessagesAsRead,
     messagesEndRef
   };
 } 
