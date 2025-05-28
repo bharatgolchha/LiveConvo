@@ -32,6 +32,25 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
+      <head>
+        {process.env.NODE_ENV === 'development' && (
+          <script
+            dangerouslySetInnerHTML={{
+              __html: `
+                // Suppress custom element duplication errors in development
+                if (typeof customElements !== 'undefined') {
+                  const originalDefine = customElements.define;
+                  customElements.define = function(name, constructor, options) {
+                    if (!customElements.get(name)) {
+                      return originalDefine.call(this, name, constructor, options);
+                    }
+                  };
+                }
+              `,
+            }}
+          />
+        )}
+      </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
