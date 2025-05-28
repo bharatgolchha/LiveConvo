@@ -321,7 +321,6 @@ const ConversationInboxItem: React.FC<{
     <motion.div
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
-      whileHover={{ backgroundColor: 'rgba(249, 250, 251, 0.8)' }}
       onClick={onClick}
       className={`
         group relative flex items-center px-6 py-4 border-b border-border cursor-pointer
@@ -477,12 +476,12 @@ const EmptyState: React.FC<{ onNewConversation: () => void }> = ({ onNewConversa
     animate={{ opacity: 1, scale: 1 }}
     className="flex flex-col items-center justify-center min-h-[400px] text-center"
   >
-    <div className="w-24 h-24 bg-blue-100 rounded-full flex items-center justify-center mb-6">
-      <MicrophoneIcon className="w-12 h-12 text-blue-600" />
+    <div className="w-24 h-24 bg-app-primary/10 rounded-full flex items-center justify-center mb-6">
+      <MicrophoneIcon className="w-12 h-12 text-app-primary" />
     </div>
     
-    <h2 className="text-2xl font-semibold mb-4 text-gray-900">Ready for your first conversation?</h2>
-    <p className="text-gray-600 mb-8 max-w-md">
+    <h2 className="text-2xl font-semibold mb-4 text-foreground">Ready for your first conversation?</h2>
+    <p className="text-muted-foreground mb-8 max-w-md">
       Start a new session and experience AI-powered conversation guidance in real-time.
     </p>
     
@@ -595,14 +594,14 @@ const NewConversationModal: React.FC<{
             exit={{ opacity: 0, scale: 0.95, y: 20 }}
             className="fixed inset-0 z-50 flex items-center justify-center p-4"
           >
-            <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden">
+            <div className="bg-card rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden border border-border">
               {/* Header */}
-              <div className="px-6 py-4 border-b border-gray-200">
+              <div className="px-6 py-4 border-b border-border">
                 <div className="flex items-center justify-between">
-                  <h2 className="text-xl font-semibold text-gray-900">Start New Conversation</h2>
+                  <h2 className="text-xl font-semibold text-foreground">Start New Conversation</h2>
                   <button 
                     onClick={onClose}
-                    className="text-gray-400 hover:text-gray-600"
+                    className="text-muted-foreground hover:text-foreground"
                   >
                     ✕
                   </button>
@@ -611,16 +610,16 @@ const NewConversationModal: React.FC<{
                   {[1, 2, 3].map((stepNum) => (
                     <div key={stepNum} className="flex items-center">
                       <div className={`w-6 h-6 rounded-full flex items-center justify-center text-sm ${
-                        step >= stepNum ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-500'
+                        step >= stepNum ? 'bg-app-primary text-primary-foreground' : 'bg-muted text-muted-foreground'
                       }`}>
                         {stepNum}
                       </div>
                       {stepNum < 3 && (
-                        <div className={`w-12 h-0.5 ${step > stepNum ? 'bg-blue-600' : 'bg-gray-200'}`} />
+                        <div className={`w-12 h-0.5 ${step > stepNum ? 'bg-app-primary' : 'bg-muted'}`} />
                       )}
                     </div>
                   ))}
-                  <div className="ml-4 text-sm text-gray-600">
+                  <div className="ml-4 text-sm text-muted-foreground">
                     {step === 1 && 'Choose Type'}
                     {step === 2 && 'Add Title'}
                     {step === 3 && 'Add Context'}
@@ -640,12 +639,12 @@ const NewConversationModal: React.FC<{
                           onClick={() => setConversationType(type.id)}
                           className={`p-4 rounded-lg border-2 text-left transition-colors ${
                             conversationType === type.id
-                              ? 'border-blue-500 bg-blue-50'
-                              : 'border-gray-200 hover:border-gray-300'
+                              ? 'border-app-primary bg-app-primary/10'
+                              : 'border-border hover:border-app-primary/50'
                           }`}
                         >
-                          <h4 className="font-medium text-gray-900">{type.label}</h4>
-                          <p className="text-sm text-gray-600 mt-1">{type.description}</p>
+                          <h4 className="font-medium text-foreground">{type.label}</h4>
+                          <p className="text-sm text-muted-foreground mt-1">{type.description}</p>
                         </button>
                       ))}
                     </div>
@@ -654,16 +653,16 @@ const NewConversationModal: React.FC<{
 
                 {step === 2 && (
                   <div>
-                    <h3 className="text-lg font-medium mb-4">Give your conversation a title</h3>
+                    <h3 className="text-lg font-medium mb-4 text-foreground">Give your conversation a title</h3>
                     <input
                       type="text"
                       placeholder={`Enter a title for your ${conversationType.replace('_', ' ')}...`}
                       value={title}
                       onChange={(e) => setTitle(e.target.value)}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      className="w-full px-4 py-3 border border-input rounded-lg focus:ring-2 focus:ring-app-primary focus:border-transparent bg-background text-foreground"
                       autoFocus
                     />
-                    <p className="text-sm text-gray-500 mt-2">
+                    <p className="text-sm text-muted-foreground mt-2">
                       Don't worry, you can change this later.
                     </p>
                   </div>
@@ -671,14 +670,14 @@ const NewConversationModal: React.FC<{
 
                 {step === 3 && (
                   <div>
-                    <h3 className="text-lg font-medium mb-4">Add context to help the AI understand your conversation</h3>
-                    <p className="text-sm text-gray-600 mb-6">
+                    <h3 className="text-lg font-medium mb-4 text-foreground">Add context to help the AI understand your conversation</h3>
+                    <p className="text-sm text-muted-foreground mb-6">
                       Share relevant documents, notes, or background information to get more targeted guidance.
                     </p>
 
                     {/* Text Context Input */}
                     <div className="mb-6">
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                      <label className="block text-sm font-medium text-foreground mb-2">
                         Text Context
                       </label>
                       <textarea
@@ -686,13 +685,13 @@ const NewConversationModal: React.FC<{
                         value={contextText}
                         onChange={(e) => setContextText(e.target.value)}
                         rows={4}
-                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+                        className="w-full px-4 py-3 border border-input rounded-lg focus:ring-2 focus:ring-app-primary focus:border-transparent bg-background text-foreground resize-none"
                       />
                     </div>
 
                     {/* File Upload Area */}
                     <div className="mb-6">
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                      <label className="block text-sm font-medium text-foreground mb-2">
                         Upload Documents
                       </label>
                       
@@ -703,15 +702,15 @@ const NewConversationModal: React.FC<{
                         className={`
                           border-2 border-dashed rounded-lg p-8 text-center transition-colors
                           ${dragOver 
-                            ? 'border-blue-500 bg-blue-50' 
-                            : 'border-gray-300 hover:border-gray-400'
+                            ? 'border-app-primary bg-app-primary/10' 
+                            : 'border-input hover:border-app-primary/50'
                           }
                         `}
                       >
-                        <DocumentTextIcon className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                        <p className="text-sm text-gray-600 mb-2">
+                        <DocumentTextIcon className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+                        <p className="text-sm text-foreground mb-2">
                           Drag and drop files here, or{' '}
-                          <label className="text-blue-600 hover:text-blue-700 cursor-pointer font-medium">
+                          <label className="text-app-primary hover:text-app-primary/80 cursor-pointer font-medium">
                             browse
                             <input
                               type="file"
@@ -722,7 +721,7 @@ const NewConversationModal: React.FC<{
                             />
                           </label>
                         </p>
-                        <p className="text-xs text-gray-500">
+                        <p className="text-xs text-muted-foreground">
                           Supports: PDF, DOC, DOCX, TXT, CSV, JSON (max 10MB each)
                         </p>
                       </div>
@@ -730,24 +729,24 @@ const NewConversationModal: React.FC<{
                       {/* Uploaded Files List */}
                       {uploadedFiles.length > 0 && (
                         <div className="mt-4 space-y-2">
-                          <p className="text-sm font-medium text-gray-700">Uploaded Files:</p>
+                          <p className="text-sm font-medium text-foreground">Uploaded Files:</p>
                           {uploadedFiles.map((file, index) => (
                             <div
                               key={index}
-                              className="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
+                              className="flex items-center justify-between p-3 bg-muted rounded-lg"
                             >
                               <div className="flex items-center space-x-3">
-                                <DocumentTextIcon className="w-5 h-5 text-gray-500" />
+                                <DocumentTextIcon className="w-5 h-5 text-muted-foreground" />
                                 <div>
-                                  <p className="text-sm font-medium text-gray-900">{file.name}</p>
-                                  <p className="text-xs text-gray-500">
+                                  <p className="text-sm font-medium text-foreground">{file.name}</p>
+                                  <p className="text-xs text-muted-foreground">
                                     {(file.size / 1024 / 1024).toFixed(2)} MB
                                   </p>
                                 </div>
                               </div>
                               <button
                                 onClick={() => removeFile(index)}
-                                className="text-red-500 hover:text-red-700 text-sm"
+                                className="text-destructive hover:text-destructive/80 text-sm"
                               >
                                 Remove
                               </button>
@@ -757,14 +756,14 @@ const NewConversationModal: React.FC<{
                       )}
                     </div>
 
-                    <div className="bg-blue-50 p-4 rounded-lg">
+                    <div className="bg-muted/50 p-4 rounded-lg">
                       <div className="flex items-start space-x-3">
-                        <div className="w-5 h-5 bg-blue-100 rounded-full flex items-center justify-center mt-0.5">
-                          <span className="text-blue-600 text-xs font-bold">i</span>
+                        <div className="w-5 h-5 bg-app-primary rounded-full flex items-center justify-center mt-0.5">
+                          <span className="text-primary-foreground text-xs font-bold">i</span>
                         </div>
                         <div>
-                          <p className="text-sm text-blue-800 font-medium mb-1">Pro Tip</p>
-                          <p className="text-sm text-blue-700">
+                          <p className="text-sm text-foreground font-medium mb-1">Pro Tip</p>
+                          <p className="text-sm text-muted-foreground">
                             The more context you provide, the better the AI can tailor its guidance to your specific situation and goals.
                           </p>
                         </div>
@@ -775,7 +774,7 @@ const NewConversationModal: React.FC<{
               </div>
 
               {/* Footer */}
-              <div className="px-6 py-4 border-t border-gray-200 flex justify-between">
+              <div className="px-6 py-4 border-t border-border flex justify-between">
                 <Button
                   variant="ghost"
                   onClick={step === 1 ? onClose : () => setStep(step - 1)}
@@ -783,15 +782,6 @@ const NewConversationModal: React.FC<{
                   {step === 1 ? 'Cancel' : 'Back'}
                 </Button>
                 <div className="flex gap-2">
-                  {step === 3 && (
-                    <Button
-                      variant="ghost"
-                      onClick={handleStart}
-                      className="text-blue-600"
-                    >
-                      Skip Context
-                    </Button>
-                  )}
                   <Button
                     variant="primary"
                     onClick={step === 3 ? handleStart : () => setStep(step + 1)}
@@ -1158,10 +1148,10 @@ const DashboardPage: React.FC = () => {
   // Show loading state while checking authentication
   if (!user && !sessionsLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50 flex items-center justify-center">
+      <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
-          <h1 className="text-2xl font-bold text-gray-900 mb-4">Authentication Required</h1>
-          <p className="text-gray-600 mb-6">Please sign in to access your dashboard.</p>
+          <h1 className="text-2xl font-bold text-foreground mb-4">Authentication Required</h1>
+          <p className="text-muted-foreground mb-6">Please sign in to access your dashboard.</p>
           <div className="space-x-4">
             <Button onClick={() => window.location.href = '/auth/login'}>
               Sign In
@@ -1178,10 +1168,10 @@ const DashboardPage: React.FC = () => {
   // Show error state if there are errors
   if (sessionsError && sessionsError.includes('sign in')) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50 flex items-center justify-center">
+      <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
-          <h1 className="text-2xl font-bold text-gray-900 mb-4">Authentication Expired</h1>
-          <p className="text-gray-600 mb-6">Your session has expired. Please sign in again.</p>
+          <h1 className="text-2xl font-bold text-foreground mb-4">Authentication Expired</h1>
+          <p className="text-muted-foreground mb-6">Your session has expired. Please sign in again.</p>
           <div className="space-x-4">
             <Button onClick={() => window.location.href = '/auth/login'}>
               Sign In
@@ -1195,17 +1185,17 @@ const DashboardPage: React.FC = () => {
   // Show loading state while data is being fetched
   if (sessionsLoading && sessions.length === 0) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50 flex items-center justify-center">
+      <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
-          <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-          <p className="text-gray-600">Loading your conversations...</p>
+          <div className="w-8 h-8 border-2 border-app-primary border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-muted-foreground">Loading your conversations...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50">
+    <div className="min-h-screen bg-background">
       <DashboardHeader user={currentUser} onSearch={handleSearch} />
       
       <div className="flex h-[calc(100vh-80px)]">
@@ -1223,21 +1213,20 @@ const DashboardPage: React.FC = () => {
               <motion.div 
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="bg-gradient-to-r from-blue-600 to-blue-700 dark:from-blue-500 dark:to-blue-600 rounded-xl p-6 text-white mb-6"
+                className="bg-card border border-border rounded-lg p-6 mb-6 shadow-sm"
               >
                 <div className="flex items-center justify-between">
                   <div>
-                    <h1 className="text-2xl font-bold mb-2">Welcome back, {currentUser.name}!</h1>
-                    <p className="text-white/80">
+                    <h1 className="text-2xl font-bold mb-2 text-foreground">Welcome back, {currentUser.name}!</h1>
+                    <p className="text-muted-foreground">
                       {activeSessions.length > 0 
                         ? `You have ${activeSessions.length} active conversation${activeSessions.length === 1 ? '' : 's'}`
                         : 'Ready to start a new conversation?'}
                     </p>
                   </div>
                   <Button 
-                    variant="secondary"
                     onClick={handleNewConversation}
-                    className="bg-white/20 hover:bg-white/30 text-white border-white/30"
+                    className="bg-primary hover:bg-primary/90 text-primary-foreground"
                   >
                     <PlusIcon className="w-5 h-5 mr-2" />
                     New Conversation
@@ -1258,7 +1247,7 @@ const DashboardPage: React.FC = () => {
                     animate={{ opacity: 1 }}
                     className="mb-4"
                   >
-                    <p className="text-gray-600">
+                    <p className="text-muted-foreground">
                       {filteredSessions.length} result{filteredSessions.length === 1 ? '' : 's'} for "{searchQuery}"
                     </p>
                   </motion.div>
@@ -1269,10 +1258,10 @@ const DashboardPage: React.FC = () => {
                   <motion.div 
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
-                    className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden"
+                    className="bg-card rounded-lg shadow-sm border border-border overflow-hidden"
                   >
                     {/* List Header */}
-                    <div className="px-6 py-3 bg-gray-50 border-b border-gray-200">
+                    <div className="px-6 py-3 bg-muted/30 border-b border-border">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-4">
                           {/* Select All Checkbox */}
@@ -1281,11 +1270,11 @@ const DashboardPage: React.FC = () => {
                               type="checkbox"
                               checked={selectedSessions.size === filteredSessions.length && filteredSessions.length > 0}
                               onChange={handleSelectAll}
-                              className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                              className="rounded border-input text-app-primary focus:ring-app-primary"
                             />
                           </label>
                           
-                          <h2 className="text-sm font-medium text-gray-900">
+                          <h2 className="text-sm font-medium text-foreground">
                             {selectedSessions.size > 0 ? (
                               `${selectedSessions.size} selected`
                             ) : (
@@ -1308,7 +1297,7 @@ const DashboardPage: React.FC = () => {
                                 variant="ghost"
                                 size="sm"
                                 onClick={() => setSelectedSessions(new Set())}
-                                className="text-xs text-gray-500"
+                                className="text-xs text-muted-foreground"
                               >
                                 Clear
                               </Button>
@@ -1317,7 +1306,7 @@ const DashboardPage: React.FC = () => {
                         </div>
                         
                         {selectedSessions.size === 0 && (
-                          <div className="flex items-center gap-4 text-xs text-gray-500">
+                          <div className="flex items-center gap-4 text-xs text-muted-foreground">
                             <span className="flex items-center gap-2">
                               <div className="w-2 h-2 rounded-full bg-app-success"></div>
                               Active ({filteredSessions.filter(s => s.status === 'active').length})
@@ -1332,7 +1321,7 @@ const DashboardPage: React.FC = () => {
                     </div>
 
                     {/* Conversation List */}
-                    <div className="divide-y divide-gray-100">
+                    <div className="divide-y divide-border">
                       {filteredSessions.map((session, index) => (
                         <ConversationInboxItem
                           key={session.id}
@@ -1350,12 +1339,12 @@ const DashboardPage: React.FC = () => {
                   <motion.div
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
-                    className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden"
+                    className="bg-card rounded-lg shadow-sm border border-border overflow-hidden"
                   >
                     <div className="text-center py-16">
-                      <MagnifyingGlassIcon className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-                      <h3 className="text-lg font-medium text-gray-900 mb-2">No conversations found</h3>
-                      <p className="text-gray-600 mb-6">Try adjusting your search terms or start a new conversation.</p>
+                      <MagnifyingGlassIcon className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
+                      <h3 className="text-lg font-medium text-foreground mb-2">No conversations found</h3>
+                      <p className="text-muted-foreground mb-6">Try adjusting your search terms or start a new conversation.</p>
                       <Button
                         variant="primary"
                         onClick={handleNewConversation}
