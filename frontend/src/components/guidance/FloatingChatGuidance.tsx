@@ -77,14 +77,14 @@ export const FloatingChatGuidance: React.FC<FloatingChatGuidanceProps> = ({
             initial={{ opacity: 0, x: 20, scale: 0.8 }}
             animate={{ opacity: 1, x: 0, scale: 1 }}
             exit={{ opacity: 0, x: 20, scale: 0.8 }}
-            className="fixed bottom-24 right-6 z-50 bg-gray-900 text-white text-sm py-2 px-3 rounded-lg shadow-lg max-w-xs"
+            className="fixed bottom-24 right-6 z-50 bg-popover text-popover-foreground text-sm py-2 px-3 rounded-lg shadow-lg max-w-xs border border-border"
           >
             <div className="flex items-center gap-2">
-              <Sparkles className="w-4 h-4 text-purple-400" />
+              <Sparkles className="w-4 h-4 text-app-primary" />
               <span>Click me for AI conversation coaching!</span>
             </div>
             {/* Arrow pointing down to button */}
-            <div className="absolute bottom-[-4px] right-8 w-2 h-2 bg-gray-900 transform rotate-45"></div>
+            <div className="absolute bottom-[-4px] right-8 w-2 h-2 bg-popover transform rotate-45 border-r border-b border-border"></div>
           </motion.div>
         )}
       </AnimatePresence>
@@ -101,17 +101,17 @@ export const FloatingChatGuidance: React.FC<FloatingChatGuidanceProps> = ({
             <Button
               onClick={toggleDrawer}
               className={cn(
-                "h-14 w-14 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 shadow-lg hover:shadow-xl transition-all duration-300 border-2 border-white",
+                "h-14 w-14 rounded-full bg-app-primary hover:bg-app-primary/90 shadow-lg hover:shadow-xl transition-all duration-300 border-2 border-background",
                 hasNewMessages && "animate-pulse"
               )}
             >
               <div className="relative">
-                <Sparkles className="w-6 h-6 text-white" />
+                <Sparkles className="w-6 h-6 text-primary-foreground" />
                 {hasNewMessages && unreadCount > 0 && (
                   <motion.div
                     initial={{ scale: 0 }}
                     animate={{ scale: 1 }}
-                    className="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center font-bold shadow-lg"
+                    className="absolute -top-2 -right-2 bg-destructive text-destructive-foreground text-xs rounded-full h-5 w-5 flex items-center justify-center font-bold shadow-lg"
                   >
                     {unreadCount > 9 ? '9+' : unreadCount}
                   </motion.div>
@@ -141,13 +141,13 @@ export const FloatingChatGuidance: React.FC<FloatingChatGuidanceProps> = ({
               animate={{ x: 0 }}
               exit={{ x: '100%' }}
               transition={{ type: "spring", stiffness: 300, damping: 30 }}
-              className="fixed top-0 right-0 h-full w-full sm:w-96 bg-white shadow-2xl z-50 flex flex-col"
+              className="fixed top-0 right-0 h-full w-full sm:w-96 bg-card shadow-2xl z-50 flex flex-col border-l border-border"
             >
               {/* Drawer Header */}
-              <div className="flex-shrink-0 bg-gradient-to-r from-blue-500 to-purple-600 text-white p-4 shadow-lg">
+              <div className="flex-shrink-0 bg-app-primary text-primary-foreground p-4 shadow-lg">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center">
+                    <div className="w-10 h-10 rounded-full bg-primary-foreground/20 flex items-center justify-center">
                       <Sparkles className="w-5 h-5" />
                     </div>
                     <div>
@@ -163,7 +163,7 @@ export const FloatingChatGuidance: React.FC<FloatingChatGuidanceProps> = ({
                       variant="ghost"
                       size="sm"
                       onClick={closeDrawer}
-                      className="h-8 w-8 p-1 text-white hover:bg-white/20 rounded-full"
+                      className="h-8 w-8 p-1 text-primary-foreground hover:bg-primary-foreground/20 rounded-full"
                     >
                       <ChevronLeft className="w-5 h-5" />
                     </Button>
@@ -171,7 +171,7 @@ export const FloatingChatGuidance: React.FC<FloatingChatGuidanceProps> = ({
                       variant="ghost"
                       size="sm"
                       onClick={closeDrawer}
-                      className="h-8 w-8 p-1 text-white hover:bg-white/20 rounded-full"
+                      className="h-8 w-8 p-1 text-primary-foreground hover:bg-primary-foreground/20 rounded-full"
                     >
                       <X className="w-4 h-4" />
                     </Button>
@@ -193,7 +193,7 @@ export const FloatingChatGuidance: React.FC<FloatingChatGuidanceProps> = ({
               </div>
 
               {/* Drag Handle (desktop only) */}
-              <div className="hidden sm:block absolute left-0 top-1/2 -translate-y-1/2 w-1 h-16 bg-gradient-to-b from-blue-500 to-purple-600 rounded-r-full opacity-60 hover:opacity-100 transition-opacity cursor-pointer" 
+              <div className="hidden sm:block absolute left-0 top-1/2 -translate-y-1/2 w-1 h-16 bg-app-primary rounded-r-full opacity-60 hover:opacity-100 transition-opacity cursor-pointer" 
                    onClick={closeDrawer}
               />
             </motion.div>
@@ -210,7 +210,7 @@ export const FloatingChatGuidance: React.FC<FloatingChatGuidanceProps> = ({
             exit={{ opacity: 0, x: 10 }}
             className="fixed top-1/2 right-0 -translate-y-1/2 z-30"
           >
-            <div className="w-1 h-20 bg-gradient-to-b from-blue-500 to-purple-600 rounded-l-full opacity-40 hover:opacity-80 transition-all duration-300 cursor-pointer shadow-lg"
+            <div className="w-1 h-20 bg-app-primary rounded-l-full opacity-40 hover:opacity-80 transition-all duration-300 cursor-pointer shadow-lg"
                  onClick={toggleDrawer}
             />
           </motion.div>

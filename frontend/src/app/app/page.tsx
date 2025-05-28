@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useSearchParams } from 'next/navigation';
 import { 
@@ -40,7 +40,9 @@ import {
   Handshake,
   ShieldCheck,
   Quote,
-  Download
+  Download,
+  ChevronRight,
+  Search
 } from 'lucide-react';
 
 import { Button } from '@/components/ui/Button';
@@ -49,13 +51,15 @@ import { ThemeToggle } from '@/components/ui/ThemeToggle';
 import Link from 'next/link';
 import { useAIGuidance, ContextDocument, GuidanceRequest } from '@/lib/aiGuidance';
 import { useTranscription } from '@/lib/useTranscription';
-import { useRealtimeSummary, ConversationSummary } from '@/lib/useRealtimeSummary';
-import { useIncrementalTimeline, TimelineEvent } from '@/lib/useIncrementalTimeline';
+import { useRealtimeSummary, ConversationSummary, TimelineEvent } from '@/lib/useRealtimeSummary';
+import { useIncrementalTimeline } from '@/lib/useIncrementalTimeline';
 import { useChatGuidance } from '@/lib/useChatGuidance';
 import { cn } from '@/lib/utils';
 import { updateTalkStats, TalkStats } from '@/lib/transcriptUtils';
 import { FloatingChatGuidance } from '@/components/guidance/FloatingChatGuidance';
 import { CompactTimeline } from '@/components/timeline/CompactTimeline';
+import { useSessions, Session } from '@/lib/hooks/useSessions';
+import { GuidanceChip, GuidanceType } from '@/components/guidance/GuidanceChip';
 
 interface TranscriptLine {
   id: string;
@@ -66,6 +70,82 @@ interface TranscriptLine {
 }
 
 type ConversationState = 'setup' | 'ready' | 'recording' | 'paused' | 'processing' | 'completed' | 'error';
+
+// Database saving functions
+const saveTranscriptToDatabase = async (sessionId: string, transcriptLines: TranscriptLine[]) => {
+  try {
+    const transcriptData = transcriptLines.map((line, index) => ({
+      session_id: sessionId,
+      content: line.text,
+      speaker: line.speaker.toLowerCase(),
+      confidence_score: line.confidence || 0.85,
+      start_time_seconds: index * 2, // Rough estimation - in real app would use actual timing
+      is_final: true,
+      stt_provider: 'deepgram'
+    }));
+
+    const response = await fetch(`/api/sessions/${sessionId}/transcript`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(transcriptData)
+    });
+
+    if (!response.ok) {
+      console.error('Failed to save transcript:', await response.text());
+    }
+  } catch (error) {
+    console.error('Error saving transcript to database:', error);
+  }
+};
+
+const saveTimelineToDatabase = async (sessionId: string, timelineEvents: TimelineEvent[]) => {
+  try {
+    const timelineData = timelineEvents.map(event => ({
+      session_id: sessionId,
+      event_timestamp: event.timestamp,
+      title: event.title,
+      description: event.description,
+      type: event.type,
+      importance: event.importance
+    }));
+
+    const response = await fetch(`/api/sessions/${sessionId}/timeline`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(timelineData)
+    });
+
+    if (!response.ok) {
+      console.error('Failed to save timeline:', await response.text());
+    }
+  } catch (error) {
+    console.error('Error saving timeline to database:', error);
+  }
+};
+
+const saveSummaryToDatabase = async (sessionId: string, summary: ConversationSummary) => {
+  try {
+    const response = await fetch(`/api/sessions/${sessionId}`, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        realtime_summary_cache: summary
+      })
+    });
+
+    if (!response.ok) {
+      console.error('Failed to save summary cache:', await response.text());
+    }
+  } catch (error) {
+    console.error('Error saving summary to database:', error);
+  }
+};
 
 export default function App() {
   const searchParams = useSearchParams();
@@ -93,6 +173,9 @@ export default function App() {
   // Auto-guidance removed - using manual button instead
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'transcript' | 'summary' | 'timeline'>('transcript');
+  const [activeContextTab, setActiveContextTab] = useState<'setup' | 'files' | 'previous'>('setup');
+  const [selectedPreviousConversations, setSelectedPreviousConversations] = useState<string[]>([]);
+  const [previousConversationSearch, setPreviousConversationSearch] = useState('');
 
   const transcriptEndRef = useRef<null | HTMLDivElement>(null);
 
@@ -105,6 +188,14 @@ export default function App() {
     isGenerating,
     error: guidanceError 
   } = useAIGuidance();
+
+  // Sessions hook for previous conversations
+  const { 
+    sessions, 
+    loading: sessionsLoading, 
+    error: sessionsError,
+    fetchSessions 
+  } = useSessions();
 
   // Demo guidance for fallback
   const demoGuidances = [
@@ -195,6 +286,87 @@ export default function App() {
     }
   }, [conversationState, chatMessages.length, initializeChat]);
 
+  // Auto-save transcript to database when transcript changes and we have a conversationId
+  useEffect(() => {
+    if (conversationId && transcript.length > 0 && (conversationState === 'recording' || conversationState === 'completed')) {
+      // Debounce saving to avoid too many API calls
+      const timeoutId = setTimeout(() => {
+        saveTranscriptToDatabase(conversationId, transcript);
+      }, 2000); // Save after 2 seconds of no changes
+      
+      return () => clearTimeout(timeoutId);
+    }
+  }, [transcript, conversationId, conversationState]);
+
+  // Auto-save summary to database when summary changes
+  useEffect(() => {
+    if (conversationId && summary && (conversationState === 'recording' || conversationState === 'completed')) {
+      // Debounce saving to avoid too many API calls
+      const timeoutId = setTimeout(() => {
+        saveSummaryToDatabase(conversationId, summary);
+      }, 1000); // Save after 1 second of no changes
+      
+      return () => clearTimeout(timeoutId);
+    }
+  }, [summary, conversationId, conversationState]);
+
+  // Auto-save timeline to database when timeline changes
+  useEffect(() => {
+    if (conversationId && timeline && timeline.length > 0 && (conversationState === 'recording' || conversationState === 'completed')) {
+      // Debounce saving to avoid too many API calls
+      const timeoutId = setTimeout(() => {
+        // Filter to only include supported timeline event types for database
+        const supportedTimeline = timeline.filter(event => 
+          ['milestone', 'decision', 'topic_shift', 'action_item', 'question', 'agreement'].includes(event.type)
+        ).map(event => ({
+          ...event,
+          type: event.type as 'milestone' | 'decision' | 'topic_shift' | 'action_item' | 'question' | 'agreement'
+        }));
+        
+        if (supportedTimeline.length > 0) {
+          saveTimelineToDatabase(conversationId, supportedTimeline);
+        }
+      }, 1000); // Save after 1 second of no changes
+      
+      return () => clearTimeout(timeoutId);
+    }
+  }, [timeline, conversationId, conversationState]);
+
+  // Update session status in database when recording starts/stops
+  useEffect(() => {
+    if (conversationId && conversationState) {
+      const updateSessionStatus = async () => {
+        try {
+          const sessionData: any = {
+            status: conversationState === 'recording' ? 'active' : 
+                   conversationState === 'completed' ? 'completed' : 'draft'
+          };
+
+          // Add recording timestamps and duration
+          if (conversationState === 'recording' && !sessionDuration) {
+            sessionData.recording_started_at = new Date().toISOString();
+          } else if (conversationState === 'completed') {
+            sessionData.recording_ended_at = new Date().toISOString();
+            sessionData.recording_duration_seconds = sessionDuration;
+            sessionData.total_words_spoken = transcript.reduce((total, line) => total + line.text.split(' ').length, 0);
+          }
+
+          await fetch(`/api/sessions/${conversationId}`, {
+            method: 'PATCH',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(sessionData)
+          });
+        } catch (error) {
+          console.error('Error updating session status:', error);
+        }
+      };
+
+      updateSessionStatus();
+    }
+  }, [conversationState, conversationId, sessionDuration, transcript]);
+
   useEffect(() => {
     if (myLiveTranscript.length > lastMyTranscriptLen.current) {
       const newSeg = myLiveTranscript.slice(lastMyTranscriptLen.current).trim();
@@ -247,7 +419,7 @@ export default function App() {
     transcriptEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [transcript]);
 
-  // Load conversation configuration
+  // Load conversation config from localStorage if conversationId is provided
   useEffect(() => {
     if (conversationId && typeof window !== 'undefined') {
       const storedConfig = localStorage.getItem(`conversation_${conversationId}`);
@@ -255,18 +427,28 @@ export default function App() {
         try {
           const config = JSON.parse(storedConfig);
           setConversationTitle(config.title || 'New Conversation');
-
+          
+          // Map conversation type from dashboard format to app format
           const typeMapping: Record<string, 'sales' | 'support' | 'meeting' | 'interview'> = {
-            'sales_call': 'sales', 'Sales Call': 'sales', 'Product Demo': 'sales',
-            'support_call': 'support', 'Support Call': 'support', 'Customer Support Call': 'support',
-            'meeting': 'meeting', 'Meeting': 'meeting', 'Team Standup Meeting': 'meeting',
+            'sales_call': 'sales',
+            'Sales Call': 'sales',
+            'Product Demo': 'sales',
+            'support_call': 'support',
+            'Support Call': 'support',
+            'Customer Support Call': 'support',
+            'meeting': 'meeting',
+            'Meeting': 'meeting',
+            'Team Standup Meeting': 'meeting',
             'Project Meeting': 'meeting',
-            'interview': 'interview', 'Interview': 'interview',
-            'consultation': 'meeting', 'Consultation': 'meeting',
-            'Business Review': 'meeting' // Added missing mapping
+            'interview': 'interview',
+            'Interview': 'interview',
+            'consultation': 'meeting',
+            'Consultation': 'meeting',
+            'Business Review': 'meeting'
           };
           
-          setConversationType(typeMapping[config.type] || 'sales');
+          const mappedType = typeMapping[config.type] || 'sales';
+          setConversationType(mappedType);
           
           if (config.context) {
             if (config.context.text) {
@@ -285,7 +467,7 @@ export default function App() {
               restoredFiles.forEach((file) => {
                 // Simulate adding context for AI (content won't be real here due to localStorage limitations)
                 addContext({
-      id: Math.random().toString(36).substring(7),
+                  id: Math.random().toString(36).substring(7),
                   name: file.name,
                   type: file.type.startsWith('text') ? 'txt' : (file.type.includes('pdf') ? 'pdf' : 'docx'), // Basic type inference
                   content: `Restored context for file: ${file.name}`,
@@ -302,7 +484,84 @@ export default function App() {
         }
       }
     }
-  }, [conversationId, addUserContext, addContext]);
+
+    // Fetch sessions for previous conversation context
+    if (!sessionsLoading && sessions.length === 0) {
+      fetchSessions();
+    }
+  }, [conversationId, addUserContext, addContext, sessionsLoading, sessions.length, fetchSessions]);
+
+  // Integrate selected previous conversations into AI context
+  useEffect(() => {
+    const fetchAndIntegrateConversationSummaries = async () => {
+      if (selectedPreviousConversations.length > 0 && sessions.length > 0) {
+        const selectedSessions = sessions.filter(session => 
+          selectedPreviousConversations.includes(session.id)
+        );
+        
+        // Clear previous conversation context first
+        selectedSessions.forEach(session => {
+          addContext({
+            id: `previous_${session.id}`,
+            name: `Previous: ${session.title}`,
+            type: 'txt',
+            content: `Loading detailed summary for: ${session.title}...`,
+            uploadedAt: new Date(session.created_at)
+          });
+        });
+
+        // Fetch detailed session data with summaries
+        for (const session of selectedSessions) {
+          try {
+            // Note: In a real implementation, you'd get the auth token properly
+            // For now, this will work as the sessions endpoint already filters by user
+            const response = await fetch(`/api/sessions/${session.id}`);
+
+            if (response.ok) {
+              const { session: detailedSession } = await response.json();
+              const summary = detailedSession.summaries?.[0];
+              
+              let contextContent = `Previous conversation: "${detailedSession.title}"\n`;
+              contextContent += `Type: ${detailedSession.conversation_type}\n`;
+              contextContent += `Date: ${new Date(detailedSession.created_at).toLocaleDateString()}\n`;
+              contextContent += `Duration: ${detailedSession.recording_duration_seconds ? Math.round(detailedSession.recording_duration_seconds / 60) : '?'} minutes\n`;
+              
+              if (summary && summary.tldr) {
+                contextContent += `\nSummary: ${summary.tldr}\n`;
+              }
+              
+              if (detailedSession.transcripts && detailedSession.transcripts.length > 0) {
+                contextContent += `\nTranscript data available for context\n`;
+              }
+              
+              contextContent += `\nThis context helps provide continuity for the current conversation.`;
+
+              // Update the context with detailed information
+              addContext({
+                id: `previous_${session.id}`,
+                name: `Previous: ${detailedSession.title}`,
+                type: 'txt',
+                content: contextContent,
+                uploadedAt: new Date(detailedSession.created_at)
+              });
+            }
+          } catch (error) {
+            console.error(`Error fetching summary for session ${session.id}:`, error);
+            // Fallback to basic context if detailed fetch fails
+            addContext({
+              id: `previous_${session.id}`,
+              name: `Previous: ${session.title}`,
+              type: 'txt',
+              content: `Previous conversation summary:\nTitle: ${session.title}\nType: ${session.conversation_type}\nDate: ${new Date(session.created_at).toLocaleDateString()}\nSummary: This was a ${session.conversation_type} conversation that took place on ${new Date(session.created_at).toLocaleDateString()}. Context will be retrieved from the session summary when available.`,
+              uploadedAt: new Date(session.created_at)
+            });
+          }
+        }
+      }
+    };
+
+    fetchAndIntegrateConversationSummaries();
+  }, [selectedPreviousConversations, sessions, addContext]);
 
   // Event Handlers - Define handleGenerateGuidance before useEffect hooks
   const handleGenerateGuidance = React.useCallback(async () => {
@@ -505,9 +764,33 @@ export default function App() {
   };
 
   const handleRemoveFile = (fileName: string) => {
-    setUploadedFiles(prev => prev.filter(f => f.name !== fileName));
-    // Ideally, also remove from AI context if an ID mapping exists
+    setUploadedFiles(prev => prev.filter(file => file.name !== fileName));
   };
+
+  // Helper functions for previous conversations
+  const handlePreviousConversationToggle = useCallback((sessionId: string) => {
+    setSelectedPreviousConversations(prev => {
+      if (prev.includes(sessionId)) {
+        return prev.filter(id => id !== sessionId);
+      } else {
+        return [...prev, sessionId];
+      }
+    });
+  }, []);
+
+  const filteredPreviousSessions = sessions.filter(session => {
+    // Only show completed sessions with summaries
+    if (session.status !== 'completed' || !session.hasSummary) return false;
+    
+    // Filter by search term
+    if (previousConversationSearch) {
+      const searchTerm = previousConversationSearch.toLowerCase();
+      return session.title?.toLowerCase().includes(searchTerm) ||
+             session.conversation_type?.toLowerCase().includes(searchTerm);
+    }
+    
+    return true;
+  }).slice(0, 10); // Limit to 10 most recent
 
   const handleExportSession = () => {
     const sessionData = {
@@ -649,8 +932,8 @@ export default function App() {
 
             <div className="flex items-center gap-3">
                   <Brain className="w-7 h-7 text-app-primary" />
-                  <div>
-                    <h1 className="font-semibold text-foreground text-lg">{conversationTitle}</h1>
+                  <div className="min-w-0 flex-1">
+                    <h1 className="font-semibold text-foreground text-lg truncate" title={conversationTitle}>{conversationTitle}</h1>
                     <div className={cn("flex items-center gap-2 text-sm font-medium px-2 py-0.5 rounded-full", stateColorClass)}>
                       {StateIcon && <StateIcon className="w-3.5 h-3.5" />}
                       <span>{stateText}</span>
@@ -690,118 +973,313 @@ export default function App() {
         <AnimatePresence>
           {showContextPanel && !isFullscreen && (
             <motion.aside 
-              initial={{ width: 0, opacity: 0, padding: 0 }}
-              animate={{ width: 384, opacity: 1, paddingLeft: '1rem', paddingRight: '1rem' }} // 96 in Tailwind is 24rem or 384px
-              exit={{ width: 0, opacity: 0, padding: 0 }}
+              initial={{ width: 0, opacity: 0 }}
+              animate={{ width: 400, opacity: 1 }} 
+              exit={{ width: 0, opacity: 0 }}
               transition={{ type: "spring", stiffness: 300, damping: 30 }}
-              className="bg-card border-r border-border flex flex-col shadow-lg z-30 overflow-y-auto h-full"
+              className="bg-card border-r border-border flex flex-col shadow-xl z-30 h-full"
             >
-              <div className="p-4 pt-5 border-b border-border sticky top-0 bg-card z-10">
+              {/* Header */}
+              <div className="flex-shrink-0 p-6 border-b border-border bg-gradient-to-r from-card to-muted/20">
                 <div className="flex items-center justify-between">
-                  <h2 className="text-xl font-semibold text-foreground">Setup & Context</h2>
-                  <Button variant="ghost" size="sm" onClick={() => setShowContextPanel(false)} title="Close Context Panel" className="hover:bg-accent p-2">
+                  <div>
+                    <h2 className="text-xl font-semibold text-foreground">Setup & Context</h2>
+                    <p className="text-sm text-muted-foreground mt-1">Configure your conversation and add context</p>
+                  </div>
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    onClick={() => setShowContextPanel(false)} 
+                    className="hover:bg-accent rounded-full w-10 h-10 p-0"
+                  >
                     <SidebarClose className="w-5 h-5 text-muted-foreground" />
                   </Button>
-          </div>
-        </div>
-              
-              <div className="p-4 space-y-6 flex-1">
-                {/* Conversation Title Input */}
-                <div>
-                  <label htmlFor="convTitle" className="block text-sm font-medium text-foreground mb-1">Conversation Title</label>
-                  <input 
-                    id="convTitle"
-                    type="text" 
-                    value={conversationTitle} 
-                    onChange={(e) => setConversationTitle(e.target.value)} 
-                    placeholder="E.g., Sales Call with Acme Corp"
-                    className="w-full p-2 border border-input rounded-lg focus:ring-2 focus:ring-app-primary focus:border-app-primary transition-shadow text-sm bg-background text-foreground"
-                    disabled={conversationState === 'recording' || conversationState === 'paused'}
-          />
-        </div>
-
-                {/* Conversation Type Select */}
-                <div>
-                  <label htmlFor="convType" className="block text-sm font-medium text-foreground mb-1">Conversation Type</label>
-                  <select 
-                    id="convType"
-                    value={conversationType} 
-                    onChange={(e) => setConversationType(e.target.value as any)} 
-                    className="w-full p-2 border border-input rounded-lg focus:ring-2 focus:ring-app-primary focus:border-app-primary transition-shadow text-sm bg-background text-foreground"
-                    disabled={conversationState === 'recording' || conversationState === 'paused'}
-                  >
-                    <option value="sales">Sales Call</option>
-                    <option value="support">Support Call</option>
-                    <option value="meeting">Meeting</option>
-                    <option value="interview">Interview</option>
-                  </select>
                 </div>
-                
-                {/* Text Context Input */}
-                <div>
-                  <label htmlFor="textContext" className="block text-sm font-medium text-foreground mb-1">Background / Notes</label>
-                  <textarea 
-                    id="textContext"
-                    value={textContext} 
-                    onChange={(e) => handleTextContextChange(e.target.value)} 
-                    placeholder="Add key talking points, goals, or background information here..."
-                    rows={5} 
-                    className="w-full p-2 border border-input rounded-lg focus:ring-2 focus:ring-app-primary focus:border-app-primary transition-shadow resize-none text-sm bg-background text-foreground"
-                    disabled={conversationState === 'recording' || conversationState === 'paused'}
-            />
-          </div>
+              </div>
 
-                {/* File Upload Section */}
-                <div>
-                  <label className="block text-sm font-medium text-foreground mb-1">Context Documents</label>
-                  <div className="border-2 border-dashed border-border rounded-lg p-4 text-center hover:border-app-primary transition-colors bg-muted/50">
-                    <UploadCloud className="w-8 h-8 text-muted-foreground mx-auto mb-2" />
-                    <input 
-                      type="file" 
-                      multiple 
-                      id="fileUploadInput" 
-                      className="hidden" 
-                      onChange={(e) => e.target.files && handleFileUpload(Array.from(e.target.files))}
-                      disabled={conversationState === 'recording' || conversationState === 'paused'}
-                      accept=".txt,.pdf,.doc,.docx,.md"
-                    />
-                    <label htmlFor="fileUploadInput" className="text-sm text-app-primary hover:text-app-primary-dark font-medium cursor-pointer">
-                      Upload files
-                    </label>
-                    <p className="text-xs text-muted-foreground mt-1">or drag and drop (TXT, PDF, DOCX, MD)</p>
-                  </div>
-                  {uploadedFiles.length > 0 && (
-                    <div className="mt-3 space-y-2">
-                      {uploadedFiles.map(file => (
-                        <div key={file.name} className="flex items-center justify-between p-2 bg-muted rounded-md text-sm">
-                          <span className="truncate w-4/5 text-foreground" title={file.name}>{file.name}</span>
-                          <Button variant="ghost" size="sm" onClick={() => handleRemoveFile(file.name)} className="w-6 h-6 p-1 hover:bg-destructive/10">
-                            <Trash2 className="w-3.5 h-3.5 text-destructive"/>
-                          </Button>
+              {/* Tab Navigation */}
+              <div className="flex-shrink-0 border-b border-border bg-muted/30">
+                <div className="flex">
+                  {[
+                    { id: 'setup', label: 'Setup', icon: Settings2 },
+                    { id: 'files', label: 'Files', icon: FileText },
+                    { id: 'previous', label: 'Previous', icon: Clock }
+                  ].map(({ id, label, icon: Icon }) => (
+                    <button
+                      key={id}
+                      onClick={() => setActiveContextTab(id as any)}
+                      className={cn(
+                        "flex-1 flex items-center justify-center gap-2 px-4 py-3 text-sm font-medium transition-colors relative",
+                        activeContextTab === id
+                          ? "text-primary bg-background border-b-2 border-primary"
+                          : "text-muted-foreground hover:text-foreground hover:bg-accent/50"
+                      )}
+                    >
+                      <Icon className="w-4 h-4" />
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Content Area */}
+              <div className="flex-1 overflow-y-auto">
+                {/* Setup Tab */}
+                {activeContextTab === 'setup' && (
+                  <div className="p-6 space-y-6">
+                    {/* Conversation Title */}
+                    <div className="space-y-2">
+                      <label htmlFor="convTitle" className="text-sm font-medium text-foreground">
+                        Conversation Title
+                      </label>
+                      <input 
+                        id="convTitle"
+                        type="text" 
+                        value={conversationTitle} 
+                        onChange={(e) => setConversationTitle(e.target.value)} 
+                        placeholder="E.g., Sales Call with Acme Corp"
+                        className="w-full px-3 py-2 bg-background border border-input rounded-lg focus:ring-2 focus:ring-primary focus:border-primary transition-all text-sm"
+                        disabled={conversationState === 'recording' || conversationState === 'paused'}
+                      />
+                    </div>
+
+                    {/* Conversation Type */}
+                    <div className="space-y-2">
+                      <label htmlFor="convType" className="text-sm font-medium text-foreground">
+                        Conversation Type
+                      </label>
+                      <select 
+                        id="convType"
+                        value={conversationType} 
+                        onChange={(e) => setConversationType(e.target.value as any)} 
+                        className="w-full px-3 py-2 bg-background border border-input rounded-lg focus:ring-2 focus:ring-primary focus:border-primary transition-all text-sm"
+                        disabled={conversationState === 'recording' || conversationState === 'paused'}
+                      >
+                        <option value="sales">Sales Call</option>
+                        <option value="support">Support Call</option>
+                        <option value="meeting">Meeting</option>
+                        <option value="interview">Interview</option>
+                      </select>
+                    </div>
+                    
+                    {/* Background Notes */}
+                    <div className="space-y-2">
+                      <label htmlFor="textContext" className="text-sm font-medium text-foreground">
+                        Background Notes
+                      </label>
+                      <textarea 
+                        id="textContext"
+                        value={textContext} 
+                        onChange={(e) => handleTextContextChange(e.target.value)} 
+                        placeholder="Add key talking points, goals, or background information..."
+                        rows={4} 
+                        className="w-full px-3 py-2 bg-background border border-input rounded-lg focus:ring-2 focus:ring-primary focus:border-primary transition-all resize-none text-sm"
+                        disabled={conversationState === 'recording' || conversationState === 'paused'}
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Provide context to help AI generate better guidance
+                      </p>
+                    </div>
+
+                    {/* Options */}
+                    <div className="space-y-4 pt-4 border-t border-border">
+                      <h3 className="text-sm font-medium text-foreground">Options</h3>
+                      <label className="flex items-center justify-between cursor-pointer group">
+                        <div className="flex items-center gap-3">
+                          <div className="w-4 h-4 rounded bg-muted group-hover:bg-accent transition-colors"></div>
+                          <span className="text-sm text-foreground">Enable audio feedback</span>
                         </div>
-                      ))}
+                        <input 
+                          type="checkbox" 
+                          checked={audioEnabled} 
+                          onChange={(e) => setAudioEnabled(e.target.checked)} 
+                          className="w-4 h-4 text-primary bg-background border-input rounded focus:ring-primary"
+                        />
+                      </label>
                     </div>
-                  )}
-          </div>
 
-                {/* Settings Toggles */}
-                <div className="pt-4 border-t border-border space-y-3">
-                  <h3 className="text-md font-semibold text-foreground">Options</h3>
-                  {/* Auto-guidance checkbox removed - now using manual button */}
-                  <label className="flex items-center justify-between cursor-pointer">
-                    <span className="text-sm text-muted-foreground">Enable audio feedback</span>
-                    <input type="checkbox" checked={audioEnabled} onChange={(e) => setAudioEnabled(e.target.checked)} className="rounded border-input text-app-primary focus:ring-app-primary h-4 w-4"/>
-                  </label>
-                </div>
+                    {/* Reset Session */}
+                    {(transcript.length > 0 || sessionDuration > 0 || conversationState !== 'setup') && (
+                      <div className="pt-4 border-t border-border">
+                        <Button 
+                          onClick={handleResetSession} 
+                          variant="outline" 
+                          size="sm" 
+                          className="w-full text-destructive hover:text-destructive hover:bg-destructive/10 border-destructive/30"
+                        >
+                          <RotateCcw className="w-4 h-4 mr-2" /> 
+                          Reset Session
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                )}
 
-                {/* Session Actions (Reset) */}
-                {(transcript.length > 0 || sessionDuration > 0 || conversationState !== 'setup') && (
-                    <div className="pt-4 border-t border-border">
-                      <Button onClick={handleResetSession} variant="outline" size="sm" className="w-full text-destructive hover:text-destructive hover:bg-destructive/10 border-destructive/30 hover:border-destructive">
-                        <RotateCcw className="w-4 h-4 mr-2" /> Reset Session & Start Over
-                      </Button>
+                {/* Files Tab */}
+                {activeContextTab === 'files' && (
+                  <div className="p-6 space-y-6">
+                    <div>
+                      <h3 className="text-sm font-medium text-foreground mb-3">Context Documents</h3>
+                      <p className="text-xs text-muted-foreground mb-4">
+                        Upload documents to provide additional context for AI guidance
+                      </p>
+                      
+                      {/* File Upload Area */}
+                      <div className="border-2 border-dashed border-border rounded-lg p-6 text-center hover:border-primary/50 transition-colors bg-muted/20">
+                        <UploadCloud className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
+                        <input 
+                          type="file" 
+                          multiple 
+                          id="fileUploadInput" 
+                          className="hidden" 
+                          onChange={(e) => e.target.files && handleFileUpload(Array.from(e.target.files))}
+                          disabled={conversationState === 'recording' || conversationState === 'paused'}
+                          accept=".txt,.pdf,.doc,.docx,.md"
+                        />
+                        <label 
+                          htmlFor="fileUploadInput" 
+                          className="text-sm text-primary hover:text-primary/80 font-medium cursor-pointer transition-colors"
+                        >
+                          Choose files or drag here
+                        </label>
+                        <p className="text-xs text-muted-foreground mt-2">
+                          Supports TXT, PDF, DOCX, MD (max 25MB each)
+                        </p>
+                      </div>
+
+                      {/* Uploaded Files List */}
+                      {uploadedFiles.length > 0 && (
+                        <div className="mt-4 space-y-2">
+                          <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                            Uploaded Files ({uploadedFiles.length})
+                          </h4>
+                          {uploadedFiles.map(file => (
+                            <div key={file.name} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg hover:bg-muted transition-colors">
+                              <div className="flex items-center gap-3 flex-1 min-w-0">
+                                <FileText className="w-4 h-4 text-primary flex-shrink-0" />
+                                <div className="min-w-0 flex-1">
+                                  <p className="text-sm font-medium text-foreground truncate" title={file.name}>
+                                    {file.name}
+                                  </p>
+                                  <p className="text-xs text-muted-foreground">
+                                    {(file.size / 1024).toFixed(1)} KB
+                                  </p>
+                                </div>
+                              </div>
+                              <Button 
+                                variant="ghost" 
+                                size="sm" 
+                                onClick={() => handleRemoveFile(file.name)} 
+                                className="text-muted-foreground hover:text-destructive hover:bg-destructive/10 w-8 h-8 p-0"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </Button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
-                  )}
+                  </div>
+                )}
+
+                {/* Previous Conversations Tab */}
+                {activeContextTab === 'previous' && (
+                  <div className="p-6 space-y-6">
+                    <div>
+                      <h3 className="text-sm font-medium text-foreground mb-3">Previous Conversations</h3>
+                      <p className="text-xs text-muted-foreground mb-4">
+                        Select previous conversation summaries to provide context for this session
+                      </p>
+
+                      {/* Search */}
+                      <div className="relative mb-4">
+                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                        <input
+                          type="text"
+                          placeholder="Search conversations..."
+                          value={previousConversationSearch}
+                          onChange={(e) => setPreviousConversationSearch(e.target.value)}
+                          className="w-full pl-10 pr-3 py-2 bg-background border border-input rounded-lg focus:ring-2 focus:ring-primary focus:border-primary transition-all text-sm"
+                        />
+                      </div>
+
+                      {/* Conversations List */}
+                      {sessionsLoading ? (
+                        <div className="text-center py-8">
+                          <div className="animate-spin w-6 h-6 border-2 border-primary border-t-transparent rounded-full mx-auto mb-2"></div>
+                          <p className="text-sm text-muted-foreground">Loading conversations...</p>
+                        </div>
+                      ) : filteredPreviousSessions.length > 0 ? (
+                        <div className="space-y-2">
+                          {filteredPreviousSessions.map(session => (
+                            <div
+                              key={session.id}
+                              className={cn(
+                                "p-3 rounded-lg border transition-all cursor-pointer",
+                                selectedPreviousConversations.includes(session.id)
+                                  ? "border-primary bg-primary/10"
+                                  : "border-border hover:border-primary/50 hover:bg-muted/50"
+                              )}
+                              onClick={() => handlePreviousConversationToggle(session.id)}
+                            >
+                              <div className="flex items-start justify-between">
+                                <div className="flex-1 min-w-0">
+                                  <h4 className="text-sm font-medium text-foreground truncate mb-1">
+                                    {session.title}
+                                  </h4>
+                                  <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                                    <span className="flex items-center gap-1">
+                                      <MessageSquare className="w-3 h-3" />
+                                      {session.conversation_type}
+                                    </span>
+                                    <span className="flex items-center gap-1">
+                                      <Clock className="w-3 h-3" />
+                                      {new Date(session.created_at).toLocaleDateString()}
+                                    </span>
+                                  </div>
+                                </div>
+                                <div className={cn(
+                                  "w-4 h-4 rounded border-2 flex-shrink-0 mt-0.5",
+                                  selectedPreviousConversations.includes(session.id)
+                                    ? "border-primary bg-primary"
+                                    : "border-input"
+                                )}>
+                                  {selectedPreviousConversations.includes(session.id) && (
+                                    <CheckCircle className="w-3 h-3 text-primary-foreground" />
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                          
+                          {selectedPreviousConversations.length > 0 && (
+                            <div className="pt-4 border-t border-border mt-4">
+                              <p className="text-xs text-muted-foreground mb-2">
+                                {selectedPreviousConversations.length} conversation{selectedPreviousConversations.length !== 1 ? 's' : ''} selected
+                              </p>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setSelectedPreviousConversations([])}
+                                className="w-full"
+                              >
+                                Clear Selection
+                              </Button>
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        <div className="text-center py-8">
+                          <MessageSquare className="w-12 h-12 text-muted-foreground mx-auto mb-3" />
+                          <p className="text-sm text-foreground font-medium mb-1">No previous conversations</p>
+                          <p className="text-xs text-muted-foreground">
+                            {previousConversationSearch ? 'No conversations match your search' : 'Complete some conversations to see them here'}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
             </motion.aside>
           )}
