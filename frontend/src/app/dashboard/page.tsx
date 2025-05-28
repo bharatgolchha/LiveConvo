@@ -18,6 +18,7 @@ import {
 } from '@heroicons/react/24/outline';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
+import { ThemeToggle } from '@/components/ui/ThemeToggle';
 import ProtectedRoute from '@/components/auth/ProtectedRoute';
 import { OnboardingModal } from '@/components/auth/OnboardingModal';
 import { useAuth } from '@/contexts/AuthContext';
@@ -75,23 +76,23 @@ const DashboardHeader: React.FC<{ user: User; onSearch: (query: string) => void 
     <motion.header 
       initial={{ opacity: 0, y: -20 }}
       animate={{ opacity: 1, y: 0 }}
-      className="bg-white/95 backdrop-blur-sm border-b border-gray-200 px-6 py-4"
+      className="bg-card/95 backdrop-blur-sm border-b border-border px-6 py-4"
     >
       <div className="flex items-center justify-between">
         {/* Logo and Title */}
         <div className="flex items-center space-x-4">
           <div className="flex items-center space-x-2">
-            <div className="w-8 h-8 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-lg flex items-center justify-center">
+            <div className="w-8 h-8 bg-gradient-to-r from-app-primary to-app-primary-dark rounded-lg flex items-center justify-center">
               <MicrophoneIcon className="w-5 h-5 text-white" />
             </div>
-            <h1 className="text-xl font-bold text-gray-900">LiveConvo</h1>
+            <h1 className="text-xl font-bold text-foreground">LiveConvo</h1>
           </div>
         </div>
 
         {/* Search Bar */}
         <div className="flex-1 max-w-md mx-8">
           <div className="relative">
-            <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+            <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-muted-foreground" />
             <input
               type="text"
               placeholder="Search conversations..."
@@ -100,7 +101,7 @@ const DashboardHeader: React.FC<{ user: User; onSearch: (query: string) => void 
                 setSearchQuery(e.target.value);
                 onSearch(e.target.value);
               }}
-              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full pl-10 pr-4 py-2 border border-input rounded-lg focus:ring-2 focus:ring-app-primary focus:border-transparent bg-background text-foreground"
             />
           </div>
         </div>
@@ -108,23 +109,26 @@ const DashboardHeader: React.FC<{ user: User; onSearch: (query: string) => void 
         {/* Right Actions */}
         <div className="flex items-center space-x-4">
           {/* Notifications */}
-          <button className="relative p-2 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100">
+          <button className="relative p-2 text-muted-foreground hover:text-foreground rounded-lg hover:bg-accent">
             <BellIcon className="w-6 h-6" />
-            <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
+            <span className="absolute top-1 right-1 w-2 h-2 bg-app-error rounded-full"></span>
           </button>
+
+          {/* Theme Toggle */}
+          <ThemeToggle />
 
           {/* User Menu */}
           <div className="relative user-menu-container">
             <button
               onClick={() => setUserMenuOpen(!userMenuOpen)}
-              className="flex items-center space-x-2 p-2 rounded-lg hover:bg-gray-100 transition-colors"
+              className="flex items-center space-x-2 p-2 rounded-lg hover:bg-accent transition-colors"
             >
-              <UserCircleIcon className="w-8 h-8 text-gray-400" />
+              <UserCircleIcon className="w-8 h-8 text-muted-foreground" />
               <div className="hidden sm:block text-left">
-                <p className="text-sm font-medium text-gray-900">{user.name}</p>
-                <p className="text-xs text-gray-500 capitalize">{user.plan} Plan</p>
+                <p className="text-sm font-medium text-foreground">{user.name}</p>
+                <p className="text-xs text-muted-foreground capitalize">{user.plan} Plan</p>
               </div>
-              <ChevronDownIcon className="w-4 h-4 text-gray-400" />
+              <ChevronDownIcon className="w-4 h-4 text-muted-foreground" />
             </button>
 
             {/* Dropdown Menu */}
@@ -135,27 +139,27 @@ const DashboardHeader: React.FC<{ user: User; onSearch: (query: string) => void 
                   animate={{ opacity: 1, scale: 1, y: 0 }}
                   exit={{ opacity: 0, scale: 0.95, y: -10 }}
                   transition={{ duration: 0.1 }}
-                  className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50"
+                  className="absolute right-0 mt-2 w-48 bg-card rounded-lg shadow-lg border border-border py-1 z-50"
                 >
-                  <div className="px-4 py-2 border-b border-gray-100">
-                    <p className="text-sm font-medium text-gray-900">{user.name}</p>
-                    <p className="text-xs text-gray-500">{user.email}</p>
+                  <div className="px-4 py-2 border-b border-border">
+                    <p className="text-sm font-medium text-foreground">{user.name}</p>
+                    <p className="text-xs text-muted-foreground">{user.email}</p>
                   </div>
                   
-                  <button className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center space-x-2">
+                  <button className="w-full text-left px-4 py-2 text-sm text-foreground hover:bg-accent flex items-center space-x-2">
                     <Cog6ToothIcon className="w-4 h-4" />
                     <span>Settings</span>
                   </button>
                   
-                  <button className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center space-x-2">
+                  <button className="w-full text-left px-4 py-2 text-sm text-foreground hover:bg-accent flex items-center space-x-2">
                     <UserCircleIcon className="w-4 h-4" />
                     <span>Profile</span>
                   </button>
                   
-                  <div className="border-t border-gray-100 mt-1 pt-1">
+                  <div className="border-t border-border mt-1 pt-1">
                     <button
                       onClick={handleLogout}
-                      className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center space-x-2"
+                      className="w-full text-left px-4 py-2 text-sm text-destructive hover:bg-destructive/10 flex items-center space-x-2"
                     >
                       <ArrowRightOnRectangleIcon className="w-4 h-4" />
                       <span>Sign Out</span>
@@ -189,7 +193,7 @@ const DashboardSidebar: React.FC<{
     <motion.aside 
       initial={{ opacity: 0, x: -20 }}
       animate={{ opacity: 1, x: 0 }}
-      className="w-64 bg-gray-50/80 border-r border-gray-200 flex flex-col"
+      className="w-64 bg-muted/80 border-r border-border flex flex-col"
     >
       {/* Navigation */}
       <nav className="flex-1 px-4 py-6 space-y-2">
@@ -199,8 +203,8 @@ const DashboardSidebar: React.FC<{
             onClick={() => onNavigate(item.path)}
             className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-left transition-colors ${
               activePath === item.path
-                ? 'bg-blue-100 text-blue-700 border border-blue-200'
-                : 'text-gray-700 hover:bg-gray-100'
+                ? 'bg-app-primary/10 text-app-primary border border-app-primary/20'
+                : 'text-foreground hover:bg-accent'
             }`}
           >
             <div className="flex items-center space-x-3">
@@ -208,7 +212,7 @@ const DashboardSidebar: React.FC<{
               <span className="font-medium">{item.label}</span>
             </div>
             {item.count && (
-              <span className="text-xs bg-gray-200 text-gray-600 px-2 py-1 rounded-full">
+              <span className="text-xs bg-muted text-muted-foreground px-2 py-1 rounded-full">
                 {item.count}
               </span>
             )}
@@ -217,19 +221,19 @@ const DashboardSidebar: React.FC<{
       </nav>
 
       {/* Usage Stats Widget */}
-      <div className="p-4 border-t border-gray-200">
-        <Card className="p-4 bg-white">
-          <h3 className="text-sm font-medium text-gray-900 mb-3">This Month</h3>
+      <div className="p-4 border-t border-border">
+        <Card className="p-4 bg-card">
+          <h3 className="text-sm font-medium text-foreground mb-3">This Month</h3>
           
           {/* Audio Usage */}
           <div className="mb-4">
             <div className="flex justify-between text-sm mb-1">
-              <span className="text-gray-600">Audio Hours</span>
+              <span className="text-muted-foreground">Audio Hours</span>
               <span className="font-medium">{usageStats.monthlyAudioHours}/{usageStats.monthlyAudioLimit}h</span>
             </div>
-            <div className="w-full bg-gray-200 rounded-full h-2">
+            <div className="w-full bg-muted rounded-full h-2">
               <div 
-                className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                className="bg-app-primary h-2 rounded-full transition-all duration-300"
                 style={{ width: `${(usageStats.monthlyAudioHours / usageStats.monthlyAudioLimit) * 100}%` }}
               />
             </div>
@@ -238,11 +242,11 @@ const DashboardSidebar: React.FC<{
           {/* Session Stats */}
           <div className="grid grid-cols-2 gap-3 text-sm">
             <div>
-              <p className="text-gray-600">Total</p>
+              <p className="text-muted-foreground">Total</p>
               <p className="font-semibold text-lg">{usageStats.totalSessions}</p>
             </div>
             <div>
-              <p className="text-gray-600">Completed</p>
+              <p className="text-muted-foreground">Completed</p>
               <p className="font-semibold text-lg">{usageStats.completedSessions}</p>
             </div>
           </div>
@@ -274,11 +278,11 @@ const ConversationInboxItem: React.FC<{
 }> = ({ session, onResume, onViewSummary, onArchive, isSelected = false, onClick }) => {
   const getStatusIndicator = (status: Session['status']) => {
     switch (status) {
-      case 'active': return { color: 'bg-green-500', label: 'Live', pulse: true };
-      case 'completed': return { color: 'bg-blue-500', label: 'Done', pulse: false };
-      case 'draft': return { color: 'bg-amber-500', label: 'Draft', pulse: false };
-      case 'archived': return { color: 'bg-gray-400', label: 'Archived', pulse: false };
-      default: return { color: 'bg-gray-400', label: 'Unknown', pulse: false };
+      case 'active': return { color: 'bg-app-success', label: 'Live', pulse: true };
+      case 'completed': return { color: 'bg-app-primary', label: 'Done', pulse: false };
+      case 'draft': return { color: 'bg-app-warning', label: 'Draft', pulse: false };
+      case 'archived': return { color: 'bg-muted-foreground', label: 'Archived', pulse: false };
+      default: return { color: 'bg-muted-foreground', label: 'Unknown', pulse: false };
     }
   };
 
@@ -320,9 +324,9 @@ const ConversationInboxItem: React.FC<{
       whileHover={{ backgroundColor: 'rgba(249, 250, 251, 0.8)' }}
       onClick={onClick}
       className={`
-        group relative flex items-center px-6 py-4 border-b border-gray-100 cursor-pointer
+        group relative flex items-center px-6 py-4 border-b border-border cursor-pointer
         transition-all duration-200 hover:shadow-sm
-        ${isSelected ? 'bg-blue-50 border-blue-200' : 'bg-white hover:bg-gray-50/50'}
+        ${isSelected ? 'bg-app-primary/5 border-app-primary/20' : 'bg-card hover:bg-muted/30'}
       `}
     >
       {/* Selection Checkbox and Status Indicator */}
@@ -332,7 +336,7 @@ const ConversationInboxItem: React.FC<{
             type="checkbox"
             checked={isSelected}
             onChange={onClick}
-            className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+            className="rounded border-input text-app-primary focus:ring-app-primary"
           />
         </label>
         
@@ -342,7 +346,7 @@ const ConversationInboxItem: React.FC<{
             ${statusIndicator.pulse ? 'animate-pulse' : ''}
           `} />
           {session.status === 'active' && (
-            <div className="absolute inset-0 w-3 h-3 rounded-full bg-green-500 animate-ping opacity-30" />
+            <div className="absolute inset-0 w-3 h-3 rounded-full bg-app-success animate-ping opacity-30" />
           )}
         </div>
       </div>
@@ -355,18 +359,18 @@ const ConversationInboxItem: React.FC<{
             <div className="flex items-center gap-2 mb-1">
               <h3 className={`
                 text-sm font-medium truncate
-                ${session.status === 'archived' ? 'text-gray-500' : 'text-gray-900'}
-                ${isSelected ? 'text-blue-900' : ''}
+                ${session.status === 'archived' ? 'text-muted-foreground' : 'text-foreground'}
+                ${isSelected ? 'text-app-primary' : ''}
               `}>
                 {session.title}
               </h3>
-              <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-600 shrink-0">
+              <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-muted text-muted-foreground shrink-0">
                 {session.conversation_type}
               </span>
             </div>
             
             {/* Metadata Row */}
-            <div className="flex items-center gap-3 text-xs text-gray-500">
+            <div className="flex items-center gap-3 text-xs text-muted-foreground">
               <span className="flex items-center gap-1">
                 <ClockIcon className="w-3 h-3" />
                 {formatDate(session.created_at)}
@@ -384,7 +388,7 @@ const ConversationInboxItem: React.FC<{
               )}
               
               {session.lastActivity && session.status === 'active' && (
-                <span className="text-green-600 font-medium">
+                <span className="text-app-success font-medium">
                   • {session.lastActivity}
                 </span>
               )}
@@ -396,10 +400,10 @@ const ConversationInboxItem: React.FC<{
             {/* Quick Status Label */}
             <span className={`
               text-xs px-2 py-1 rounded-full font-medium
-              ${session.status === 'active' ? 'bg-green-100 text-green-700' :
-                session.status === 'completed' ? 'bg-blue-100 text-blue-700' :
-                session.status === 'draft' ? 'bg-amber-100 text-amber-700' :
-                'bg-gray-100 text-gray-600'}
+              ${session.status === 'active' ? 'bg-app-success/10 text-app-success' :
+                session.status === 'completed' ? 'bg-app-primary/10 text-app-primary' :
+                session.status === 'draft' ? 'bg-app-warning/10 text-app-warning' :
+                'bg-muted text-muted-foreground'}
             `}>
               {statusIndicator.label}
             </span>
@@ -414,7 +418,7 @@ const ConversationInboxItem: React.FC<{
                     e.stopPropagation();
                     onResume(session.id);
                   }}
-                  className="text-xs px-3 py-1 h-7 bg-green-100 hover:bg-green-200 text-green-700"
+                  className="text-xs px-3 py-1 h-7 bg-app-success/10 text-app-success"
                 >
                   Resume
                 </Button>
@@ -428,7 +432,7 @@ const ConversationInboxItem: React.FC<{
                     e.stopPropagation();
                     onViewSummary(session.id);
                   }}
-                  className="text-xs px-3 py-1 h-7 bg-blue-100 hover:bg-blue-200 text-blue-700"
+                  className="text-xs px-3 py-1 h-7 bg-app-primary/10 text-app-primary"
                 >
                   Summary
                 </Button>
@@ -442,7 +446,7 @@ const ConversationInboxItem: React.FC<{
                     e.stopPropagation();
                     onResume(session.id);
                   }}
-                  className="text-xs px-3 py-1 h-7 bg-amber-100 hover:bg-amber-200 text-amber-700"
+                  className="text-xs px-3 py-1 h-7 bg-app-warning/10 text-app-warning"
                 >
                   Continue
                 </Button>
@@ -455,7 +459,7 @@ const ConversationInboxItem: React.FC<{
                   e.stopPropagation();
                   onArchive(session.id);
                 }}
-                className="text-xs px-2 py-1 h-7 text-gray-500 hover:text-gray-700 hover:bg-gray-100"
+                className="text-xs px-2 py-1 h-7 text-muted text-muted-foreground hover:bg-muted/30"
               >
                 <ArchiveBoxIcon className="w-3 h-3" />
               </Button>
@@ -486,7 +490,7 @@ const EmptyState: React.FC<{ onNewConversation: () => void }> = ({ onNewConversa
       <Button 
         size="lg" 
         onClick={onNewConversation}
-        className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700"
+        className="bg-gradient-to-r from-app-primary to-app-primary-dark hover:from-app-primary-dark hover:to-app-primary"
       >
         <PlusIcon className="w-5 h-5 mr-2" />
         Start Your First Conversation
@@ -1219,12 +1223,12 @@ const DashboardPage: React.FC = () => {
               <motion.div 
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="bg-gradient-to-r from-blue-600 to-indigo-600 rounded-xl p-6 text-white mb-6"
+                className="bg-gradient-to-r from-blue-600 to-blue-700 dark:from-blue-500 dark:to-blue-600 rounded-xl p-6 text-white mb-6"
               >
                 <div className="flex items-center justify-between">
                   <div>
                     <h1 className="text-2xl font-bold mb-2">Welcome back, {currentUser.name}!</h1>
-                    <p className="text-blue-100">
+                    <p className="text-white/80">
                       {activeSessions.length > 0 
                         ? `You have ${activeSessions.length} active conversation${activeSessions.length === 1 ? '' : 's'}`
                         : 'Ready to start a new conversation?'}
@@ -1315,11 +1319,11 @@ const DashboardPage: React.FC = () => {
                         {selectedSessions.size === 0 && (
                           <div className="flex items-center gap-4 text-xs text-gray-500">
                             <span className="flex items-center gap-2">
-                              <div className="w-2 h-2 rounded-full bg-green-500"></div>
+                              <div className="w-2 h-2 rounded-full bg-app-success"></div>
                               Active ({filteredSessions.filter(s => s.status === 'active').length})
                             </span>
                             <span className="flex items-center gap-2">
-                              <div className="w-2 h-2 rounded-full bg-blue-500"></div>
+                              <div className="w-2 h-2 rounded-full bg-app-primary"></div>
                               Completed ({filteredSessions.filter(s => s.status === 'completed').length})
                             </span>
                           </div>
@@ -1355,7 +1359,7 @@ const DashboardPage: React.FC = () => {
                       <Button
                         variant="primary"
                         onClick={handleNewConversation}
-                        className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700"
+                        className="bg-gradient-to-r from-app-primary to-app-primary-dark hover:from-app-primary-dark hover:to-app-primary"
                       >
                         <PlusIcon className="w-4 h-4 mr-2" />
                         Start New Conversation
@@ -1382,13 +1386,6 @@ const DashboardPage: React.FC = () => {
         onClose={() => setShowOnboardingModal(false)}
         onComplete={handleOnboardingComplete}
       />
-      
-      {/* Debug info */}
-      {process.env.NODE_ENV === 'development' && (
-        <div className="fixed bottom-4 left-4 bg-black text-white p-2 rounded text-xs">
-          Onboarding: {showOnboardingModal ? 'OPEN' : 'CLOSED'} | Error: {sessionsError || 'none'}
-        </div>
-      )}
     </div>
   );
 };
