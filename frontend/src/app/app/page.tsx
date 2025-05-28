@@ -173,6 +173,33 @@ export default function App() {
     }
   }, [conversationState, sessionDuration, transcript, talkStats, conversationType, conversationTitle, textContext, conversationId]);
 
+  // Load conversation state from localStorage on mount
+  useEffect(() => {
+    if (conversationId && typeof window !== 'undefined') {
+      const storedState = localStorage.getItem(`conversation_state_${conversationId}`);
+      if (storedState) {
+        try {
+          const parsed = JSON.parse(storedState);
+          if (parsed.transcript) {
+            const restoredTranscript = (parsed.transcript as any[]).map(line => ({
+              ...line,
+              timestamp: new Date(line.timestamp)
+            }));
+            setTranscript(restoredTranscript);
+          }
+          if (parsed.sessionDuration) setSessionDuration(parsed.sessionDuration);
+          if (parsed.talkStats) setTalkStats(parsed.talkStats);
+          if (parsed.conversationType) setConversationType(parsed.conversationType);
+          if (parsed.conversationTitle) setConversationTitle(parsed.conversationTitle);
+          if (parsed.textContext) setTextContext(parsed.textContext);
+          if (parsed.conversationState) setConversationState(parsed.conversationState as ConversationState);
+        } catch (err) {
+          console.error('Error loading saved conversation state:', err);
+        }
+      }
+    }
+  }, [conversationId]);
+
   // Refs to keep latest state values for interval callbacks
   const latestTranscript = useRef<TranscriptLine[]>([]);
   const latestTextContext = useRef('');
@@ -489,7 +516,9 @@ export default function App() {
               });
             }
           }
-          setConversationState('ready'); 
+          if (conversationState === 'setup') {
+            setConversationState('ready');
+          }
         } catch (error) {
           console.error('Error loading conversation config:', error);
           setErrorMessage('Failed to load conversation settings.');
