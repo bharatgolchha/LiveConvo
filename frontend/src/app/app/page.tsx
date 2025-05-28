@@ -46,18 +46,22 @@ import {
   Target,
   MessageCircle,
   Handshake,
-  ShieldCheck
+  ShieldCheck,
+  Quote,
+  Sparkles
 } from 'lucide-react';
 
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/Card';
 import Link from 'next/link';
-import { GuidanceType } from '@/components/guidance/GuidanceChip';
 import { useAIGuidance, ContextDocument, GuidanceRequest } from '@/lib/aiGuidance';
 import { useTranscription } from '@/lib/useTranscription';
-import { useRealtimeSummary, ConversationSummary, TimelineEvent } from '@/lib/useRealtimeSummary';
+import { useRealtimeSummary, ConversationSummary } from '@/lib/useRealtimeSummary';
+import { useIncrementalTimeline, TimelineEvent } from '@/lib/useIncrementalTimeline';
+import { useChatGuidance } from '@/lib/useChatGuidance';
 import { cn } from '@/lib/utils';
 import { updateTalkStats, TalkStats } from '@/lib/transcriptUtils';
+import { ChatGuidance } from '@/components/guidance/ChatGuidance';
 
 interface TranscriptLine {
   id: string;
@@ -67,24 +71,7 @@ interface TranscriptLine {
   confidence?: number;
 }
 
-interface Guidance {
-  id: string;
-  type: GuidanceType;
-  message: string;
-  confidence: number;
-  timestamp: Date;
-  dismissed?: boolean;
-}
-
 type ConversationState = 'setup' | 'ready' | 'recording' | 'paused' | 'processing' | 'completed' | 'error';
-
-const IconMap: Record<GuidanceType, React.ElementType> = {
-  ask: Lightbulb,
-  clarify: Lightbulb,
-  suggest: Lightbulb,
-  avoid: Lightbulb, 
-  warn: Lightbulb,
-};
 
 export default function App() {
   const searchParams = useSearchParams();
@@ -93,7 +80,6 @@ export default function App() {
   // Core State
   const [conversationState, setConversationState] = useState<ConversationState>('setup');
   const [transcript, setTranscript] = useState<TranscriptLine[]>([]);
-  const [guidanceList, setGuidanceList] = useState<Guidance[]>([]);
   const [sessionDuration, setSessionDuration] = useState(0);
   const [talkStats, setTalkStats] = useState<TalkStats>({ meWords: 0, themWords: 0 });
   const [conversationType, setConversationType] = useState<'sales' | 'support' | 'meeting' | 'interview'>('sales');
@@ -127,7 +113,7 @@ export default function App() {
   } = useAIGuidance();
 
   // Demo guidance for fallback
-  const demoGuidances: Omit<Guidance, 'id' | 'timestamp' | 'dismissed'>[] = [
+  const demoGuidances = [
     { type: 'ask', message: "What are your key priorities for this quarter?", confidence: 92 },
     { type: 'clarify', message: "Can you elaborate on the challenges you mentioned?", confidence: 87 },
     { type: 'suggest', message: "Perhaps we can explore how our solution addresses that specific need.", confidence: 89 },
@@ -173,6 +159,46 @@ export default function App() {
     isRecording: conversationState === 'recording',
     refreshIntervalMs: 45000 // 45 seconds
   });
+
+  // Incremental timeline hook - updates every 15 seconds
+  const {
+    timeline,
+    isLoading: isTimelineLoading,
+    error: timelineError,
+    lastUpdated: timelineLastUpdated,
+    refreshTimeline,
+    getTimeUntilNextRefresh: getTimelineTimeUntilNextRefresh
+  } = useIncrementalTimeline({
+    transcript: fullTranscriptText,
+    sessionId: conversationId || undefined,
+    conversationType,
+    isRecording: conversationState === 'recording',
+    refreshIntervalMs: 15000 // 15 seconds for real-time timeline
+  });
+
+  // Interactive chat guidance hook
+  const {
+    messages: chatMessages,
+    isLoading: isChatLoading,
+    inputValue: chatInputValue,
+    setInputValue: setChatInputValue,
+    sendMessage: sendChatMessage,
+    sendQuickAction,
+    addAutoGuidance,
+    initializeChat,
+    messagesEndRef
+  } = useChatGuidance({
+    transcript: fullTranscriptText,
+    conversationType,
+    sessionId: conversationId || undefined
+  });
+
+  // Initialize chat when recording starts
+  useEffect(() => {
+    if (conversationState === 'recording' && chatMessages.length === 0) {
+      initializeChat();
+    }
+  }, [conversationState, chatMessages.length, initializeChat]);
 
   useEffect(() => {
     if (myLiveTranscript.length > lastMyTranscriptLen.current) {
@@ -306,36 +332,38 @@ export default function App() {
       const guidance = Array.isArray(guidanceResult) ? guidanceResult[0] : guidanceResult;
 
       if (guidance && guidance.message) {
-        const newGuidance: Guidance = {
-          id: Math.random().toString(36).substring(7),
-          type: guidance.type as GuidanceType,
+        // Add to chat as auto-guidance instead of old guidance list
+        addAutoGuidance({
+          type: guidance.type,
           message: guidance.message,
-          confidence: guidance.confidence || Math.floor(80 + Math.random() * 20),
-          timestamp: new Date(),
-          dismissed: false
-        };
-        console.log('Adding new guidance:', newGuidance);
-        setGuidanceList(prev => [newGuidance, ...prev]);
+          confidence: guidance.confidence || Math.floor(80 + Math.random() * 20)
+        });
+        console.log('Added auto-guidance to chat:', guidance);
       } else {
         console.log("No new guidance suggestions from API or API returned empty.");
+        // Fallback to demo guidance
+        const randomGuidance = demoGuidances[Math.floor(Math.random() * demoGuidances.length)];
+        addAutoGuidance({
+          type: randomGuidance.type,
+          message: randomGuidance.message,
+          confidence: randomGuidance.confidence
+        });
       }
     } catch (error) {
       console.error('Error generating guidance:', error);
       setErrorMessage("Failed to generate AI guidance. Using a suggestion.");
       const randomGuidance = demoGuidances[Math.floor(Math.random() * demoGuidances.length)];
-      const newGuidance: Guidance = {
-          id: Math.random().toString(36).substring(7),
-        ...randomGuidance,
-        timestamp: new Date(),
-        dismissed: false
-      };
-      setGuidanceList(prev => [newGuidance, ...prev]);
+      addAutoGuidance({
+        type: randomGuidance.type,
+        message: randomGuidance.message,
+        confidence: randomGuidance.confidence
+      });
     } finally {
       if (conversationState === 'processing') {
         setConversationState(transcript.length > 0 ? 'recording' : 'ready');
       }
     }
-  }, [transcript, textContext, conversationType, generateGuidance, conversationState, demoGuidances]);
+  }, [transcript, textContext, conversationType, generateGuidance, conversationState, demoGuidances, addAutoGuidance]);
 
   // Auto-guidance functionality removed - now using manual button for guidance generation
 
@@ -374,7 +402,6 @@ export default function App() {
       setSessionDuration(0);
       if (transcript.length > 0 && conversationState !== 'paused') {
         setTranscript([]);
-        setGuidanceList([]);
       }
       console.log('✅ Recording started successfully');
     } catch (err) {
@@ -487,14 +514,6 @@ export default function App() {
     // Ideally, also remove from AI context if an ID mapping exists
   };
 
-
-
-  const dismissGuidance = (guidanceId: string) => {
-    setGuidanceList(prev => prev.map(g => 
-      g.id === guidanceId ? { ...g, dismissed: true } : g
-    ).filter(g => !g.dismissed)); // Optionally remove dismissed from list immediately
-  };
-
   const handleExportSession = () => {
     const sessionData = {
       title: conversationTitle,
@@ -504,11 +523,6 @@ export default function App() {
       transcript: transcript.map(line => ({ 
         text: line.text, 
         timestamp: line.timestamp.toLocaleTimeString() 
-      })),
-      guidance: guidanceList.map(g => ({ 
-        type: g.type, 
-        message: g.message, 
-        confidence: g.confidence 
       })),
       context: { text: textContext, files: uploadedFiles.map(f=>f.name) }
     };
@@ -528,7 +542,6 @@ export default function App() {
     setConversationState('setup');
     setSessionDuration(0);
     setTranscript([]);
-    setGuidanceList([]);
     setTextContext('');
     setUploadedFiles([]);
     clearAIGuidanceContext();
@@ -565,18 +578,6 @@ export default function App() {
     }
   };
 
-  const getGuidanceTypeStyle = (type: GuidanceType): {className: string, Icon: React.ElementType} => {
-    const Icon = IconMap[type] || Lightbulb;
-    switch (type) {
-      case 'ask': return {className: 'bg-green-50 border-green-200 text-green-800', Icon};
-      case 'clarify': return {className: 'bg-blue-50 border-blue-200 text-blue-800', Icon};
-      case 'suggest': return {className: 'bg-indigo-50 border-indigo-200 text-indigo-800', Icon};
-      case 'avoid': return {className: 'bg-orange-50 border-orange-200 text-orange-800', Icon};
-      case 'warn': return {className: 'bg-red-50 border-red-200 text-red-800', Icon};
-      default: return {className: 'bg-gray-50 border-gray-200 text-gray-800', Icon };
-    }
-  };
-
   const getTimelineEventStyle = (type: TimelineEvent['type'], importance: TimelineEvent['importance']): {
     iconBgColor: string, 
     Icon: React.ElementType,
@@ -588,7 +589,9 @@ export default function App() {
       topic_shift: { Icon: MessageCircle, color: 'blue' },
       action_item: { Icon: CheckSquare, color: 'orange' },
       question: { Icon: MessageCircle, color: 'yellow' },
-      agreement: { Icon: Handshake, color: 'emerald' }
+      agreement: { Icon: Handshake, color: 'emerald' },
+      speaker_change: { Icon: Users, color: 'gray' },
+      key_statement: { Icon: Quote, color: 'indigo' }
     };
 
     const style = styles[type] || styles.milestone;
@@ -601,8 +604,6 @@ export default function App() {
       textColor: `text-${style.color}-${intensity}`
     };
   };
-
-  const activeGuidance = guidanceList.filter(g => !g.dismissed).slice(0, 5); // Show up to 5 active guidance
 
   const { text: stateText, color: stateColorClass, icon: StateIcon } = getStateTextAndColor(conversationState);
 
@@ -864,10 +865,71 @@ export default function App() {
 
           {(conversationState === 'recording' || conversationState === 'paused' || conversationState === 'processing') && (
             <div className="flex-1 flex flex-col min-h-0">
-              {/* Top Controls for Recording/Paused State */}
-              <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} className="mb-4 flex items-center justify-center gap-4 sticky top-0 bg-slate-100/80 backdrop-blur-sm py-3 z-10 rounded-lg flex-shrink-0">
-                <MainActionButton />
-                <SecondaryActionButton />
+              {/* Floating Controls for Recording/Paused State */}
+              <motion.div 
+                initial={{ opacity: 0, y: -20 }} 
+                animate={{ opacity: 1, y: 0 }} 
+                className="fixed top-20 right-4 z-50 flex items-center gap-2 bg-white/95 backdrop-blur-sm shadow-lg rounded-full px-3 py-2 border border-gray-200"
+              >
+                <div className="flex items-center gap-2 text-xs font-medium text-gray-600">
+                  {conversationState === 'recording' && (
+                    <>
+                      <motion.div
+                        animate={{ scale: [1, 1.2, 1] }}
+                        transition={{ repeat: Infinity, duration: 1 }}
+                        className="w-2 h-2 bg-red-500 rounded-full"
+                      />
+                      <span>{formatDuration(sessionDuration)}</span>
+                    </>
+                  )}
+                  {conversationState === 'paused' && (
+                    <>
+                      <div className="w-2 h-2 bg-yellow-500 rounded-sm" />
+                      <span>Paused • {formatDuration(sessionDuration)}</span>
+                    </>
+                  )}
+                  {conversationState === 'processing' && (
+                    <>
+                      <motion.div
+                        animate={{ rotate: 360 }}
+                        transition={{ repeat: Infinity, duration: 1 }}
+                        className="w-2 h-2 border border-purple-500 border-t-transparent rounded-full"
+                      />
+                      <span>Processing</span>
+                    </>
+                  )}
+                </div>
+                <div className="w-px h-4 bg-gray-300" />
+                <div className="flex items-center gap-1">
+                  {conversationState === 'recording' && (
+                    <Button 
+                      onClick={handlePauseRecording} 
+                      variant="ghost" 
+                      size="sm" 
+                      className="h-8 w-8 p-1 hover:bg-yellow-100 text-yellow-600"
+                    >
+                      <PauseCircle className="w-4 h-4" />
+                    </Button>
+                  )}
+                  {conversationState === 'paused' && (
+                    <Button 
+                      onClick={handleResumeRecording} 
+                      variant="ghost" 
+                      size="sm" 
+                      className="h-8 w-8 p-1 hover:bg-green-100 text-green-600"
+                    >
+                      <Play className="w-4 h-4" />
+                    </Button>
+                  )}
+                  <Button 
+                    onClick={handleStopRecording} 
+                    variant="ghost" 
+                    size="sm" 
+                    className="h-8 w-8 p-1 hover:bg-red-100 text-red-600"
+                  >
+                    <Square className="w-4 h-4" />
+                  </Button>
+                </div>
               </motion.div>
 
               {/* Transcript & Guidance Layout */}
@@ -1106,17 +1168,17 @@ export default function App() {
                     {/* Timeline Tab */}
                     {activeTab === 'timeline' && (
                       <div className="h-full flex flex-col">
-                        {summaryError && (
+                        {timelineError && (
                           <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-red-700 text-sm mb-4">
                             <div className="flex items-center gap-2 mb-1">
                               <XCircle className="w-4 h-4" />
                               <span className="font-medium">Timeline Error</span>
                             </div>
-                            <p>{summaryError}</p>
+                            <p>{timelineError}</p>
                           </div>
                         )}
 
-                        {!summary?.timeline && !isSummaryLoading && !summaryError && (
+                        {!timeline && !isTimelineLoading && !timelineError && (
                           <div className="flex items-center justify-center h-full text-gray-500">
                             <div className="text-center">
                               <Clock3 className="w-10 h-10 mx-auto mb-3 opacity-60" />
@@ -1126,7 +1188,7 @@ export default function App() {
                           </div>
                         )}
 
-                        {isSummaryLoading && !summary?.timeline && (
+                        {isTimelineLoading && !timeline?.length && (
                           <div className="flex items-center justify-center h-full text-blue-600">
                             <div className="text-center">
                               <RefreshCw className="w-10 h-10 mx-auto mb-3 animate-spin" />
@@ -1135,15 +1197,41 @@ export default function App() {
                           </div>
                         )}
 
-                        {summary?.timeline && summary.timeline.length > 0 && (
+                        {timeline && timeline.length > 0 && (
                           <div className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100 pr-2">
+                            {/* Timeline Header with refresh info */}
+                            <div className="flex items-center justify-between mb-4 pb-2 border-b border-gray-200">
+                              <div className="flex items-center gap-2">
+                                <Clock3 className="w-4 h-4 text-gray-500" />
+                                <span className="text-sm text-gray-600">
+                                  {timeline.length} events • Updates every 15s
+                                </span>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                {timelineLastUpdated && (
+                                  <span className="text-xs text-gray-500">
+                                    Updated {timelineLastUpdated.toLocaleTimeString([], { hour: '2-digit', minute:'2-digit'})}
+                                  </span>
+                                )}
+                                <Button 
+                                  variant="ghost" 
+                                  size="sm" 
+                                  onClick={refreshTimeline}
+                                  disabled={isTimelineLoading}
+                                  className="h-6 w-6 p-1"
+                                >
+                                  <RefreshCw className={cn("w-3 h-3", isTimelineLoading && "animate-spin")} />
+                                </Button>
+                              </div>
+                            </div>
+
                             <div className="relative">
                               {/* Timeline Line */}
                               <div className="absolute left-6 top-0 bottom-0 w-0.5 bg-gray-200"></div>
                               
                               {/* Timeline Events */}
                               <div className="space-y-6">
-                                {summary.timeline.map((event, index) => {
+                                {timeline.map((event, index) => {
                                   const { iconBgColor, Icon, textColor } = getTimelineEventStyle(event.type, event.importance);
                                   return (
                                     <motion.div
@@ -1169,6 +1257,16 @@ export default function App() {
                                               {event.title}
                                             </h4>
                                             <div className="flex items-center gap-2 text-xs text-gray-500">
+                                              {event.speaker && (
+                                                <span className={cn(
+                                                  "px-2 py-1 rounded-full text-xs font-medium",
+                                                  event.speaker === 'ME' 
+                                                    ? 'bg-blue-100 text-blue-700' 
+                                                    : 'bg-green-100 text-green-700'
+                                                )}>
+                                                  {event.speaker}
+                                                </span>
+                                              )}
                                               <span className={cn(
                                                 "px-2 py-1 rounded-full text-xs font-medium",
                                                 event.importance === 'high' ? 'bg-red-100 text-red-700' :
@@ -1180,9 +1278,18 @@ export default function App() {
                                               <span>{event.timestamp.toLocaleTimeString([], { hour: '2-digit', minute:'2-digit'})}</span>
                                             </div>
                                           </div>
-                                          <p className="text-gray-700 text-sm leading-relaxed">
+                                          <p className="text-gray-700 text-sm leading-relaxed mb-2">
                                             {event.description}
                                           </p>
+                                          {event.content && (
+                                            <div className="bg-gray-50 border-l-4 border-gray-300 p-2 mt-2 rounded-r-md">
+                                              <div className="flex items-center gap-1 mb-1">
+                                                <Quote className="w-3 h-3 text-gray-500" />
+                                                <span className="text-xs font-medium text-gray-600">Quote</span>
+                                              </div>
+                                              <p className="text-xs text-gray-600 italic">"{event.content}"</p>
+                                            </div>
+                                          )}
                                           <div className="mt-2 flex items-center gap-2">
                                             <span className={cn(
                                               "inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium",
@@ -1191,7 +1298,9 @@ export default function App() {
                                               event.type === 'topic_shift' ? 'bg-blue-100 text-blue-700' :
                                               event.type === 'action_item' ? 'bg-orange-100 text-orange-700' :
                                               event.type === 'question' ? 'bg-yellow-100 text-yellow-700' :
-                                              'bg-emerald-100 text-emerald-700'
+                                              event.type === 'agreement' ? 'bg-emerald-100 text-emerald-700' :
+                                              event.type === 'speaker_change' ? 'bg-gray-100 text-gray-700' :
+                                              'bg-indigo-100 text-indigo-700'
                                             )}>
                                               <Icon className="w-3 h-3" />
                                               {event.type.replace('_', ' ')}
@@ -1211,70 +1320,23 @@ export default function App() {
                   </CardContent>
                 </Card>
 
-                {/* Guidance Column */}
+                {/* AI Chat Guidance Column */}
                 <Card className="flex-1 md:flex-[1] flex flex-col h-full min-h-0 max-h-full shadow-lg">
                   <CardHeader className="border-b bg-gray-50 rounded-t-lg flex-shrink-0">
                     <CardTitle className="flex items-center gap-2 text-lg">
-                      <Lightbulb className="w-5 h-5 text-yellow-500" /> AI Guidance
+                      <Sparkles className="w-5 h-5 text-purple-500" /> AI Conversation Coach
                     </CardTitle>
                   </CardHeader>
-                  <CardContent className="p-4 flex-1 overflow-y-auto space-y-3 scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100 min-h-0 max-h-full">
-                    {activeGuidance.length === 0 && !isGenerating && (
-                      <div className="flex items-center justify-center h-full text-gray-500">
-                        <div className="text-center">
-                          <Lightbulb className="w-10 h-10 mx-auto mb-3 opacity-60" />
-                          <p className="font-medium text-lg">
-                            {transcript.length === 0 ? "Start talking to get AI suggestions." : "No new suggestions right now." }
-                          </p>
-                        </div>
-                      </div>
-                    )}
-                    {(isGenerating || conversationState === 'processing') && (
-                       <div className="flex items-center justify-center h-full text-purple-600">
-                         <div className="text-center">
-                           <Brain className="w-10 h-10 mx-auto mb-3 animate-pulse" />
-                           <p className="font-medium text-lg">Generating insights...</p>
-                         </div>
-                       </div>
-                    )}
-                    <AnimatePresence>
-                      {activeGuidance.map((guidance) => {
-                        const { className: guidanceColorClass, Icon: GuidanceIcon } = getGuidanceTypeStyle(guidance.type);
-                        return (
-                          <motion.div
-                            key={guidance.id}
-                            layout
-                            initial={{ opacity: 0, x: 20, scale: 0.95 }}
-                            animate={{ opacity: 1, x: 0, scale: 1 }}
-                            exit={{ opacity: 0, x: -20, scale: 0.95 }}
-                            transition={{ type: "spring", stiffness: 300, damping: 25 }}
-                            className={cn("p-3 rounded-lg border-l-4 shadow-sm hover:shadow-md transition-shadow", guidanceColorClass)}
-                          >
-                            <div className="flex items-start justify-between mb-1">
-                              <div className="flex items-center gap-1.5">
-                                <GuidanceIcon className="w-4 h-4"/>
-                                <span className="text-xs font-semibold uppercase tracking-wider">
-                                  {guidance.type}
-                                </span>
-                              </div>
-                              <Button variant="ghost" size="sm" onClick={() => dismissGuidance(guidance.id)} className="w-5 h-5 p-1 opacity-60 hover:opacity-100">
-                                <XCircle className="w-3.5 h-3.5" />
-                              </Button>
-                            </div>
-                            <p className="text-sm leading-relaxed">{guidance.message}</p>
-                            <div className="mt-1.5 text-xs opacity-70">
-                              Confidence: {guidance.confidence}%
-                            </div>
-                          </motion.div>
-                        );
-                      })}
-                    </AnimatePresence>
-                    
-                    {(transcript.length > 0 && !isGenerating && conversationState !== 'processing') && (
-                      <Button onClick={handleGenerateGuidance} variant="outline" size="sm" className="w-full mt-2 bg-white hover:bg-gray-50">
-                        <Lightbulb className="w-4 h-4 mr-2" /> Get Fresh Guidance
-                      </Button>
-                    )}
+                  <CardContent className="p-0 flex-1 overflow-hidden min-h-0 max-h-full">
+                    <ChatGuidance
+                      messages={chatMessages}
+                      isLoading={isChatLoading}
+                      inputValue={chatInputValue}
+                      setInputValue={setChatInputValue}
+                      sendMessage={sendChatMessage}
+                      sendQuickAction={sendQuickAction}
+                      messagesEndRef={messagesEndRef}
+                    />
                   </CardContent>
                 </Card>
               </div>
