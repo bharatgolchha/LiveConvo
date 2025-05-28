@@ -468,7 +468,7 @@ export default function App() {
     }
   };
 
-  const handleLiveTranscript = (newTranscriptText: string, speaker: 'ME' | 'THEM') => {
+  const handleLiveTranscript = async (newTranscriptText: string, speaker: 'ME' | 'THEM') => {
     if (newTranscriptText && newTranscriptText.trim().length > 0) {
       const newLine: TranscriptLine = {
         id: Math.random().toString(36).substring(7),
@@ -479,6 +479,30 @@ export default function App() {
       };
       setTranscript(prev => [...prev, newLine]);
       setTalkStats(prev => updateTalkStats(prev, speaker, newTranscriptText));
+
+      if (conversationId) {
+        try {
+          await fetch(`/api/sessions/${conversationId}/transcript`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify([
+              {
+                session_id: conversationId,
+                content: newLine.text,
+                speaker: speaker === 'ME' ? 'me' : 'them',
+                confidence_score: newLine.confidence,
+                start_time_seconds: sessionDuration,
+                is_final: true
+              }
+            ])
+          });
+        } catch (err) {
+          console.error('Failed to save transcript line:', err);
+          setErrorMessage('Failed to save transcript.');
+        }
+      }
       // Auto-guidance removed - use manual button instead
     }
   };
