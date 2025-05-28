@@ -16,9 +16,9 @@ export const Card: React.FC<CardProps> = ({
   ...props 
 }) => {
   const variants = {
-    default: 'bg-white shadow-md border border-gray-200',
-    elevated: 'bg-white shadow-xl border border-gray-100',
-    subtle: 'bg-gray-50/80 shadow-sm border border-gray-100'
+    default: 'bg-card text-card-foreground shadow-md border border-border',
+    elevated: 'bg-card text-card-foreground shadow-xl border border-border',
+    subtle: 'bg-muted/80 text-card-foreground shadow-sm border border-border'
   };
 
   return (
@@ -69,7 +69,7 @@ interface CardDescriptionProps extends React.HTMLAttributes<HTMLParagraphElement
 }
 
 export const CardDescription: React.FC<CardDescriptionProps> = ({ children, className, ...props }) => (
-  <p className={cn('text-sm text-gray-600', className)} {...props}>
+  <p className={cn('text-sm text-muted-foreground', className)} {...props}>
     {children}
   </p>
 );
