@@ -69,14 +69,14 @@ export function OnboardingModal({ isOpen, onClose, onComplete }: OnboardingModal
             transition={{ type: "spring", duration: 0.3 }}
             className="fixed inset-0 z-50 flex items-center justify-center p-4"
           >
-            <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full max-h-[90vh] overflow-y-auto">
+            <div className="bg-card text-card-foreground rounded-2xl shadow-2xl max-w-md w-full max-h-[90vh] overflow-y-auto">
               {/* Header */}
-              <div className="relative p-6 text-center border-b border-gray-100">
+              <div className="relative p-6 text-center border-b border-border">
                 <button
                   onClick={onClose}
-                  className="absolute right-4 top-4 p-2 hover:bg-gray-100 rounded-full transition-colors"
+                  className="absolute right-4 top-4 p-2 hover:bg-muted rounded-full transition-colors"
                 >
-                  <X className="w-5 h-5 text-gray-500" />
+                  <X className="w-5 h-5 text-muted-foreground" />
                 </button>
                 
                 <div className="flex justify-center mb-4">
@@ -85,10 +85,10 @@ export function OnboardingModal({ isOpen, onClose, onComplete }: OnboardingModal
                   </div>
                 </div>
                 
-                <h1 className="text-2xl font-bold text-gray-900 mb-2">
+                <h1 className="text-2xl font-bold text-foreground mb-2">
                   Welcome to LiveConvo!
                 </h1>
-                <p className="text-gray-600">
+                <p className="text-muted-foreground">
                   Let's set up your workspace to get you started with AI-powered conversations.
                 </p>
               </div>
@@ -97,7 +97,7 @@ export function OnboardingModal({ isOpen, onClose, onComplete }: OnboardingModal
               <form onSubmit={handleSubmit} className="p-6 space-y-6">
                 {/* Organization Name */}
                 <div className="space-y-2">
-                  <label className="flex items-center text-sm font-medium text-gray-700">
+                  <label className="flex items-center text-sm font-medium text-foreground">
                     <Building2 className="w-4 h-4 mr-2 text-blue-500" />
                     Organization Name (Optional)
                   </label>
@@ -106,23 +106,23 @@ export function OnboardingModal({ isOpen, onClose, onComplete }: OnboardingModal
                     value={organizationName}
                     onChange={(e) => setOrganizationName(e.target.value)}
                     placeholder="e.g. Acme Corp or John's Workspace"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                    className="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-app-primary focus:border-app-primary transition-colors"
                   />
-                  <p className="text-xs text-gray-500">
+                  <p className="text-xs text-muted-foreground">
                     Leave blank to use a default name
                   </p>
                 </div>
 
                 {/* Timezone */}
                 <div className="space-y-2">
-                  <label className="flex items-center text-sm font-medium text-gray-700">
+                  <label className="flex items-center text-sm font-medium text-foreground">
                     <Clock className="w-4 h-4 mr-2 text-green-500" />
                     Timezone
                   </label>
                   <select
                     value={timezone}
                     onChange={(e) => setTimezone(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                    className="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-app-primary focus:border-app-primary transition-colors"
                   >
                     <option value="UTC">UTC (Coordinated Universal Time)</option>
                     <option value="America/New_York">Eastern Time (ET)</option>
@@ -159,8 +159,8 @@ export function OnboardingModal({ isOpen, onClose, onComplete }: OnboardingModal
 
                 {/* Error Message */}
                 {error && (
-                  <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
-                    <p className="text-sm text-red-600">{error}</p>
+                  <div className="p-3 bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 rounded-lg">
+                    <p className="text-sm text-red-600 dark:text-red-300">{error}</p>
                   </div>
                 )}
 
