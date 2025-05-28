@@ -44,16 +44,17 @@ const MessageBubble: React.FC<{ message: ChatMessage }> = ({ message }) => {
   const isSystem = message.type === 'system';
   
   const getBubbleStyle = () => {
-    if (isUser) return 'bg-blue-500 text-white ml-auto';
-    if (isAutoGuidance) return 'bg-amber-100 border border-amber-200 text-amber-800';
-    if (isSystem) return 'bg-gray-100 border border-gray-200 text-gray-700';
-    return 'bg-white border border-gray-200 text-gray-800';
+    if (isUser) return 'bg-app-primary text-primary-foreground ml-auto';
+    if (isAutoGuidance)
+      return 'bg-amber-100 dark:bg-amber-900/40 border border-amber-200 dark:border-amber-700 text-amber-800 dark:text-amber-200';
+    if (isSystem) return 'bg-muted border border-border text-muted-foreground';
+    return 'bg-card border border-border text-foreground';
   };
 
   const getIconForType = () => {
     if (isUser) return null;
     if (isAutoGuidance) return <Lightbulb className="w-4 h-4 text-amber-600" />;
-    if (isSystem) return <Sparkles className="w-4 h-4 text-gray-500" />;
+    if (isSystem) return <Sparkles className="w-4 h-4 text-muted-foreground" />;
     return <MessageCircle className="w-4 h-4 text-blue-500" />;
   };
 
@@ -99,12 +100,12 @@ const MessageBubble: React.FC<{ message: ChatMessage }> = ({ message }) => {
         </p>
         
         {message.metadata?.suggestedActions && message.metadata.suggestedActions.length > 0 && (
-          <div className="mt-2 pt-2 border-t border-gray-200 space-y-1">
-            <span className="text-xs font-medium text-gray-600">Quick actions:</span>
+          <div className="mt-2 pt-2 border-t border-border space-y-1">
+            <span className="text-xs font-medium text-muted-foreground">Quick actions:</span>
             {message.metadata.suggestedActions.map((action, index) => (
               <button
                 key={index}
-                className="block w-full text-left text-xs bg-gray-50 hover:bg-gray-100 p-2 rounded-md transition-colors"
+                className="block w-full text-left text-xs bg-muted hover:bg-muted/80 p-2 rounded-md transition-colors"
                 onClick={() => {/* TODO: Implement */}}
               >
                 {action}
@@ -148,7 +149,7 @@ const TypingIndicator: React.FC = () => (
     <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center">
       <MessageCircle className="w-4 h-4 text-white" />
     </div>
-    <div className="bg-white border border-gray-200 rounded-2xl rounded-bl-md px-4 py-3 shadow-sm">
+    <div className="bg-card border border-border rounded-2xl rounded-bl-md px-4 py-3 shadow-sm">
       <div className="flex gap-1">
         <motion.div
           animate={{ scale: [1, 1.2, 1] }}
@@ -195,7 +196,7 @@ export const ChatGuidance: React.FC<ChatGuidanceProps> = ({
   };
 
   return (
-    <div className="h-full flex flex-col bg-gradient-to-b from-gray-50 to-white">
+    <div className="h-full flex flex-col bg-background">
       {/* Quick Actions */}
       <AnimatePresence>
         {showQuickActions && (
@@ -203,7 +204,7 @@ export const ChatGuidance: React.FC<ChatGuidanceProps> = ({
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: 'auto', opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
-            className="flex-shrink-0 p-3 bg-white border-b border-gray-100"
+            className="flex-shrink-0 p-3 bg-card border-b border-border"
           >
             <div className="grid grid-cols-2 gap-2">
               {quickActions.map((action) => (
@@ -225,7 +226,7 @@ export const ChatGuidance: React.FC<ChatGuidanceProps> = ({
                 variant="ghost"
                 size="sm"
                 onClick={() => setShowQuickActions(false)}
-                className="h-6 text-xs text-gray-500 hover:text-gray-700"
+                className="h-6 text-xs text-muted-foreground hover:text-foreground"
               >
                 <ChevronUp className="w-3 h-3 mr-1" />
                 Hide
@@ -237,12 +238,12 @@ export const ChatGuidance: React.FC<ChatGuidanceProps> = ({
 
       {/* Show Quick Actions Button (when hidden) */}
       {!showQuickActions && (
-        <div className="flex-shrink-0 p-2 bg-white border-b border-gray-100 flex justify-center">
+        <div className="flex-shrink-0 p-2 bg-card border-b border-border flex justify-center">
           <Button
             variant="ghost"
             size="sm"
             onClick={() => setShowQuickActions(true)}
-            className="h-6 text-xs text-gray-500 hover:text-gray-700"
+            className="h-6 text-xs text-muted-foreground hover:text-foreground"
           >
             <Zap className="w-3 h-3 mr-1" />
             Quick Actions
@@ -251,9 +252,9 @@ export const ChatGuidance: React.FC<ChatGuidanceProps> = ({
       )}
 
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-0 scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-transparent">
+      <div className="flex-1 overflow-y-auto p-4 space-y-0 scrollbar-thin scrollbar-thumb-muted-foreground/40 scrollbar-track-transparent">
         {messages.length === 0 && (
-          <div className="flex items-center justify-center h-full text-gray-500">
+          <div className="flex items-center justify-center h-full text-muted-foreground">
             <div className="text-center">
               <Sparkles className="w-12 h-12 mx-auto mb-3 opacity-60" />
               <p className="font-medium text-lg mb-2">Your AI Coach is Ready!</p>
@@ -274,7 +275,7 @@ export const ChatGuidance: React.FC<ChatGuidanceProps> = ({
       </div>
 
       {/* Input Area */}
-      <div className="flex-shrink-0 p-4 bg-white border-t border-gray-200">
+      <div className="flex-shrink-0 p-4 bg-card border-t border-border">
         <form onSubmit={handleSubmit} className="flex gap-2">
           <div className="flex-1 relative">
             <textarea
@@ -283,7 +284,7 @@ export const ChatGuidance: React.FC<ChatGuidanceProps> = ({
               onKeyPress={handleKeyPress}
               placeholder="Ask me anything... (Enter to send)"
               rows={1}
-              className="w-full resize-none rounded-full border border-gray-300 px-4 py-2 pr-12 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-shadow scrollbar-thin"
+              className="w-full resize-none rounded-full border border-border px-4 py-2 pr-12 text-sm focus:ring-2 focus:ring-app-primary focus:border-app-primary transition-shadow scrollbar-thin bg-background text-foreground"
               style={{ minHeight: '40px', maxHeight: '120px' }}
             />
             
@@ -292,9 +293,9 @@ export const ChatGuidance: React.FC<ChatGuidanceProps> = ({
               onClick={() => setIsVoiceMode(!isVoiceMode)}
               className={cn(
                 "absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-full transition-colors",
-                isVoiceMode 
-                  ? "bg-red-100 text-red-600 hover:bg-red-200" 
-                  : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                isVoiceMode
+                  ? "bg-red-100 text-red-600 hover:bg-red-200"
+                  : "bg-muted text-muted-foreground hover:bg-muted/70"
               )}
             >
               {isVoiceMode ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
@@ -304,7 +305,7 @@ export const ChatGuidance: React.FC<ChatGuidanceProps> = ({
           <Button
             type="submit"
             disabled={!inputValue.trim() || isLoading}
-            className="h-10 w-10 p-0 rounded-full bg-blue-500 hover:bg-blue-600 disabled:opacity-50"
+            className="h-10 w-10 p-0 rounded-full bg-app-primary hover:bg-app-primary-dark disabled:opacity-50"
           >
             {isLoading ? (
               <MoreHorizontal className="w-4 h-4 animate-pulse" />

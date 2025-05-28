@@ -47,7 +47,7 @@ export function ContextCard({
       <CardContent>
         <div className="space-y-6">
           {/* Description */}
-          <p className="text-sm text-gray-600">
+          <p className="text-sm text-muted-foreground">
             Upload documents, images, or notes to provide context for your conversation.
           </p>
           
@@ -56,14 +56,14 @@ export function ContextCard({
             <FileUpload onFileUpload={onFileUpload} />
             {uploadedFiles.length > 0 && (
               <div className="mt-3 space-y-2">
-                <p className="text-xs font-medium text-gray-700">
+                <p className="text-xs font-medium text-muted-foreground">
                   Uploaded Files ({uploadedFiles.length}):
                 </p>
                 {uploadedFiles.map((file, index) => (
-                  <div key={index} className="flex items-center gap-2 text-xs text-gray-600 bg-gray-50 p-2 rounded">
+                  <div key={index} className="flex items-center gap-2 text-xs text-muted-foreground bg-muted p-2 rounded">
                     <FileText className="w-3 h-3" />
                     <span className="truncate">{file.name}</span>
-                    <span className="text-gray-400">
+                    <span className="opacity-70">
                       ({(file.size / 1024).toFixed(1)} KB)
                     </span>
                   </div>
@@ -73,8 +73,8 @@ export function ContextCard({
           </div>
           
           {/* Conversation Type Selector */}
-          <div className="pt-4 border-t border-gray-100">
-            <h4 className="font-medium text-sm text-gray-900 mb-3">
+          <div className="pt-4 border-t border-border">
+            <h4 className="font-medium text-sm text-foreground mb-3">
               Conversation Type
             </h4>
             <div className="grid grid-cols-2 gap-2">
@@ -91,21 +91,21 @@ export function ContextCard({
                 </Button>
               ))}
             </div>
-            <p className="text-xs text-gray-500 mt-2">
+            <p className="text-xs text-muted-foreground mt-2">
               Current: {conversationTypeEmojis[conversationType]} {conversationTypeLabels[conversationType]}
             </p>
           </div>
 
           {/* Text Context Input */}
-          <div className="pt-4 border-t border-gray-100">
-            <h4 className="font-medium text-sm text-gray-900 mb-3">
+          <div className="pt-4 border-t border-border">
+            <h4 className="font-medium text-sm text-foreground mb-3">
               Add Context Notes
             </h4>
             <ContextInput 
               onAddContext={onAddContext}
               placeholder={`Add context for your ${conversationType} conversation...`}
             />
-            <p className="text-xs text-gray-500 mt-2">
+            <p className="text-xs text-muted-foreground mt-2">
               Provide additional context, objectives, or notes to help the AI give better guidance.
             </p>
           </div>
