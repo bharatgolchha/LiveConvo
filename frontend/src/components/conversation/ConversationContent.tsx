@@ -103,7 +103,7 @@ export const ConversationContent: React.FC<ConversationContentProps> = ({
   return (
     <div className="h-full max-h-full flex flex-col overflow-hidden bg-gradient-to-br from-background via-background to-muted/20">
       {/* Enhanced Tab Header */}
-      <div className="flex-shrink-0 bg-background/95 backdrop-blur-sm border-b border-border/50 shadow-sm">
+      <div className="sticky top-0 z-10 flex-shrink-0 bg-background/95 backdrop-blur-sm border-b border-border/50 shadow-sm">
         <div className="px-6 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-6">
@@ -204,9 +204,9 @@ export const ConversationContent: React.FC<ConversationContentProps> = ({
 
         {/* Summary Tab */}
         {(activeTab === 'summary' || activeTab === 'transcript') && (
-          <div className="h-full max-h-full overflow-hidden">
+          <div className="h-full max-h-full flex flex-col overflow-hidden">
             {summaryError && (
-              <div className="mx-8 mt-6">
+              <div className="flex-shrink-0 mx-8 mt-6">
                 <div className="bg-gradient-to-r from-red-50 to-red-100/50 dark:from-red-950/50 dark:to-red-900/30 border border-red-200 dark:border-red-800/50 text-red-800 dark:text-red-300 p-6 rounded-2xl">
                   <div className="flex items-center gap-3 mb-2">
                     <XCircle className="w-5 h-5" />
@@ -302,8 +302,8 @@ export const ConversationContent: React.FC<ConversationContentProps> = ({
             )}
 
             {summary && (
-              <div className="h-full max-h-full overflow-y-auto px-8 py-6">
-                <div className="max-w-4xl mx-auto space-y-6">
+              <div className="flex-1 min-h-0 overflow-y-auto px-8 py-6">
+                <div className="max-w-4xl mx-auto space-y-6 pb-4">
                   {/* TL;DR - Hero Card */}
                   <div className="relative p-8 bg-gradient-to-br from-blue-50 via-blue-50 to-indigo-100/50 dark:from-blue-950/30 dark:via-blue-900/20 dark:to-indigo-900/20 border border-blue-200 dark:border-blue-800/50 rounded-3xl shadow-sm">
                     <div className="absolute top-6 right-6">
@@ -451,7 +451,7 @@ export const ConversationContent: React.FC<ConversationContentProps> = ({
 
         {/* Timeline Tab */}
         {activeTab === 'timeline' && (
-          <div className="h-full max-h-full overflow-hidden bg-gradient-to-br from-background via-muted/10 to-muted/20">
+          <div className="h-full max-h-full flex flex-col overflow-hidden bg-gradient-to-br from-background via-muted/10 to-muted/20">
             <CompactTimeline
               timeline={timeline || []}
               isLoading={isTimelineLoading}

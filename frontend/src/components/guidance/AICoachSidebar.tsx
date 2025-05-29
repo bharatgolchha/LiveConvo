@@ -313,12 +313,12 @@ export default function AICoachSidebar({
         <div
           className={`max-w-[85%] rounded-lg px-3 py-2 ${
             isUser
-              ? 'bg-blue-600 text-white'
+              ? 'bg-primary text-primary-foreground'
               : isSystem
-              ? 'bg-gray-100 text-gray-700 border border-gray-200'
+              ? 'bg-muted text-muted-foreground border border-border'
               : isAutoGuidance
-              ? 'bg-purple-50 text-purple-900 border border-purple-200'
-              : 'bg-white text-gray-800 border border-gray-200 shadow-sm'
+              ? 'bg-accent text-accent-foreground border border-border'
+              : 'bg-card text-foreground border border-border shadow-sm'
           }`}
         >
           {!isUser && (
@@ -339,50 +339,50 @@ export default function AICoachSidebar({
               remarkPlugins={[remarkGfm]}
               rehypePlugins={[rehypeHighlight]}
               components={{
-                h1: ({ children }) => <h1 className="text-lg font-semibold text-foreground mt-4 mb-2 first:mt-0">{children}</h1>,
-                h2: ({ children }) => <h2 className="text-md font-semibold text-foreground mt-3 mb-2 first:mt-0">{children}</h2>,
-                h3: ({ children }) => <h3 className="text-sm font-semibold text-foreground mt-3 mb-1 first:mt-0">{children}</h3>,
-                p: ({ children }) => <p className="text-sm leading-relaxed text-muted-foreground mb-2 last:mb-0">{children}</p>,
-                ul: ({ children }) => <ul className="list-disc list-inside space-y-1 my-2 text-sm text-muted-foreground">{children}</ul>,
-                ol: ({ children }) => <ol className="list-decimal list-inside space-y-1 my-2 text-sm text-muted-foreground">{children}</ol>,
-                li: ({ children }) => <li className="text-sm text-muted-foreground">{children}</li>,
-                strong: ({ children }) => <strong className="font-semibold text-foreground">{children}</strong>,
-                em: ({ children }) => <em className="italic text-muted-foreground">{children}</em>,
+                h1: ({ children }) => <h1 className={`text-lg font-semibold mt-4 mb-2 first:mt-0 ${isUser ? 'text-primary-foreground' : 'text-foreground'}`}>{children}</h1>,
+                h2: ({ children }) => <h2 className={`text-md font-semibold mt-3 mb-2 first:mt-0 ${isUser ? 'text-primary-foreground' : 'text-foreground'}`}>{children}</h2>,
+                h3: ({ children }) => <h3 className={`text-sm font-semibold mt-3 mb-1 first:mt-0 ${isUser ? 'text-primary-foreground' : 'text-foreground'}`}>{children}</h3>,
+                p: ({ children }) => <p className={`text-sm leading-relaxed mb-2 last:mb-0 ${isUser ? 'text-primary-foreground' : 'text-muted-foreground'}`}>{children}</p>,
+                ul: ({ children }) => <ul className={`list-disc list-inside space-y-1 my-2 text-sm ${isUser ? 'text-primary-foreground' : 'text-muted-foreground'}`}>{children}</ul>,
+                ol: ({ children }) => <ol className={`list-decimal list-inside space-y-1 my-2 text-sm ${isUser ? 'text-primary-foreground' : 'text-muted-foreground'}`}>{children}</ol>,
+                li: ({ children }) => <li className={`text-sm ${isUser ? 'text-primary-foreground' : 'text-muted-foreground'}`}>{children}</li>,
+                strong: ({ children }) => <strong className={`font-semibold ${isUser ? 'text-primary-foreground' : 'text-foreground'}`}>{children}</strong>,
+                em: ({ children }) => <em className={`italic ${isUser ? 'text-primary-foreground/90' : 'text-muted-foreground'}`}>{children}</em>,
                 code: ({ children, className }) => {
                   const isInline = !className;
                   return isInline ? (
-                    <code className="bg-muted text-foreground px-1 py-0.5 rounded text-xs font-mono border">{children}</code>
+                    <code className={`px-1 py-0.5 rounded text-xs font-mono border ${isUser ? 'bg-primary-foreground/20 text-primary-foreground border-primary-foreground/30' : 'bg-muted text-foreground border-border'}`}>{children}</code>
                   ) : (
                     <code className={className}>{children}</code>
                   );
                 },
                 pre: ({ children }) => (
-                  <pre className="bg-muted border border-border rounded-md p-3 my-2 overflow-x-auto text-xs">
+                  <pre className={`border rounded-md p-3 my-2 overflow-x-auto text-xs ${isUser ? 'bg-primary-foreground/10 border-primary-foreground/20 text-primary-foreground' : 'bg-muted border-border'}`}>
                     {children}
                   </pre>
                 ),
                 blockquote: ({ children }) => (
-                  <blockquote className="border-l-4 border-primary pl-4 my-2 italic text-muted-foreground bg-primary/5 py-2 rounded-r">
+                  <blockquote className={`border-l-4 pl-4 my-2 italic py-2 rounded-r ${isUser ? 'border-primary-foreground/40 text-primary-foreground/90 bg-primary-foreground/10' : 'border-primary text-muted-foreground bg-primary/5'}`}>
                     {children}
                   </blockquote>
                 ),
                 a: ({ children, href }) => (
-                  <a href={href} className="text-primary hover:text-primary/80 underline" target="_blank" rel="noopener noreferrer">
+                  <a href={href} className={`underline ${isUser ? 'text-primary-foreground hover:text-primary-foreground/80' : 'text-primary hover:text-primary/80'}`} target="_blank" rel="noopener noreferrer">
                     {children}
                   </a>
                 ),
                 table: ({ children }) => (
                   <div className="overflow-x-auto my-2">
-                    <table className="min-w-full border border-border text-xs">
+                    <table className={`min-w-full border text-xs ${isUser ? 'border-primary-foreground/20' : 'border-border'}`}>
                       {children}
                     </table>
                   </div>
                 ),
-                thead: ({ children }) => <thead className="bg-muted">{children}</thead>,
-                tbody: ({ children }) => <tbody className="divide-y divide-border">{children}</tbody>,
+                thead: ({ children }) => <thead className={isUser ? 'bg-primary-foreground/10' : 'bg-muted'}>{children}</thead>,
+                tbody: ({ children }) => <tbody className={`divide-y ${isUser ? 'divide-primary-foreground/20' : 'divide-border'}`}>{children}</tbody>,
                 tr: ({ children }) => <tr>{children}</tr>,
-                th: ({ children }) => <th className="px-2 py-1 text-left font-semibold text-foreground border-b border-border">{children}</th>,
-                td: ({ children }) => <td className="px-2 py-1 text-muted-foreground border-b border-border/50">{children}</td>,
+                th: ({ children }) => <th className={`px-2 py-1 text-left font-semibold border-b ${isUser ? 'text-primary-foreground border-primary-foreground/20' : 'text-foreground border-border'}`}>{children}</th>,
+                td: ({ children }) => <td className={`px-2 py-1 border-b ${isUser ? 'text-primary-foreground border-primary-foreground/20' : 'text-muted-foreground border-border/50'}`}>{children}</td>,
               }}
             >
               {isUser ? parseMessageForDisplay(message.content) : message.content}
@@ -403,7 +403,7 @@ export default function AICoachSidebar({
               ))}
             </div>
           )}
-          <div className="text-xs opacity-60 mt-1">
+          <div className={`text-xs mt-1 ${isUser ? 'text-white/70' : 'opacity-60'}`}>
             {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
           </div>
         </div>
@@ -416,13 +416,13 @@ export default function AICoachSidebar({
       {/* Resize Handle */}
       <div
         ref={resizeRef}
-        className={`fixed bg-gray-200 hover:bg-blue-400 transition-colors cursor-col-resize z-40 ${
-          isResizing ? 'bg-blue-400' : ''
+        className={`fixed bg-border hover:bg-primary transition-colors cursor-col-resize z-40 ${
+          isResizing ? 'bg-primary' : ''
         }`}
         onMouseDown={handleMouseDown}
         style={{ 
-          top: '64px', // Match sidebar top offset
-          height: 'calc(100vh - 64px)', // Match sidebar height
+          top: '80px', // Increase buffer to ensure no overlap
+          height: 'calc(100vh - 80px)', // Adjust height accordingly
           width: '4px', // Make it slightly wider for easier grabbing
           right: isCollapsed ? `${collapsedWidth}px` : `${width}px` 
         }}
@@ -431,12 +431,12 @@ export default function AICoachSidebar({
       {/* Sidebar */}
       <div
         ref={sidebarRef}
-        className={`fixed right-0 bg-white border-l border-gray-200 flex flex-col transition-all duration-300 ease-in-out z-30 ${
+        className={`fixed right-0 bg-card border-l border-border flex flex-col transition-all duration-300 ease-in-out z-30 shadow-lg ${
           isExpanded ? 'z-50' : ''
         }`}
         style={{ 
-          top: '64px', // Account for main page header height
-          height: 'calc(100vh - 64px)', // Adjust height accordingly
+          top: '80px', // Increase buffer to ensure no overlap
+          height: 'calc(100vh - 80px)', // Adjust height accordingly
           width: isExpanded ? '100vw' : isCollapsed ? `${collapsedWidth}px` : `${width}px`,
           maxWidth: isExpanded ? '100vw' : `${maxWidth}px`
         }}
@@ -444,14 +444,14 @@ export default function AICoachSidebar({
         {!isCollapsed && (
           <>
             {/* Compact Control Bar */}
-            <div className="flex items-center justify-between px-3 pt-6 pb-3 bg-gray-50 border-b border-gray-200">
+            <div className="flex items-center justify-between px-3 pt-3 pb-3 bg-muted/30 border-b border-border">
               <div className="flex items-center gap-2">
-                <Brain className="h-4 w-4 text-gray-600" />
-                <span className="text-sm font-medium text-gray-700">AI Coach</span>
+                <Brain className="h-4 w-4 text-muted-foreground" />
+                <span className="text-sm font-medium text-foreground">AI Coach</span>
                 <div className={`w-2 h-2 rounded-full flex-shrink-0 ${status.color} ${status.pulse ? 'animate-pulse' : ''}`} />
-                <span className="text-xs text-gray-500">{status.text}</span>
+                <span className="text-xs text-muted-foreground">{status.text}</span>
                 {isRecording && (
-                  <span className="text-xs font-mono text-gray-500">
+                  <span className="text-xs font-mono text-muted-foreground">
                     {formatDuration(sessionDuration)}
                   </span>
                 )}
@@ -460,7 +460,7 @@ export default function AICoachSidebar({
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="h-6 w-6 p-0 text-gray-400 hover:text-gray-600"
+                  className="h-6 w-6 p-0 text-muted-foreground hover:text-foreground"
                   onClick={() => setIsExpanded(!isExpanded)}
                   title={isExpanded ? 'Minimize' : 'Maximize'}
                 >
@@ -469,7 +469,7 @@ export default function AICoachSidebar({
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="h-6 w-6 p-0 text-gray-400 hover:text-gray-600"
+                  className="h-6 w-6 p-0 text-muted-foreground hover:text-foreground"
                   onClick={() => setIsCollapsed(true)}
                   title="Collapse"
                 >
@@ -479,12 +479,12 @@ export default function AICoachSidebar({
             </div>
 
             {/* Recording Controls */}
-            <div className="p-3 bg-white border-b border-gray-100">
+            <div className="p-3 bg-card border-b border-border">
               {/* Audio Level Indicator - only show when recording */}
               {isRecording && !isPaused && (
                 <div className="flex items-center gap-2 mb-2">
-                  <Volume2 className="h-3.5 w-3.5 text-gray-400" />
-                  <div className="flex-1 bg-gray-200 rounded-full h-1.5">
+                  <Volume2 className="h-3.5 w-3.5 text-muted-foreground" />
+                  <div className="flex-1 bg-muted rounded-full h-1.5">
                     <div
                       className="bg-green-500 h-full rounded-full transition-all duration-150"
                       style={{ width: `${Math.min(audioLevel * 100, 100)}%` }}
@@ -553,7 +553,7 @@ export default function AICoachSidebar({
             {/* Chat Messages */}
             <div className="flex-1 overflow-y-auto p-4 space-y-4">
               {messages.length === 0 ? (
-                <div className="text-center text-gray-500 mt-8">
+                <div className="text-center text-muted-foreground mt-8">
                   <Brain className="h-12 w-12 mx-auto mb-4 opacity-50" />
                   <p className="text-sm">Start recording to get AI guidance</p>
                   <p className="text-xs mt-2">I'll provide real-time coaching and feedback</p>
@@ -567,8 +567,8 @@ export default function AICoachSidebar({
             </div>
 
             {/* Quick Help Actions */}
-            <div className="flex-shrink-0 p-4 border-t border-gray-200 bg-gray-50">
-              <h4 className="text-xs font-semibold text-gray-500 mb-3 uppercase tracking-wide">
+            <div className="flex-shrink-0 p-4 border-t border-border bg-muted/30">
+              <h4 className="text-xs font-semibold text-muted-foreground mb-3 uppercase tracking-wide">
                 {contextSummary 
                   ? `${currentMode} ${contextSummary.conversationType} Help`
                   : 'Quick Help'
@@ -581,7 +581,7 @@ export default function AICoachSidebar({
                     variant="outline"
                     size="sm"
                     onClick={() => setNewMessage(help.prompt)}
-                    className="text-xs h-8 bg-white hover:bg-gray-50 border-gray-300 justify-start"
+                    className="text-xs h-8 bg-card hover:bg-accent border-border justify-start"
                   >
                     {help.text}
                   </Button>
@@ -594,7 +594,7 @@ export default function AICoachSidebar({
                     variant="outline"
                     size="sm"
                     onClick={() => setNewMessage(help.prompt)}
-                    className="text-xs h-7 bg-white hover:bg-gray-50 border-gray-300 justify-start"
+                    className="text-xs h-7 bg-card hover:bg-accent border-border justify-start"
                   >
                     {help.text}
                   </Button>
@@ -603,7 +603,7 @@ export default function AICoachSidebar({
             </div>
 
             {/* Message Input */}
-            <div className="p-4 border-t bg-white">
+            <div className="p-4 border-t border-border bg-card">
               <div className="flex gap-2">
                 <Textarea
                   value={newMessage}
