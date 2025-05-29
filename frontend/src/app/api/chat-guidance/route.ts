@@ -18,6 +18,8 @@ interface ChatRequest {
   chatHistory: ChatMessage[]; // Previous chat messages
   conversationType?: string;
   sessionId?: string;
+  textContext?: string;
+  conversationTitle?: string;
 }
 
 // Add interface for parsed context
@@ -29,7 +31,7 @@ interface ParsedContext {
 
 export async function POST(request: NextRequest) {
   try {
-    const { message, transcript, chatHistory, conversationType, sessionId }: ChatRequest = await request.json();
+    const { message, transcript, chatHistory, conversationType, sessionId, textContext, conversationTitle }: ChatRequest = await request.json();
 
     const apiKey = process.env.OPENAI_API_KEY;
     if (!apiKey) {
@@ -42,14 +44,16 @@ export async function POST(request: NextRequest) {
     // Parse context from message if it exists
     const parsedContext = parseContextFromMessage(message);
     const effectiveConversationType = parsedContext.conversationType || conversationType;
+    const effectiveConversationTitle = parsedContext.conversationTitle || conversationTitle;
 
     const systemPrompt = getChatGuidanceSystemPrompt(effectiveConversationType);
     const prompt = buildChatPrompt(
-      parsedContext.userMessage, 
-      transcript, 
-      chatHistory, 
+      parsedContext.userMessage,
+      transcript,
+      chatHistory,
       effectiveConversationType,
-      parsedContext.conversationTitle
+      effectiveConversationTitle,
+      textContext
     );
 
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -222,7 +226,7 @@ SUGGESTED ACTIONS:
 Provide 2-4 specific, actionable suggestions the user can implement immediately, whether for preparation or live conversation.`;
 }
 
-function buildChatPrompt(message: string, transcript: string, chatHistory: ChatMessage[], conversationType?: string, conversationTitle?: string): string {
+function buildChatPrompt(message: string, transcript: string, chatHistory: ChatMessage[], conversationType?: string, conversationTitle?: string, textContext?: string): string {
   const recentChatContext = chatHistory.slice(-10).map(msg => 
     `${msg.type.toUpperCase()}: ${msg.content}`
   ).join('\n');
@@ -232,7 +236,7 @@ function buildChatPrompt(message: string, transcript: string, chatHistory: ChatM
   const isLiveConversation = hasActiveTranscript || message.toLowerCase().includes('they') || message.toLowerCase().includes('currently') || message.toLowerCase().includes('right now');
   const conversationMode = isLiveConversation ? 'LIVE CONVERSATION' : 'PREPARATION';
 
-  const contextSection = conversationTitle 
+  const contextSection = conversationTitle
     ? `CONVERSATION CONTEXT:
 - Title: ${conversationTitle}
 - Type: ${conversationType || 'general'}
@@ -242,10 +246,14 @@ ${isLiveConversation ? '- User is currently participating in this conversation' 
     : `CONVERSATION TYPE: ${conversationType || 'general'}
 MODE: ${conversationMode}`;
 
+  const truncatedTextContext = textContext ? (textContext.length > 1000 ? textContext.slice(0, 1000) + '...' : textContext) : '';
+  const textContextSection = truncatedTextContext ? `\nBACKGROUND NOTES:\n${truncatedTextContext}` : '';
+
   return `
 CONVERSATION COACHING REQUEST:
 
 ${contextSection}
+${textContextSection}
 
 CURRENT CONVERSATION TRANSCRIPT:
 ${transcript || 'No transcript available - user may be in preparation mode.'}

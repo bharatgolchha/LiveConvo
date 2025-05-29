@@ -26,12 +26,16 @@ interface UseChatGuidanceProps {
   transcript: string;
   conversationType?: string;
   sessionId?: string;
+  textContext?: string;
+  conversationTitle?: string;
 }
 
 export function useChatGuidance({
   transcript,
   conversationType = 'general',
-  sessionId
+  sessionId,
+  textContext,
+  conversationTitle
 }: UseChatGuidanceProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -105,7 +109,9 @@ export function useChatGuidance({
           transcript,
           chatHistory: messages,
           conversationType,
-          sessionId
+          sessionId,
+          textContext,
+          conversationTitle
         })
       });
 
@@ -140,7 +146,7 @@ export function useChatGuidance({
     } finally {
       setIsLoading(false);
     }
-  }, [inputValue, addMessage, transcript, messages, conversationType, sessionId]);
+  }, [inputValue, addMessage, transcript, messages, conversationType, sessionId, textContext, conversationTitle]);
 
   // Quick actions for common requests
   const sendQuickAction = useCallback((action: string) => {

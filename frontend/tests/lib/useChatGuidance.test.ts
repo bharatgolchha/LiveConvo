@@ -95,7 +95,7 @@ describe('useChatGuidance', () => {
   });
 
   it('should handle system messages correctly', () => {
-    const { result } = renderHook(() => 
+    const { result } = renderHook(() =>
       useChatGuidance({
         transcript: 'test transcript',
         conversationType: 'sales'
@@ -110,4 +110,44 @@ describe('useChatGuidance', () => {
     expect(systemMessage?.read).toBe(false);
     expect(systemMessage?.content).toContain('AI conversation coach');
   });
-}); 
+
+  it('should include textContext and conversationTitle in API request', async () => {
+    (fetch as jest.Mock).mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        response: 'ok',
+        suggestedActions: [],
+        confidence: 90,
+        generatedAt: new Date().toISOString()
+      })
+    });
+
+    const { result } = renderHook(() =>
+      useChatGuidance({
+        transcript: 'hello',
+        conversationType: 'sales',
+        textContext: 'background',
+        conversationTitle: 'Demo',
+        sessionId: '123'
+      })
+    );
+
+    await act(async () => {
+      await result.current.sendMessage('Hi');
+    });
+
+    expect(fetch).toHaveBeenCalledWith('/api/chat-guidance', expect.objectContaining({
+      method: 'POST',
+      headers: expect.any(Object),
+      body: JSON.stringify({
+        message: 'Hi',
+        transcript: 'hello',
+        chatHistory: expect.any(Array),
+        conversationType: 'sales',
+        sessionId: '123',
+        textContext: 'background',
+        conversationTitle: 'Demo'
+      })
+    }));
+  });
+});
