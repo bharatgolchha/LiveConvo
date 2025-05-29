@@ -66,6 +66,9 @@ export const ContextSidebar: React.FC<ContextSidebarProps> = ({
   const { sessions, loading: sessionsLoading } = useSessions();
   const [searchTerm, setSearchTerm] = useState('');
 
+  // Feature flag to temporarily hide document upload
+  const ENABLE_DOCUMENT_UPLOAD = false;
+
   const isDisabled = conversationState === 'recording' || conversationState === 'paused';
 
   // Filter sessions based on search term
@@ -117,7 +120,7 @@ export const ContextSidebar: React.FC<ContextSidebarProps> = ({
           <div className="flex">
             {[
               { id: 'setup', label: 'Setup', icon: Settings2 },
-              { id: 'files', label: 'Files', icon: FileText },
+              ...(ENABLE_DOCUMENT_UPLOAD ? [{ id: 'files', label: 'Files', icon: FileText }] : []),
               { id: 'previous', label: 'Previous', icon: Clock }
             ].map(({ id, label, icon: Icon }) => (
               <button
@@ -195,8 +198,8 @@ export const ContextSidebar: React.FC<ContextSidebarProps> = ({
             </div>
           )}
 
-          {/* Files Tab */}
-          {activeTab === 'files' && (
+          {/* Files Tab - Temporarily Hidden */}
+          {ENABLE_DOCUMENT_UPLOAD && activeTab === 'files' && (
             <div className="p-6 space-y-6">
               {/* File Upload Area */}
               <div className="space-y-4">

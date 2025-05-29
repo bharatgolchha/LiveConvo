@@ -514,6 +514,9 @@ const NewConversationModal: React.FC<{
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
   const [dragOver, setDragOver] = useState(false);
 
+  // Feature flag to hide document upload temporarily
+  const ENABLE_DOCUMENT_UPLOAD = false;
+
   const conversationTypes = [
     { id: 'sales_call', label: 'Sales Call', description: 'Discovery calls, demos, negotiations' },
     { id: 'interview', label: 'Interview', description: 'Job interviews, candidate screening' },
@@ -690,103 +693,105 @@ const NewConversationModal: React.FC<{
                       />
                     </div>
 
-                    {/* File Upload Area */}
-                    <div className="mb-6">
-                      <label className="block text-sm font-medium text-foreground mb-2">
-                        Upload Documents
-                      </label>
-                      
-                      <div
-                        onDragOver={handleDragOver}
-                        onDragLeave={handleDragLeave}
-                        onDrop={handleDrop}
-                        className={`
-                          border-2 border-dashed rounded-lg p-8 text-center transition-colors
-                          ${dragOver 
-                            ? 'border-app-primary bg-app-primary/10' 
-                            : 'border-input hover:border-app-primary/50'
-                          }
-                        `}
-                      >
-                        <DocumentTextIcon className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-                        <p className="text-sm text-foreground mb-2">
-                          Drag and drop files here, or{' '}
-                          <label className="text-app-primary hover:text-app-primary/80 cursor-pointer font-medium">
-                            browse
-                            <input
-                              type="file"
-                              multiple
-                              accept=".txt,.pdf,.doc,.docx,.csv,.json"
-                              onChange={(e) => handleFileUpload(e.target.files)}
-                              className="hidden"
-                            />
-                          </label>
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          Supports: PDF, DOC, DOCX, TXT, CSV, JSON (max 10MB each)
-                        </p>
-                      </div>
-
-                      {/* Uploaded Files List */}
-                      {uploadedFiles.length > 0 && (
-                        <div className="mt-4 space-y-2">
-                          <p className="text-sm font-medium text-foreground">Uploaded Files:</p>
-                          {uploadedFiles.map((file, index) => (
-                            <div
-                              key={index}
-                              className="flex items-center justify-between p-3 bg-muted rounded-lg"
-                            >
-                              <div className="flex items-center space-x-3 flex-1">
-                                <DocumentTextIcon className="w-5 h-5 text-muted-foreground" />
-                                <div className="flex-1">
-                                  <p className="text-sm font-medium text-foreground">{file.name}</p>
-                                  <p className="text-xs text-muted-foreground">
-                                    {(file.size / 1024 / 1024).toFixed(2)} MB • {file.type}
-                                  </p>
-                                  {/* Show information about text extraction */}
-                                  {file.type === 'text/plain' && (
-                                    <div className="mt-2 p-2 bg-background rounded border">
-                                      <p className="text-xs text-app-primary">✓ Text will be extracted and processed</p>
-                                    </div>
-                                  )}
-                                  {file.type === 'application/json' && (
-                                    <div className="mt-2 p-2 bg-background rounded border">
-                                      <p className="text-xs text-app-primary">✓ JSON structure will be processed</p>
-                                    </div>
-                                  )}
-                                  {file.type === 'text/csv' && (
-                                    <div className="mt-2 p-2 bg-background rounded border">
-                                      <p className="text-xs text-app-primary">✓ CSV data will be formatted and processed</p>
-                                    </div>
-                                  )}
-                                  {file.type === 'application/pdf' && (
-                                    <div className="mt-2 p-2 bg-background rounded border">
-                                      <p className="text-xs text-app-primary">✓ PDF text will be extracted after upload</p>
-                                    </div>
-                                  )}
-                                  {file.type.includes('wordprocessingml') && (
-                                    <div className="mt-2 p-2 bg-background rounded border">
-                                      <p className="text-xs text-app-primary">✓ Word document text will be extracted after upload</p>
-                                    </div>
-                                  )}
-                                  {file.type.includes('image/') && (
-                                    <div className="mt-2 p-2 bg-background rounded border">
-                                      <p className="text-xs text-muted-foreground">📷 OCR text extraction coming soon</p>
-                                    </div>
-                                  )}
-                                </div>
-                              </div>
-                              <button
-                                onClick={() => removeFile(index)}
-                                className="text-destructive hover:text-destructive/80 text-sm ml-2"
-                              >
-                                Remove
-                              </button>
-                            </div>
-                          ))}
+                    {/* File Upload Area - Temporarily Hidden */}
+                    {ENABLE_DOCUMENT_UPLOAD && (
+                      <div className="mb-6">
+                        <label className="block text-sm font-medium text-foreground mb-2">
+                          Upload Documents
+                        </label>
+                        
+                        <div
+                          onDragOver={handleDragOver}
+                          onDragLeave={handleDragLeave}
+                          onDrop={handleDrop}
+                          className={`
+                            border-2 border-dashed rounded-lg p-8 text-center transition-colors
+                            ${dragOver 
+                              ? 'border-app-primary bg-app-primary/10' 
+                              : 'border-input hover:border-app-primary/50'
+                            }
+                          `}
+                        >
+                          <DocumentTextIcon className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+                          <p className="text-sm text-foreground mb-2">
+                            Drag and drop files here, or{' '}
+                            <label className="text-app-primary hover:text-app-primary/80 cursor-pointer font-medium">
+                              browse
+                              <input
+                                type="file"
+                                multiple
+                                accept=".txt,.pdf,.doc,.docx,.csv,.json"
+                                onChange={(e) => handleFileUpload(e.target.files)}
+                                className="hidden"
+                              />
+                            </label>
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            Supports: PDF, DOC, DOCX, TXT, CSV, JSON (max 10MB each)
+                          </p>
                         </div>
-                      )}
-                    </div>
+
+                        {/* Uploaded Files List */}
+                        {uploadedFiles.length > 0 && (
+                          <div className="mt-4 space-y-2">
+                            <p className="text-sm font-medium text-foreground">Uploaded Files:</p>
+                            {uploadedFiles.map((file, index) => (
+                              <div
+                                key={index}
+                                className="flex items-center justify-between p-3 bg-muted rounded-lg"
+                              >
+                                <div className="flex items-center space-x-3 flex-1">
+                                  <DocumentTextIcon className="w-5 h-5 text-muted-foreground" />
+                                  <div className="flex-1">
+                                    <p className="text-sm font-medium text-foreground">{file.name}</p>
+                                    <p className="text-xs text-muted-foreground">
+                                      {(file.size / 1024 / 1024).toFixed(2)} MB • {file.type}
+                                    </p>
+                                    {/* Show information about text extraction */}
+                                    {file.type === 'text/plain' && (
+                                      <div className="mt-2 p-2 bg-background rounded border">
+                                        <p className="text-xs text-app-primary">✓ Text will be extracted and processed</p>
+                                      </div>
+                                    )}
+                                    {file.type === 'application/json' && (
+                                      <div className="mt-2 p-2 bg-background rounded border">
+                                        <p className="text-xs text-app-primary">✓ JSON structure will be processed</p>
+                                      </div>
+                                    )}
+                                    {file.type === 'text/csv' && (
+                                      <div className="mt-2 p-2 bg-background rounded border">
+                                        <p className="text-xs text-app-primary">✓ CSV data will be formatted and processed</p>
+                                      </div>
+                                    )}
+                                    {file.type === 'application/pdf' && (
+                                      <div className="mt-2 p-2 bg-background rounded border">
+                                        <p className="text-xs text-app-primary">✓ PDF text will be extracted after upload</p>
+                                      </div>
+                                    )}
+                                    {file.type.includes('wordprocessingml') && (
+                                      <div className="mt-2 p-2 bg-background rounded border">
+                                        <p className="text-xs text-app-primary">✓ Word document text will be extracted after upload</p>
+                                      </div>
+                                    )}
+                                    {file.type.includes('image/') && (
+                                      <div className="mt-2 p-2 bg-background rounded border">
+                                        <p className="text-xs text-muted-foreground">📷 OCR text extraction coming soon</p>
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                                <button
+                                  onClick={() => removeFile(index)}
+                                  className="text-destructive hover:text-destructive/80 text-sm ml-2"
+                                >
+                                  Remove
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
 
                     <div className="bg-muted/50 p-4 rounded-lg">
                       <div className="flex items-start space-x-3">

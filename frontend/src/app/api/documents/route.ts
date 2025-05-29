@@ -1,8 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
-import pdfParse from 'pdf-parse';
-import mammoth from 'mammoth';
-import { parse as csvParse } from 'csv-parse/sync';
 
 /**
  * POST /api/documents - Upload documents for a session
@@ -268,6 +265,8 @@ async function extractTextFromFile(file: File, buffer: ArrayBuffer): Promise<str
     if (fileType === 'text/csv' || fileName.endsWith('.csv')) {
       try {
         const text = new TextDecoder().decode(buffer);
+        // Dynamic import for csv-parse
+        const { parse: csvParse } = await import('csv-parse/sync');
         const records = csvParse(text, { 
           columns: true, 
           skip_empty_lines: true,
@@ -307,6 +306,8 @@ async function extractTextFromFile(file: File, buffer: ArrayBuffer): Promise<str
     // Handle PDF files
     if (fileType === 'application/pdf' || fileName.endsWith('.pdf')) {
       try {
+        // Dynamic import for pdf-parse
+        const pdfParse = (await import('pdf-parse')).default;
         const data = await pdfParse(Buffer.from(buffer));
         return data.text || '[PDF contains no extractable text]';
       } catch (error) {
@@ -319,6 +320,8 @@ async function extractTextFromFile(file: File, buffer: ArrayBuffer): Promise<str
     if (fileType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' || 
         fileName.endsWith('.docx')) {
       try {
+        // Dynamic import for mammoth
+        const mammoth = await import('mammoth');
         const result = await mammoth.extractRawText({ buffer: Buffer.from(buffer) });
         return result.value || '[Document contains no extractable text]';
       } catch (error) {
@@ -331,6 +334,8 @@ async function extractTextFromFile(file: File, buffer: ArrayBuffer): Promise<str
     if (fileType === 'application/msword' || fileName.endsWith('.doc')) {
       // Note: mammoth has limited support for .doc files
       try {
+        // Dynamic import for mammoth
+        const mammoth = await import('mammoth');
         const result = await mammoth.extractRawText({ buffer: Buffer.from(buffer) });
         if (result.value && result.value.trim()) {
           return result.value;

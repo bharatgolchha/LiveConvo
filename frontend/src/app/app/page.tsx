@@ -66,6 +66,7 @@ import { ConversationContent } from '@/components/conversation/ConversationConte
 import { SetupModal } from '@/components/setup/SetupModal';
 import AICoachSidebar from '@/components/guidance/AICoachSidebar';
 import { TranscriptModal } from '@/components/conversation/TranscriptModal';
+import { useSessionData, SessionDocument } from '@/lib/hooks/useSessionData';
 
 interface TranscriptLine {
   id: string;
@@ -238,6 +239,16 @@ export default function App() {
     error: sessionsError,
     fetchSessions 
   } = useSessions();
+
+  // Session data management hook for document uploads
+  const {
+    uploadDocuments,
+    saveContext,
+    fetchDocuments,
+    fetchContext,
+    documentsLoading,
+    contextLoading
+  } = useSessionData();
 
   // Demo guidance for fallback
   const demoGuidances = [
@@ -781,30 +792,91 @@ export default function App() {
     }
   };
 
-  const handleFileUpload = (newFiles: File[]) => {
+  const handleFileUpload = async (newFiles: File[]) => {
+    // Update local state immediately for UI feedback
     const updatedFiles = [...uploadedFiles, ...newFiles];
     setUploadedFiles(updatedFiles);
+    
+    // If we have a conversation ID, upload to database with text extraction
+    if (conversationId) {
+      try {
+        const uploadedDocuments = await uploadDocuments(conversationId, newFiles);
+        console.log('✅ Documents uploaded successfully:', uploadedDocuments);
+        
+        // Add extracted text to AI context
+        if (uploadedDocuments && uploadedDocuments.length > 0) {
+          uploadedDocuments.forEach((doc: SessionDocument) => {
+            if (doc.extracted_text) {
+              addContext({
+                id: doc.id,
+                name: doc.original_filename,
+                type: doc.file_type as 'txt' | 'pdf' | 'docx',
+                content: doc.extracted_text,
+                uploadedAt: new Date(doc.created_at || new Date()),
+              });
+            }
+          });
+        }
+      } catch (error) {
+        console.error('❌ Failed to upload documents:', error);
+        // Fallback to basic text extraction for AI context only
     newFiles.forEach(async (file) => {
       try {
-        const fileContent = await file.text(); // Simplified for demo, might need different readers for different types
+            const fileContent = await file.text();
           addContext({
             id: Math.random().toString(36).substring(7),
             name: file.name,
-          type: file.type.startsWith('text') ? 'txt' : (file.type.includes('pdf') ? 'pdf' : 'docx'), // Basic type inference
+              type: file.type.startsWith('text') ? 'txt' : (file.type.includes('pdf') ? 'pdf' : 'docx'),
           content: fileContent,
           uploadedAt: new Date(),
           });
       } catch (e) {
-        console.error("Error reading file for AI context: ", e);
+            console.error("Error reading file for AI context:", e);
         }
     });
-    // Update AI context with the new text context as well if it changed
-    if(textContext) addUserContext(textContext);
+      }
+    } else {
+      // No conversation ID yet - use basic file reading for AI context
+      newFiles.forEach(async (file) => {
+        try {
+          const fileContent = await file.text();
+          addContext({
+            id: Math.random().toString(36).substring(7),
+            name: file.name,
+            type: file.type.startsWith('text') ? 'txt' : (file.type.includes('pdf') ? 'pdf' : 'docx'),
+            content: fileContent,
+            uploadedAt: new Date(),
+          });
+        } catch (e) {
+          console.error("Error reading file for AI context:", e);
+        }
+      });
+    }
+    
+    // Update AI context with the current text context as well
+    if (textContext) {
+      addUserContext(textContext);
+    }
   };
 
-  const handleTextContextChange = (newText: string) => {
+  const handleTextContextChange = async (newText: string) => {
     setTextContext(newText);
     addUserContext(newText); // Update AI context in real-time
+    
+    // If we have a conversation ID, also save to database
+    if (conversationId && newText.trim()) {
+      try {
+        await saveContext(conversationId, newText, {
+          conversation_type: conversationType,
+          updated_from: 'app_page',
+          timestamp: new Date().toISOString()
+        });
+        console.log('✅ Context saved to database');
+      } catch (error) {
+        console.error('❌ Failed to save context:', error);
+        // Continue with local functionality even if database save fails
+      }
+    }
   };
 
   const handleRemoveFile = (fileName: string) => {

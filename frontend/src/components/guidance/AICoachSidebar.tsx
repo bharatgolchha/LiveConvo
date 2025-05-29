@@ -95,18 +95,7 @@ export default function AICoachSidebar({
   };
 
   const getContextAwareQuickHelp = () => {
-    // Debug logging
-    console.log('🔍 Quick Help Debug:', {
-      contextSummary,
-      conversationType: contextSummary?.conversationType,
-      transcriptLength: transcriptLength || 0,
-      isRecording,
-      hasActiveTranscript: (transcriptLength || 0) > 0,
-      isLiveConversation: isRecording || ((transcriptLength || 0) > 0)
-    });
-
     if (!contextSummary) {
-      console.log('❌ No contextSummary, returning default help');
       return getDefaultQuickHelp();
     }
     
@@ -115,8 +104,6 @@ export default function AICoachSidebar({
     // Detect if user is in preparation mode or live conversation mode
     const hasActiveTranscript = (transcriptLength || 0) > 0;
     const isLiveConversation = isRecording || hasActiveTranscript;
-    
-    console.log('🎯 Mode Detection:', { isLiveConversation, conversationType });
     
     const preparationHelp = {
       sales: [
@@ -190,12 +177,6 @@ export default function AICoachSidebar({
     
     const helpSet = isLiveConversation ? liveHelp : preparationHelp;
     const selectedHelp = helpSet[conversationType] || helpSet.sales;
-    
-    console.log('✅ Returning context-aware help:', { 
-      helpSet: isLiveConversation ? 'live' : 'preparation',
-      conversationType,
-      helpCount: selectedHelp.length 
-    });
     
     return selectedHelp;
   };
