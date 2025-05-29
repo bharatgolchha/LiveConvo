@@ -44,7 +44,7 @@ const MessageBubble: React.FC<{ message: ChatMessage }> = ({ message }) => {
   const isSystem = message.type === 'system';
   
   const getBubbleStyle = () => {
-    if (isUser) return 'bg-app-primary text-primary-foreground ml-auto';
+    if (isUser) return 'bg-app-primary text-white ml-auto';
     if (isAutoGuidance)
       return 'bg-amber-100 dark:bg-amber-900/40 border border-amber-200 dark:border-amber-700 text-amber-800 dark:text-amber-200';
     if (isSystem) return 'bg-muted border border-border text-muted-foreground';

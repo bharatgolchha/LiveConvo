@@ -1,5 +1,19 @@
 import { useState, useCallback, useRef } from 'react';
 
+// Helper function to parse context from user messages and extract just the message
+function parseMessageForDisplay(message: string): string {
+  // Look for context pattern: [Context: type - title] actual message
+  const contextPattern = /^\[Context:\s*\w+\s*-\s*[^\]]+\]\s*(.+)$/;
+  const match = message.match(contextPattern);
+  
+  if (match) {
+    return match[1].trim(); // Return just the user message part
+  }
+  
+  // No context found, return original message
+  return message;
+}
+
 export interface ChatMessage {
   id: string;
   type: 'user' | 'ai' | 'system' | 'auto-guidance';
@@ -26,12 +40,25 @@ interface UseChatGuidanceProps {
   transcript: string;
   conversationType?: string;
   sessionId?: string;
+  // Enhanced context
+  textContext?: string;
+  conversationTitle?: string;
+  summary?: any; // ConversationSummary type
+  timeline?: any[]; // TimelineEvent[] type
+  uploadedFiles?: File[];
+  selectedPreviousConversations?: string[];
 }
 
 export function useChatGuidance({
   transcript,
   conversationType = 'general',
-  sessionId
+  sessionId,
+  textContext,
+  conversationTitle,
+  summary,
+  timeline,
+  uploadedFiles,
+  selectedPreviousConversations
 }: UseChatGuidanceProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -81,14 +108,17 @@ export function useChatGuidance({
     const messageToSend = message || inputValue.trim();
     if (!messageToSend) return;
 
+    // Parse context from message if it exists - only display the actual user message
+    const parsedMessage = parseMessageForDisplay(messageToSend);
+
     // Clear input
     setInputValue('');
     setError(null);
 
-    // Add user message
+    // Add user message (display only the parsed message, not the context prefix)
     addMessage({
       type: 'user',
-      content: messageToSend
+      content: parsedMessage
     });
 
     // Show typing indicator
@@ -105,7 +135,18 @@ export function useChatGuidance({
           transcript,
           chatHistory: messages,
           conversationType,
-          sessionId
+          sessionId,
+          // Enhanced context
+          textContext,
+          conversationTitle,
+          summary,
+          timeline,
+          uploadedFiles: uploadedFiles ? uploadedFiles.map(f => ({ 
+            name: f.name, 
+            type: f.type, 
+            size: f.size 
+          })) : [],
+          selectedPreviousConversations
         })
       });
 
@@ -140,7 +181,7 @@ export function useChatGuidance({
     } finally {
       setIsLoading(false);
     }
-  }, [inputValue, addMessage, transcript, messages, conversationType, sessionId]);
+  }, [inputValue, addMessage, transcript, messages, conversationType, sessionId, textContext, conversationTitle, summary, timeline, uploadedFiles, selectedPreviousConversations]);
 
   // Quick actions for common requests
   const sendQuickAction = useCallback((action: string) => {
