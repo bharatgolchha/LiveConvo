@@ -329,7 +329,9 @@ export default function App() {
   } = useChatGuidance({
     transcript: fullTranscriptText,
     conversationType,
-    sessionId: conversationId || undefined
+    sessionId: conversationId || undefined,
+    conversationTitle,
+    textContext
   });
 
   // Initialize chat guidance when app loads, not just when recording starts
