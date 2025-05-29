@@ -63,7 +63,7 @@ import { GuidanceChip, GuidanceType } from '@/components/guidance/GuidanceChip';
 import { useAuth } from '@/contexts/AuthContext';
 import { authenticatedFetch } from '@/lib/api';
 import { ConversationContent } from '@/components/conversation/ConversationContent';
-import { SetupDrawer } from '@/components/setup/SetupDrawer';
+import { SetupModal } from '@/components/setup/SetupModal';
 import AICoachSidebar from '@/components/guidance/AICoachSidebar';
 import { TranscriptModal } from '@/components/conversation/TranscriptModal';
 
@@ -1079,6 +1079,9 @@ export default function App() {
             </div>
             
               <div className="flex items-center gap-1">
+                <Button variant="ghost" size="sm" onClick={() => setShowContextPanel(!showContextPanel)} title={showContextPanel ? "Hide Setup & Context" : "Show Setup & Context"} className="hover:bg-accent p-2">
+                  <Settings2 className="w-5 h-5" />
+                </Button>
                 <Button variant="ghost" size="sm" onClick={() => setAudioEnabled(!audioEnabled)} title={audioEnabled ? "Mute Audio Feedback" : "Unmute Audio Feedback"} className={cn(audioEnabled ? 'text-app-primary' : 'text-muted-foreground', "hover:bg-accent p-2")} >
                   {audioEnabled ? <Volume2 className="w-5 h-5" /> : <VolumeX className="w-5 h-5" />}
               </Button>
@@ -1087,7 +1090,7 @@ export default function App() {
               </Button>
                 <Button variant="ghost" size="sm" onClick={() => setShowTranscriptModal(true)} title="View Transcript" className="hover:bg-accent p-2">
                   <FileText className="w-5 h-5" />
-              </Button>
+                </Button>
                 <Button variant="ghost" size="sm" onClick={handleGenerateGuidance} title="Generate Guidance" className="hover:bg-accent p-2">
                   <Lightbulb className="w-5 h-5" />
                 </Button>
@@ -1107,48 +1110,42 @@ export default function App() {
       {/* Main Interface Area */}
       <main className={cn("flex-1 flex overflow-hidden", isFullscreen ? 'h-screen' : 'h-[calc(100vh-4rem)]')}>
         
-        {/* Flexible Container for Drawer + Content */}
+        {/* Setup & Context Modal */}
+        <SetupModal
+          isOpen={showContextPanel && !isFullscreen}
+          onClose={() => setShowContextPanel(false)}
+          conversationTitle={conversationTitle}
+          setConversationTitle={setConversationTitle}
+          conversationType={conversationType}
+          setConversationType={setConversationType}
+          conversationState={conversationState}
+          textContext={textContext}
+          handleTextContextChange={handleTextContextChange}
+          uploadedFiles={uploadedFiles}
+          handleFileUpload={handleFileUpload}
+          handleRemoveFile={handleRemoveFile}
+          sessions={sessions}
+          sessionsLoading={sessionsLoading}
+          selectedPreviousConversations={selectedPreviousConversations}
+          handlePreviousConversationToggle={handlePreviousConversationToggle}
+          previousConversationSearch={previousConversationSearch}
+          setPreviousConversationSearch={setPreviousConversationSearch}
+          audioEnabled={audioEnabled}
+          setAudioEnabled={setAudioEnabled}
+          handleResetSession={handleResetSession}
+          transcript={transcript}
+          sessionDuration={sessionDuration}
+        />
+
+        {/* Flexible Container for Content */}
         <div className="flex w-full h-full overflow-hidden">
           
-          {/* Setup & Context Drawer - Pushes content when open */}
-          <SetupDrawer
-            isOpen={showContextPanel && !isFullscreen}
-            onClose={() => setShowContextPanel(false)}
-            conversationTitle={conversationTitle}
-            setConversationTitle={setConversationTitle}
-            conversationType={conversationType}
-            setConversationType={setConversationType}
-            conversationState={conversationState}
-            textContext={textContext}
-            handleTextContextChange={handleTextContextChange}
-            uploadedFiles={uploadedFiles}
-            handleFileUpload={handleFileUpload}
-            handleRemoveFile={handleRemoveFile}
-            sessions={sessions}
-            sessionsLoading={sessionsLoading}
-            selectedPreviousConversations={selectedPreviousConversations}
-            handlePreviousConversationToggle={handlePreviousConversationToggle}
-            previousConversationSearch={previousConversationSearch}
-            setPreviousConversationSearch={setPreviousConversationSearch}
-            audioEnabled={audioEnabled}
-            setAudioEnabled={setAudioEnabled}
-            handleResetSession={handleResetSession}
-            transcript={transcript}
-            sessionDuration={sessionDuration}
-          />
-
           {/* Main Content Area - Flexes to fill remaining space */}
           <div 
             className="flex-1 flex flex-col relative overflow-hidden h-full max-h-full min-w-0 transition-all duration-300 ease-in-out"
             style={{ marginRight: isFullscreen ? '0px' : `${aiCoachWidth}px` }} // No margin in fullscreen mode
           >
           
-          {!showContextPanel && !isFullscreen && (
-            <Button onClick={() => setShowContextPanel(true)} variant="outline" size="sm" className="absolute top-4 left-4 z-20 bg-background shadow hover:bg-accent">
-              <SidebarOpen className="w-4 h-4 mr-2" /> Show Context Panel
-            </Button>
-          )}
-
           {/* Error Message Display */}
           {errorMessage && (
             <motion.div 
@@ -1286,7 +1283,19 @@ export default function App() {
             sessionDuration={sessionDuration}
             audioLevel={0}
             onWidthChange={setAiCoachWidth}
-                          />
+            contextSummary={{
+              conversationTitle,
+              conversationType,
+              textContext,
+              uploadedFiles,
+              selectedPreviousConversations,
+              previousConversationTitles: sessions
+                .filter(session => selectedPreviousConversations.includes(session.id))
+                .map(session => session.title || 'Untitled')
+            }}
+            transcriptLength={transcript.length}
+            conversationState={conversationState}
+          />
                         </div>
                 </div>
       </main>

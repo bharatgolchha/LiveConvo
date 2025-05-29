@@ -244,6 +244,42 @@ CREATE INDEX idx_sessions_created_at ON sessions(created_at);
 CREATE INDEX idx_sessions_conversation_type ON sessions(conversation_type);
 ```
 
+### Session Context
+Stores text context data and metadata for individual sessions.
+
+```sql
+CREATE TABLE session_context (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    session_id UUID NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    organization_id UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+    
+    -- Context Content
+    text_context TEXT, -- User-provided background text, notes, objectives
+    context_metadata JSONB, -- Additional metadata like conversation type, objectives, etc.
+    
+    -- Context Processing
+    processing_status VARCHAR(20) DEFAULT 'completed', -- 'pending', 'processing', 'completed', 'failed'
+    processing_error TEXT,
+    
+    -- Vector Embeddings
+    embedding_status VARCHAR(20) DEFAULT 'pending', -- 'pending', 'processing', 'completed', 'failed'
+    pinecone_vector_id VARCHAR(255),
+    
+    -- Timestamps
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    
+    -- Ensure unique context per session
+    UNIQUE(session_id)
+);
+
+CREATE INDEX idx_session_context_session_id ON session_context(session_id);
+CREATE INDEX idx_session_context_user_id ON session_context(user_id);
+CREATE INDEX idx_session_context_organization_id ON session_context(organization_id);
+CREATE INDEX idx_session_context_processing_status ON session_context(processing_status);
+```
+
 ### Documents
 Stores uploaded context files and their processed content.
 

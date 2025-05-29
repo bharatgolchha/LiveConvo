@@ -137,12 +137,17 @@ export async function GET(request: NextRequest) {
 }
 
 /**
- * POST /api/sessions - Create a new session
+ * POST /api/sessions - Create a new session with optional context data
  */
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { title, conversation_type, selected_template_id } = body;
+    const { 
+      title, 
+      conversation_type, 
+      selected_template_id,
+      context // { text: string, metadata?: object }
+    } = body;
 
     // Get current user from Supabase auth using the access token
     const authHeader = request.headers.get('authorization');
@@ -170,7 +175,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { data: session, error } = await supabase
+    // Create the session
+    const { data: session, error: sessionError } = await supabase
       .from('sessions')
       .insert({
         user_id: user.id,
@@ -183,15 +189,45 @@ export async function POST(request: NextRequest) {
       .select()
       .single();
 
-    if (error) {
-      console.error('Database error:', error);
+    if (sessionError) {
+      console.error('Database error creating session:', sessionError);
       return NextResponse.json(
-        { error: 'Database error', message: error.message },
+        { error: 'Database error', message: sessionError.message },
         { status: 500 }
       );
     }
 
-    return NextResponse.json({ session }, { status: 201 });
+    // If context data is provided, save it
+    let sessionContext = null;
+    if (context && (context.text || context.metadata)) {
+      const { data: contextData, error: contextError } = await supabase
+        .from('session_context')
+        .insert({
+          session_id: session.id,
+          user_id: user.id,
+          organization_id: userData.current_organization_id,
+          text_context: context.text || null,
+          context_metadata: context.metadata || null
+        })
+        .select()
+        .single();
+
+      if (contextError) {
+        console.error('Database error creating context:', contextError);
+        // Don't fail the entire request if context creation fails
+        // The session was already created successfully
+      } else {
+        sessionContext = contextData;
+      }
+    }
+
+    return NextResponse.json({ 
+      session,
+      context: sessionContext,
+      message: sessionContext 
+        ? 'Session and context created successfully' 
+        : 'Session created successfully'
+    }, { status: 201 });
 
   } catch (error) {
     console.error('Sessions creation API error:', error);
