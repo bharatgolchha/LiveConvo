@@ -316,7 +316,7 @@ export default function App() {
     refreshIntervalMs: 15000 // 15 seconds for real-time timeline
   });
 
-  // Interactive chat guidance hook
+  // Chat guidance
   const {
     messages: chatMessages,
     isLoading: isChatLoading,

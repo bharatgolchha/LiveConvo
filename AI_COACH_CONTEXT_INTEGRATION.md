@@ -202,6 +202,24 @@ Comprehensive test suite with 15 test cases covering:
 />
 ```
 
+#### Chat Guidance API Parameters
+
+Send this JSON body to `/api/chat-guidance`:
+
+```json
+{
+  "message": "Your question",
+  "transcript": "full transcript text",
+  "chatHistory": [],
+  "conversationType": "sales",
+  "conversationTitle": "Demo Call",
+  "textContext": "background notes",
+  "sessionId": "abc123"
+}
+```
+
+`textContext` and `conversationTitle` allow the AI Coach to incorporate your setup notes and conversation name when crafting a response.
+
 #### Extending Context Types
 
 To add new conversation types:
