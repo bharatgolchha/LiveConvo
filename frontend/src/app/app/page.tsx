@@ -297,7 +297,8 @@ export default function App() {
     sessionId: conversationId || undefined,
     conversationType,
     isRecording: conversationState === 'recording',
-    isPaused: conversationState === 'paused',
+    // Treat completed sessions like paused so summary data is retained
+    isPaused: conversationState === 'paused' || conversationState === 'completed',
     refreshIntervalMs: 45000 // 45 seconds
   });
 
@@ -314,7 +315,8 @@ export default function App() {
     sessionId: conversationId || undefined,
     conversationType,
     isRecording: conversationState === 'recording',
-    isPaused: conversationState === 'paused',
+    // Preserve timeline data when session is completed
+    isPaused: conversationState === 'paused' || conversationState === 'completed',
     refreshIntervalMs: 15000 // 15 seconds for real-time timeline
   });
 
@@ -746,6 +748,9 @@ export default function App() {
       await Promise.all([startMyRecording(), startThemRecording()]);
 
       setConversationState('recording');
+      // Reset transcript length trackers for new recording session
+      lastMyTranscriptLen.current = 0;
+      lastTheirTranscriptLen.current = 0;
       setSessionDuration(0);
       if (transcript.length > 0 && conversationState !== 'paused') {
         setTranscript([]);
@@ -821,6 +826,9 @@ export default function App() {
       await Promise.all([startMyRecording(), startThemRecording()]);
 
       setConversationState('recording');
+      // Reset length trackers so new transcript is captured after resume
+      lastMyTranscriptLen.current = 0;
+      lastTheirTranscriptLen.current = 0;
       console.log('✅ Recording resumed and Deepgram reconnected');
     } catch (err) {
       console.error('Failed to resume realtime transcription', err);
