@@ -719,3 +719,24 @@ None currently identified - all major issues have been resolved or moved to acti
 
 **Last Updated:** 2025-01-29
 **Next Review:** Daily standups during active development 
+
+- [ ] **🔧 Fix Recording Pause/Stop/Resume Issues** (2025-01-29) 🚨
+  - **Issue 1**: When clicking pause or stop recording, everything in summary/timeline disappears
+  - **Issue 2**: When clicking resume, the recording does not start again
+  - **Root Cause**: 
+    - `useRealtimeSummary` and `useIncrementalTimeline` hooks clear data when `isRecording` becomes false
+    - Resume functionality has issues with audio stream restoration and state management
+  - **Solution Plan**:
+    - Modify summary/timeline hooks to preserve data when paused (only clear on explicit reset)
+    - Fix resume recording functionality to properly restore audio streams
+    - Update conversation state management for proper pause/resume cycle
+    - Test all recording control scenarios (start → pause → resume → stop)
+  - **Tasks**:
+    - [x] Fix useRealtimeSummary to preserve data when paused
+    - [x] Fix useIncrementalTimeline to preserve data when paused  
+    - [x] Fix handleResumeRecording audio stream restoration
+    - [ ] Test pause/resume functionality end-to-end
+    - [ ] Verify summary/timeline persistence through state changes
+
+**Next Updated:** 2025-01-29
+**Next Review:** Daily standups during active development 

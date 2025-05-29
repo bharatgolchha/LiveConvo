@@ -32,6 +32,7 @@ interface UseRealtimeSummaryProps {
   sessionId?: string;
   conversationType?: string;
   isRecording: boolean;
+  isPaused?: boolean; // Add isPaused to differentiate from stopped
   refreshIntervalMs?: number; // Default 45 seconds
 }
 
@@ -40,6 +41,7 @@ export function useRealtimeSummary({
   sessionId,
   conversationType = 'general',
   isRecording,
+  isPaused = false, // Default to false for backwards compatibility
   refreshIntervalMs = 45000 // 45 seconds - optimal balance between freshness and API costs
 }: UseRealtimeSummaryProps) {
   const [summary, setSummary] = useState<ConversationSummary | null>(null);
@@ -54,8 +56,8 @@ export function useRealtimeSummary({
   const initialSummaryGenerated = useRef(false);
 
   const generateSummary = useCallback(async (force: boolean = false) => {
-    // Don't generate if not recording and not forced
-    if (!isRecording && !force) return;
+    // Don't generate if not recording and not forced, but allow when paused
+    if (!isRecording && !isPaused && !force) return;
     
     // Don't generate too frequently (minimum 30 seconds between calls unless forced)
     const now = Date.now();
@@ -130,7 +132,7 @@ export function useRealtimeSummary({
     } finally {
       setIsLoading(false);
     }
-  }, [transcript, sessionId, conversationType, isRecording, accumulatedTimeline]);
+  }, [transcript, sessionId, conversationType, isRecording, isPaused, accumulatedTimeline]);
 
   // Auto-refresh effect
   useEffect(() => {
@@ -140,7 +142,8 @@ export function useRealtimeSummary({
     }
 
     // Only set up auto-refresh if recording and have sufficient transcript
-    if (isRecording && transcript && transcript.trim().split(' ').length >= 10) {
+    // Don't auto-refresh when paused, but preserve existing data
+    if (isRecording && !isPaused && transcript && transcript.trim().split(' ').length >= 10) {
       refreshIntervalRef.current = setInterval(() => {
         // Only refresh if transcript has meaningfully changed (at least 20 new words)
         const currentLength = transcript.trim().split(' ').length;
@@ -156,14 +159,15 @@ export function useRealtimeSummary({
         clearInterval(refreshIntervalRef.current);
       }
     };
-  }, [isRecording, transcript, refreshIntervalMs, generateSummary]);
+  }, [isRecording, isPaused, transcript, refreshIntervalMs, generateSummary]);
 
   // Set default summary when not recording or insufficient content
+  // BUT preserve data when paused
   useEffect(() => {
     const currentLength = transcript.trim().split(' ').length;
     
-    // Set default summary when not recording or insufficient content
-    if (!isRecording || currentLength < 10) {
+    // Only clear summary when truly stopped (not recording AND not paused) or insufficient content
+    if ((!isRecording && !isPaused) || currentLength < 10) {
       const defaultSummary: ConversationSummary = {
         tldr: 'Not enough conversation content to generate a summary yet.',
         keyPoints: [],
@@ -176,41 +180,42 @@ export function useRealtimeSummary({
         timeline: [] // Reset timeline when not recording or insufficient content
       };
       
-      if (!summary || summary.tldr !== defaultSummary.tldr || summary.timeline?.length !== 0) {
+      // Only update if we need to clear the data (avoid unnecessary re-renders)
+      if (!summary || (summary.tldr !== defaultSummary.tldr || summary.timeline?.length !== 0)) {
         setSummary(defaultSummary);
         setAccumulatedTimeline([]); // Clear accumulated timeline too
       }
       initialSummaryGenerated.current = false;
     }
-  }, [isRecording, summary]); // Add summary to dependencies to correctly reset timeline display
+  }, [isRecording, isPaused, summary]); // Add isPaused to dependencies
 
   // Generate initial summary when recording starts with sufficient content
   useEffect(() => {
     const currentLength = transcript.trim().split(' ').length;
     
-    if (isRecording && currentLength >= 10 && !initialSummaryGenerated.current && !isLoading) {
+    if (isRecording && !isPaused && currentLength >= 10 && !initialSummaryGenerated.current && !isLoading) {
       initialSummaryGenerated.current = true;
       generateSummary();
       lastTranscriptLength.current = currentLength;
     }
-  }, [isRecording]); // Only depend on isRecording
+  }, [isRecording, isPaused, generateSummary, isLoading]); // Add isPaused to dependencies
 
-  // Reset the initial summary flag when recording stops
+  // Reset the initial summary flag when recording stops (not when paused)
   useEffect(() => {
-    if (!isRecording) {
+    if (!isRecording && !isPaused) {
       initialSummaryGenerated.current = false;
     }
-  }, [isRecording]);
+  }, [isRecording, isPaused]);
 
   const refreshSummary = useCallback(() => {
     generateSummary(true);
   }, [generateSummary]);
 
   const getTimeUntilNextRefresh = useCallback(() => {
-    if (!isRecording || !lastRefreshTime.current) return 0;
+    if ((!isRecording || isPaused) || !lastRefreshTime.current) return 0;
     const timeSinceLastRefresh = Date.now() - lastRefreshTime.current;
     return Math.max(0, refreshIntervalMs - timeSinceLastRefresh);
-  }, [refreshIntervalMs, isRecording]);
+  }, [refreshIntervalMs, isRecording, isPaused]);
 
   return {
     summary,

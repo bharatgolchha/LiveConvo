@@ -297,6 +297,7 @@ export default function App() {
     sessionId: conversationId || undefined,
     conversationType,
     isRecording: conversationState === 'recording',
+    isPaused: conversationState === 'paused',
     refreshIntervalMs: 45000 // 45 seconds
   });
 
@@ -313,6 +314,7 @@ export default function App() {
     sessionId: conversationId || undefined,
     conversationType,
     isRecording: conversationState === 'recording',
+    isPaused: conversationState === 'paused',
     refreshIntervalMs: 15000 // 15 seconds for real-time timeline
   });
 
@@ -789,10 +791,24 @@ export default function App() {
     try {
       setConversationState('processing');
 
-      // Restore system audio stream if it was previously captured
-      if (systemAudioStream) {
-        console.log('🎵 Restoring system audio stream for remote speaker');
-        setThemAudioStream(systemAudioStream);
+      console.log('🔄 Connecting to transcription services...');
+
+      // Capture system audio for remote speaker if we don't have it preserved
+      let systemStream: MediaStream | null = systemAudioStream;
+      if (!systemStream && navigator.mediaDevices && (navigator.mediaDevices as any).getDisplayMedia) {
+        try {
+          const displayStream = await (navigator.mediaDevices as any).getDisplayMedia({ audio: true, video: true });
+          systemStream = new MediaStream(displayStream.getAudioTracks());
+          // Stop video tracks immediately
+          displayStream.getVideoTracks().forEach((track: MediaStreamTrack) => track.stop());
+          setSystemAudioStream(systemStream); // Store for future pauses
+        } catch (err) {
+          console.warn('System audio capture failed on resume', err);
+        }
+      }
+
+      if (systemStream) {
+        setThemAudioStream(systemStream);
       }
 
       // Reconnect to Deepgram services
