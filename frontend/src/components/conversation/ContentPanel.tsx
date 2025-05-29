@@ -343,7 +343,7 @@ export const ContentPanel: React.FC<ContentPanelProps> = ({
 
           {/* Timeline Tab */}
           {activeTab === 'timeline' && (
-            <div className="h-full max-h-full overflow-hidden">
+            <div className="h-full max-h-full flex flex-col overflow-hidden">
               {!timeline || timeline.length === 0 ? (
                 <div className="flex items-center justify-center h-full text-muted-foreground p-6">
                   <div className="text-center max-w-md">
@@ -368,13 +368,15 @@ export const ContentPanel: React.FC<ContentPanelProps> = ({
                   </div>
                 </div>
               ) : (
-                <CompactTimeline
-                  timeline={timeline}
-                  isLoading={isTimelineLoading}
-                  error={timelineError}
-                  lastUpdated={timelineLastUpdated}
-                  onRefresh={onRefreshTimeline}
-                />
+                <div className="h-full flex flex-col overflow-hidden">
+                  <CompactTimeline
+                    timeline={timeline}
+                    isLoading={isTimelineLoading}
+                    error={timelineError}
+                    lastUpdated={timelineLastUpdated}
+                    onRefresh={onRefreshTimeline}
+                  />
+                </div>
               )}
             </div>
           )}

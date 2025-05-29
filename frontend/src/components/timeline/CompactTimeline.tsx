@@ -127,9 +127,9 @@ export const CompactTimeline: React.FC<CompactTimelineProps> = ({
   }
 
   return (
-    <div className="h-full flex flex-col">
+    <div className="h-full flex flex-col overflow-hidden">
       {/* Header - Fixed Height */}
-      <div className="flex-shrink-0 border-b border-border pb-3 mb-4">
+      <div className="flex-shrink-0 border-b border-border pb-3 mb-4 px-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Calendar className="w-4 h-4 text-muted-foreground" />
@@ -160,9 +160,9 @@ export const CompactTimeline: React.FC<CompactTimelineProps> = ({
         </div>
       </div>
 
-      {/* Timeline Events - Scrollable */}
-      <div className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent">
-        <div className="relative">
+      {/* Timeline Events - Scrollable with fixed height */}
+      <div className="flex-1 min-h-0 overflow-y-auto scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent px-4">
+        <div className="relative pb-4">
           {/* Timeline Line */}
           <div className="absolute left-4 top-0 bottom-4 w-0.5 bg-gradient-to-b from-primary/40 via-primary/20 to-border"></div>
           
