@@ -24,6 +24,7 @@ import { OnboardingModal } from '@/components/auth/OnboardingModal';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSessions, type Session } from '@/lib/hooks/useSessions';
 import { useUserStats, defaultStats } from '@/lib/hooks/useUserStats';
+import { useSessionData } from '@/lib/hooks/useSessionData';
 
 // Types (using Session from useSessions hook)
 
@@ -594,9 +595,9 @@ const NewConversationModal: React.FC<{
             exit={{ opacity: 0, scale: 0.95, y: 20 }}
             className="fixed inset-0 z-50 flex items-center justify-center p-4"
           >
-            <div className="bg-card rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden border border-border">
+            <div className="bg-card rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] border border-border flex flex-col">
               {/* Header */}
-              <div className="px-6 py-4 border-b border-border">
+              <div className="px-6 py-4 border-b border-border flex-shrink-0">
                 <div className="flex items-center justify-between">
                   <h2 className="text-xl font-semibold text-foreground">Start New Conversation</h2>
                   <button 
@@ -627,8 +628,8 @@ const NewConversationModal: React.FC<{
                 </div>
               </div>
 
-              {/* Content */}
-              <div className="px-6 py-6">
+              {/* Content - Now scrollable */}
+              <div className="px-6 py-6 flex-1 overflow-y-auto min-h-0">
                 {step === 1 && (
                   <div>
                     <h3 className="text-lg font-medium mb-4">What type of conversation will this be?</h3>
@@ -735,18 +736,49 @@ const NewConversationModal: React.FC<{
                               key={index}
                               className="flex items-center justify-between p-3 bg-muted rounded-lg"
                             >
-                              <div className="flex items-center space-x-3">
+                              <div className="flex items-center space-x-3 flex-1">
                                 <DocumentTextIcon className="w-5 h-5 text-muted-foreground" />
-                                <div>
+                                <div className="flex-1">
                                   <p className="text-sm font-medium text-foreground">{file.name}</p>
                                   <p className="text-xs text-muted-foreground">
-                                    {(file.size / 1024 / 1024).toFixed(2)} MB
+                                    {(file.size / 1024 / 1024).toFixed(2)} MB • {file.type}
                                   </p>
+                                  {/* Show information about text extraction */}
+                                  {file.type === 'text/plain' && (
+                                    <div className="mt-2 p-2 bg-background rounded border">
+                                      <p className="text-xs text-app-primary">✓ Text will be extracted and processed</p>
+                                    </div>
+                                  )}
+                                  {file.type === 'application/json' && (
+                                    <div className="mt-2 p-2 bg-background rounded border">
+                                      <p className="text-xs text-app-primary">✓ JSON structure will be processed</p>
+                                    </div>
+                                  )}
+                                  {file.type === 'text/csv' && (
+                                    <div className="mt-2 p-2 bg-background rounded border">
+                                      <p className="text-xs text-app-primary">✓ CSV data will be formatted and processed</p>
+                                    </div>
+                                  )}
+                                  {file.type === 'application/pdf' && (
+                                    <div className="mt-2 p-2 bg-background rounded border">
+                                      <p className="text-xs text-app-primary">✓ PDF text will be extracted after upload</p>
+                                    </div>
+                                  )}
+                                  {file.type.includes('wordprocessingml') && (
+                                    <div className="mt-2 p-2 bg-background rounded border">
+                                      <p className="text-xs text-app-primary">✓ Word document text will be extracted after upload</p>
+                                    </div>
+                                  )}
+                                  {file.type.includes('image/') && (
+                                    <div className="mt-2 p-2 bg-background rounded border">
+                                      <p className="text-xs text-muted-foreground">📷 OCR text extraction coming soon</p>
+                                    </div>
+                                  )}
                                 </div>
                               </div>
                               <button
                                 onClick={() => removeFile(index)}
-                                className="text-destructive hover:text-destructive/80 text-sm"
+                                className="text-destructive hover:text-destructive/80 text-sm ml-2"
                               >
                                 Remove
                               </button>
@@ -773,8 +805,8 @@ const NewConversationModal: React.FC<{
                 )}
               </div>
 
-              {/* Footer */}
-              <div className="px-6 py-4 border-t border-border flex justify-between">
+              {/* Footer - Always visible */}
+              <div className="px-6 py-4 border-t border-border flex justify-between flex-shrink-0">
                 <Button
                   variant="ghost"
                   onClick={step === 1 ? onClose : () => setStep(step - 1)}
@@ -1020,6 +1052,14 @@ const DashboardPage: React.FC = () => {
     error: statsError 
   } = useUserStats();
 
+  // Get session data management hooks
+  const { 
+    uploadDocuments, 
+    saveContext,
+    documentsLoading,
+    contextLoading 
+  } = useSessionData();
+
   // Create user object from auth data
   const currentUser: User = {
     name: user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'User',
@@ -1052,29 +1092,53 @@ const DashboardPage: React.FC = () => {
   };
 
   const handleStartConversation = async (config: any) => {
-    // Create a new session via API
-    const newSession = await createSession({
-      title: config.title,
-      conversation_type: config.conversationType,
-      selected_template_id: config.templateId
-    });
-    
-    if (newSession) {
-      // Store conversation config in localStorage for the conversation page to pick up
-      const conversationConfig = {
-        id: newSession.id,
+    try {
+      // Create a new session with context data
+      const newSession = await createSession({
         title: config.title,
-        type: config.conversationType,
-        context: config.context || { text: '', files: [] },
-        createdAt: new Date().toISOString()
-      };
+        conversation_type: config.conversationType,
+        selected_template_id: config.templateId,
+        context: config.context?.text ? {
+          text: config.context.text,
+          metadata: {
+            conversation_type: config.conversationType,
+            created_from: 'dashboard',
+            has_files: config.context?.files?.length > 0
+          }
+        } : undefined
+      });
       
-      if (typeof window !== 'undefined') {
-        localStorage.setItem(`conversation_${newSession.id}`, JSON.stringify(conversationConfig));
+      if (newSession) {
+        // Upload files if any were provided
+        if (config.context?.files && config.context.files.length > 0) {
+          try {
+            await uploadDocuments(newSession.id, config.context.files);
+            console.log('✅ Files uploaded successfully for session:', newSession.id);
+          } catch (error) {
+            console.error('❌ Failed to upload files:', error);
+            // Don't block navigation if file upload fails
+          }
+        }
+
+        // Store conversation config in localStorage for the conversation page to pick up
+        const conversationConfig = {
+          id: newSession.id,
+          title: config.title,
+          type: config.conversationType,
+          context: config.context || { text: '', files: [] },
+          createdAt: new Date().toISOString()
+        };
         
-        // Navigate to the conversation page with the session ID
-        window.location.href = `/app?cid=${newSession.id}`;
+        if (typeof window !== 'undefined') {
+          localStorage.setItem(`conversation_${newSession.id}`, JSON.stringify(conversationConfig));
+          
+          // Navigate to the conversation page with the session ID
+          window.location.href = `/app?cid=${newSession.id}`;
+        }
       }
+    } catch (error) {
+      console.error('❌ Failed to create conversation:', error);
+      // TODO: Show error toast to user
     }
   };
 
@@ -1087,7 +1151,7 @@ const DashboardPage: React.FC = () => {
         id: sessionId,
         title: session.title,
         type: session.conversation_type,
-        context: { text: '', files: [] }, // Context would be loaded from backend in real app
+        context: { text: '', files: [] }, // Context will be loaded from backend in conversation page
         createdAt: session.created_at,
         isResuming: true
       };
@@ -1206,8 +1270,8 @@ const DashboardPage: React.FC = () => {
           currentUser={currentUser}
         />
         
-        <main className="flex-1 overflow-auto">
-          <div className="p-6">
+        <main className="flex-1 overflow-auto flex flex-col">
+          <div className="p-6 flex flex-col flex-1">
             {/* Hero Section */}
             {hasAnySessions && (
               <motion.div 
@@ -1239,7 +1303,7 @@ const DashboardPage: React.FC = () => {
             {!hasAnySessions ? (
               <EmptyState onNewConversation={handleNewConversation} />
             ) : (
-              <div>
+              <div className="flex flex-col flex-1">
                 {/* Search Results Header */}
                 {searchQuery && (
                   <motion.div
@@ -1258,7 +1322,7 @@ const DashboardPage: React.FC = () => {
                   <motion.div 
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
-                    className="bg-card rounded-lg shadow-sm border border-border overflow-hidden"
+                    className="bg-card rounded-lg shadow-sm border border-border overflow-hidden flex flex-col flex-1"
                   >
                     {/* List Header */}
                     <div className="px-6 py-3 bg-muted/30 border-b border-border">
@@ -1321,7 +1385,7 @@ const DashboardPage: React.FC = () => {
                     </div>
 
                     {/* Conversation List */}
-                    <div className="divide-y divide-border">
+                    <div className="divide-y divide-border flex-1 overflow-y-auto">
                       {filteredSessions.map((session, index) => (
                         <ConversationInboxItem
                           key={session.id}

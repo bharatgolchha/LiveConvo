@@ -6,6 +6,10 @@ import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+import rehypeHighlight from 'rehype-highlight';
+import 'highlight.js/styles/github.css';
 
 interface ChatMessage {
   id: string;
@@ -17,6 +21,15 @@ interface ChatMessage {
     suggestions?: string[];
     actionable?: boolean;
   };
+}
+
+interface ContextSummary {
+  conversationTitle: string;
+  conversationType: 'sales' | 'support' | 'meeting' | 'interview';
+  textContext: string;
+  uploadedFiles: File[];
+  selectedPreviousConversations: string[];
+  previousConversationTitles: string[];
 }
 
 interface AICoachSidebarProps {
@@ -32,6 +45,11 @@ interface AICoachSidebarProps {
   sessionDuration?: number;
   audioLevel?: number;
   onWidthChange?: (width: number) => void;
+  
+  // Context props
+  contextSummary?: ContextSummary;
+  transcriptLength?: number;
+  conversationState?: string;
 }
 
 export default function AICoachSidebar({
@@ -46,7 +64,10 @@ export default function AICoachSidebar({
   onSendMessage,
   sessionDuration = 0,
   audioLevel = 0,
-  onWidthChange
+  onWidthChange,
+  contextSummary,
+  transcriptLength,
+  conversationState
 }: AICoachSidebarProps) {
   const [width, setWidth] = useState(400);
   const [isCollapsed, setIsCollapsed] = useState(false);
@@ -61,6 +82,123 @@ export default function AICoachSidebar({
   const minWidth = 320;
   const maxWidth = 600;
   const collapsedWidth = 60;
+
+  const getDefaultQuickHelp = () => {
+    return [
+      { text: "💡 What to ask?", prompt: "What should I ask next?" },
+      { text: "📊 How am I doing?", prompt: "How am I doing so far?" },
+      { text: "🎯 Key points", prompt: "Key points to cover" },
+      { text: "📝 Summarize", prompt: "Summarize the conversation so far" },
+      { text: "🛡️ Handle objections", prompt: "Help me handle objections" },
+      { text: "🎯 Close conversation", prompt: "How should I close this conversation?" }
+    ];
+  };
+
+  const getContextAwareQuickHelp = () => {
+    // Debug logging
+    console.log('🔍 Quick Help Debug:', {
+      contextSummary,
+      conversationType: contextSummary?.conversationType,
+      transcriptLength: transcriptLength || 0,
+      isRecording,
+      hasActiveTranscript: (transcriptLength || 0) > 0,
+      isLiveConversation: isRecording || ((transcriptLength || 0) > 0)
+    });
+
+    if (!contextSummary) {
+      console.log('❌ No contextSummary, returning default help');
+      return getDefaultQuickHelp();
+    }
+    
+    const { conversationType } = contextSummary;
+    
+    // Detect if user is in preparation mode or live conversation mode
+    const hasActiveTranscript = (transcriptLength || 0) > 0;
+    const isLiveConversation = isRecording || hasActiveTranscript;
+    
+    console.log('🎯 Mode Detection:', { isLiveConversation, conversationType });
+    
+    const preparationHelp = {
+      sales: [
+        { text: "🎯 Set call objectives", prompt: "Help me set clear objectives for this sales call" },
+        { text: "🔍 Research prospect", prompt: "What should I research about this prospect before the call?" },
+        { text: "💡 Prepare questions", prompt: "What discovery questions should I prepare for this sales call?" },
+        { text: "📝 Plan agenda", prompt: "Help me create an agenda for this sales conversation" },
+        { text: "💰 Value proposition", prompt: "How should I structure my value proposition?" },
+        { text: "🛡️ Anticipate objections", prompt: "What objections should I prepare for and how should I handle them?" }
+      ],
+      support: [
+        { text: "📋 Review case history", prompt: "What should I review before this support call?" },
+        { text: "🔧 Prepare solutions", prompt: "What solutions should I have ready for this type of issue?" },
+        { text: "📝 Plan approach", prompt: "Help me plan my approach for this support conversation" },
+        { text: "🎯 Set expectations", prompt: "How should I set proper expectations with the customer?" },
+        { text: "📊 Gather info", prompt: "What information should I gather from the customer?" },
+        { text: "🔄 Plan follow-up", prompt: "What follow-up actions should I prepare for?" }
+      ],
+      meeting: [
+        { text: "📋 Create agenda", prompt: "Help me create an effective agenda for this meeting" },
+        { text: "🎯 Define objectives", prompt: "What should be the main objectives for this meeting?" },
+        { text: "💡 Brainstorm topics", prompt: "What topics should we cover in this meeting?" },
+        { text: "⏰ Plan timing", prompt: "How should I allocate time for different agenda items?" },
+        { text: "👥 Prepare questions", prompt: "What questions should I prepare to encourage participation?" },
+        { text: "📝 Plan outcomes", prompt: "What outcomes and deliverables should this meeting produce?" }
+      ],
+      interview: [
+        { text: "📝 Review candidate", prompt: "What should I review about the candidate before the interview?" },
+        { text: "❓ Prepare questions", prompt: "What interview questions should I prepare for this role?" },
+        { text: "📊 Set criteria", prompt: "Help me define evaluation criteria for this interview" },
+        { text: "🎯 Plan structure", prompt: "How should I structure this interview conversation?" },
+        { text: "💡 Culture questions", prompt: "What questions should I ask to assess culture fit?" },
+        { text: "🔍 Technical prep", prompt: "What technical topics should I prepare to assess?" }
+      ]
+    };
+
+    const liveHelp = {
+      sales: [
+        { text: "💡 Discovery questions", prompt: "What discovery questions should I ask next?" },
+        { text: "🎯 Closing techniques", prompt: "What closing techniques should I use now?" },
+        { text: "🛡️ Handle objections", prompt: "Help me handle the objections they just raised" },
+        { text: "📊 Qualify prospect", prompt: "What qualification questions should I ask?" },
+        { text: "💰 Present value", prompt: "How should I present our value proposition now?" },
+        { text: "🤝 Next steps", prompt: "What should be the next steps after this call?" }
+      ],
+      support: [
+        { text: "🔍 Troubleshoot", prompt: "What troubleshooting steps should I try next?" },
+        { text: "😊 Check satisfaction", prompt: "How can I ensure the customer is satisfied?" },
+        { text: "📝 Document issue", prompt: "What should I document about this issue?" },
+        { text: "⏰ Manage time", prompt: "How can I resolve this more efficiently?" },
+        { text: "🔄 Follow-up", prompt: "What follow-up actions should I take?" },
+        { text: "📞 Escalation", prompt: "Should I escalate this issue now?" }
+      ],
+      meeting: [
+        { text: "📋 Check agenda", prompt: "How are we doing against the meeting agenda?" },
+        { text: "⏰ Manage time", prompt: "How should I manage the remaining meeting time?" },
+        { text: "🤝 Capture actions", prompt: "What action items should we capture?" },
+        { text: "🎯 Make decisions", prompt: "What key decisions need to be made now?" },
+        { text: "👥 Encourage input", prompt: "How can I get more participation from attendees?" },
+        { text: "📝 Summarize", prompt: "Summarize the key points discussed so far" }
+      ],
+      interview: [
+        { text: "🎯 Assess response", prompt: "How should I assess their last response?" },
+        { text: "📚 Follow-up", prompt: "What follow-up questions should I ask?" },
+        { text: "💡 Culture fit", prompt: "How can I evaluate their culture fit?" },
+        { text: "🔍 Deep dive", prompt: "What areas should I explore more deeply?" },
+        { text: "⚖️ Evaluate", prompt: "How does this candidate measure against our criteria?" },
+        { text: "📝 Key insights", prompt: "What are the key insights from their responses?" }
+      ]
+    };
+    
+    const helpSet = isLiveConversation ? liveHelp : preparationHelp;
+    const selectedHelp = helpSet[conversationType] || helpSet.sales;
+    
+    console.log('✅ Returning context-aware help:', { 
+      helpSet: isLiveConversation ? 'live' : 'preparation',
+      conversationType,
+      helpCount: selectedHelp.length 
+    });
+    
+    return selectedHelp;
+  };
 
   // Notify parent of width changes
   useEffect(() => {
@@ -140,10 +278,21 @@ export default function AICoachSidebar({
 
   const status = getStatusInfo();
 
+  // Determine current mode for dynamic title
+  const hasActiveTranscript = (transcriptLength || 0) > 0;
+  const isLiveConversation = isRecording || hasActiveTranscript;
+  const currentMode = isLiveConversation ? 'Live' : 'Preparation';
+  const quickHelpButtons = getContextAwareQuickHelp();
+
   // Handle sending messages
   const handleSendMessage = () => {
     if (newMessage.trim() && onSendMessage) {
-      onSendMessage(newMessage.trim());
+      // Add context prefix if contextSummary exists
+      const messageToSend = contextSummary 
+        ? `[Context: ${contextSummary.conversationType} - ${contextSummary.conversationTitle}] ${newMessage.trim()}`
+        : newMessage.trim();
+      
+      onSendMessage(messageToSend);
       setNewMessage('');
     }
   };
@@ -190,7 +339,60 @@ export default function AICoachSidebar({
               )}
             </div>
           )}
-          <p className="text-sm leading-relaxed">{message.content}</p>
+          <div className="text-sm leading-relaxed prose prose-sm max-w-none dark:prose-invert">
+            <ReactMarkdown
+              remarkPlugins={[remarkGfm]}
+              rehypePlugins={[rehypeHighlight]}
+              components={{
+                h1: ({ children }) => <h1 className="text-lg font-semibold text-foreground mt-4 mb-2 first:mt-0">{children}</h1>,
+                h2: ({ children }) => <h2 className="text-md font-semibold text-foreground mt-3 mb-2 first:mt-0">{children}</h2>,
+                h3: ({ children }) => <h3 className="text-sm font-semibold text-foreground mt-3 mb-1 first:mt-0">{children}</h3>,
+                p: ({ children }) => <p className="text-sm leading-relaxed text-muted-foreground mb-2 last:mb-0">{children}</p>,
+                ul: ({ children }) => <ul className="list-disc list-inside space-y-1 my-2 text-sm text-muted-foreground">{children}</ul>,
+                ol: ({ children }) => <ol className="list-decimal list-inside space-y-1 my-2 text-sm text-muted-foreground">{children}</ol>,
+                li: ({ children }) => <li className="text-sm text-muted-foreground">{children}</li>,
+                strong: ({ children }) => <strong className="font-semibold text-foreground">{children}</strong>,
+                em: ({ children }) => <em className="italic text-muted-foreground">{children}</em>,
+                code: ({ children, className }) => {
+                  const isInline = !className;
+                  return isInline ? (
+                    <code className="bg-muted text-foreground px-1 py-0.5 rounded text-xs font-mono border">{children}</code>
+                  ) : (
+                    <code className={className}>{children}</code>
+                  );
+                },
+                pre: ({ children }) => (
+                  <pre className="bg-muted border border-border rounded-md p-3 my-2 overflow-x-auto text-xs">
+                    {children}
+                  </pre>
+                ),
+                blockquote: ({ children }) => (
+                  <blockquote className="border-l-4 border-primary pl-4 my-2 italic text-muted-foreground bg-primary/5 py-2 rounded-r">
+                    {children}
+                  </blockquote>
+                ),
+                a: ({ children, href }) => (
+                  <a href={href} className="text-primary hover:text-primary/80 underline" target="_blank" rel="noopener noreferrer">
+                    {children}
+                  </a>
+                ),
+                table: ({ children }) => (
+                  <div className="overflow-x-auto my-2">
+                    <table className="min-w-full border border-border text-xs">
+                      {children}
+                    </table>
+                  </div>
+                ),
+                thead: ({ children }) => <thead className="bg-muted">{children}</thead>,
+                tbody: ({ children }) => <tbody className="divide-y divide-border">{children}</tbody>,
+                tr: ({ children }) => <tr>{children}</tr>,
+                th: ({ children }) => <th className="px-2 py-1 text-left font-semibold text-foreground border-b border-border">{children}</th>,
+                td: ({ children }) => <td className="px-2 py-1 text-muted-foreground border-b border-border/50">{children}</td>,
+              }}
+            >
+              {message.content}
+            </ReactMarkdown>
+          </div>
           {message.metadata?.suggestions && message.metadata.suggestions.length > 0 && (
             <div className="mt-2 space-y-1">
               {message.metadata.suggestions.map((suggestion, idx) => (
@@ -372,59 +574,36 @@ export default function AICoachSidebar({
             {/* Quick Help Actions */}
             <div className="flex-shrink-0 p-4 border-t border-gray-200 bg-gray-50">
               <h4 className="text-xs font-semibold text-gray-500 mb-3 uppercase tracking-wide">
-                Quick Help
+                {contextSummary 
+                  ? `${currentMode} ${contextSummary.conversationType} Help`
+                  : 'Quick Help'
+                }
               </h4>
               <div className="grid grid-cols-2 gap-2 mb-3">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setNewMessage("What should I ask next?")}
-                  className="text-xs h-8 bg-white hover:bg-gray-50 border-gray-300 justify-start"
-                >
-                  💡 What to ask?
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setNewMessage("How am I doing so far?")}
-                  className="text-xs h-8 bg-white hover:bg-gray-50 border-gray-300 justify-start"
-                >
-                  📊 How am I doing?
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setNewMessage("Key points to cover")}
-                  className="text-xs h-8 bg-white hover:bg-gray-50 border-gray-300 justify-start"
-                >
-                  🎯 Key points
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setNewMessage("Summarize the conversation so far")}
-                  className="text-xs h-8 bg-white hover:bg-gray-50 border-gray-300 justify-start"
-                >
-                  📝 Summarize
-                </Button>
+                {quickHelpButtons.slice(0, 4).map((help, idx) => (
+                  <Button
+                    key={idx}
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setNewMessage(help.prompt)}
+                    className="text-xs h-8 bg-white hover:bg-gray-50 border-gray-300 justify-start"
+                  >
+                    {help.text}
+                  </Button>
+                ))}
               </div>
               <div className="grid grid-cols-1 gap-1">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setNewMessage("Help me handle objections")}
-                  className="text-xs h-7 bg-white hover:bg-gray-50 border-gray-300 justify-start"
-                >
-                  🛡️ Handle objections
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setNewMessage("How should I close this conversation?")}
-                  className="text-xs h-7 bg-white hover:bg-gray-50 border-gray-300 justify-start"
-                >
-                  🎯 Close conversation
-                </Button>
+                {quickHelpButtons.slice(4, 6).map((help, idx) => (
+                  <Button
+                    key={idx + 4}
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setNewMessage(help.prompt)}
+                    className="text-xs h-7 bg-white hover:bg-gray-50 border-gray-300 justify-start"
+                  >
+                    {help.text}
+                  </Button>
+                ))}
               </div>
             </div>
 
@@ -435,7 +614,10 @@ export default function AICoachSidebar({
                   value={newMessage}
                   onChange={(e) => setNewMessage(e.target.value)}
                   onKeyPress={handleKeyPress}
-                  placeholder="Ask the AI coach anything..."
+                  placeholder={contextSummary 
+                    ? `Ask about your ${contextSummary.conversationType} (${isLiveConversation ? 'live' : 'planning'})...`
+                    : "Ask the AI coach anything..."
+                  }
                   className="flex-1 min-h-[40px] max-h-[120px] resize-none"
                   rows={1}
                 />

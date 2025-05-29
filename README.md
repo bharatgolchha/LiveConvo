@@ -8,7 +8,7 @@ LiveConvo is a browser-based SaaS application that provides intelligent, real-ti
 
 Transform how knowledge workers prepare for and conduct critical conversations by providing AI-powered guidance that learns from context and delivers actionable insights in real-time.
 
-## ✨ Key Features
+## ✨ Features
 
 ### 🚀 MVP Features
 - **Context Upload**: Drag-and-drop PDFs, DOCX, TXT, and images (with OCR) up to 25MB
@@ -34,7 +34,26 @@ Transform how knowledge workers prepare for and conduct critical conversations b
 - **Export Options**: PDF, Word, Text, and JSON formats with customizable content
 - **Quick Stats**: Audio quality, transcription accuracy, participant count, and metadata
 
+### 🎯 Live Conversation AI Coaching
+- **Real-time transcription** with OpenAI Realtime API and Deepgram
+- **Intelligent conversation guidance** with contextual AI suggestions
+- **Live coaching sidebar** with context-aware assistance
+- **Dynamic timeline** with conversation milestones and key moments
+- **Smart follow-up suggestions** based on conversation flow
 
+### 🧠 AI Coach Context Integration
+- **Context-aware responses** using conversation setup, background notes, and uploaded files
+- **Conversation type-specific guidance** for sales, support, meetings, and interviews
+- **Previous conversation integration** to maintain context across sessions
+- **Real-time context display** with conversation title, files, and transcript length
+- **Smart quick-help buttons** that adapt based on conversation type
+- **Contextual message prefixing** to provide AI with relevant background information
+
+### 📁 Context Management
+- **Multi-file upload** support (PDF, DOC, TXT, MD)
+- **Background notes** for conversation context
+- **Previous conversation selection** for continuity
+- **Real-time context summary** in AI Coach sidebar
 
 ## 🎯 Target Users
 

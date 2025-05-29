@@ -54,7 +54,12 @@ export interface SessionsHookReturn {
   fetchSessions: (filters?: SessionFilters) => Promise<void>;
   updateSession: (id: string, updates: Partial<Session>) => Promise<Session | null>;
   deleteSession: (id: string) => Promise<boolean>;
-  createSession: (data: { title: string; conversation_type: string; selected_template_id?: string }) => Promise<Session | null>;
+  createSession: (data: { 
+    title: string; 
+    conversation_type: string; 
+    selected_template_id?: string;
+    context?: { text?: string; metadata?: any }
+  }) => Promise<Session | null>;
   refreshSessions: () => Promise<void>;
 }
 
@@ -232,7 +237,8 @@ export function useSessions(): SessionsHookReturn {
   const createSession = useCallback(async (data: { 
     title: string; 
     conversation_type: string; 
-    selected_template_id?: string 
+    selected_template_id?: string;
+    context?: { text?: string; metadata?: any }
   }): Promise<Session | null> => {
     if (!user || authLoading) {
       return null;
