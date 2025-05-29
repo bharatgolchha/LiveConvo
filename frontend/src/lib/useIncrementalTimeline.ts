@@ -24,6 +24,7 @@ interface UseIncrementalTimelineProps {
   sessionId?: string;
   conversationType?: string;
   isRecording: boolean;
+  isPaused?: boolean; // Add isPaused to differentiate from stopped
   refreshIntervalMs?: number; // Default 15 seconds for timeline
 }
 
@@ -32,6 +33,7 @@ export function useIncrementalTimeline({
   sessionId,
   conversationType = 'general',
   isRecording,
+  isPaused = false, // Default to false for backwards compatibility
   refreshIntervalMs = 15000 // 15 seconds for real-time timeline updates
 }: UseIncrementalTimelineProps) {
   const [timeline, setTimeline] = useState<TimelineEvent[]>([]);
@@ -45,8 +47,8 @@ export function useIncrementalTimeline({
   const initialTimelineGenerated = useRef(false);
 
   const generateTimelineUpdate = useCallback(async (force: boolean = false) => {
-    // Don't generate if not recording and not forced
-    if (!isRecording && !force) return;
+    // Don't generate if not recording and not forced, but allow when paused
+    if (!isRecording && !isPaused && !force) return;
     
     // Don't generate too frequently (minimum 10 seconds between calls unless forced)
     const now = Date.now();
@@ -111,7 +113,7 @@ export function useIncrementalTimeline({
     } finally {
       setIsLoading(false);
     }
-  }, [transcript, timeline, sessionId, conversationType, isRecording, lastProcessedLength]);
+  }, [transcript, timeline, sessionId, conversationType, isRecording, isPaused, lastProcessedLength]);
 
   // Auto-refresh effect for timeline updates
   useEffect(() => {
@@ -121,7 +123,8 @@ export function useIncrementalTimeline({
     }
 
     // Only set up auto-refresh if recording and have sufficient transcript
-    if (isRecording && transcript && transcript.trim().split(' ').length >= 20) {
+    // Don't auto-refresh when paused, but preserve existing data
+    if (isRecording && !isPaused && transcript && transcript.trim().split(' ').length >= 20) {
       refreshIntervalRef.current = setInterval(() => {
         // Check if there's new content to process
         if (transcript.length > lastProcessedLength) {
@@ -135,47 +138,49 @@ export function useIncrementalTimeline({
         clearInterval(refreshIntervalRef.current);
       }
     };
-  }, [isRecording, transcript, lastProcessedLength, refreshIntervalMs, generateTimelineUpdate]);
+  }, [isRecording, isPaused, transcript, lastProcessedLength, refreshIntervalMs, generateTimelineUpdate]);
 
   // Clear timeline when not recording or insufficient content
+  // BUT preserve data when paused
   useEffect(() => {
     const currentLength = transcript.trim().split(' ').length;
     
-    if (!isRecording || currentLength < 20) {
+    // Only clear timeline when truly stopped (not recording AND not paused) or insufficient content
+    if ((!isRecording && !isPaused) || currentLength < 20) {
       if (timeline.length > 0) {
         setTimeline([]);
         setLastProcessedLength(0);
       }
       initialTimelineGenerated.current = false;
     }
-  }, [isRecording, timeline.length]);
+  }, [isRecording, isPaused, timeline.length]);
 
   // Generate initial timeline when recording starts with sufficient content
   useEffect(() => {
     const currentLength = transcript.trim().split(' ').length;
     
-    if (isRecording && currentLength >= 20 && !initialTimelineGenerated.current && !isLoading) {
+    if (isRecording && !isPaused && currentLength >= 20 && !initialTimelineGenerated.current && !isLoading) {
       initialTimelineGenerated.current = true;
       generateTimelineUpdate();
     }
-  }, [isRecording, generateTimelineUpdate, isLoading]);
+  }, [isRecording, isPaused, generateTimelineUpdate, isLoading]);
 
-  // Reset the initial timeline flag when recording stops
+  // Reset the initial timeline flag when recording stops (not when paused)
   useEffect(() => {
-    if (!isRecording) {
+    if (!isRecording && !isPaused) {
       initialTimelineGenerated.current = false;
     }
-  }, [isRecording]);
+  }, [isRecording, isPaused]);
 
   const refreshTimeline = useCallback(() => {
     generateTimelineUpdate(true);
   }, [generateTimelineUpdate]);
 
   const getTimeUntilNextRefresh = useCallback(() => {
-    if (!isRecording || !lastRefreshTime.current) return 0;
+    if ((!isRecording || isPaused) || !lastRefreshTime.current) return 0;
     const timeSinceLastRefresh = Date.now() - lastRefreshTime.current;
     return Math.max(0, refreshIntervalMs - timeSinceLastRefresh);
-  }, [refreshIntervalMs, isRecording]);
+  }, [refreshIntervalMs, isRecording, isPaused]);
 
   return {
     timeline,
