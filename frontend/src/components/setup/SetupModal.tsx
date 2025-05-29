@@ -46,6 +46,7 @@ interface SetupModalProps {
   // Context
   textContext: string;
   handleTextContextChange: (text: string) => void;
+  handleSaveContextNow: () => void;
   
   // Files
   uploadedFiles: File[];
@@ -80,6 +81,7 @@ export const SetupModal: React.FC<SetupModalProps> = ({
   conversationState,
   textContext,
   handleTextContextChange,
+  handleSaveContextNow,
   uploadedFiles,
   handleFileUpload,
   handleRemoveFile,
@@ -379,11 +381,16 @@ export const SetupModal: React.FC<SetupModalProps> = ({
                     className="w-full px-4 py-3 bg-white border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all resize-none text-sm shadow-sm"
                     disabled={conversationState === 'recording' || conversationState === 'paused'}
                   />
-                  <div className="flex items-center gap-2 p-3 bg-blue-50 rounded-lg border border-blue-200">
-                    <span className="text-blue-500">💡</span>
-                    <p className="text-xs text-blue-700">
-                      Tip: The more context you provide, the better AI can assist you during the conversation
-                    </p>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2 p-3 bg-blue-50 rounded-lg border border-blue-200">
+                      <span className="text-blue-500">💡</span>
+                      <p className="text-xs text-blue-700">
+                        Tip: The more context you provide, the better AI can assist you during the conversation
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2 text-xs text-gray-500">
+                      <span>Auto-saves while typing • Click "Done" to save immediately</span>
+                    </div>
                   </div>
                 </div>
 
@@ -678,7 +685,10 @@ export const SetupModal: React.FC<SetupModalProps> = ({
                 {activeTab === 'previous' && `${selectedPreviousConversations.length} conversation${selectedPreviousConversations.length !== 1 ? 's' : ''} selected`}
               </div>
               <Button 
-                onClick={onClose} 
+                onClick={async () => {
+                  await handleSaveContextNow();
+                  onClose();
+                }} 
                 className="bg-blue-500 hover:bg-blue-600 text-white px-6"
               >
                 Done

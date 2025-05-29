@@ -208,6 +208,7 @@ export default function App() {
   // Refs to keep latest state values for interval callbacks
   const latestTranscript = useRef<TranscriptLine[]>([]);
   const latestTextContext = useRef('');
+  const contextSaveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   
   // UI State
   const [showContextPanel, setShowContextPanel] = useState(false);
@@ -246,6 +247,7 @@ export default function App() {
     saveContext,
     fetchDocuments,
     fetchContext,
+    context,
     documentsLoading,
     contextLoading
   } = useSessionData();
@@ -329,7 +331,14 @@ export default function App() {
   } = useChatGuidance({
     transcript: fullTranscriptText,
     conversationType,
-    sessionId: conversationId || undefined
+    sessionId: conversationId || undefined,
+    // Enhanced context
+    textContext,
+    conversationTitle,
+    summary,
+    timeline,
+    uploadedFiles,
+    selectedPreviousConversations
   });
 
   // Initialize chat guidance when app loads, not just when recording starts
@@ -547,6 +556,33 @@ export default function App() {
       fetchSessions();
     }
   }, [conversationId, addUserContext, addContext, sessionsLoading, sessions.length, fetchSessions, session]);
+
+  // Fetch context from database when conversation loads
+  useEffect(() => {
+    const loadContextFromDatabase = async () => {
+      if (conversationId && session && !authLoading) {
+        try {
+          await fetchContext(conversationId);
+          console.log('✅ Context fetched from database');
+        } catch (error) {
+          console.error('❌ Failed to fetch context from database:', error);
+          // Don't show error to user as this is not critical
+        }
+      }
+    };
+
+    loadContextFromDatabase();
+  }, [conversationId, session, authLoading, fetchContext]);
+
+  // Update textContext when context is fetched from database
+  useEffect(() => {
+    if (context && context.text_context && !textContext) {
+      // Only update if textContext is empty to avoid overwriting user input
+      setTextContext(context.text_context);
+      addUserContext(context.text_context);
+      console.log('✅ Context loaded from database:', context.text_context);
+    }
+  }, [context, textContext, addUserContext]);
 
   // Integrate selected previous conversations into AI context
   useEffect(() => {
@@ -863,19 +899,50 @@ export default function App() {
     setTextContext(newText);
     addUserContext(newText); // Update AI context in real-time
     
-    // If we have a conversation ID, also save to database
+    // If we have a conversation ID, debounce the database save
     if (conversationId && newText.trim()) {
-      try {
-        await saveContext(conversationId, newText, {
-          conversation_type: conversationType,
-          updated_from: 'app_page',
-          timestamp: new Date().toISOString()
-        });
-        console.log('✅ Context saved to database');
-      } catch (error) {
-        console.error('❌ Failed to save context:', error);
-        // Continue with local functionality even if database save fails
+      // Clear existing timeout
+      if (contextSaveTimeoutRef.current) {
+        clearTimeout(contextSaveTimeoutRef.current);
       }
+      
+      // Set new timeout to save after 2 seconds of no typing
+      contextSaveTimeoutRef.current = setTimeout(async () => {
+        try {
+          await saveContext(conversationId, newText, {
+            conversation_type: conversationType,
+            updated_from: 'app_page_auto',
+            timestamp: new Date().toISOString()
+          });
+          console.log('✅ Context auto-saved to database');
+        } catch (error) {
+          console.error('❌ Failed to auto-save context:', error);
+          // Continue with local functionality even if database save fails
+        }
+      }, 2000); // 2 second debounce
+    }
+  };
+
+  const handleSaveContextNow = async () => {
+    if (!conversationId || !textContext.trim()) return;
+    
+    // Clear any pending debounced save
+    if (contextSaveTimeoutRef.current) {
+      clearTimeout(contextSaveTimeoutRef.current);
+      contextSaveTimeoutRef.current = null;
+    }
+    
+    try {
+      await saveContext(conversationId, textContext, {
+        conversation_type: conversationType,
+        updated_from: 'app_page_manual',
+        timestamp: new Date().toISOString()
+      });
+      console.log('✅ Context manually saved to database');
+      // You could add a toast notification here if desired
+    } catch (error) {
+      console.error('❌ Failed to manually save context:', error);
+      setErrorMessage('Failed to save context. Please try again.');
     }
   };
 
@@ -1053,6 +1120,15 @@ export default function App() {
     return null;
   };
 
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (contextSaveTimeoutRef.current) {
+        clearTimeout(contextSaveTimeoutRef.current);
+      }
+    };
+  }, []);
+
   // UI Render
   return (
     <div className={cn("min-h-screen flex flex-col", isFullscreen ? 'h-screen overflow-hidden' : '')}>
@@ -1193,6 +1269,7 @@ export default function App() {
           conversationState={conversationState}
           textContext={textContext}
           handleTextContextChange={handleTextContextChange}
+          handleSaveContextNow={handleSaveContextNow}
           uploadedFiles={uploadedFiles}
           handleFileUpload={handleFileUpload}
           handleRemoveFile={handleRemoveFile}

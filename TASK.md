@@ -4,6 +4,23 @@
 
 ### ✅ Completed Tasks
 
+- [x] **✅ Enhanced AI Coach Context Integration & Message Display Fix** (2025-01-29) 🎯
+  - **Issue**: AI Coach was not using conversation context effectively - giving generic responses instead of specific guidance
+  - **Problem 1**: AI Coach only received basic transcript/conversationType, missing comprehensive context
+  - **Problem 2**: Context prefix `[Context: sales - title]` was showing in user message bubbles
+  - **Problem 3**: User message text was dark blue on blue background (poor contrast)
+  - **Solution**:
+    - Enhanced `useChatGuidance` hook to accept comprehensive context (textContext, summary, timeline, files, etc.)
+    - Updated chat guidance API to build rich context prompts with background notes, summary, timeline, files
+    - Added `parseMessageForDisplay()` function to strip context prefix from user messages in chat UI
+    - Fixed user message text color to be white on blue background for better readability
+    - Enhanced system prompt to be highly context-aware and reference user's specific situation
+  - **Result**: ✅ AI Coach now provides contextual, specific guidance using all conversation data
+    - When user asks "What am I selling?" - AI references their specific product/service from background notes
+    - AI Coach understands conversation type, timeline events, summary, and uploaded documents
+    - Message UI clean with proper contrast and no context prefix showing
+    - Context automatically included in all guidance requests for relevant, actionable advice
+
 - [x] **✅ RESOLVED: Complete Database Setup Successfully Deployed** (2025-01-29) 🎉
   - **Status**: ✅ SUCCESS - Database schema fully deployed to Supabase
   - **Result**: All 17 tables created, 40+ indexes added, RLS policies configured

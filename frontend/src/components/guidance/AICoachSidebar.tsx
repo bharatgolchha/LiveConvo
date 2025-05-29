@@ -52,6 +52,20 @@ interface AICoachSidebarProps {
   conversationState?: string;
 }
 
+// Helper function to parse context from user messages and extract just the message
+function parseMessageForDisplay(message: string): string {
+  // Look for context pattern: [Context: type - title] actual message
+  const contextPattern = /^\[Context:\s*\w+\s*-\s*[^\]]+\]\s*(.+)$/;
+  const match = message.match(contextPattern);
+  
+  if (match) {
+    return match[1].trim(); // Return just the user message part
+  }
+  
+  // No context found, return original message
+  return message;
+}
+
 export default function AICoachSidebar({
   isRecording,
   isPaused,
@@ -371,7 +385,7 @@ export default function AICoachSidebar({
                 td: ({ children }) => <td className="px-2 py-1 text-muted-foreground border-b border-border/50">{children}</td>,
               }}
             >
-              {message.content}
+              {isUser ? parseMessageForDisplay(message.content) : message.content}
             </ReactMarkdown>
           </div>
           {message.metadata?.suggestions && message.metadata.suggestions.length > 0 && (
