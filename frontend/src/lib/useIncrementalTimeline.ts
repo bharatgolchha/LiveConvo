@@ -101,6 +101,29 @@ export function useIncrementalTimeline({
       setLastUpdated(new Date(data.generatedAt));
       setError(null);
 
+      if (sessionId && data.newEventsCount > 0) {
+        try {
+          await fetch(`/api/sessions/${sessionId}/timeline`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(
+              updatedTimeline
+                .slice(0, data.newEventsCount)
+                .map(event => ({
+                  session_id: sessionId,
+                  event_timestamp: event.timestamp.toISOString(),
+                  title: event.title,
+                  description: event.description,
+                  type: event.type,
+                  importance: event.importance
+                }))
+            )
+          });
+        } catch (saveErr) {
+          console.error('Failed to save timeline events:', saveErr);
+        }
+      }
+
       // Log new events for debugging
       if (data.newEventsCount > 0) {
         console.log(`✨ Timeline updated: ${data.newEventsCount} new events added`);

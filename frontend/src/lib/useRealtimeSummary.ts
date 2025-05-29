@@ -125,6 +125,19 @@ export function useRealtimeSummary({
       setSummary(data.summary);
       setLastUpdated(new Date(data.generatedAt));
       setError(null);
+
+      // Persist summary to session if sessionId provided
+      if (sessionId) {
+        try {
+          await fetch(`/api/sessions/${sessionId}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ realtime_summary_cache: data.summary })
+          });
+        } catch (patchErr) {
+          console.error('Failed to update session summary cache:', patchErr);
+        }
+      }
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Unknown error occurred';
       setError(errorMessage);
