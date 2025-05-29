@@ -61,12 +61,13 @@ export async function POST(request: NextRequest) {
     // Parse context from message if it exists
     const parsedContext = parseContextFromMessage(message);
     const effectiveConversationType = parsedContext.conversationType || conversationType;
+    const effectiveConversationTitle = parsedContext.conversationTitle || conversationTitle;
 
     const systemPrompt = getChatGuidanceSystemPrompt(effectiveConversationType);
     const prompt = buildChatPrompt(
-      parsedContext.userMessage, 
-      transcript, 
-      chatHistory, 
+      parsedContext.userMessage,
+      transcript,
+      chatHistory,
       effectiveConversationType,
       parsedContext.conversationTitle || conversationTitle,
       // Enhanced context
@@ -225,6 +226,42 @@ function buildChatPrompt(message: string, transcript: string, chatHistory: ChatM
   prompt += `Please provide specific, actionable guidance based on the conversation context above. If this is about sales and the user asks "What am I selling?", use the background notes and context to explain their specific product/service. Be contextual and helpful.`;
   
   return prompt;
+}
+
+function getConversationSpecificGuidance(conversationType?: string, isLiveConversation: boolean = false): string {
+  const prefix = isLiveConversation ? 'LIVE GUIDANCE:' : 'PREPARATION GUIDANCE:';
+  
+  switch (conversationType) {
+    case 'sales':
+      return `${prefix} ${isLiveConversation 
+        ? 'Focus on active listening, building rapport, understanding pain points, and moving toward next steps. Help with objection handling and closing techniques based on current conversation state.'
+        : 'Help prepare value propositions, anticipate objections, practice pitch delivery, and plan conversation flow. Focus on research, messaging, and strategic preparation.'
+      }`;
+    
+    case 'interview':
+      return `${prefix} ${isLiveConversation 
+        ? 'Help with clear communication, showcasing relevant experience, asking thoughtful questions, and demonstrating cultural fit. Provide real-time coaching for responses.'
+        : 'Help prepare STAR method responses, research the company, practice common questions, and develop thoughtful questions to ask. Focus on preparation strategy.'
+      }`;
+    
+    case 'support':
+      return `${prefix} ${isLiveConversation 
+        ? 'Focus on empathy, active problem-solving, clear explanations, and efficient resolution. Help de-escalate tension and ensure customer satisfaction.'
+        : 'Help prepare troubleshooting approaches, empathy phrases, escalation procedures, and knowledge base usage. Focus on service preparation.'
+      }`;
+    
+    case 'meeting':
+      return `${prefix} ${isLiveConversation 
+        ? 'Help keep discussions on track, facilitate participation, summarize key points, and ensure action items are captured. Provide real-time facilitation guidance.'
+        : 'Help prepare agendas, anticipate discussion topics, plan facilitation techniques, and organize materials. Focus on meeting preparation and structure.'
+      }`;
+    
+    default:
+      return `${prefix} ${isLiveConversation 
+        ? 'Provide contextual guidance based on the current conversation state, help with communication effectiveness, and suggest next steps.'
+        : 'Help with conversation planning, key points preparation, and strategic thinking for the upcoming discussion.'
+      }`;
+  }
 }
 
 // New function to parse context from user messages

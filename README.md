@@ -49,6 +49,23 @@ Transform how knowledge workers prepare for and conduct critical conversations b
 - **Smart quick-help buttons** that adapt based on conversation type
 - **Contextual message prefixing** to provide AI with relevant background information
 
+The chat guidance endpoint now accepts `textContext` and `conversationTitle` in addition to the transcript and message. Example:
+
+```ts
+await fetch('/api/chat-guidance', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    message: 'What should I ask next?',
+    transcript,
+    chatHistory: [],
+    conversationType: 'sales',
+    conversationTitle: 'Demo Call',
+    textContext: notes,
+  })
+});
+```
+
 ### 📁 Context Management
 - **Multi-file upload** support (PDF, DOC, TXT, MD)
 - **Background notes** for conversation context

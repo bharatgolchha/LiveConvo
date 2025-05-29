@@ -119,7 +119,13 @@ export default function App() {
     sendMessage: sendChatMessage,
     sendQuickAction,
     markMessagesAsRead
-  } = useChatGuidance();
+  } = useChatGuidance({
+    transcript: transcript.map(line => `${line.speaker}: ${line.text}`).join('\n'),
+    conversationType: config.conversationType,
+    conversationTitle: config.conversationTitle,
+    textContext: config.textContext,
+    sessionId: conversationId
+  });
 
   // Update duration timer
   useEffect(() => {
