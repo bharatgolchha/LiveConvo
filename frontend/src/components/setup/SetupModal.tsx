@@ -19,8 +19,10 @@ import {
   Target,
   Users,
   Phone,
-  Briefcase
+  Briefcase,
+  File
 } from 'lucide-react';
+import { DocumentTextIcon } from '@heroicons/react/24/outline';
 
 import { Button } from '@/components/ui/Button';
 import { cn } from '@/lib/utils';
@@ -94,8 +96,12 @@ export const SetupModal: React.FC<SetupModalProps> = ({
   sessionDuration
 }) => {
   const [activeTab, setActiveTab] = useState<'setup' | 'files' | 'previous'>('setup');
+  const [dragOver, setDragOver] = useState(false);
   const modalRef = useRef<HTMLDivElement>(null);
   const previousFocusRef = useRef<Element | null>(null);
+
+  // Feature flag to temporarily hide document upload
+  const ENABLE_DOCUMENT_UPLOAD = false;
 
   const conversationTypeOptions = [
     { value: 'sales', label: 'Sales Call', icon: Target, color: 'text-green-600 bg-green-50 border-green-200' },
@@ -113,6 +119,67 @@ export const SetupModal: React.FC<SetupModalProps> = ({
     }
     return true;
   }).slice(0, 10);
+
+  // Enhanced file upload validation
+  const validateFile = (file: File): { valid: boolean; error?: string } => {
+    const maxSize = 10 * 1024 * 1024; // 10MB
+    const allowedTypes = [
+      'text/plain',
+      'application/pdf',
+      'application/msword',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'text/csv',
+      'application/json',
+      'image/png',
+      'image/jpeg',
+      'image/jpg'
+    ];
+
+    if (file.size > maxSize) {
+      return { valid: false, error: 'File size exceeds 10MB limit' };
+    }
+
+    if (!allowedTypes.includes(file.type)) {
+      return { valid: false, error: 'File type not supported' };
+    }
+
+    return { valid: true };
+  };
+
+  // Enhanced file upload handler
+  const handleEnhancedFileUpload = (newFiles: FileList | null) => {
+    if (!newFiles) return;
+    
+    const validFiles = Array.from(newFiles).filter(file => {
+      const validation = validateFile(file);
+      if (!validation.valid) {
+        console.warn(`File ${file.name} rejected: ${validation.error}`);
+        return false;
+      }
+      return true;
+    });
+    
+    if (validFiles.length > 0) {
+      handleFileUpload(validFiles);
+    }
+  };
+
+  // Drag and drop handlers
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    setDragOver(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    setDragOver(false);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setDragOver(false);
+    handleEnhancedFileUpload(e.dataTransfer.files);
+  };
 
   // Handle focus management and keyboard navigation
   useEffect(() => {
@@ -144,10 +211,9 @@ export const SetupModal: React.FC<SetupModalProps> = ({
     return () => document.removeEventListener('keydown', handleEscape);
   }, [isOpen, onClose]);
 
-  // Handle file upload
+  // Handle file upload from input
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files || []);
-    handleFileUpload(files);
+    handleEnhancedFileUpload(e.target.files);
     // Reset the input
     e.target.value = '';
   };
@@ -208,7 +274,7 @@ export const SetupModal: React.FC<SetupModalProps> = ({
             <div className="flex">
               {[
                 { id: 'setup', label: 'Setup', icon: Settings2 },
-                { id: 'files', label: 'Files', icon: FileText, badge: uploadedFiles.length },
+                ...(ENABLE_DOCUMENT_UPLOAD ? [{ id: 'files', label: 'Files', icon: FileText, badge: uploadedFiles.length }] : []),
                 { id: 'previous', label: 'History', icon: Clock, badge: selectedPreviousConversations.length }
               ].map(({ id, label, icon: Icon, badge }) => (
                 <button
@@ -378,8 +444,8 @@ export const SetupModal: React.FC<SetupModalProps> = ({
               </div>
             )}
 
-            {/* Files Tab */}
-            {activeTab === 'files' && (
+            {/* Files Tab - Temporarily Hidden */}
+            {ENABLE_DOCUMENT_UPLOAD && activeTab === 'files' && (
               <div className="p-8 space-y-6">
                 <div>
                   <h3 className="text-lg font-semibold text-gray-900 mb-2 flex items-center gap-2">
@@ -389,16 +455,26 @@ export const SetupModal: React.FC<SetupModalProps> = ({
                     Context Documents
                   </h3>
                   <p className="text-sm text-gray-600 mb-6">
-                    Upload documents to provide additional context for AI guidance. Supported formats: TXT, PDF, DOC, DOCX, MD
+                    Upload documents to provide additional context for AI guidance. Text will be extracted and processed automatically.
                   </p>
                   
-                  {/* File Upload Area */}
-                  <div className="border-2 border-dashed border-gray-300 rounded-xl p-8 text-center bg-gray-50/50 hover:bg-gray-50 transition-colors">
+                  {/* Enhanced File Upload Area with Drag & Drop */}
+                  <div 
+                    onDragOver={handleDragOver}
+                    onDragLeave={handleDragLeave}
+                    onDrop={handleDrop}
+                    className={cn(
+                      "border-2 border-dashed rounded-xl p-8 text-center transition-all duration-200",
+                      dragOver 
+                        ? "border-blue-500 bg-blue-50" 
+                        : "border-gray-300 bg-gray-50/50 hover:bg-gray-50"
+                    )}
+                  >
                     <input
                       type="file"
                       id="file-upload"
                       multiple
-                      accept=".txt,.pdf,.doc,.docx,.md"
+                      accept=".txt,.pdf,.doc,.docx,.csv,.json,.png,.jpg,.jpeg"
                       onChange={handleFileChange}
                       className="hidden"
                       disabled={conversationState === 'recording' || conversationState === 'paused'}
@@ -409,8 +485,12 @@ export const SetupModal: React.FC<SetupModalProps> = ({
                           <UploadCloud className="w-8 h-8 text-white" />
                         </div>
                         <div>
-                          <p className="text-lg font-medium text-gray-900">Drop files here or click to upload</p>
-                          <p className="text-sm text-gray-600 mt-1">Supports TXT, PDF, DOC, DOCX, MD files</p>
+                          <p className="text-lg font-medium text-gray-900">
+                            {dragOver ? 'Drop files here' : 'Drop files here or click to upload'}
+                          </p>
+                          <p className="text-sm text-gray-600 mt-1">
+                            Supports: PDF, DOC, DOCX, TXT, CSV, JSON, Images (max 10MB each)
+                          </p>
                         </div>
                         <Button
                           type="button"
@@ -424,28 +504,62 @@ export const SetupModal: React.FC<SetupModalProps> = ({
                     </label>
                   </div>
 
-                  {/* Uploaded Files List */}
+                  {/* Enhanced Uploaded Files List */}
                   {uploadedFiles.length > 0 && (
                     <div className="mt-6 space-y-2">
                       <h4 className="text-sm font-semibold text-gray-900 flex items-center gap-2">
                         <CheckCircle className="w-4 h-4 text-green-500" />
                         Uploaded Files ({uploadedFiles.length})
                       </h4>
-                      <div className="space-y-2 max-h-60 overflow-y-auto">
+                      <div className="space-y-3 max-h-60 overflow-y-auto">
                         {uploadedFiles.map((file, index) => (
-                          <div key={index} className="flex items-center justify-between p-3 bg-white rounded-lg border border-gray-200 shadow-sm">
-                            <div className="flex items-center gap-3">
-                              <FileText className="w-5 h-5 text-blue-500" />
-                              <div>
+                          <div key={index} className="flex items-center justify-between p-4 bg-white rounded-lg border border-gray-200 shadow-sm">
+                            <div className="flex items-center space-x-3 flex-1">
+                              <DocumentTextIcon className="w-5 h-5 text-blue-500" />
+                              <div className="flex-1">
                                 <p className="text-sm font-medium text-gray-900 truncate max-w-xs">{file.name}</p>
-                                <p className="text-xs text-gray-500">{(file.size / 1024).toFixed(1)} KB</p>
+                                <p className="text-xs text-gray-500">
+                                  {(file.size / 1024 / 1024).toFixed(2)} MB • {file.type}
+                                </p>
+                                
+                                {/* File type extraction indicators */}
+                                {file.type === 'text/plain' && (
+                                  <div className="mt-2 p-2 bg-green-50 rounded border">
+                                    <p className="text-xs text-green-700">✓ Text will be extracted and processed</p>
+                                  </div>
+                                )}
+                                {file.type === 'application/json' && (
+                                  <div className="mt-2 p-2 bg-green-50 rounded border">
+                                    <p className="text-xs text-green-700">✓ JSON structure will be processed</p>
+                                  </div>
+                                )}
+                                {file.type === 'text/csv' && (
+                                  <div className="mt-2 p-2 bg-green-50 rounded border">
+                                    <p className="text-xs text-green-700">✓ CSV data will be formatted and processed</p>
+                                  </div>
+                                )}
+                                {file.type === 'application/pdf' && (
+                                  <div className="mt-2 p-2 bg-green-50 rounded border">
+                                    <p className="text-xs text-green-700">✓ PDF text will be extracted after upload</p>
+                                  </div>
+                                )}
+                                {file.type.includes('wordprocessingml') && (
+                                  <div className="mt-2 p-2 bg-green-50 rounded border">
+                                    <p className="text-xs text-green-700">✓ Word document text will be extracted after upload</p>
+                                  </div>
+                                )}
+                                {file.type.includes('image/') && (
+                                  <div className="mt-2 p-2 bg-yellow-50 rounded border">
+                                    <p className="text-xs text-yellow-700">📷 OCR text extraction coming soon</p>
+                                  </div>
+                                )}
                               </div>
                             </div>
                             <Button
                               variant="ghost"
                               size="sm"
                               onClick={() => handleRemoveFile(file.name)}
-                              className="text-red-500 hover:text-red-700 hover:bg-red-50 p-2"
+                              className="text-red-500 hover:text-red-700 hover:bg-red-50 p-2 ml-2"
                               disabled={conversationState === 'recording' || conversationState === 'paused'}
                             >
                               <Trash2 className="w-4 h-4" />

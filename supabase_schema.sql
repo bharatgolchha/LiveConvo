@@ -322,6 +322,39 @@ CREATE INDEX idx_documents_organization_id ON documents(organization_id);
 CREATE INDEX idx_documents_file_type ON documents(file_type);
 CREATE INDEX idx_documents_processing_status ON documents(processing_status);
 
+-- Session Context table - stores text context and metadata for sessions
+CREATE TABLE session_context (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    session_id UUID NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    organization_id UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+    
+    -- Context Content
+    text_context TEXT, -- User-provided background text, notes, objectives
+    context_metadata JSONB, -- Additional metadata like conversation type, objectives, etc.
+    
+    -- Context Processing
+    processing_status VARCHAR(20) DEFAULT 'completed', -- 'pending', 'processing', 'completed', 'failed'
+    processing_error TEXT,
+    
+    -- Vector Embeddings
+    embedding_status VARCHAR(20) DEFAULT 'pending', -- 'pending', 'processing', 'completed', 'failed'
+    pinecone_vector_id VARCHAR(255),
+    
+    -- Timestamps
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    
+    -- Ensure unique context per session
+    UNIQUE(session_id)
+);
+
+-- Session Context indexes
+CREATE INDEX idx_session_context_session_id ON session_context(session_id);
+CREATE INDEX idx_session_context_user_id ON session_context(user_id);
+CREATE INDEX idx_session_context_organization_id ON session_context(organization_id);
+CREATE INDEX idx_session_context_processing_status ON session_context(processing_status);
+
 -- Transcripts table - stores real-time transcript data with timestamps
 CREATE TABLE transcripts (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -663,6 +696,9 @@ CREATE TRIGGER update_sessions_updated_at BEFORE UPDATE ON sessions
 CREATE TRIGGER update_documents_updated_at BEFORE UPDATE ON documents
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
+CREATE TRIGGER update_session_context_updated_at BEFORE UPDATE ON session_context
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
 CREATE TRIGGER update_transcripts_updated_at BEFORE UPDATE ON transcripts
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
@@ -714,6 +750,7 @@ ALTER TABLE users ENABLE ROW LEVEL SECURITY;
 
 ALTER TABLE sessions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE documents ENABLE ROW LEVEL SECURITY;
+ALTER TABLE session_context ENABLE ROW LEVEL SECURITY;
 ALTER TABLE transcripts ENABLE ROW LEVEL SECURITY;
 ALTER TABLE guidance ENABLE ROW LEVEL SECURITY;
 ALTER TABLE summaries ENABLE ROW LEVEL SECURITY;
@@ -774,6 +811,15 @@ CREATE POLICY sessions_policy ON sessions
     );
 
 CREATE POLICY documents_policy ON documents
+    FOR ALL USING (
+        organization_id IN (
+            SELECT organization_id 
+            FROM organization_members 
+            WHERE user_id = auth.uid() AND status = 'active'
+        )
+    );
+
+CREATE POLICY session_context_policy ON session_context
     FOR ALL USING (
         organization_id IN (
             SELECT organization_id 
