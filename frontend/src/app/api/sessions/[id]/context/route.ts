@@ -6,10 +6,10 @@ import { supabase } from '@/lib/supabase';
  */
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const sessionId = params.id;
+    const { id: sessionId } = await params;
     const body = await request.json();
     const { text_context, context_metadata } = body;
 
@@ -126,10 +126,10 @@ export async function POST(
  */
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const sessionId = params.id;
+    const { id: sessionId } = await params;
 
     // Get current user from Supabase auth
     const authHeader = request.headers.get('authorization');

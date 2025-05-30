@@ -284,6 +284,28 @@ CREATE INDEX idx_session_timeline_events_event_timestamp ON session_timeline_eve
 CREATE INDEX idx_session_timeline_events_type ON session_timeline_events(type);
 CREATE INDEX idx_session_timeline_events_importance ON session_timeline_events(importance);
 
+-- Prep Checklist table - stores task/checklist items for sessions
+CREATE TABLE prep_checklist (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    session_id UUID NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
+    
+    -- Checklist Item Content
+    text TEXT NOT NULL,
+    status VARCHAR(10) DEFAULT 'open' CHECK (status IN ('open', 'done')),
+    
+    -- User tracking
+    created_by UUID REFERENCES users(id),
+    
+    -- Timestamps
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Prep Checklist indexes
+CREATE INDEX idx_prep_checklist_session_id ON prep_checklist(session_id);
+CREATE INDEX idx_prep_checklist_status ON prep_checklist(status);
+CREATE INDEX idx_prep_checklist_created_at ON prep_checklist(created_at);
+
 -- Documents table - stores uploaded context files and their processed content
 CREATE TABLE documents (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -758,6 +780,8 @@ ALTER TABLE templates ENABLE ROW LEVEL SECURITY;
 ALTER TABLE subscriptions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE usage_records ENABLE ROW LEVEL SECURITY;
 ALTER TABLE user_app_sessions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE session_timeline_events ENABLE ROW LEVEL SECURITY;
+ALTER TABLE prep_checklist ENABLE ROW LEVEL SECURITY;
 
 -- Plans table is public (read-only for all users)
 ALTER TABLE plans ENABLE ROW LEVEL SECURITY;
@@ -899,6 +923,32 @@ CREATE POLICY user_app_sessions_policy ON user_app_sessions
 -- Plans are readable by all authenticated users
 CREATE POLICY plans_policy ON plans
     FOR SELECT USING (is_active = true);
+
+-- Session timeline events can be accessed by organization members
+CREATE POLICY session_timeline_events_policy ON session_timeline_events
+    FOR ALL USING (
+        session_id IN (
+            SELECT id FROM sessions 
+            WHERE organization_id IN (
+                SELECT organization_id 
+                FROM organization_members 
+                WHERE user_id = auth.uid() AND status = 'active'
+            )
+        )
+    );
+
+-- Prep checklist items can be accessed by organization members
+CREATE POLICY prep_checklist_policy ON prep_checklist
+    FOR ALL USING (
+        session_id IN (
+            SELECT id FROM sessions 
+            WHERE organization_id IN (
+                SELECT organization_id 
+                FROM organization_members 
+                WHERE user_id = auth.uid() AND status = 'active'
+            )
+        )
+    );
 
 -- =============================================================================
 -- INITIAL SYSTEM DATA
