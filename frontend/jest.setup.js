@@ -1,11 +1,30 @@
 import '@testing-library/jest-dom'
 
 // Mock environment variables for testing
-process.env.OPENAI_API_KEY = 'sk-test-key-for-testing'
+process.env.OPENROUTER_API_KEY = 'sk-or-test-key-for-testing'
+process.env.DEEPGRAM_API_KEY = 'test-deepgram-key-for-testing'
 process.env.NEXT_PUBLIC_APP_URL = 'http://localhost:3000'
 
 // Mock fetch globally
 global.fetch = jest.fn()
+
+// Mock Response for tests
+global.Response = class Response {
+  constructor(body, init) {
+    this.body = body;
+    this.status = init?.status || 200;
+    this.ok = this.status >= 200 && this.status < 300;
+    this.headers = new Map(Object.entries(init?.headers || {}));
+  }
+  
+  async json() {
+    return typeof this.body === 'string' ? JSON.parse(this.body) : this.body;
+  }
+  
+  async text() {
+    return typeof this.body === 'string' ? this.body : JSON.stringify(this.body);
+  }
+}
 
 // Mock console methods to reduce noise in tests
 global.console = {

@@ -25,7 +25,7 @@ interface UseIncrementalTimelineProps {
   conversationType?: string;
   isRecording: boolean;
   isPaused?: boolean; // Add isPaused to differentiate from stopped
-  refreshIntervalMs?: number; // Default 15 seconds for timeline
+  refreshIntervalMs?: number; // Default 25 seconds for timeline
 }
 
 export function useIncrementalTimeline({
@@ -34,36 +34,63 @@ export function useIncrementalTimeline({
   conversationType = 'general',
   isRecording,
   isPaused = false, // Default to false for backwards compatibility
-  refreshIntervalMs = 15000 // 15 seconds for real-time timeline updates
+  refreshIntervalMs = 25000 // 25 seconds for real-time timeline updates (reduced frequency for API costs)
 }: UseIncrementalTimelineProps) {
   const [timeline, setTimeline] = useState<TimelineEvent[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [lastProcessedLength, setLastProcessedLength] = useState(0);
+  const [lastProcessedLineCount, setLastProcessedLineCount] = useState(0); // Track lines instead of characters
   
   const refreshIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const lastRefreshTime = useRef<number>(0);
   const initialTimelineGenerated = useRef(false);
 
   const generateTimelineUpdate = useCallback(async (force: boolean = false) => {
+    const transcriptLines = transcript.split('\n').filter(line => line.trim().length > 0);
+    const transcriptWords = transcript.trim().split(' ').length;
+    
+    // Only log when actually generating or when there's an issue
+    if (force || (isRecording && !isPaused)) {
+      console.log('🔍 Timeline Generation Check:', {
+        isRecording,
+        isPaused,
+        force,
+        transcriptLines: transcriptLines.length,
+        transcriptWords,
+        lastProcessedLineCount,
+        lastProcessedLength,
+        conversationType
+      });
+    }
+
     // Don't generate if not recording and not forced, but allow when paused
-    if (!isRecording && !isPaused && !force) return;
+    if (!isRecording && !isPaused && !force) {
+      return;
+    }
     
-    // Don't generate too frequently (minimum 10 seconds between calls unless forced)
+    // Don't generate too frequently (minimum 15 seconds between calls unless forced)
     const now = Date.now();
-    if (!force && lastRefreshTime.current > 0 && (now - lastRefreshTime.current) < 10000) return;
+    if (!force && lastRefreshTime.current > 0 && (now - lastRefreshTime.current) < 15000) {
+      if (force) console.log('❌ Timeline: Skipping - too frequent (15s limit)');
+      return;
+    }
     
-    // Don't generate for very short transcripts
-    if (!transcript || transcript.trim().split(' ').length < 20) {
+    // Don't generate for very short transcripts (increased minimum)
+    if (!transcript || transcriptWords < 30) {
+      if (force) console.log('❌ Timeline: Transcript too short (<30 words)');
       return;
     }
 
-    // Don't generate if no new content since last processing
-    if (transcript.length <= lastProcessedLength && !force) {
+    // Check if we have enough new content (10 new lines OR force)
+    const newLinesSinceLastUpdate = transcriptLines.length - lastProcessedLineCount;
+    if (!force && newLinesSinceLastUpdate < 10 && transcript.length <= lastProcessedLength) {
+      if (force) console.log(`❌ Timeline: Not enough new content (${newLinesSinceLastUpdate} new lines, need 10)`);
       return;
     }
 
+    console.log(`✅ Timeline: Starting generation (${newLinesSinceLastUpdate} new lines, ${transcriptWords} total words)...`);
     setIsLoading(true);
     setError(null);
     lastRefreshTime.current = now;
@@ -83,12 +110,25 @@ export function useIncrementalTimeline({
         })
       });
 
+      console.log('🌐 Timeline API Response:', {
+        status: response.status,
+        statusText: response.statusText,
+        ok: response.ok
+      });
+
       if (!response.ok) {
         const errorData = await response.json();
+        console.error('❌ Timeline API Error:', errorData);
         throw new Error(errorData.error || 'Failed to generate timeline');
       }
 
       const data: TimelineResponse = await response.json();
+      console.log('📊 Timeline API Success:', {
+        timelineLength: data.timeline?.length || 0,
+        lastProcessedLength: data.lastProcessedLength,
+        newEventsCount: data.newEventsCount,
+        generatedAt: data.generatedAt
+      });
       
       // Parse timeline timestamps
       const updatedTimeline = data.timeline.map(event => ({
@@ -96,8 +136,21 @@ export function useIncrementalTimeline({
         timestamp: new Date(event.timestamp)
       }));
       
+      console.log('📈 Setting Timeline:', {
+        previousLength: timeline.length,
+        newLength: updatedTimeline.length,
+        events: updatedTimeline.map(e => ({ 
+          id: e.id, 
+          title: e.title, 
+          type: e.type,
+          timestamp: e.timestamp,
+          description: e.description.substring(0, 50) + '...'
+        }))
+      });
+      
       setTimeline(updatedTimeline);
       setLastProcessedLength(data.lastProcessedLength);
+      setLastProcessedLineCount(transcriptLines.length);
       setLastUpdated(new Date(data.generatedAt));
       setError(null);
 
@@ -109,7 +162,11 @@ export function useIncrementalTimeline({
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Unknown error occurred';
       setError(errorMessage);
-      console.error('Error generating timeline:', err);
+      console.error('💥 Timeline Generation Error:', {
+        error: err,
+        errorMessage,
+        transcript: transcript.substring(0, 100) + '...'
+      });
     } finally {
       setIsLoading(false);
     }
@@ -124,10 +181,14 @@ export function useIncrementalTimeline({
 
     // Only set up auto-refresh if recording and have sufficient transcript
     // Don't auto-refresh when paused, but preserve existing data
-    if (isRecording && !isPaused && transcript && transcript.trim().split(' ').length >= 20) {
+    if (isRecording && !isPaused && transcript && transcript.trim().split(' ').length >= 30) {
       refreshIntervalRef.current = setInterval(() => {
-        // Check if there's new content to process
-        if (transcript.length > lastProcessedLength) {
+        const transcriptLines = transcript.split('\n').filter(line => line.trim().length > 0);
+        const newLinesSinceLastUpdate = transcriptLines.length - lastProcessedLineCount;
+        
+        // Trigger if we have 10+ new lines OR if there's any new content and enough time has passed
+        if (newLinesSinceLastUpdate >= 10 || (transcript.length > lastProcessedLength && newLinesSinceLastUpdate >= 5)) {
+          console.log(`🚀 Auto-triggering timeline update: ${newLinesSinceLastUpdate} new lines`);
           generateTimelineUpdate();
         }
       }, refreshIntervalMs);
@@ -138,18 +199,19 @@ export function useIncrementalTimeline({
         clearInterval(refreshIntervalRef.current);
       }
     };
-  }, [isRecording, isPaused, transcript, lastProcessedLength, refreshIntervalMs, generateTimelineUpdate]);
+  }, [isRecording, isPaused, transcript, lastProcessedLength, lastProcessedLineCount, refreshIntervalMs, generateTimelineUpdate]);
 
   // Clear timeline when not recording or insufficient content
   // BUT preserve data when paused
   useEffect(() => {
-    const currentLength = transcript.trim().split(' ').length;
+    const currentWords = transcript.trim().split(' ').length;
     
     // Only clear timeline when truly stopped (not recording AND not paused) or insufficient content
-    if ((!isRecording && !isPaused) || currentLength < 20) {
+    if ((!isRecording && !isPaused) || currentWords < 30) {
       if (timeline.length > 0) {
         setTimeline([]);
         setLastProcessedLength(0);
+        setLastProcessedLineCount(0); // Reset line count too
       }
       initialTimelineGenerated.current = false;
     }
@@ -157,9 +219,9 @@ export function useIncrementalTimeline({
 
   // Generate initial timeline when recording starts with sufficient content
   useEffect(() => {
-    const currentLength = transcript.trim().split(' ').length;
+    const currentWords = transcript.trim().split(' ').length;
     
-    if (isRecording && !isPaused && currentLength >= 20 && !initialTimelineGenerated.current && !isLoading) {
+    if (isRecording && !isPaused && currentWords >= 30 && !initialTimelineGenerated.current && !isLoading) {
       initialTimelineGenerated.current = true;
       generateTimelineUpdate();
     }

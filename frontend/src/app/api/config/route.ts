@@ -6,14 +6,13 @@ import { NextRequest, NextResponse } from 'next/server';
  */
 export async function GET(request: NextRequest) {
   try {
-    // Get API keys from environment variables
-    const openaiApiKey = process.env.OPENAI_API_KEY;
+    // Check if API keys are configured
+    const openrouterApiKey = process.env.OPENROUTER_API_KEY;
     const deepgramApiKey = process.env.DEEPGRAM_API_KEY;
-    
-    if (!openaiApiKey && !deepgramApiKey) {
-      console.error('❌ No API keys configured');
+
+    if (!openrouterApiKey && !deepgramApiKey) {
       return NextResponse.json(
-        { error: 'No API keys configured. Please set OPENAI_API_KEY or DEEPGRAM_API_KEY in your environment variables.' },
+        { error: 'No API keys configured. Please set OPENROUTER_API_KEY or DEEPGRAM_API_KEY in your environment variables.' },
         { status: 500 }
       );
     }
@@ -26,24 +25,27 @@ export async function GET(request: NextRequest) {
     // }
 
     console.log('✅ Providing API keys to frontend', {
-      hasOpenAI: !!openaiApiKey,
+      hasOpenrouter: !!openrouterApiKey,
       hasDeepgram: !!deepgramApiKey
     });
     
     return NextResponse.json({
+      // New format
+      openrouter: !!openrouterApiKey,
+      deepgram: !!deepgramApiKey,
+      message: 'API configuration checked successfully',
+      // API keys for transcription services
+      openrouterApiKey: openrouterApiKey,
+      deepgramApiKey: deepgramApiKey,
+      // Legacy format for backward compatibility with WebRTC service
       success: true,
-      apiKey: openaiApiKey, // Keep for backward compatibility
-      deepgramApiKey: deepgramApiKey
+      apiKey: openrouterApiKey || 'mock-key-for-compatibility'
     });
     
   } catch (error) {
-    console.error('❌ Error providing API key:', error);
-    
+    console.error('Config API error:', error);
     return NextResponse.json(
-      { 
-        error: 'Failed to get configuration',
-        details: error instanceof Error ? error.message : 'Unknown error'
-      },
+      { error: 'Failed to check configuration' },
       { status: 500 }
     );
   }

@@ -2,63 +2,75 @@ import { NextRequest, NextResponse } from 'next/server';
 
 interface TimelineEvent {
   id: string;
-  timestamp: Date;
+  timestamp: string;
   title: string;
   description: string;
-  type: 'milestone' | 'decision' | 'topic_shift' | 'action_item' | 'question' | 'agreement' | 'speaker_change' | 'key_statement';
+  type: 'milestone' | 'decision' | 'topic_shift' | 'action_item' | 'question' | 'agreement';
   importance: 'low' | 'medium' | 'high';
-  speaker?: 'ME' | 'THEM';
-  content?: string; // The actual quote or content that triggered this event
+  speaker?: string;
 }
 
 interface TimelineRequest {
-  transcript: string; // Full conversation transcript with speaker labels
-  existingTimeline: TimelineEvent[]; // Previously generated timeline events
+  transcript: string;
+  existingTimeline?: TimelineEvent[];
   sessionId?: string;
   conversationType?: string;
-  lastProcessedLength?: number; // Length of transcript that was already processed
+  lastProcessedLength?: number;
+}
+
+interface TimelineResponse {
+  timeline: TimelineEvent[];
+  lastProcessedLength: number;
+  newEventsCount: number;
+  generatedAt: string;
+  sessionId?: string;
 }
 
 export async function POST(request: NextRequest) {
   try {
-    const { transcript, existingTimeline, sessionId, conversationType, lastProcessedLength = 0 }: TimelineRequest = await request.json();
+    const { 
+      transcript, 
+      existingTimeline = [], 
+      sessionId, 
+      conversationType, 
+      lastProcessedLength = 0 
+    }: TimelineRequest = await request.json();
 
-    const apiKey = process.env.OPENAI_API_KEY;
+    console.log('📋 Timeline API Request:', {
+      transcriptLength: transcript.length,
+      existingTimelineLength: existingTimeline.length,
+      lastProcessedLength,
+      conversationType
+    });
+
+    const apiKey = process.env.OPENROUTER_API_KEY;
     if (!apiKey) {
       return NextResponse.json(
-        { error: 'OpenAI API key not configured' },
+        { error: 'OpenRouter API key not configured. Please set OPENROUTER_API_KEY in your environment variables.' },
         { status: 500 }
       );
     }
 
-    // Don't generate for very short transcripts
-    if (!transcript || transcript.trim().split(' ').length < 20) {
-      return NextResponse.json({
-        timeline: existingTimeline || [],
-        lastProcessedLength: transcript.length
-      });
-    }
-
-    // Extract only the new portion of the transcript for processing
-    const newTranscriptPortion = transcript.slice(lastProcessedLength);
-    if (newTranscriptPortion.trim().split(' ').length < 5) {
-      return NextResponse.json({
-        timeline: existingTimeline || [],
-        lastProcessedLength: transcript.length
-      });
+    if (!transcript || transcript.trim().length === 0) {
+      return NextResponse.json(
+        { error: 'No transcript provided' },
+        { status: 400 }
+      );
     }
 
     const systemPrompt = getTimelineSystemPrompt(conversationType);
-    const prompt = buildTimelinePrompt(transcript, newTranscriptPortion, existingTimeline, conversationType);
+    const prompt = buildTimelinePrompt(transcript, conversationType, existingTimeline);
 
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${apiKey}`,
         'Content-Type': 'application/json',
+        'HTTP-Referer': 'https://liveconvo.app', // Optional: for app identification
+        'X-Title': 'LiveConvo Timeline', // Optional: for app identification
       },
       body: JSON.stringify({
-        model: 'gpt-4o-mini',
+        model: 'google/gemini-2.5-flash-preview-05-20',
         messages: [
           {
             role: 'system',
@@ -70,42 +82,83 @@ export async function POST(request: NextRequest) {
           }
         ],
         temperature: 0.3,
-        max_tokens: 800,
+        max_tokens: 2000,
         response_format: { type: 'json_object' }
       })
     });
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('OpenAI API error:', response.status, errorText);
+      console.error('OpenRouter API error:', response.status, errorText);
       return NextResponse.json(
-        { error: `OpenAI API error: ${response.status}` },
+        { error: `OpenRouter API error: ${response.status}` },
         { status: response.status }
       );
     }
 
     const data = await response.json();
-    const timelineData = JSON.parse(data.choices[0].message.content);
+    console.log('🤖 Raw Gemini Response:', data.choices[0].message.content);
     
-    // Parse timestamps and add unique IDs
-    const newEvents: TimelineEvent[] = (timelineData.newEvents || []).map((event: any) => ({
-      ...event,
-      id: `timeline_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-      timestamp: new Date(event.timestamp || new Date()),
-    }));
+    let timelineData;
+    try {
+      timelineData = JSON.parse(data.choices[0].message.content);
+      console.log('📋 Parsed Timeline Data:', {
+        hasTimeline: !!timelineData.timeline,
+        hasNewEvents: !!timelineData.newEvents,
+        timelineLength: timelineData.timeline?.length || 0,
+        newEventsLength: timelineData.newEvents?.length || 0,
+        allKeys: Object.keys(timelineData)
+      });
+    } catch (parseError) {
+      console.error('💥 JSON Parse Error for Timeline:', parseError);
+      // Fallback to empty timeline structure
+      timelineData = { timeline: [] };
+    }
+    
+    // Handle both possible response formats
+    const rawEvents = timelineData.timeline || timelineData.newEvents || [];
+    console.log('📅 Raw Events Count:', rawEvents.length);
+    
+    // Generate timeline events with IDs if missing
+    const newTimelineEvents = rawEvents.map((event: any, index: number) => {
+      // Validate and ensure all required fields exist
+      const validatedEvent = {
+        id: event.id || `timeline_${Date.now()}_${index}`,
+        timestamp: event.timestamp || new Date().toISOString(),
+        title: event.title || 'Timeline Event',
+        description: event.description || 'Event description not available',
+        type: ['milestone', 'decision', 'topic_shift', 'action_item', 'question', 'agreement'].includes(event.type) 
+              ? event.type : 'milestone',
+        importance: ['low', 'medium', 'high'].includes(event.importance) 
+                   ? event.importance : 'medium',
+        speaker: event.speaker || null
+      };
+      return validatedEvent;
+    });
 
-    // Combine with existing timeline and sort by timestamp (newest first)
-    const combinedTimeline = [...newEvents, ...(existingTimeline || [])].sort((a, b) => 
+    // Combine with existing timeline (remove duplicates by ID)
+    const existingIds = new Set(existingTimeline.map(e => e.id));
+    const uniqueNewEvents = newTimelineEvents.filter((event: TimelineEvent) => !existingIds.has(event.id));
+    
+    const allTimelineEvents = [...existingTimeline, ...uniqueNewEvents].sort((a, b) => 
       new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
     );
-
-    return NextResponse.json({ 
-      timeline: combinedTimeline,
+    
+    const responseData: TimelineResponse = {
+      timeline: allTimelineEvents,
       lastProcessedLength: transcript.length,
-      newEventsCount: newEvents.length,
+      newEventsCount: uniqueNewEvents.length,
       generatedAt: new Date().toISOString(),
-      sessionId 
+      sessionId
+    };
+
+    console.log('✅ Timeline API Response:', {
+      totalEvents: allTimelineEvents.length,
+      newEvents: uniqueNewEvents.length,
+      lastProcessedLength: transcript.length
     });
+
+    return NextResponse.json(responseData);
 
   } catch (error) {
     console.error('Timeline API error:', error);
@@ -121,23 +174,26 @@ function getTimelineSystemPrompt(conversationType?: string): string {
 
 Your role is to identify significant moments, decisions, and progressions in ongoing conversations and create specific, actionable timeline events that capture who said what and when.
 
+CRITICAL: You MUST respond with a JSON object that has a "timeline" array. Do not use "newEvents" or any other key name.
+
 RESPONSE FORMAT:
-Return a JSON object with this structure:
+Return a JSON object with this EXACT structure:
 {
-  "newEvents": [
+  "timeline": [
     {
+      "id": "unique_event_id_here",
       "timestamp": "2025-01-27T10:30:00Z",
       "title": "Customer Identified Budget Range",
       "description": "Customer confirmed they have allocated $50-75k for this solution this quarter",
-      "type": "milestone|decision|topic_shift|action_item|question|agreement|speaker_change|key_statement",
-      "importance": "low|medium|high",
-      "speaker": "ME|THEM",
+      "type": "milestone",
+      "importance": "high",
+      "speaker": "THEM",
       "content": "Direct quote or paraphrase of what was actually said"
     }
   ]
 }
 
-TIMELINE EVENT TYPES:
+TIMELINE EVENT TYPES (choose one):
 - milestone: Major progress points (deals advancing, problems solved, agreements reached)
 - decision: Concrete decisions made by either party
 - topic_shift: When conversation moves to new subject areas
@@ -147,10 +203,15 @@ TIMELINE EVENT TYPES:
 - speaker_change: Notable moments when conversation focus shifts between speakers
 - key_statement: Important declarations, requirements, or statements
 
-IMPORTANCE LEVELS:
+IMPORTANCE LEVELS (choose one):
 - high: Critical decisions, major breakthroughs, deal-changing moments
 - medium: Significant progress, important clarifications, key requirements
 - low: Minor updates, background information, relationship building
+
+SPEAKER VALUES (choose one):
+- ME: When the primary speaker (usually the user) said something important
+- THEM: When the other party said something important
+- null: When it's unclear or involves both parties
 
 GUIDELINES FOR CONCRETE TIMELINE EVENTS:
 - Be SPECIFIC: Include actual details mentioned (numbers, dates, names, requirements)
@@ -161,50 +222,74 @@ GUIDELINES FOR CONCRETE TIMELINE EVENTS:
 - Include concrete details like budget ranges, timelines, specific requirements
 - Note when important questions are asked or answered
 - Track when commitments or agreements are made
+- Generate at least 1-3 events for meaningful conversations
+- Each event should represent a distinct moment or statement
 
 EXAMPLES OF GOOD TIMELINE EVENTS:
-- "Customer confirmed $25k budget for Q1 implementation"
-- "ME: Proposed three-phase rollout starting in February"
-- "THEM: Raised concern about data migration timeline"
-- "Agreement reached on weekly check-in meetings"
-- "Customer requested technical demo for security team"
-
-EXAMPLES OF BAD (TOO ABSTRACT) TIMELINE EVENTS:
-- "Discussion about budget" (too vague)
-- "Technical topics covered" (no specifics)
-- "Progress made" (unclear what progress)
-- "Questions asked" (which questions?)`;
+{
+  "timeline": [
+    {
+      "id": "demo_1",
+      "timestamp": "2025-01-27T10:30:00Z",
+      "title": "AI System Demonstrates Object Recognition",
+      "description": "System successfully pointed directly at object when commanded, showing trained visual recognition capabilities",
+      "type": "milestone",
+      "importance": "high",
+      "speaker": "ME"
+    },
+    {
+      "id": "demo_2", 
+      "timestamp": "2025-01-27T10:31:00Z",
+      "title": "Optical Interference Test Introduced",
+      "description": "Prism placed in front of lens to test system's ability to handle visual distortion",
+      "type": "action_item",
+      "importance": "medium",
+      "speaker": "ME"
+    }
+  ]
 }
 
-function buildTimelinePrompt(fullTranscript: string, newPortion: string, existingTimeline: TimelineEvent[], conversationType?: string): string {
-  const existingEventsContext = existingTimeline.length > 0 
-    ? `\n\nEXISTING TIMELINE EVENTS (for context, don't repeat these):\n${existingTimeline.slice(0, 10).map(event => 
-        `- ${event.timestamp}: ${event.title} (${event.speaker}): ${event.description}`
-      ).join('\n')}`
+Remember: Always return a JSON object with a "timeline" array containing concrete, specific events from the conversation.`;
+}
+
+function buildTimelinePrompt(transcript: string, conversationType?: string, existingTimeline?: TimelineEvent[]): string {
+  const existingEventsContext = existingTimeline && existingTimeline.length > 0 
+    ? `\nEXISTING TIMELINE EVENTS (avoid duplicating these):\n${existingTimeline.map(e => `- ${e.title}: ${e.description}`).join('\n')}\n` 
     : '';
 
   return `
-INCREMENTAL TIMELINE ANALYSIS REQUEST:
+TIMELINE ANALYSIS REQUEST:
 
 CONVERSATION TYPE: ${conversationType || 'general'}
-
-FULL CONVERSATION CONTEXT:
-${fullTranscript}
-
-NEW TRANSCRIPT PORTION TO ANALYZE:
-${newPortion}
 ${existingEventsContext}
+FULL CONVERSATION TRANSCRIPT:
+${transcript}
 
 INSTRUCTIONS:
-1. Analyze ONLY the new transcript portion for timeline events
+1. Analyze the conversation transcript for significant timeline events
 2. Create concrete, specific timeline events with actual details mentioned
-3. Include speaker information (ME/THEM) for each event
+3. Include speaker information when identifiable (ME vs THEM)
 4. Capture direct quotes or specific content that triggered each event
 5. Focus on actionable information that moves the conversation forward
-6. Don't repeat events already in the existing timeline
-7. Estimate realistic timestamps for each new event based on conversation flow
+6. Estimate realistic timestamps for each event based on conversation flow
+7. ${existingTimeline && existingTimeline.length > 0 ? 'AVOID DUPLICATING existing events listed above - only create NEW events' : 'Create comprehensive timeline events for the entire conversation'}
 
-Generate 1-5 new timeline events from the new transcript portion that capture the most important, concrete moments. Be specific about what was actually said and why it matters to the conversation's progress.
+Generate timeline events from the transcript that capture the most important, concrete moments. Be specific about what was actually said and why it matters to the conversation's progress.
 
-Remember: The goal is to create a useful timeline that someone could look at later and understand exactly what happened, when, and who said what.`;
+Remember: The goal is to create a useful timeline that someone could look at later and understand exactly what happened, when, and who said what.
+
+Return a JSON object with this structure:
+{
+  "timeline": [
+    {
+      "id": "unique_event_id",
+      "timestamp": "2025-01-27T10:30:00Z",
+      "title": "Brief event title",
+      "description": "Detailed description of what happened",
+      "type": "milestone|decision|topic_shift|action_item|question|agreement",
+      "importance": "low|medium|high",
+      "speaker": "ME|THEM"
+    }
+  ]
+}`;
 } 

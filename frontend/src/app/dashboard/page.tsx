@@ -14,7 +14,8 @@ import {
   DocumentTextIcon,
   ArchiveBoxIcon,
   ArrowRightOnRectangleIcon,
-  ChevronDownIcon
+  ChevronDownIcon,
+  TrashIcon
 } from '@heroicons/react/24/outline';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
@@ -235,7 +236,14 @@ const DashboardSidebar: React.FC<{
             <div className="w-full bg-muted rounded-full h-2">
               <div 
                 className="bg-app-primary h-2 rounded-full transition-all duration-300"
-                style={{ width: `${(usageStats.monthlyAudioHours / usageStats.monthlyAudioLimit) * 100}%` }}
+                style={{ 
+                  width: `${Math.min(
+                    usageStats.monthlyAudioLimit > 0 
+                      ? (usageStats.monthlyAudioHours / usageStats.monthlyAudioLimit) * 100 
+                      : 0, 
+                    100
+                  )}%` 
+                }}
               />
             </div>
           </div>
@@ -274,9 +282,10 @@ const ConversationInboxItem: React.FC<{
   onResume: (id: string) => void;
   onViewSummary: (id: string) => void;
   onArchive: (id: string) => void;
+  onDelete: (id: string) => void;
   isSelected?: boolean;
   onClick?: () => void;
-}> = ({ session, onResume, onViewSummary, onArchive, isSelected = false, onClick }) => {
+}> = ({ session, onResume, onViewSummary, onArchive, onDelete, isSelected = false, onClick }) => {
   const getStatusIndicator = (status: Session['status']) => {
     switch (status) {
       case 'active': return { color: 'bg-app-success', label: 'Live', pulse: true };
@@ -462,6 +471,18 @@ const ConversationInboxItem: React.FC<{
                 className="text-xs px-2 py-1 h-7 text-muted text-muted-foreground hover:bg-muted/30"
               >
                 <ArchiveBoxIcon className="w-3 h-3" />
+              </Button>
+
+              <Button 
+                variant="ghost" 
+                size="sm"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onDelete(session.id);
+                }}
+                className="text-xs px-2 py-1 h-7 text-destructive hover:bg-destructive/10"
+              >
+                <TrashIcon className="w-3 h-3" />
               </Button>
             </div>
           </div>
@@ -1065,6 +1086,9 @@ const DashboardPage: React.FC = () => {
     contextLoading 
   } = useSessionData();
 
+  // Get auth session for API calls
+  const { session: authSession } = useAuth();
+
   // Create user object from auth data
   const currentUser: User = {
     name: user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'User',
@@ -1176,6 +1200,56 @@ const DashboardPage: React.FC = () => {
     await updateSession(sessionId, { status: 'archived' });
   };
 
+  const handleDeleteSession = async (sessionId: string) => {
+    // Show enhanced confirmation dialog with options
+    const result = window.confirm(
+      'How would you like to delete this conversation?\n\n' +
+      'Click "OK" for soft delete (can be recovered)\n' +
+      'Click "Cancel" to choose permanent delete\n\n' +
+      'Soft delete: The conversation will be hidden but can be recovered later.\n' +
+      'Permanent delete: The conversation will be completely removed and cannot be recovered.'
+    );
+    
+    if (result) {
+      // User chose soft delete
+      await deleteSession(sessionId);
+    } else {
+      // Ask for permanent delete confirmation
+      const permanentConfirm = window.confirm(
+        'Are you absolutely sure you want to PERMANENTLY delete this conversation?\n\n' +
+        'This action CANNOT be undone! The conversation and all its data will be lost forever.'
+      );
+      
+      if (permanentConfirm) {
+        // Use the hook's deleteSession with hard delete option
+        // We need to modify the hook to support hard delete
+        try {
+          const response = await fetch(`/api/sessions/${sessionId}?hard=true`, {
+            method: 'DELETE',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${authSession?.access_token}`
+            }
+          });
+          
+          if (response.ok) {
+            // Remove from local state manually since we bypassed the hook
+            const updatedSessions = sessions.filter(s => s.id !== sessionId);
+            // We need to update the sessions list - let's just refresh it
+            await fetchSessions();
+          } else {
+            const error = await response.json();
+            console.error('Failed to permanently delete session:', error);
+            alert('Failed to delete conversation: ' + error.message);
+          }
+        } catch (error) {
+          console.error('Error permanently deleting session:', error);
+          alert('Failed to delete conversation. Please try again.');
+        }
+      }
+    }
+  };
+
   const handleSessionSelect = (sessionId: string) => {
     setSelectedSessions(prev => {
       const newSet = new Set(prev);
@@ -1203,6 +1277,17 @@ const DashboardPage: React.FC = () => {
     );
     await Promise.all(updatePromises);
     setSelectedSessions(new Set());
+  };
+
+  const handleBulkDelete = async () => {
+    if (window.confirm(`Are you sure you want to delete ${selectedSessions.size} conversation${selectedSessions.size === 1 ? '' : 's'}? This action cannot be undone.`)) {
+      // Delete all selected sessions
+      const deletePromises = Array.from(selectedSessions).map(sessionId => 
+        deleteSession(sessionId)
+      );
+      await Promise.all(deletePromises);
+      setSelectedSessions(new Set());
+    }
   };
 
   const handleOnboardingComplete = () => {
@@ -1365,6 +1450,14 @@ const DashboardPage: React.FC = () => {
                               <Button
                                 variant="ghost"
                                 size="sm"
+                                onClick={handleBulkDelete}
+                                className="text-xs text-destructive"
+                              >
+                                Delete Selected
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
                                 onClick={() => setSelectedSessions(new Set())}
                                 className="text-xs text-muted-foreground"
                               >
@@ -1400,6 +1493,7 @@ const DashboardPage: React.FC = () => {
                           onResume={handleResumeSession}
                           onViewSummary={handleViewSummary}
                           onArchive={handleArchiveSession}
+                          onDelete={handleDeleteSession}
                         />
                       ))}
                     </div>
