@@ -201,13 +201,15 @@ export function useIncrementalTimeline({
     };
   }, [isRecording, isPaused, transcript, lastProcessedLength, lastProcessedLineCount, refreshIntervalMs, generateTimelineUpdate]);
 
-  // Clear timeline when not recording or insufficient content
-  // BUT preserve data when paused
+  // Clear timeline only when there isn't enough transcript content.
+  // Previously the hook wiped the timeline whenever recording stopped,
+  // which removed data when restoring a saved session. We now clear
+  // solely based on transcript length so loaded timelines persist.
   useEffect(() => {
     const currentWords = transcript.trim().split(' ').length;
-    
-    // Only clear timeline when truly stopped (not recording AND not paused) or insufficient content (reduced from 30 to 20 words)
-    if ((!isRecording && !isPaused) || currentWords < 20) {
+
+    // Only clear when the transcript is too short (e.g. a new session)
+    if (currentWords < 20) {
       if (timeline.length > 0) {
         setTimeline([]);
         setLastProcessedLength(0);
