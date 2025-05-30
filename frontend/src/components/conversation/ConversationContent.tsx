@@ -107,7 +107,7 @@ export const ConversationContent: React.FC<ConversationContentProps> = ({
     <div className="h-full max-h-full flex flex-col overflow-hidden bg-gradient-to-br from-background via-background to-muted/20">
       {/* Enhanced Tab Header */}
       <div className="flex-shrink-0 z-10 bg-background/95 backdrop-blur-sm border-b border-border/50 shadow-sm">
-        <div className="px-6 py-4">
+        <div className="px-6 pt-0 pb-2">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-6">
               {/* Main Tabs - Transcript tab hidden */}
@@ -172,20 +172,15 @@ export const ConversationContent: React.FC<ConversationContentProps> = ({
               <Button 
                 variant="ghost" 
                 size="sm" 
-                onClick={refreshSummary} 
+                onClick={() => {
+                  refreshSummary();
+                  refreshTimeline();
+                }} 
                 className="h-9 px-3 hover:bg-muted/80 transition-all duration-200 text-xs"
-                title="Force Generate Summary"
+                title="Refresh Summary & Timeline"
               >
-                📝 Summary
-              </Button>
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                onClick={refreshTimeline} 
-                className="h-9 px-3 hover:bg-muted/80 transition-all duration-200 text-xs"
-                title="Force Generate Timeline"
-              >
-                ⏱️ Timeline
+                <RefreshCw className="w-3 h-3 mr-1.5" />
+                Refresh
               </Button>
               <Button 
                 variant="ghost" 
@@ -319,7 +314,7 @@ export const ConversationContent: React.FC<ConversationContentProps> = ({
             )}
 
             {summary && (
-              <div className="flex-1 min-h-0 max-h-full overflow-y-auto px-8 py-6">
+              <div className="flex-1 min-h-0 max-h-full overflow-y-auto px-8 py-6" style={{ maxHeight: '100%' }}>
                 <div className="max-w-4xl mx-auto space-y-6 pb-4">
                   {/* TL;DR - Hero Card */}
                   <div className="relative p-8 bg-gradient-to-br from-blue-50 via-blue-50 to-indigo-100/50 dark:from-blue-950/30 dark:via-blue-900/20 dark:to-indigo-900/20 border border-blue-200 dark:border-blue-800/50 rounded-3xl shadow-sm">

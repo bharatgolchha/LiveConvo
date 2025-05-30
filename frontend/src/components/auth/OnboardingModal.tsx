@@ -106,7 +106,7 @@ export function OnboardingModal({ isOpen, onClose, onComplete }: OnboardingModal
                     value={organizationName}
                     onChange={(e) => setOrganizationName(e.target.value)}
                     placeholder="e.g. Acme Corp or John's Workspace"
-                    className="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-app-primary focus:border-app-primary transition-colors"
+                    className="w-full px-3 py-2 bg-background border border-border rounded-lg focus:ring-2 focus:ring-app-primary focus:border-app-primary transition-colors text-foreground placeholder:text-muted-foreground"
                   />
                   <p className="text-xs text-muted-foreground">
                     Leave blank to use a default name
@@ -122,7 +122,7 @@ export function OnboardingModal({ isOpen, onClose, onComplete }: OnboardingModal
                   <select
                     value={timezone}
                     onChange={(e) => setTimezone(e.target.value)}
-                    className="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-app-primary focus:border-app-primary transition-colors"
+                    className="w-full px-3 py-2 bg-background border border-border rounded-lg focus:ring-2 focus:ring-app-primary focus:border-app-primary transition-colors text-foreground"
                   >
                     <option value="UTC">UTC (Coordinated Universal Time)</option>
                     <option value="America/New_York">Eastern Time (ET)</option>
@@ -140,14 +140,14 @@ export function OnboardingModal({ isOpen, onClose, onComplete }: OnboardingModal
                 </div>
 
                 {/* Free Plan Info */}
-                <div className="bg-gradient-to-br from-green-50 to-blue-50 border border-green-200 rounded-lg p-4">
+                <div className="bg-gradient-to-br from-green-50 to-blue-50 dark:from-green-950/20 dark:to-blue-950/20 border border-green-200 dark:border-green-800 rounded-lg p-4">
                   <div className="flex items-start">
-                    <Globe className="w-5 h-5 text-green-600 mt-0.5 mr-3 flex-shrink-0" />
+                    <Globe className="w-5 h-5 text-green-600 dark:text-green-400 mt-0.5 mr-3 flex-shrink-0" />
                     <div>
-                      <h3 className="font-medium text-green-900 mb-1">
+                      <h3 className="font-medium text-green-900 dark:text-green-100 mb-1">
                         Starting with Free Plan
                       </h3>
-                      <p className="text-sm text-green-700">
+                      <p className="text-sm text-green-700 dark:text-green-300">
                         • 3 hours of audio processing per month<br />
                         • Up to 10 conversation sessions<br />
                         • Real-time AI guidance<br />

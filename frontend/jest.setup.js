@@ -8,6 +8,24 @@ process.env.NEXT_PUBLIC_APP_URL = 'http://localhost:3000'
 // Mock fetch globally
 global.fetch = jest.fn()
 
+// Mock Request and Response for Next.js API testing
+global.Request = class Request {
+  constructor(input, init) {
+    this.url = typeof input === 'string' ? input : input.url;
+    this.method = init?.method || 'GET';
+    this.headers = new Map(Object.entries(init?.headers || {}));
+    this.body = init?.body || null;
+  }
+  
+  async json() {
+    return this.body ? JSON.parse(this.body) : {};
+  }
+  
+  async text() {
+    return this.body || '';
+  }
+}
+
 // Mock Response for tests
 global.Response = class Response {
   constructor(body, init) {

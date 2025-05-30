@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { Brain, MessageCircle, ChevronRight, ChevronLeft, Maximize2, Minimize2 } from 'lucide-react';
+import { Brain, MessageCircle, ChevronRight, ChevronLeft, Maximize2, Minimize2, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { Textarea } from '@/components/ui/textarea';
@@ -30,6 +30,11 @@ interface ContextSummary {
   uploadedFiles: File[];
   selectedPreviousConversations: string[];
   previousConversationTitles: string[];
+}
+
+interface GuidanceChip {
+  text: string;
+  prompt: string;
 }
 
 interface AICoachSidebarProps {
@@ -76,6 +81,8 @@ export default function AICoachSidebar({
   const [isExpanded, setIsExpanded] = useState(false);
   const [newMessage, setNewMessage] = useState('');
   const [isResizing, setIsResizing] = useState(false);
+  const [dynamicChips, setDynamicChips] = useState<GuidanceChip[]>([]);
+  const [isGeneratingChips, setIsGeneratingChips] = useState(false);
   
   const sidebarRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -95,6 +102,78 @@ export default function AICoachSidebar({
       { text: "🎯 Close conversation", prompt: "How should I close this conversation?" }
     ];
   };
+
+  // Auto-generate contextual guidance chips using AI
+  const generateContextualChips = useCallback(async (latestMessage: string, conversationContext: string) => {
+    setIsGeneratingChips(true);
+    
+    try {
+      const response = await fetch('/api/chat-guidance', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          message: `Generate 6 contextual guidance chips for a ${contextSummary?.conversationType || 'general'} conversation. Each chip should be a short actionable suggestion (2-4 words with emoji) that would help the user next.
+
+Context: ${conversationContext}
+Latest message: ${latestMessage}
+Conversation type: ${contextSummary?.conversationType || 'general'}
+
+Please provide 6 helpful next-step suggestions as guidance chips with format: {"text": "🔥 Build rapport", "prompt": "How can I build better rapport with them?"}`,
+          conversationType: contextSummary?.conversationType || 'general',
+          textContext: conversationContext,
+          summary: '',
+          timeline: [],
+          files: []
+        }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        // Try to parse the AI response
+        try {
+          // Check if data has the expected structure
+          if (data && data.suggestedActions && Array.isArray(data.suggestedActions)) {
+            // If we have suggested actions, use them
+            if (data.suggestedActions.length > 0) {
+              setDynamicChips(data.suggestedActions.slice(0, 6)); // Limit to 6 chips
+              return; // Success, exit early
+            }
+          }
+          
+          // Check for legacy message format as fallback
+          if (data && data.message && typeof data.message === 'string') {
+            const chipsMatch = data.message.match(/\[[\s\S]*\]/);
+            if (chipsMatch) {
+              const chips = JSON.parse(chipsMatch[0]);
+              if (Array.isArray(chips) && chips.length > 0) {
+                setDynamicChips(chips.slice(0, 6)); // Limit to 6 chips
+                return; // Success, exit early
+              }
+            }
+          }
+          
+          // If we get here, no valid chips were found
+          console.warn('No valid guidance chips in response:', data);
+          setDynamicChips(getDefaultQuickHelp());
+        } catch (parseError) {
+          console.error('Error parsing AI chip response:', parseError);
+          // Fallback to static chips if parsing fails
+          setDynamicChips(getDefaultQuickHelp());
+        }
+      } else {
+        console.error('API request failed:', response.status, response.statusText);
+        setDynamicChips(getDefaultQuickHelp());
+      }
+    } catch (error) {
+      console.error('Error generating contextual chips:', error);
+      // Fallback to static chips on error
+      setDynamicChips(getDefaultQuickHelp());
+    } finally {
+      setIsGeneratingChips(false);
+    }
+  }, [contextSummary?.conversationType]);
 
   const getContextAwareQuickHelp = () => {
     if (!contextSummary) {
@@ -201,6 +280,16 @@ export default function AICoachSidebar({
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
+  // Generate initial contextual chips when context is available
+  useEffect(() => {
+    if (contextSummary?.textContext && messages.length === 0 && dynamicChips.length === 0) {
+      generateContextualChips(
+        `Starting ${contextSummary.conversationType} conversation`, 
+        contextSummary.textContext
+      );
+    }
+  }, [contextSummary?.textContext, messages.length, dynamicChips.length, generateContextualChips]);
+
   // Handle resize functionality
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
@@ -270,13 +359,26 @@ export default function AICoachSidebar({
   // Handle sending messages
   const handleSendMessage = () => {
     if (newMessage.trim() && onSendMessage) {
+      const messageContent = newMessage.trim();
+      
       // Add context prefix if contextSummary exists
       const messageToSend = contextSummary 
-        ? `[Context: ${contextSummary.conversationType} - ${contextSummary.conversationTitle}] ${newMessage.trim()}`
-        : newMessage.trim();
+        ? `[Context: ${contextSummary.conversationType} - ${contextSummary.conversationTitle}] ${messageContent}`
+        : messageContent;
       
       onSendMessage(messageToSend);
       setNewMessage('');
+      
+      // Auto-generate contextual chips based on the message and conversation context
+      const conversationContext = [
+        contextSummary?.textContext || '',
+        messages.slice(-3).map(m => `${m.type}: ${parseMessageForDisplay(m.content)}`).join('\n')
+      ].filter(Boolean).join('\n\n');
+      
+      // Generate new chips after a short delay to let the message be processed
+      setTimeout(() => {
+        generateContextualChips(messageContent, conversationContext);
+      }, 500);
     }
   };
 
@@ -285,6 +387,20 @@ export default function AICoachSidebar({
       e.preventDefault();
       handleSendMessage();
     }
+  };
+
+  // Handle refreshing guidance chips
+  const handleRefreshChips = () => {
+    const conversationContext = [
+      contextSummary?.textContext || '',
+      messages.slice(-3).map(m => `${m.type}: ${parseMessageForDisplay(m.content)}`).join('\n')
+    ].filter(Boolean).join('\n\n');
+    
+    const latestMessage = messages.length > 0 
+      ? parseMessageForDisplay(messages[messages.length - 1].content)
+      : `Planning ${contextSummary?.conversationType || 'conversation'}`;
+    
+    generateContextualChips(latestMessage, conversationContext);
   };
 
   // Render message
@@ -301,7 +417,7 @@ export default function AICoachSidebar({
         <div
           className={`max-w-[85%] rounded-lg px-3 py-2 ${
             isUser
-              ? 'bg-primary text-primary-foreground'
+              ? 'bg-blue-600 text-white dark:bg-blue-500 dark:text-white'
               : isSystem
               ? 'bg-muted text-muted-foreground border border-border'
               : isAutoGuidance
@@ -315,11 +431,6 @@ export default function AICoachSidebar({
               <span className="text-xs font-medium">
                 {isSystem ? 'System' : isAutoGuidance ? 'Auto-Guidance' : 'AI Coach'}
               </span>
-              {message.metadata?.confidence && (
-                <Badge variant="secondary" className="text-xs">
-                  {Math.round(message.metadata.confidence * 100)}%
-                </Badge>
-              )}
             </div>
           )}
           <div className="text-sm leading-relaxed prose prose-sm max-w-none dark:prose-invert">
@@ -327,50 +438,50 @@ export default function AICoachSidebar({
               remarkPlugins={[remarkGfm]}
               rehypePlugins={[rehypeHighlight]}
               components={{
-                h1: ({ children }) => <h1 className={`text-lg font-semibold mt-4 mb-2 first:mt-0 ${isUser ? 'text-primary-foreground' : 'text-foreground'}`}>{children}</h1>,
-                h2: ({ children }) => <h2 className={`text-md font-semibold mt-3 mb-2 first:mt-0 ${isUser ? 'text-primary-foreground' : 'text-foreground'}`}>{children}</h2>,
-                h3: ({ children }) => <h3 className={`text-sm font-semibold mt-3 mb-1 first:mt-0 ${isUser ? 'text-primary-foreground' : 'text-foreground'}`}>{children}</h3>,
-                p: ({ children }) => <p className={`text-sm leading-relaxed mb-2 last:mb-0 ${isUser ? 'text-primary-foreground' : 'text-muted-foreground'}`}>{children}</p>,
-                ul: ({ children }) => <ul className={`list-disc list-inside space-y-1 my-2 text-sm ${isUser ? 'text-primary-foreground' : 'text-muted-foreground'}`}>{children}</ul>,
-                ol: ({ children }) => <ol className={`list-decimal list-inside space-y-1 my-2 text-sm ${isUser ? 'text-primary-foreground' : 'text-muted-foreground'}`}>{children}</ol>,
-                li: ({ children }) => <li className={`text-sm ${isUser ? 'text-primary-foreground' : 'text-muted-foreground'}`}>{children}</li>,
-                strong: ({ children }) => <strong className={`font-semibold ${isUser ? 'text-primary-foreground' : 'text-foreground'}`}>{children}</strong>,
-                em: ({ children }) => <em className={`italic ${isUser ? 'text-primary-foreground/90' : 'text-muted-foreground'}`}>{children}</em>,
+                h1: ({ children }) => <h1 className={`text-lg font-semibold mt-4 mb-2 first:mt-0 ${isUser ? 'text-white' : 'text-foreground'}`}>{children}</h1>,
+                h2: ({ children }) => <h2 className={`text-md font-semibold mt-3 mb-2 first:mt-0 ${isUser ? 'text-white' : 'text-foreground'}`}>{children}</h2>,
+                h3: ({ children }) => <h3 className={`text-sm font-semibold mt-3 mb-1 first:mt-0 ${isUser ? 'text-white' : 'text-foreground'}`}>{children}</h3>,
+                p: ({ children }) => <p className={`text-sm leading-relaxed mb-2 last:mb-0 ${isUser ? 'text-white' : 'text-muted-foreground'}`}>{children}</p>,
+                ul: ({ children }) => <ul className={`list-disc list-inside space-y-1 my-2 text-sm ${isUser ? 'text-white' : 'text-muted-foreground'}`}>{children}</ul>,
+                ol: ({ children }) => <ol className={`list-decimal list-inside space-y-1 my-2 text-sm ${isUser ? 'text-white' : 'text-muted-foreground'}`}>{children}</ol>,
+                li: ({ children }) => <li className={`text-sm ${isUser ? 'text-white' : 'text-muted-foreground'}`}>{children}</li>,
+                strong: ({ children }) => <strong className={`font-semibold ${isUser ? 'text-white' : 'text-foreground'}`}>{children}</strong>,
+                em: ({ children }) => <em className={`italic ${isUser ? 'text-white/90' : 'text-muted-foreground'}`}>{children}</em>,
                 code: ({ children, className }) => {
                   const isInline = !className;
                   return isInline ? (
-                    <code className={`px-1 py-0.5 rounded text-xs font-mono border ${isUser ? 'bg-primary-foreground/20 text-primary-foreground border-primary-foreground/30' : 'bg-muted text-foreground border-border'}`}>{children}</code>
+                    <code className={`px-1 py-0.5 rounded text-xs font-mono border ${isUser ? 'bg-white/20 text-white border-white/30' : 'bg-muted text-foreground border-border'}`}>{children}</code>
                   ) : (
                     <code className={className}>{children}</code>
                   );
                 },
                 pre: ({ children }) => (
-                  <pre className={`border rounded-md p-3 my-2 overflow-x-auto text-xs ${isUser ? 'bg-primary-foreground/10 border-primary-foreground/20 text-primary-foreground' : 'bg-muted border-border'}`}>
+                  <pre className={`border rounded-md p-3 my-2 overflow-x-auto text-xs ${isUser ? 'bg-white/10 border-white/20 text-white' : 'bg-muted border-border'}`}>
                     {children}
                   </pre>
                 ),
                 blockquote: ({ children }) => (
-                  <blockquote className={`border-l-4 pl-4 my-2 italic py-2 rounded-r ${isUser ? 'border-primary-foreground/40 text-primary-foreground/90 bg-primary-foreground/10' : 'border-primary text-muted-foreground bg-primary/5'}`}>
+                  <blockquote className={`border-l-4 pl-4 my-2 italic py-2 rounded-r ${isUser ? 'border-white/40 text-white/90 bg-white/10' : 'border-primary text-muted-foreground bg-primary/5'}`}>
                     {children}
                   </blockquote>
                 ),
                 a: ({ children, href }) => (
-                  <a href={href} className={`underline ${isUser ? 'text-primary-foreground hover:text-primary-foreground/80' : 'text-primary hover:text-primary/80'}`} target="_blank" rel="noopener noreferrer">
+                  <a href={href} className={`underline ${isUser ? 'text-white hover:text-white/80' : 'text-primary hover:text-primary/80'}`} target="_blank" rel="noopener noreferrer">
                     {children}
                   </a>
                 ),
                 table: ({ children }) => (
                   <div className="overflow-x-auto my-2">
-                    <table className={`min-w-full border text-xs ${isUser ? 'border-primary-foreground/20' : 'border-border'}`}>
+                    <table className={`min-w-full border text-xs ${isUser ? 'border-white/20' : 'border-border'}`}>
                       {children}
                     </table>
                   </div>
                 ),
-                thead: ({ children }) => <thead className={isUser ? 'bg-primary-foreground/10' : 'bg-muted'}>{children}</thead>,
-                tbody: ({ children }) => <tbody className={`divide-y ${isUser ? 'divide-primary-foreground/20' : 'divide-border'}`}>{children}</tbody>,
+                thead: ({ children }) => <thead className={isUser ? 'bg-white/10' : 'bg-muted'}>{children}</thead>,
+                tbody: ({ children }) => <tbody className={`divide-y ${isUser ? 'divide-white/20' : 'divide-border'}`}>{children}</tbody>,
                 tr: ({ children }) => <tr>{children}</tr>,
-                th: ({ children }) => <th className={`px-2 py-1 text-left font-semibold border-b ${isUser ? 'text-primary-foreground border-primary-foreground/20' : 'text-foreground border-border'}`}>{children}</th>,
-                td: ({ children }) => <td className={`px-2 py-1 border-b ${isUser ? 'text-primary-foreground border-primary-foreground/20' : 'text-muted-foreground border-border/50'}`}>{children}</td>,
+                th: ({ children }) => <th className={`px-2 py-1 text-left font-semibold border-b ${isUser ? 'text-white border-white/20' : 'text-foreground border-border'}`}>{children}</th>,
+                td: ({ children }) => <td className={`px-2 py-1 border-b ${isUser ? 'text-white border-white/20' : 'text-muted-foreground border-border/50'}`}>{children}</td>,
               }}
             >
               {isUser ? parseMessageForDisplay(message.content) : message.content}
@@ -484,33 +595,54 @@ export default function AICoachSidebar({
 
             {/* Quick Help Actions */}
             <div className="flex-shrink-0 p-4 border-t border-border bg-muted/30">
-              <h4 className="text-xs font-semibold text-muted-foreground mb-3 uppercase tracking-wide">
-                {contextSummary 
-                  ? `${currentMode} ${contextSummary.conversationType} Help`
-                  : 'Quick Help'
-                }
-              </h4>
+              <div className="flex items-center justify-between mb-3">
+                <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                  {contextSummary 
+                    ? `${currentMode} ${contextSummary.conversationType} Help`
+                    : 'Quick Help'
+                  }
+                  {isGeneratingChips && (
+                    <span className="ml-2 text-xs text-blue-500 animate-pulse">
+                      • AI generating...
+                    </span>
+                  )}
+                </h4>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleRefreshChips}
+                  disabled={isGeneratingChips}
+                  className="h-6 w-6 p-0 text-muted-foreground hover:text-foreground"
+                  title="Refresh AI guidance suggestions"
+                >
+                  <RefreshCw className={`h-3 w-3 ${isGeneratingChips ? 'animate-spin' : ''}`} />
+                </Button>
+              </div>
               <div className="grid grid-cols-2 gap-2 mb-3">
-                {quickHelpButtons.slice(0, 4).map((help, idx) => (
+                {(dynamicChips.length > 0 ? dynamicChips : quickHelpButtons).slice(0, 4).map((help, idx) => (
                   <Button
-                    key={idx}
+                    key={`${help.text}-${idx}`}
                     variant="outline"
                     size="sm"
                     onClick={() => setNewMessage(help.prompt)}
-                    className="text-xs h-8 bg-card hover:bg-accent border-border justify-start"
+                    className={`text-xs h-8 bg-card hover:bg-accent border-border justify-start ${
+                      dynamicChips.length > 0 ? 'ring-1 ring-blue-200 dark:ring-blue-800' : ''
+                    }`}
                   >
                     {help.text}
                   </Button>
                 ))}
               </div>
               <div className="grid grid-cols-1 gap-1">
-                {quickHelpButtons.slice(4, 6).map((help, idx) => (
+                {(dynamicChips.length > 0 ? dynamicChips : quickHelpButtons).slice(4, 6).map((help, idx) => (
                   <Button
-                    key={idx + 4}
+                    key={`${help.text}-${idx + 4}`}
                     variant="outline"
                     size="sm"
                     onClick={() => setNewMessage(help.prompt)}
-                    className="text-xs h-7 bg-card hover:bg-accent border-border justify-start"
+                    className={`text-xs h-7 bg-card hover:bg-accent border-border justify-start ${
+                      dynamicChips.length > 0 ? 'ring-1 ring-blue-200 dark:ring-blue-800' : ''
+                    }`}
                   >
                     {help.text}
                   </Button>
@@ -551,13 +683,13 @@ export default function AICoachSidebar({
             <Button
               variant="ghost"
               size="sm"
-              className="text-gray-600 hover:text-gray-800 w-full justify-center h-8"
+              className="text-muted-foreground hover:text-foreground w-full justify-center h-8"
               onClick={() => setIsCollapsed(false)}
               title="Expand AI Coach"
             >
               <ChevronLeft className="h-4 w-4" />
             </Button>
-            <Brain className="h-8 w-8 text-blue-600" />
+            <Brain className="h-8 w-8 text-primary" />
             {isRecording && (
               <div className={`w-3 h-3 rounded-full ${status.color} ${status.pulse ? 'animate-pulse' : ''}`} />
             )}

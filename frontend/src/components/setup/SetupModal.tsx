@@ -241,38 +241,38 @@ export const SetupModal: React.FC<SetupModalProps> = ({
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.95, y: 20 }}
           transition={{ type: "spring", stiffness: 300, damping: 30 }}
-          className="relative bg-white/95 backdrop-blur-xl rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col border border-gray-200/50"
+          className="relative bg-card/95 backdrop-blur-xl rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col border border-border/50"
           tabIndex={-1}
           role="dialog"
           aria-modal="true"
           aria-labelledby="modal-title"
         >
           {/* Header */}
-          <div className="flex-shrink-0 px-8 py-6 border-b border-gray-200/50 bg-gradient-to-r from-blue-50/80 to-indigo-50/60 rounded-t-2xl">
+          <div className="flex-shrink-0 px-8 py-6 border-b border-border/50 bg-gradient-to-r from-muted/80 to-muted/60 rounded-t-2xl">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-4">
                 <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-lg">
                   <Settings2 className="w-7 h-7 text-white" />
                 </div>
                 <div>
-                  <h2 id="modal-title" className="text-2xl font-bold text-gray-900">Setup & Context</h2>
-                  <p className="text-sm text-gray-600 mt-1">Configure your conversation settings and add context</p>
+                  <h2 id="modal-title" className="text-2xl font-bold text-foreground">Setup & Context</h2>
+                  <p className="text-sm text-muted-foreground mt-1">Configure your conversation settings and add context</p>
                 </div>
               </div>
               <Button 
                 variant="ghost" 
                 size="sm" 
                 onClick={onClose} 
-                className="hover:bg-white/50 rounded-xl w-12 h-12 p-0 transition-all duration-200"
+                className="hover:bg-card/50 rounded-xl w-12 h-12 p-0 transition-all duration-200"
                 aria-label="Close modal"
               >
-                <X className="w-6 h-6 text-gray-600" />
+                <X className="w-6 h-6 text-muted-foreground" />
               </Button>
             </div>
           </div>
 
           {/* Tab Navigation */}
-          <div className="flex-shrink-0 bg-gray-50/70 backdrop-blur-sm border-b border-gray-200/50">
+          <div className="flex-shrink-0 bg-muted/70 backdrop-blur-sm border-b border-border/50">
             <div className="flex">
               {[
                 { id: 'setup', label: 'Setup', icon: Settings2 },
@@ -285,8 +285,8 @@ export const SetupModal: React.FC<SetupModalProps> = ({
                   className={cn(
                     "flex-1 flex items-center justify-center gap-3 px-6 py-4 text-sm font-medium transition-all relative min-h-[60px]",
                     activeTab === id
-                      ? "text-blue-600 bg-white/80 backdrop-blur-sm border-b-2 border-blue-500 shadow-sm"
-                      : "text-gray-600 hover:text-gray-900 hover:bg-white/40"
+                      ? "text-blue-600 bg-card/80 backdrop-blur-sm border-b-2 border-blue-500 shadow-sm"
+                      : "text-muted-foreground hover:text-foreground hover:bg-card/40"
                   )}
                 >
                   <Icon className="w-5 h-5" />
@@ -296,7 +296,7 @@ export const SetupModal: React.FC<SetupModalProps> = ({
                       "absolute -top-1 -right-1 w-6 h-6 rounded-full text-xs font-bold flex items-center justify-center shadow-sm",
                       activeTab === id 
                         ? "bg-blue-500 text-white" 
-                        : "bg-gray-500 text-white"
+                        : "bg-muted-foreground text-white"
                     )}>
                       {badge}
                     </span>
@@ -313,7 +313,7 @@ export const SetupModal: React.FC<SetupModalProps> = ({
               <div className="p-8 space-y-8">
                 {/* Conversation Title */}
                 <div className="space-y-3">
-                  <label htmlFor="convTitle" className="text-sm font-semibold text-gray-900 flex items-center gap-2">
+                  <label htmlFor="convTitle" className="text-sm font-semibold text-foreground flex items-center gap-2">
                     <div className="w-6 h-6 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-500 flex items-center justify-center">
                       <MessageSquare className="w-3 h-3 text-white" />
                     </div>
@@ -325,14 +325,14 @@ export const SetupModal: React.FC<SetupModalProps> = ({
                     value={conversationTitle} 
                     onChange={(e) => setConversationTitle(e.target.value)} 
                     placeholder="E.g., Sales Call with Acme Corp"
-                    className="w-full px-4 py-3 bg-white border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all text-sm shadow-sm"
+                    className="w-full px-4 py-3 bg-card border-2 border-border rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all text-sm shadow-sm"
                     disabled={conversationState === 'recording' || conversationState === 'paused'}
                   />
                 </div>
 
                 {/* Conversation Type */}
                 <div className="space-y-3">
-                  <label htmlFor="convType" className="text-sm font-semibold text-gray-900 flex items-center gap-2">
+                  <label htmlFor="convType" className="text-sm font-semibold text-foreground flex items-center gap-2">
                     <div className="w-6 h-6 rounded-lg bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center">
                       <Sparkles className="w-3 h-3 text-white" />
                     </div>
@@ -348,13 +348,13 @@ export const SetupModal: React.FC<SetupModalProps> = ({
                           "flex items-center gap-3 p-4 rounded-xl border-2 transition-all text-sm font-medium text-left",
                           conversationType === value
                             ? `${color} border-current shadow-md`
-                            : "text-gray-600 bg-gray-50 border-gray-200 hover:bg-gray-100",
+                            : "text-muted-foreground bg-muted border-border hover:bg-muted/80",
                           (conversationState === 'recording' || conversationState === 'paused') && "opacity-50 cursor-not-allowed"
                         )}
                       >
                         <div className={cn(
                           "w-10 h-10 rounded-xl flex items-center justify-center",
-                          conversationType === value ? color : "bg-gray-100 text-gray-500"
+                          conversationType === value ? color : "bg-muted text-muted-foreground"
                         )}>
                           <Icon className="w-5 h-5" />
                         </div>
@@ -366,7 +366,7 @@ export const SetupModal: React.FC<SetupModalProps> = ({
 
                 {/* Background Notes */}
                 <div className="space-y-3">
-                  <label htmlFor="textContext" className="text-sm font-semibold text-gray-900 flex items-center gap-2">
+                  <label htmlFor="textContext" className="text-sm font-semibold text-foreground flex items-center gap-2">
                     <div className="w-6 h-6 rounded-lg bg-gradient-to-br from-green-500 to-emerald-500 flex items-center justify-center">
                       <FileText className="w-3 h-3 text-white" />
                     </div>
@@ -378,35 +378,35 @@ export const SetupModal: React.FC<SetupModalProps> = ({
                     onChange={(e) => handleTextContextChange(e.target.value)} 
                     placeholder="Add key talking points, goals, context, or background information to help AI provide better guidance..."
                     rows={6} 
-                    className="w-full px-4 py-3 bg-white border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all resize-none text-sm shadow-sm"
+                    className="w-full px-4 py-3 bg-card border-2 border-border rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all resize-none text-sm shadow-sm"
                     disabled={conversationState === 'recording' || conversationState === 'paused'}
                   />
-                  <div className="flex items-center gap-2 p-3 bg-blue-50 rounded-lg border border-blue-200">
+                  <div className="flex items-center gap-2 p-3 bg-blue-50 dark:bg-blue-950/20 rounded-lg border border-blue-200 dark:border-blue-800">
                     <span className="text-blue-500">💡</span>
-                    <p className="text-xs text-blue-700">
+                    <p className="text-xs text-blue-700 dark:text-blue-300">
                       Tip: The more context you provide, the better AI can assist you during the conversation
                     </p>
                   </div>
                 </div>
 
                 {/* Options Row */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4 border-t border-gray-200">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4 border-t border-border">
                   {/* Audio Toggle */}
-                  <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl border border-gray-200">
+                  <div className="flex items-center justify-between p-4 bg-muted rounded-xl border border-border">
                     <div className="flex items-center gap-3">
                       <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-blue-500 flex items-center justify-center">
                         <span className="text-white">🎵</span>
                       </div>
                       <div>
-                        <h4 className="text-sm font-semibold text-gray-900">Audio Recording</h4>
-                        <p className="text-xs text-gray-600">Enable microphone for transcription</p>
+                        <h4 className="text-sm font-semibold text-foreground">Audio Recording</h4>
+                        <p className="text-xs text-muted-foreground">Enable microphone for transcription</p>
                       </div>
                     </div>
                     <button
                       onClick={() => setAudioEnabled(!audioEnabled)}
                       className={cn(
                         "relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2",
-                        audioEnabled ? "bg-blue-600" : "bg-gray-200"
+                        audioEnabled ? "bg-blue-600" : "bg-muted-foreground"
                       )}
                       disabled={conversationState === 'recording' || conversationState === 'paused'}
                     >
@@ -421,21 +421,21 @@ export const SetupModal: React.FC<SetupModalProps> = ({
 
                   {/* Reset Session */}
                   {(transcript.length > 0 || sessionDuration > 0) && (
-                    <div className="flex items-center justify-between p-4 bg-red-50 rounded-xl border border-red-200">
+                    <div className="flex items-center justify-between p-4 bg-red-50 dark:bg-red-950/20 rounded-xl border border-red-200 dark:border-red-800">
                       <div className="flex items-center gap-3">
                         <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-red-500 to-pink-500 flex items-center justify-center">
                           <RotateCcw className="w-5 h-5 text-white" />
                         </div>
                         <div>
-                          <h4 className="text-sm font-semibold text-gray-900">Reset Session</h4>
-                          <p className="text-xs text-gray-600">Clear all data and start fresh</p>
+                          <h4 className="text-sm font-semibold text-foreground">Reset Session</h4>
+                          <p className="text-xs text-muted-foreground">Clear all data and start fresh</p>
                         </div>
                       </div>
                       <Button
                         variant="ghost"
                         size="sm"
                         onClick={handleResetSession}
-                        className="text-red-600 hover:bg-red-100 hover:text-red-700"
+                        className="text-red-600 hover:bg-red-100 dark:hover:bg-red-950/50 hover:text-red-700"
                         disabled={conversationState === 'recording' || conversationState === 'paused'}
                       >
                         Reset
@@ -450,13 +450,13 @@ export const SetupModal: React.FC<SetupModalProps> = ({
             {ENABLE_DOCUMENT_UPLOAD && activeTab === 'files' && (
               <div className="p-8 space-y-6">
                 <div>
-                  <h3 className="text-lg font-semibold text-gray-900 mb-2 flex items-center gap-2">
+                  <h3 className="text-lg font-semibold text-foreground mb-2 flex items-center gap-2">
                     <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center shadow-sm">
                       <FileText className="w-4 h-4 text-white" />
                     </div>
                     Context Documents
                   </h3>
-                  <p className="text-sm text-gray-600 mb-6">
+                  <p className="text-sm text-muted-foreground mb-6">
                     Upload documents to provide additional context for AI guidance. Text will be extracted and processed automatically.
                   </p>
                   
@@ -468,8 +468,8 @@ export const SetupModal: React.FC<SetupModalProps> = ({
                     className={cn(
                       "border-2 border-dashed rounded-xl p-8 text-center transition-all duration-200",
                       dragOver 
-                        ? "border-blue-500 bg-blue-50" 
-                        : "border-gray-300 bg-gray-50/50 hover:bg-gray-50"
+                        ? "border-blue-500 bg-blue-50 dark:bg-blue-950/20" 
+                        : "border-border bg-muted/50 hover:bg-muted/80"
                     )}
                   >
                     <input
@@ -487,10 +487,10 @@ export const SetupModal: React.FC<SetupModalProps> = ({
                           <UploadCloud className="w-8 h-8 text-white" />
                         </div>
                         <div>
-                          <p className="text-lg font-medium text-gray-900">
+                          <p className="text-lg font-medium text-foreground">
                             {dragOver ? 'Drop files here' : 'Drop files here or click to upload'}
                           </p>
-                          <p className="text-sm text-gray-600 mt-1">
+                          <p className="text-sm text-muted-foreground mt-1">
                             Supports: PDF, DOC, DOCX, TXT, CSV, JSON, Images (max 10MB each)
                           </p>
                         </div>
@@ -509,18 +509,18 @@ export const SetupModal: React.FC<SetupModalProps> = ({
                   {/* Enhanced Uploaded Files List */}
                   {uploadedFiles.length > 0 && (
                     <div className="mt-6 space-y-2">
-                      <h4 className="text-sm font-semibold text-gray-900 flex items-center gap-2">
+                      <h4 className="text-sm font-semibold text-foreground flex items-center gap-2">
                         <CheckCircle className="w-4 h-4 text-green-500" />
                         Uploaded Files ({uploadedFiles.length})
                       </h4>
                       <div className="space-y-3 max-h-60 overflow-y-auto">
                         {uploadedFiles.map((file, index) => (
-                          <div key={index} className="flex items-center justify-between p-4 bg-white rounded-lg border border-gray-200 shadow-sm">
+                          <div key={index} className="flex items-center justify-between p-4 bg-card rounded-lg border border-border shadow-sm">
                             <div className="flex items-center space-x-3 flex-1">
                               <DocumentTextIcon className="w-5 h-5 text-blue-500" />
                               <div className="flex-1">
-                                <p className="text-sm font-medium text-gray-900 truncate max-w-xs">{file.name}</p>
-                                <p className="text-xs text-gray-500">
+                                <p className="text-sm font-medium text-foreground truncate max-w-xs">{file.name}</p>
+                                <p className="text-xs text-gray-600">
                                   {(file.size / 1024 / 1024).toFixed(2)} MB • {file.type}
                                 </p>
                                 
@@ -579,7 +579,7 @@ export const SetupModal: React.FC<SetupModalProps> = ({
             {activeTab === 'previous' && (
               <div className="p-8 space-y-6">
                 <div>
-                  <h3 className="text-lg font-semibold text-gray-900 mb-2 flex items-center gap-2">
+                  <h3 className="text-lg font-semibold text-foreground mb-2 flex items-center gap-2">
                     <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-green-500 to-emerald-500 flex items-center justify-center shadow-sm">
                       <Clock className="w-4 h-4 text-white" />
                     </div>
@@ -597,7 +597,7 @@ export const SetupModal: React.FC<SetupModalProps> = ({
                       value={previousConversationSearch}
                       onChange={(e) => setPreviousConversationSearch(e.target.value)}
                       placeholder="Search conversations by title or type..."
-                      className="w-full pl-10 pr-4 py-3 bg-white border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all text-sm shadow-sm"
+                      className="w-full pl-10 pr-4 py-3 bg-card border-2 border-border rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all text-sm shadow-sm"
                     />
                   </div>
 
@@ -605,19 +605,19 @@ export const SetupModal: React.FC<SetupModalProps> = ({
                   {sessionsLoading ? (
                     <div className="text-center py-12">
                       <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-500 mx-auto"></div>
-                      <p className="text-sm text-gray-600 mt-3">Loading conversations...</p>
+                      <p className="text-sm text-muted-foreground mt-3">Loading conversations...</p>
                     </div>
                   ) : filteredPreviousSessions.length === 0 ? (
                     <div className="text-center py-12">
-                      <Clock className="w-16 h-16 mx-auto text-gray-300 mb-4" />
-                      <p className="text-sm text-gray-600">
+                      <Clock className="w-16 h-16 mx-auto text-muted-foreground mb-4" />
+                      <p className="text-sm text-muted-foreground">
                         {previousConversationSearch ? 'No conversations match your search' : 'No previous conversations found'}
                       </p>
                     </div>
                   ) : (
                     <div className="space-y-3">
                       <div className="flex items-center justify-between mb-4">
-                        <h4 className="text-sm font-semibold text-gray-900">
+                        <h4 className="text-sm font-semibold text-foreground">
                           Select for Context ({selectedPreviousConversations.length} selected)
                         </h4>
                       </div>
@@ -632,20 +632,20 @@ export const SetupModal: React.FC<SetupModalProps> = ({
                               className={cn(
                                 "p-4 rounded-xl border-2 transition-all cursor-pointer",
                                 isSelected 
-                                  ? "border-blue-500 bg-blue-50 shadow-md" 
-                                  : "border-gray-200 hover:border-gray-300 hover:bg-gray-50"
+                                  ? "border-blue-500 bg-blue-50 dark:bg-blue-950/20 shadow-md" 
+                                  : "border-border hover:border-border/80 hover:bg-muted/50"
                               )}
                             >
                               <div className="flex items-center justify-between">
                                 <div className="flex-1">
                                   <div className="flex items-center gap-3 mb-2">
-                                    <h4 className="text-sm font-semibold text-gray-900 truncate">
+                                    <h4 className="text-sm font-semibold text-foreground truncate">
                                       {session.title}
                                     </h4>
                                     {isSelected && <CheckCircle className="w-5 h-5 text-blue-500 flex-shrink-0" />}
                                   </div>
-                                  <div className="flex items-center gap-4 text-xs text-gray-500">
-                                    <span className="bg-gray-100 px-2 py-1 rounded-md capitalize">
+                                  <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                                    <span className="bg-muted px-2 py-1 rounded-md capitalize">
                                       {session.conversation_type}
                                     </span>
                                     <span>
@@ -672,9 +672,9 @@ export const SetupModal: React.FC<SetupModalProps> = ({
           </div>
 
           {/* Footer */}
-          <div className="flex-shrink-0 px-8 py-6 border-t border-gray-200/50 bg-gray-50/50 rounded-b-2xl">
+          <div className="flex-shrink-0 px-8 py-6 border-t border-border/50 bg-muted/50 rounded-b-2xl">
             <div className="flex items-center justify-between">
-              <div className="text-sm text-gray-600">
+              <div className="text-sm text-muted-foreground">
                 {activeTab === 'setup' && "Configure your conversation settings"}
                 {activeTab === 'files' && `${uploadedFiles.length} file${uploadedFiles.length !== 1 ? 's' : ''} uploaded`}
                 {activeTab === 'previous' && `${selectedPreviousConversations.length} conversation${selectedPreviousConversations.length !== 1 ? 's' : ''} selected`}

@@ -632,24 +632,76 @@ export default function App() {
 
             if (response.ok) {
               const { session: detailedSession } = await response.json();
-              const summary = detailedSession.summaries?.[0];
+              const summaries = detailedSession.summaries || [];
               
               let contextContent = `Previous conversation: "${detailedSession.title}"\n`;
               contextContent += `Type: ${detailedSession.conversation_type}\n`;
               contextContent += `Date: ${new Date(detailedSession.created_at).toLocaleDateString()}\n`;
-              contextContent += `Duration: ${detailedSession.recording_duration_seconds ? Math.round(detailedSession.recording_duration_seconds / 60) : '?'} minutes\n`;
+              contextContent += `Duration: ${detailedSession.recording_duration_seconds ? Math.round(detailedSession.recording_duration_seconds / 60) : '?'} minutes\n\n`;
               
-              if (summary && summary.tldr) {
-                contextContent += `\nSummary: ${summary.tldr}\n`;
+              // Extract comprehensive summary data from summaries table
+              if (summaries.length > 0) {
+                const latestSummary = summaries[0]; // Most recent summary
+                
+                contextContent += `=== CONVERSATION SUMMARY ===\n`;
+                
+                if (latestSummary.tldr) {
+                  contextContent += `TL;DR: ${latestSummary.tldr}\n\n`;
+                }
+                
+                if (latestSummary.key_points && Array.isArray(latestSummary.key_points) && latestSummary.key_points.length > 0) {
+                  contextContent += `KEY POINTS:\n`;
+                  latestSummary.key_points.forEach((point: string, idx: number) => {
+                    contextContent += `${idx + 1}. ${point}\n`;
+                  });
+                  contextContent += `\n`;
+                }
+                
+                if (latestSummary.topics && Array.isArray(latestSummary.topics) && latestSummary.topics.length > 0) {
+                  contextContent += `TOPICS DISCUSSED: ${latestSummary.topics.join(', ')}\n\n`;
+                }
+                
+                if (latestSummary.decisions && Array.isArray(latestSummary.decisions) && latestSummary.decisions.length > 0) {
+                  contextContent += `DECISIONS MADE:\n`;
+                  latestSummary.decisions.forEach((decision: string, idx: number) => {
+                    contextContent += `${idx + 1}. ${decision}\n`;
+                  });
+                  contextContent += `\n`;
+                }
+                
+                if (latestSummary.action_items && Array.isArray(latestSummary.action_items) && latestSummary.action_items.length > 0) {
+                  contextContent += `ACTION ITEMS:\n`;
+                  latestSummary.action_items.forEach((item: string, idx: number) => {
+                    contextContent += `${idx + 1}. ${item}\n`;
+                  });
+                  contextContent += `\n`;
+                }
+                
+                if (latestSummary.next_steps && Array.isArray(latestSummary.next_steps) && latestSummary.next_steps.length > 0) {
+                  contextContent += `NEXT STEPS:\n`;
+                  latestSummary.next_steps.forEach((step: string, idx: number) => {
+                    contextContent += `${idx + 1}. ${step}\n`;
+                  });
+                  contextContent += `\n`;
+                }
+                
+                if (latestSummary.sentiment) {
+                  contextContent += `SENTIMENT: ${latestSummary.sentiment}\n`;
+                }
+                
+                if (latestSummary.progress_status) {
+                  contextContent += `PROGRESS STATUS: ${latestSummary.progress_status}\n`;
+                }
+                
+                contextContent += `\n=== END SUMMARY ===\n\n`;
+              } else if (detailedSession.transcripts && detailedSession.transcripts.length > 0) {
+                contextContent += `Transcript available but no summary generated yet.\n`;
+                contextContent += `Total transcript lines: ${detailedSession.transcripts.length}\n\n`;
               }
               
-              if (detailedSession.transcripts && detailedSession.transcripts.length > 0) {
-                contextContent += `\nTranscript data available for context\n`;
-              }
-              
-              contextContent += `\nThis context helps provide continuity for the current conversation.`;
+              contextContent += `This previous conversation context helps provide continuity and relevant background for the current conversation.`;
 
-              // Update the context with detailed information
+              // Update the context with detailed summary information
               addContext({
                 id: `previous_${sessionItem.id}`,
                 name: `Previous: ${detailedSession.title}`,
@@ -657,6 +709,8 @@ export default function App() {
                 content: contextContent,
                 uploadedAt: new Date(detailedSession.created_at)
               });
+              
+              console.log(`✅ Integrated detailed summary for: ${detailedSession.title}`);
             }
           } catch (error) {
             console.error(`Error fetching summary for session ${sessionItem.id}:`, error);
@@ -665,7 +719,7 @@ export default function App() {
               id: `previous_${sessionItem.id}`,
               name: `Previous: ${sessionItem.title}`,
               type: 'txt',
-              content: `Previous conversation summary:\nTitle: ${sessionItem.title}\nType: ${sessionItem.conversation_type}\nDate: ${new Date(sessionItem.created_at).toLocaleDateString()}\nSummary: This was a ${sessionItem.conversation_type} conversation that took place on ${new Date(sessionItem.created_at).toLocaleDateString()}. Context will be retrieved from the session summary when available.`,
+              content: `Previous conversation summary:\nTitle: ${sessionItem.title}\nType: ${sessionItem.conversation_type}\nDate: ${new Date(sessionItem.created_at).toLocaleDateString()}\nNote: Detailed summary could not be retrieved, but this conversation is available for context.`,
               uploadedAt: new Date(sessionItem.created_at)
             });
           }
@@ -1070,6 +1124,12 @@ export default function App() {
       // Force the tab to summary view during processing
       setActiveTab('summary');
       
+      // Ensure transcript is saved to database before finalizing
+      if (conversationId && transcript.length > 0 && session) {
+        console.log('💾 Saving final transcript to database...');
+        await saveTranscriptToDatabase(conversationId, transcript, session);
+      }
+      
       // Trigger a final summary refresh to ensure we have the most up-to-date summary
       await refreshSummary();
       
@@ -1079,9 +1139,11 @@ export default function App() {
       // Generate and save final summary to database
       if (conversationId && session) {
         try {
+          console.log('🔄 Calling finalize API...');
           const response = await authenticatedFetch(`/api/sessions/${conversationId}/finalize`, session, {
             method: 'POST',
             body: JSON.stringify({
+              textContext,
               conversationType,
               conversationTitle
             })
@@ -1091,7 +1153,8 @@ export default function App() {
             const { summary: finalSummary } = await response.json();
             console.log('✅ Final summary generated and saved:', finalSummary);
           } else {
-            console.error('❌ Failed to generate final summary:', await response.text());
+            const errorText = await response.text();
+            console.error('❌ Failed to generate final summary:', errorText);
           }
         } catch (finalSummaryError) {
           console.error('❌ Error generating final summary:', finalSummaryError);
@@ -1219,38 +1282,45 @@ export default function App() {
 
   // UI Render
   return (
-    <div className={cn("min-h-screen flex flex-col", isFullscreen ? 'h-screen overflow-hidden' : '')}>
+    <div className={cn("h-screen flex flex-col overflow-hidden", isFullscreen ? 'h-screen overflow-hidden' : '')}>
       {/* Header */}
       {!isFullscreen && (
-        <header className="bg-card/80 backdrop-blur-sm border-b border-border shadow-sm z-40 flex-shrink-0">
-          <div className="px-4 sm:px-6 lg:px-8 py-3">
+        <header className="bg-card/95 backdrop-blur-md border-b border-border shadow-lg z-40 flex-shrink-0">
+          <div className="px-4 sm:px-6 lg:px-8 py-4">
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-4">
-                <Link href="/dashboard" className="flex items-center gap-2 text-muted-foreground hover:text-app-primary transition-colors">
-                  <ArrowLeft className="w-5 h-5" />
+              <div className="flex items-center gap-6">
+                <Link href="/dashboard" className="flex items-center gap-2 text-muted-foreground hover:text-primary transition-colors group">
+                  <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
                   <span className="text-sm font-medium">Dashboard</span>
                 </Link>
 
-                <div className="h-8 w-px bg-border hidden sm:block"></div>
+                <div className="h-6 w-px bg-border"></div>
 
-            <div className="flex items-center gap-3">
-                  <Brain className="w-7 h-7 text-app-primary" />
+                <div className="flex items-center gap-4">
                   <div className="min-w-0 flex-1">
-                    <h1 className="font-semibold text-foreground text-lg truncate" title={conversationTitle}>{conversationTitle}</h1>
-                    <div className={cn("flex items-center gap-2 text-sm font-medium px-2 py-0.5 rounded-full", stateColorClass)}>
-                      {StateIcon && <StateIcon className="w-3.5 h-3.5" />}
-                      <span>{stateText}</span>
-                      {conversationState === 'recording' && <span className="font-mono">{formatDuration(sessionDuration)}</span>}
+                    <div className="flex items-center gap-3">
+                      <h1 className="font-bold text-foreground text-xl truncate leading-tight" title={conversationTitle}>
+                        {conversationTitle}
+                      </h1>
+                      <div className={cn("flex items-center gap-1 text-xs font-medium px-2 py-1 rounded-full", stateColorClass)}>
+                        {StateIcon && <StateIcon className="w-3 h-3" />}
+                        <span>{stateText}</span>
+                        {conversationState === 'recording' && (
+                          <span className="font-mono text-xs bg-black/10 dark:bg-white/10 px-1.5 py-0.5 rounded-md ml-1">
+                            {formatDuration(sessionDuration)}
+                          </span>
+                        )}
+                      </div>
                     </div>
                   </div>
                   
-                  {/* Dedicated Recording Controls */}
-                  <div className="hidden sm:flex items-center gap-2 ml-4">
+                  {/* Enhanced Recording Controls */}
+                  <div className="hidden sm:flex items-center gap-3 ml-6">
                     {(conversationState === 'setup' || conversationState === 'ready') && (
                       <Button 
                         onClick={conversationState === 'setup' ? () => { if (textContext) addUserContext(textContext); setConversationState('ready'); } : handleStartRecording}
-                        size="sm" 
-                        className="bg-green-600 hover:bg-green-700 text-white"
+                        size="md" 
+                        className="bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg font-semibold px-6"
                       >
                         <Mic className="w-4 h-4 mr-2" />
                         {conversationState === 'setup' ? 'Get Ready' : 'Start Recording'}
@@ -1261,17 +1331,17 @@ export default function App() {
                       <>
                         <Button 
                           onClick={handlePauseRecording}
-                          size="sm" 
+                          size="md" 
                           variant="outline"
-                          className="border-yellow-500 text-yellow-600 hover:bg-yellow-50"
+                          className="border-2 border-yellow-500 text-yellow-600 hover:bg-yellow-50 dark:hover:bg-yellow-950/20 font-semibold"
                         >
                           <PauseCircle className="w-4 h-4 mr-2" />
                           Pause
                         </Button>
                         <Button 
                           onClick={handleEndConversationAndFinalize}
-                          size="sm" 
-                          className="bg-blue-600 hover:bg-blue-700 text-white"
+                          size="md" 
+                          className="bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg font-semibold"
                         >
                           <FileText className="w-4 h-4 mr-2" />
                           End & Finalize
@@ -1283,16 +1353,16 @@ export default function App() {
                       <>
                         <Button 
                           onClick={handleResumeRecording}
-                          size="sm" 
-                          className="bg-green-600 hover:bg-green-700 text-white"
+                          size="md" 
+                          className="bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg font-semibold"
                         >
                           <Play className="w-4 h-4 mr-2" />
                           Resume
                         </Button>
                         <Button 
                           onClick={handleEndConversationAndFinalize}
-                          size="sm" 
-                          className="bg-blue-600 hover:bg-blue-700 text-white"
+                          size="md" 
+                          className="bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg font-semibold"
                         >
                           <FileText className="w-4 h-4 mr-2" />
                           End & Finalize
@@ -1303,38 +1373,31 @@ export default function App() {
                     {(conversationState === 'completed' || conversationState === 'error') && (
                       <Button 
                         onClick={handleResetSession}
-                        size="sm" 
+                        size="md" 
                         variant="outline"
+                        className="border-2 border-border hover:bg-accent font-semibold"
                       >
                         <RotateCcw className="w-4 h-4 mr-2" />
                         New Session
                       </Button>
                     )}
                   </div>
+                </div>
               </div>
-            </div>
             
-              <div className="flex items-center gap-1">
-                <Button variant="ghost" size="sm" onClick={() => setShowContextPanel(!showContextPanel)} title={showContextPanel ? "Hide Setup & Context" : "Show Setup & Context"} className="hover:bg-accent p-2">
+              <div className="flex items-center gap-2">
+                <Button variant="ghost" size="sm" onClick={() => setShowContextPanel(!showContextPanel)} title={showContextPanel ? "Hide Setup & Context" : "Show Setup & Context"} className="hover:bg-accent/80 p-2 rounded-lg">
                   <Settings2 className="w-5 h-5" />
                 </Button>
-                <Button variant="ghost" size="sm" onClick={() => setAudioEnabled(!audioEnabled)} title={audioEnabled ? "Mute Audio Feedback" : "Unmute Audio Feedback"} className={cn(audioEnabled ? 'text-app-primary' : 'text-muted-foreground', "hover:bg-accent p-2")} >
+                <Button variant="ghost" size="sm" onClick={() => setAudioEnabled(!audioEnabled)} title={audioEnabled ? "Mute Audio Feedback" : "Unmute Audio Feedback"} className={cn(audioEnabled ? 'text-primary' : 'text-muted-foreground', "hover:bg-accent/80 p-2 rounded-lg")} >
                   {audioEnabled ? <Volume2 className="w-5 h-5" /> : <VolumeX className="w-5 h-5" />}
-              </Button>
-                <Button variant="ghost" size="sm" onClick={() => setIsFullscreen(!isFullscreen)} title={isFullscreen ? "Exit Fullscreen" : "Enter Fullscreen"} className="hover:bg-accent p-2">
-                  {isFullscreen ? <Minimize2 className="w-5 h-5" /> : <Maximize2 className="w-5 h-5" />}
-              </Button>
-                <Button variant="ghost" size="sm" onClick={() => setShowTranscriptModal(true)} title="View Transcript" className="hover:bg-accent p-2">
+                </Button>
+                <Button variant="ghost" size="sm" onClick={() => setShowTranscriptModal(true)} title="View Transcript" className="hover:bg-accent/80 p-2 rounded-lg">
                   <FileText className="w-5 h-5" />
                 </Button>
-                <Button variant="ghost" size="sm" onClick={handleGenerateGuidance} title="Generate Guidance" className="hover:bg-accent p-2">
-                  <Lightbulb className="w-5 h-5" />
-                </Button>
-                <Button variant="ghost" size="sm" title="Notifications" className="hover:bg-accent p-2">
-                  <Bell className="w-5 h-5" />
-                </Button>
+                <div className="h-6 w-px bg-border mx-1"></div>
                 <ThemeToggle />
-                <Button variant="ghost" size="sm" title="User Settings" className="hover:bg-accent p-2">
+                <Button variant="ghost" size="sm" title="User Settings" className="hover:bg-accent/80 p-2 rounded-lg">
                   <User className="w-5 h-5" />
                 </Button>
               </div>
@@ -1344,7 +1407,7 @@ export default function App() {
       )}
 
       {/* Main Interface Area */}
-      <main className={cn("flex-1 flex overflow-hidden", isFullscreen ? 'h-screen' : 'h-screen')}>
+      <main className={cn("flex-1 flex overflow-hidden min-h-0", isFullscreen ? 'h-full' : 'h-full')}>
         
         {/* Setup & Context Modal */}
         <SetupModal
@@ -1414,6 +1477,7 @@ export default function App() {
 
               {/* Main Content Area - Now using extracted component */}
             {(conversationState === 'ready' || conversationState === 'recording' || conversationState === 'paused' || conversationState === 'processing' || conversationState === 'completed') && (
+              <div className="h-full max-h-full overflow-hidden">
                 <ConversationContent
                   activeTab={activeTab}
                   setActiveTab={setActiveTab}
@@ -1435,9 +1499,11 @@ export default function App() {
                   handleStartRecording={handleStartRecording}
                   handleExportSession={handleExportSession}
                 />
+              </div>
             )}
-                        </div>
-                        
+          </div>
+          </div>
+          
           {/* AI Coach Sidebar - Always visible, resizable */}
           <AICoachSidebar
             isRecording={conversationState === 'recording'}
@@ -1459,8 +1525,7 @@ export default function App() {
             transcriptLength={transcript.length}
             conversationState={conversationState}
           />
-                        </div>
-                </div>
+        </div>
       </main>
 
       {/* Transcript Modal */}
