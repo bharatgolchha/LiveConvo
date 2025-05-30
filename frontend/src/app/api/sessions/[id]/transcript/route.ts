@@ -22,6 +22,74 @@ const transcriptPostSchema = z.array(transcriptLineSchema);
 type TranscriptLineInput = z.infer<typeof transcriptLineSchema>;
 
 /**
+ * GET /api/sessions/[id]/transcript - Retrieve transcript lines for a session
+ */
+export async function GET(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id: sessionId } = await params;
+
+    // Get current user from Supabase auth using the access token
+    const authHeader = request.headers.get('authorization');
+    const token = authHeader?.split(' ')[1];
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+    
+    if (authError || !user) {
+      return NextResponse.json(
+        { error: 'Unauthorized', message: 'Please sign in to view transcript' },
+        { status: 401 }
+      );
+    }
+
+    // Verify session belongs to user
+    const { data: session, error: sessionError } = await supabase
+      .from('sessions')
+      .select('id, user_id')
+      .eq('id', sessionId)
+      .eq('user_id', user.id)
+      .is('deleted_at', null)
+      .single();
+
+    if (sessionError || !session) {
+      return NextResponse.json(
+        { error: 'Not found', message: 'Session not found' },
+        { status: 404 }
+      );
+    }
+
+    // Fetch transcript lines
+    const { data: transcriptLines, error: transcriptError } = await supabase
+      .from('transcripts')
+      .select('*')
+      .eq('session_id', sessionId)
+      .order('start_time_seconds', { ascending: true });
+
+    if (transcriptError) {
+      console.error('Database error fetching transcript:', transcriptError);
+      return NextResponse.json(
+        { error: 'Database error', message: transcriptError.message },
+        { status: 500 }
+      );
+    }
+
+    return NextResponse.json({ data: transcriptLines || [] });
+
+  } catch (error) {
+    console.error('Transcript fetch API error:', error);
+    let errorMessage = 'Internal server error';
+    if (error instanceof Error) {
+      errorMessage = error.message;
+    }
+    return NextResponse.json(
+      { error: 'Internal server error', message: errorMessage },
+      { status: 500 }
+    );
+  }
+}
+
+/**
  * POST /api/sessions/[id]/transcript - Save transcript lines for a session
  * The [id] in the path is the session_id and should be used if not provided in body.
  */

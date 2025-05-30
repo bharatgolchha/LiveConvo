@@ -15,7 +15,7 @@ export async function POST(
 ) {
   try {
     const sessionId = params.id;
-    const { transcript, textContext, conversationType, conversationTitle } = await request.json();
+    const { textContext, conversationType, conversationTitle } = await request.json();
 
     if (!openrouterApiKey) {
       return NextResponse.json(
@@ -24,24 +24,121 @@ export async function POST(
       );
     }
 
-    if (!transcript) {
+    // Get current user from Supabase auth using the access token
+    const authHeader = request.headers.get('authorization');
+    const token = authHeader?.split(' ')[1];
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+    
+    if (authError || !user) {
       return NextResponse.json(
-        { error: 'No transcript provided' },
+        { error: 'Unauthorized', message: 'Please sign in to finalize session' },
+        { status: 401 }
+      );
+    }
+
+    // Verify session belongs to user and get organization_id
+    const { data: sessionData, error: sessionError } = await supabase
+      .from('sessions')
+      .select('id, user_id, organization_id')
+      .eq('id', sessionId)
+      .eq('user_id', user.id)
+      .is('deleted_at', null)
+      .single();
+
+    if (sessionError || !sessionData) {
+      console.error('❌ Session query error:', sessionError);
+      return NextResponse.json(
+        { error: 'Not found', message: 'Session not found or access denied' },
+        { status: 404 }
+      );
+    }
+
+    // Fetch transcript data from database
+    const { data: transcriptLines, error: transcriptError } = await supabase
+      .from('transcripts')
+      .select('*')
+      .eq('session_id', sessionId)
+      .order('start_time_seconds', { ascending: true });
+
+    if (transcriptError) {
+      console.error('❌ Database error fetching transcript:', transcriptError);
+      return NextResponse.json(
+        { error: 'Database error', message: transcriptError.message },
+        { status: 500 }
+      );
+    }
+
+    // Convert transcript lines to text format
+    const transcriptText = transcriptLines && transcriptLines.length > 0 
+      ? transcriptLines.map(line => `${line.speaker}: ${line.content}`).join('\n')
+      : '';
+
+    if (!transcriptText || transcriptText.trim().length === 0) {
+      return NextResponse.json(
+        { error: 'No transcript available for this session' },
         { status: 400 }
       );
     }
 
-    // Convert transcript array to text if needed
-    const transcriptText = Array.isArray(transcript) 
-      ? transcript.map(t => `${t.speaker}: ${t.text}`).join('\n')
-      : transcript;
+    console.log('🔍 Processing transcript:', {
+      sessionId,
+      transcriptLines: transcriptLines?.length || 0,
+      transcriptLength: transcriptText.length,
+      conversationType,
+      conversationTitle
+    });
 
     // Generate summary and finalization
     const summary = await generateFinalSummary(transcriptText, conversationType);
     const finalData = await generateFinalizationData(transcriptText, textContext, conversationType, summary);
 
-    // Here you would typically save to database
-    // For now, we'll return the generated data
+    console.log('🤖 AI Summary generated:', {
+      hasTldr: !!summary.tldr,
+      hasKeyPoints: !!summary.key_points,
+      hasOutcomes: !!summary.outcomes,
+      hasActionItems: !!summary.action_items,
+      hasNextSteps: !!summary.next_steps
+    });
+
+    // Save final summary to database with proper field mapping
+    const summaryInsertData = {
+      session_id: sessionId,
+      user_id: user.id,
+      organization_id: sessionData.organization_id,
+      title: conversationTitle || 'Conversation Summary',
+      tldr: summary.tldr || 'Summary not available',
+      key_decisions: summary.outcomes || summary.key_points || [], // Map to correct field name
+      action_items: summary.action_items || [],
+      follow_up_questions: summary.next_steps || [], // Map next_steps to follow_up_questions
+      conversation_highlights: summary.key_points || [], // Map key_points to highlights
+      full_transcript: transcriptText,
+      generation_status: 'completed',
+      model_used: 'google/gemini-2.5-flash-preview-05-20'
+    };
+
+    console.log('💾 Attempting to save summary to database:', {
+      session_id: summaryInsertData.session_id,
+      user_id: summaryInsertData.user_id,
+      organization_id: summaryInsertData.organization_id,
+      title: summaryInsertData.title,
+      tldr_length: summaryInsertData.tldr?.length || 0,
+      key_decisions_count: Array.isArray(summaryInsertData.key_decisions) ? summaryInsertData.key_decisions.length : 0,
+      action_items_count: Array.isArray(summaryInsertData.action_items) ? summaryInsertData.action_items.length : 0
+    });
+
+    const { data: summaryData, error: summaryError } = await supabase
+      .from('summaries')
+      .insert(summaryInsertData)
+      .select()
+      .single();
+
+    if (summaryError) {
+      console.error('❌ Database error saving summary:', summaryError);
+      console.error('❌ Full summary insert data:', summaryInsertData);
+      // Continue even if summary save fails but log the error details
+    } else {
+      console.log('✅ Summary successfully saved to database with ID:', summaryData?.id);
+    }
 
     return NextResponse.json({
       sessionId,

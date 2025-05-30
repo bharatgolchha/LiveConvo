@@ -133,11 +133,11 @@ export const ContentPanel: React.FC<ContentPanelProps> = ({
         </CardHeader>
 
         {/* Tab Content */}
-        <CardContent className="flex-1 overflow-hidden p-0">
+        <CardContent className="flex-1 overflow-hidden p-0 h-full max-h-full">
           {/* Transcript Tab */}
           {activeTab === 'transcript' && (
-            <div className="h-full flex flex-col overflow-hidden">
-              <div className="flex-1 overflow-y-auto p-6">
+            <div className="h-full max-h-full flex flex-col overflow-hidden">
+              <div className="flex-1 overflow-y-auto p-6 max-h-full">
                 {transcript.length === 0 ? (
                   <div className="flex items-center justify-center h-full text-muted-foreground">
                     <div className="text-center max-w-md">
@@ -183,8 +183,8 @@ export const ContentPanel: React.FC<ContentPanelProps> = ({
 
           {/* Summary Tab */}
           {activeTab === 'summary' && (
-            <div className="h-full flex flex-col overflow-hidden">
-              <div className="flex-1 overflow-y-auto p-6">
+            <div className="h-full max-h-full flex flex-col overflow-hidden">
+              <div className="flex-1 overflow-y-auto p-6 max-h-full">
                 {isSummaryLoading ? (
                   <div className="flex items-center justify-center h-full">
                     <div className="text-center">
@@ -345,7 +345,7 @@ export const ContentPanel: React.FC<ContentPanelProps> = ({
           {activeTab === 'timeline' && (
             <div className="h-full max-h-full flex flex-col overflow-hidden">
               {!timeline || timeline.length === 0 ? (
-                <div className="flex items-center justify-center h-full text-muted-foreground p-6">
+                <div className="flex items-center justify-center h-full text-muted-foreground p-6 max-h-full overflow-hidden">
                   <div className="text-center max-w-md">
                     <Clock3 className="w-12 h-12 mx-auto mb-4 opacity-60" />
                     <h3 className="font-semibold text-lg mb-2 text-foreground">Timeline will appear here</h3>
@@ -368,7 +368,7 @@ export const ContentPanel: React.FC<ContentPanelProps> = ({
                   </div>
                 </div>
               ) : (
-                <div className="h-full flex flex-col overflow-hidden">
+                <div className="h-full max-h-full flex flex-col overflow-hidden">
                   <CompactTimeline
                     timeline={timeline}
                     isLoading={isTimelineLoading}

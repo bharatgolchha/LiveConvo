@@ -2,6 +2,34 @@
 
 ## 📋 Current Sprint Tasks
 
+### 🔧 Bug Fixes & Issues
+
+- [x] **✅ Fix Transcript & Finalize API Errors** (2025-01-30) 🚨
+  - **Issue 1**: "No transcript provided" error when finalizing sessions - finalize API only receives conversationType/conversationTitle but needs actual transcript data
+  - **Issue 2**: 405 Method Not Allowed for transcript endpoint - missing GET method to retrieve transcript data
+  - **Issue 3**: Summaries table not being populated - field name mismatch between API and database schema
+  - **Root Cause**: 
+    - handleEndConversationAndFinalize() doesn't pass transcript data to finalize API
+    - Transcript endpoint only has POST method, missing GET for data retrieval
+    - Finalize API using wrong field names for summaries table (decisions_made vs key_decisions, etc.)
+  - **Solution Implemented**:
+    - ✅ Added GET method to `/api/sessions/[id]/transcript` route for retrieving session transcripts with proper auth
+    - ✅ Updated finalize API to fetch transcript data from database instead of expecting it in request body
+    - ✅ Added proper authentication and user verification to both endpoints
+    - ✅ Enhanced handleEndConversationAndFinalize to ensure transcript is saved before calling finalize API
+    - ✅ **FIXED SUMMARIES TABLE ISSUE**: Corrected field name mappings (key_decisions, follow_up_questions, conversation_highlights)
+    - ✅ Added comprehensive error handling and detailed logging for debugging summaries insertion
+    - ✅ Added proper organization_id handling and required field validation
+    - ✅ Created unit tests for transcript API endpoints with proper mocking
+  - **Technical Details**:
+    - Transcript GET endpoint now includes auth verification and returns transcript lines ordered by time
+    - Finalize API now fetches transcript from database, converts to text format, and generates summary
+    - **Database Insert Fix**: Mapped API fields to correct database schema (outcomes→key_decisions, next_steps→follow_up_questions, key_points→conversation_highlights)
+    - Auto-save mechanism ensures transcript is persisted before finalization
+    - Enhanced logging shows exact data being inserted and any database errors
+    - Proper error messages for empty/missing transcripts and database failures
+  - **Status**: ✅ COMPLETE - All errors resolved including summaries table population
+
 ### ✅ Completed Tasks
 
 - [x] **✅ Stagewise Dev-Tool Integration - AI-Powered Browser Toolbar for Development** (2025-05-29) 🛠️
