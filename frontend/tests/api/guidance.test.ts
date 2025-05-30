@@ -1,11 +1,11 @@
 /**
- * Tests for OpenAI Guidance API Logic
+ * Tests for OpenRouter Guidance API Logic with Gemini 2.5 Flash
  * 
  * Tests the guidance generation logic that would be used in the API route
  */
 
-// Mock fetch for OpenAI API calls
-const mockOpenAIResponse = {
+// Mock fetch for OpenRouter API calls
+const mockOpenRouterResponse = {
   choices: [
     {
       message: {
@@ -25,18 +25,18 @@ const mockOpenAIResponse = {
   ]
 }
 
-describe('OpenAI Guidance API Logic', () => {
+describe('OpenRouter Guidance API Logic', () => {
   beforeEach(() => {
     // Reset fetch mock
     (global.fetch as jest.Mock).mockReset()
   })
 
-  describe('OpenAI API Integration', () => {
-    it('should call OpenAI API with correct parameters', async () => {
-      // Mock successful OpenAI API response
+  describe('OpenRouter API Integration', () => {
+    it('should call OpenRouter API with correct parameters', async () => {
+      // Mock successful OpenRouter API response
       (global.fetch as jest.Mock).mockResolvedValueOnce({
         ok: true,
-        json: async () => mockOpenAIResponse,
+        json: async () => mockOpenRouterResponse,
       })
 
       const requestData = {
@@ -47,15 +47,17 @@ describe('OpenAI Guidance API Logic', () => {
         participantRole: 'host'
       }
 
-      // Call fetch directly to test the OpenAI integration
-      const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      // Call fetch directly to test the OpenRouter integration
+      const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
         method: 'POST',
         headers: {
-          'Authorization': 'Bearer sk-test-key-for-testing',
+          'Authorization': 'Bearer sk-or-test-key-for-testing',
           'Content-Type': 'application/json',
+          'HTTP-Referer': 'https://liveconvo.app',
+          'X-Title': 'LiveConvo AI Guidance',
         },
         body: JSON.stringify({
-          model: 'gpt-4o-mini',
+          model: 'google/gemini-2.5-flash-preview-05-20',
           messages: [
             {
               role: 'system',
@@ -77,35 +79,39 @@ describe('OpenAI Guidance API Logic', () => {
       expect(response.ok).toBe(true)
       expect(data.choices[0].message.content).toContain('suggestions')
       
-      // Verify OpenAI API was called with correct parameters
+      // Verify OpenRouter API was called with correct parameters
       expect(global.fetch).toHaveBeenCalledWith(
-        'https://api.openai.com/v1/chat/completions',
+        'https://openrouter.ai/api/v1/chat/completions',
         expect.objectContaining({
           method: 'POST',
           headers: expect.objectContaining({
-            'Authorization': 'Bearer sk-test-key-for-testing',
+            'Authorization': 'Bearer sk-or-test-key-for-testing',
             'Content-Type': 'application/json',
+            'HTTP-Referer': 'https://liveconvo.app',
+            'X-Title': 'LiveConvo AI Guidance',
           }),
         })
       )
     })
 
-    it('should handle OpenAI API errors', async () => {
-      // Mock OpenAI API error
+    it('should handle OpenRouter API errors', async () => {
+      // Mock OpenRouter API error
       (global.fetch as jest.Mock).mockResolvedValueOnce({
         ok: false,
         status: 429,
         text: async () => 'Rate limit exceeded',
       })
 
-      const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
         method: 'POST',
         headers: {
-          'Authorization': 'Bearer sk-test-key-for-testing',
+          'Authorization': 'Bearer sk-or-test-key-for-testing',
           'Content-Type': 'application/json',
+          'HTTP-Referer': 'https://liveconvo.app',
+          'X-Title': 'LiveConvo AI Guidance',
         },
         body: JSON.stringify({
-          model: 'gpt-4o-mini',
+          model: 'google/gemini-2.5-flash-preview-05-20',
           messages: [],
         })
       })
@@ -114,8 +120,8 @@ describe('OpenAI Guidance API Logic', () => {
       expect(response.status).toBe(429)
     })
 
-    it('should handle malformed OpenAI response', async () => {
-      // Mock malformed OpenAI response
+    it('should handle malformed OpenRouter response', async () => {
+      // Mock malformed OpenRouter response
       (global.fetch as jest.Mock).mockResolvedValueOnce({
         ok: true,
         json: async () => ({
@@ -129,14 +135,16 @@ describe('OpenAI Guidance API Logic', () => {
         }),
       })
 
-      const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
         method: 'POST',
         headers: {
-          'Authorization': 'Bearer sk-test-key-for-testing',
+          'Authorization': 'Bearer sk-or-test-key-for-testing',
           'Content-Type': 'application/json',
+          'HTTP-Referer': 'https://liveconvo.app',
+          'X-Title': 'LiveConvo AI Guidance',
         },
         body: JSON.stringify({
-          model: 'gpt-4o-mini',
+          model: 'google/gemini-2.5-flash-preview-05-20',
           messages: [],
         })
       })
@@ -150,7 +158,7 @@ describe('OpenAI Guidance API Logic', () => {
 
   describe('Response Processing', () => {
     it('should parse guidance response correctly', () => {
-      const guidanceData = JSON.parse(mockOpenAIResponse.choices[0].message.content)
+      const guidanceData = JSON.parse(mockOpenRouterResponse.choices[0].message.content)
       
       expect(guidanceData.suggestions).toHaveLength(1)
       expect(guidanceData.suggestions[0]).toMatchObject({

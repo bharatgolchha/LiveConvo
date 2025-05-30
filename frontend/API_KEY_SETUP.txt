@@ -1,1 +1,3 @@
 Please add your OpenAI API key to frontend/.env.local as OPENAI_API_KEY=sk-your-key-here
+Please add your OpenRouter API key to frontend/.env.local as OPENROUTER_API_KEY=sk-or-your-key-here
+Also add your Deepgram API key as DEEPGRAM_API_KEY=your-deepgram-key-here

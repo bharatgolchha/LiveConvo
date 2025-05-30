@@ -4,10 +4,10 @@ export async function POST(request: NextRequest) {
   try {
     const { transcript, context, userContext, conversationType, participantRole } = await request.json();
 
-    const apiKey = process.env.OPENAI_API_KEY;
+    const apiKey = process.env.OPENROUTER_API_KEY;
     if (!apiKey) {
       return NextResponse.json(
-        { error: 'OpenAI API key not configured' },
+        { error: 'OpenRouter API key not configured. Please set OPENROUTER_API_KEY in your environment variables.' },
         { status: 500 }
       );
     }
@@ -15,14 +15,16 @@ export async function POST(request: NextRequest) {
     const systemPrompt = getSystemPrompt(conversationType, participantRole);
     const prompt = buildGuidancePrompt({ transcript, context, userContext, conversationType, participantRole });
 
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${apiKey}`,
         'Content-Type': 'application/json',
+        'HTTP-Referer': 'https://liveconvo.app', // Optional: for app identification
+        'X-Title': 'LiveConvo AI Guidance', // Optional: for app identification
       },
       body: JSON.stringify({
-        model: 'gpt-4o',
+        model: 'google/gemini-2.5-flash-preview-05-20',
         messages: [
           {
             role: 'system',
@@ -41,9 +43,9 @@ export async function POST(request: NextRequest) {
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('OpenAI API error:', response.status, errorText);
+      console.error('OpenRouter API error:', response.status, errorText);
       return NextResponse.json(
-        { error: `OpenAI API error: ${response.status}` },
+        { error: `OpenRouter API error: ${response.status}` },
         { status: response.status }
       );
     }

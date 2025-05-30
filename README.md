@@ -1,283 +1,177 @@
-# LiveConvo - Conversation Co-Pilot
+# LiveConvo - AI-Powered Real-Time Conversation Coach
 
-**Real-time AI guidance for your most important conversations**
+LiveConvo is an advanced AI conversation coaching platform that provides real-time guidance during live conversations. Whether you're in a sales call, interview, support session, or meeting, LiveConvo helps you communicate more effectively with AI-powered suggestions and analysis.
 
-LiveConvo is a browser-based SaaS application that provides intelligent, real-time assistance during calls and meetings. Upload context documents, get live guidance suggestions, and receive structured summaries instantly after your conversations end.
+## 🚀 Features
 
-## 🎯 Vision
+- **Real-time AI Coaching**: Get live suggestions during conversations
+- **Conversation Analysis**: Detailed summaries and timelines
+- **Multiple Conversation Types**: Sales, Support, Meetings, Interviews
+- **Live Transcription**: Real-time speech-to-text with Deepgram
+- **Interactive Chat Coach**: Ask questions and get contextual guidance
+- **Session Management**: Track and review past conversations
+- **Multi-modal Input**: Upload context documents and files
 
-Transform how knowledge workers prepare for and conduct critical conversations by providing AI-powered guidance that learns from context and delivers actionable insights in real-time.
+## 🛠️ Tech Stack
 
-## ✨ Features
+- **Frontend**: Next.js 14, TypeScript, Tailwind CSS
+- **AI**: OpenRouter API (OpenAI-compatible) with GPT-4o models
+- **Transcription**: Deepgram API
+- **Database**: Supabase (PostgreSQL)
+- **Authentication**: Supabase Auth
+- **Deployment**: Vercel
 
-### 🚀 MVP Features
-- **Context Upload**: Drag-and-drop PDFs, DOCX, TXT, and images (with OCR) up to 25MB
-- **Live Audio Capture**: Browser-based microphone integration via WebRTC
-- **Real-time Guidance**: AI-powered suggestion chips with <2s latency
-- **Smart Transcription**: Real-time speech-to-text with Deepgram Nova-3 streaming API (default) or OpenAI Realtime API
-- **Intelligent Summary System**: Comprehensive summary generation for individual sessions
-- **Email Export**: One-click sharing of meeting summaries
-- **Analytics Dashboard**: Talk time ratios and conversation insights
+## 📋 Prerequisites
 
-### 🎨 User Experience
-- **Three-pane interface**: Context upload | Live transcript | Guidance suggestions
-- **Color-coded guidance**: Ask (green), Clarify (yellow), Avoid (red)
-- **One-click setup**: Upload docs and start recording in <30 seconds
-- **Privacy-first**: Audio purged after summary generation
-- **Comprehensive Summaries**: Detailed conversation review with TL;DR, follow-ups, and exports
+- Node.js 18+ 
+- npm or yarn
+- OpenRouter API key (for AI features)
+- Deepgram API key (for transcription)
+- Supabase account (for database and auth)
 
-### 📋 Summary & Review Features
-- **TL;DR Section**: Quick overview for busy executives
-- **AI Summary (Editable)**: Comprehensive overview with key points, decisions, and action items
-- **Follow-up Manager**: Interactive task management with priorities and assignments
-- **Full Transcript**: Expandable conversation transcript with speaker identification
-- **Export Options**: PDF, Word, Text, and JSON formats with customizable content
-- **Quick Stats**: Audio quality, transcription accuracy, participant count, and metadata
+## ⚡ Quick Start
 
-### 🎯 Live Conversation AI Coaching
-- **Real-time transcription** with OpenAI Realtime API and Deepgram
-- **Intelligent conversation guidance** with contextual AI suggestions
-- **Live coaching sidebar** with context-aware assistance
-- **Dynamic timeline** with conversation milestones and key moments
-- **Smart follow-up suggestions** based on conversation flow
+### 1. Clone and Install
 
-### 🧠 AI Coach Context Integration
-- **Context-aware responses** using conversation setup, background notes, and uploaded files
-- **Conversation type-specific guidance** for sales, support, meetings, and interviews
-- **Previous conversation integration** to maintain context across sessions
-- **Real-time context display** with conversation title, files, and transcript length
-- **Smart quick-help buttons** that adapt based on conversation type
-- **Contextual message prefixing** to provide AI with relevant background information
-
-The chat guidance endpoint now accepts `textContext` and `conversationTitle` in addition to the transcript and message. Example:
-
-```ts
-await fetch('/api/chat-guidance', {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({
-    message: 'What should I ask next?',
-    transcript,
-    chatHistory: [],
-    conversationType: 'sales',
-    conversationTitle: 'Demo Call',
-    textContext: notes,
-  })
-});
+```bash
+git clone <repository-url>
+cd LiveConvo/frontend
+npm install
 ```
 
-### 📁 Context Management
-- **Multi-file upload** support (PDF, DOC, TXT, MD)
-- **Background notes** for conversation context
-- **Previous conversation selection** for continuity
-- **Real-time context summary** in AI Coach sidebar
+### 2. Environment Setup
 
-## 🎯 Target Users
+Create a `.env.local` file in the `frontend` directory:
 
-| Persona | Use Case | Key Value |
-|---------|----------|-----------|
-| **SaaS Sales Reps** | Discovery calls and demos | Get real-time guidance and structured summaries |
-| **Freelance Consultants** | Client meetings and project calls | Professional summaries and action item tracking |
-| **Job Seekers** | Interview preparation and execution | AI guidance and detailed interview summaries |
-| **Account Managers** | Client check-ins and reviews | Comprehensive meeting documentation and follow-ups |
+```bash
+# OpenRouter API (Required for AI guidance)
+OPENROUTER_API_KEY=your_openrouter_key_here
 
-## 🏗️ Technical Architecture
+# Deepgram API (Required for transcription)
+DEEPGRAM_API_KEY=your_deepgram_key_here
 
-### Frontend
-- **Framework**: Next.js 14 with React
-- **Styling**: Tailwind CSS
-- **Audio**: WebRTC for microphone capture
-- **Real-time**: WebSocket connections for streaming
+# Supabase (Optional - for data persistence)
+NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+SUPABASE_SERVICE_ROLE_KEY=your_supabase_service_role_key
+```
 
-### Backend
-- **API**: FastAPI with Python
-- **Authentication**: OAuth 2.0 (Google/Email)
-- **Billing**: Stripe integration
-- **Storage**: S3/R2 with 24h TTL
+### 3. Get Your API Keys
 
-### AI & ML
-- **Speech-to-Text**: Deepgram streaming API (default) or OpenAI Realtime API
-- **Vector Store**: Pinecone + Redis caching
-- **LLM**: OpenAI GPT-4o with LangChain
-- **Document Processing**: OCR for images, text extraction
+#### OpenRouter API Key (Required)
+1. Visit [OpenRouter](https://openrouter.ai/)
+2. Sign up for an account
+3. Go to the API Keys section
+4. Create a new API key
+5. Add it to your `.env.local` file
 
-### Infrastructure
-- **Deployment**: Fly.io with GPU autoscaling
-- **Monitoring**: Real-time performance tracking
-- **Security**: AES-256 encryption at rest
+#### Deepgram API Key (Required for transcription)
+1. Visit [Deepgram](https://deepgram.com/)
+2. Sign up for an account
+3. Navigate to the API Keys section
+4. Create a new API key
+5. Add it to your `.env.local` file
 
-## 🚀 Quick Start
+### 4. Run the Application
 
-### Prerequisites
-- Python 3.9+
-- Node.js 18+
-- Docker (for local development)
-- Redis instance
-- OpenAI API key (for AI guidance)
-- Deepgram API key (for transcription - recommended)
+```bash
+npm run dev
+```
 
-### Environment Setup
+Visit `http://localhost:3000` to start using LiveConvo!
 
-1. **Clone the repository**
-   ```bash
-   git clone https://github.com/yourusername/liveconvo.git
-   cd liveconvo
-   ```
+## 🔧 Configuration Options
 
-2. **Backend setup**
-   ```bash
-   cd backend
-   python -m venv venv
-   source venv/bin/activate  # On Windows: venv\Scripts\activate
-   pip install -r requirements.txt
-   ```
+### AI Models
 
-3. **Frontend setup**
-   ```bash
-   cd frontend
-   npm install
-   ```
+LiveConvo uses OpenRouter API with the following models:
+- **Chat Guidance**: `google/gemini-2.5-flash-preview-05-20` (interactive coaching)
+- **Auto Guidance**: `google/gemini-2.5-flash-preview-05-20` (real-time analysis)
+- **Summaries**: `google/gemini-2.5-flash-preview-05-20` (conversation summaries)
+- **Timeline**: `google/gemini-2.5-flash-preview-05-20` (conversation timelines)
 
-4. **Environment variables**
-   ```bash
-   # Backend (.env)
-   OPENAI_API_KEY=your_openai_key
-   PINECONE_API_KEY=your_pinecone_key
-   REDIS_URL=redis://localhost:6379
-   DATABASE_URL=postgresql://user:pass@localhost/liveconvo
-   STRIPE_SECRET_KEY=your_stripe_key
-   
-   # Frontend (.env.local)
-   OPENAI_API_KEY=your_openai_key          # Required for AI guidance
-   DEEPGRAM_API_KEY=your_deepgram_key      # Required for transcription (recommended)
-   NEXT_PUBLIC_API_URL=http://localhost:8000
-   NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=your_stripe_public_key
-   ```
+You can modify model selection in the respective API routes under `src/app/api/`.
 
-### Running the Application
+### Conversation Types
 
-1. **Start the backend**
-   ```bash
-   cd backend
-   uvicorn main:app --reload --port 8000
-   ```
+- **Sales**: Customer conversations, lead qualification
+- **Support**: Customer service and troubleshooting
+- **Meetings**: Team meetings and discussions
+- **Interviews**: Job interviews and assessments
+- **General**: Any other conversation type
 
-2. **Start the frontend**
-   ```bash
-   cd frontend
-   npm run dev
-   ```
+## 📚 Usage Guide
 
-3. **Access the application**
-   - Frontend: http://localhost:3000
-   - Backend API: http://localhost:8000
-   - API Docs: http://localhost:8000/docs
+### Basic Workflow
 
-## 📊 Success Metrics
+1. **Setup**: Upload context documents, set conversation type
+2. **Start Session**: Begin recording/transcription
+3. **Get Guidance**: Receive real-time AI suggestions
+4. **Chat Coach**: Ask questions during the conversation
+5. **Review**: Analyze summaries and timelines afterward
 
-| Metric | Target |
-|--------|--------|
-| Guidance Latency | ≤ 2s (95th percentile) |
-| Summary Generation | ≤ 30s after call end |
-| User Retention | 30% WAU/signups |
-| Conversion Rate | ≥ 8% (free to paid) |
-| NPS Score | ≥ 40 (first week) |
+### Key Features
 
-## 🛣️ Roadmap
+- **Real-time Guidance**: Automatic suggestions based on conversation flow
+- **Interactive Coach**: Chat interface for asking specific questions
+- **Context-Aware**: Uses uploaded documents and conversation history
+- **Multi-format Support**: Text documents, PDFs, and other file types
+- **Session Management**: Track multiple conversations over time
 
-### Sprint 0-1 (Weeks 1-2)
-- [ ] Project scaffolding and authentication
-- [ ] Context upload and processing pipeline
-- [ ] Vector database integration
-
-### Sprint 2-3 (Weeks 3-4)
-- [ ] Live audio capture and streaming STT
-- [ ] Real-time guidance suggestion engine
-- [ ] Transcript display and management
-
-### Sprint 4-5 (Weeks 5-6)
-- [ ] Summary generation and export
-- [ ] UI polish and user testing
-- [ ] Performance optimization
-
-## 🧪 Testing
+## 🧪 Development
 
 ### Running Tests
-```bash
-# Backend tests
-cd backend
-pytest tests/ -v
 
-# Frontend tests
-cd frontend
+```bash
 npm test
 ```
 
-### Test Coverage
-- Unit tests for all core functions
-- Integration tests for API endpoints
-- E2E tests for critical user flows
-- Performance tests for latency requirements
+### Building for Production
 
-## 📁 Project Structure
+```bash
+npm run build
+```
 
+### Code Style
+
+The project uses ESLint and Prettier for code formatting. Run:
+
+```bash
+npm run lint
+npm run format
 ```
-liveconvo/
-├── backend/                 # FastAPI backend
-│   ├── app/
-│   │   ├── api/            # API routes
-│   │   │   ├── core/           # Core functionality
-│   │   │   ├── models/         # Database models
-│   │   │   └── services/       # Business logic
-│   │   ├── tests/              # Backend tests
-│   │   └── requirements.txt
-│   ├── frontend/               # Next.js frontend
-│   │   ├── components/         # React components
-│   │   ├── pages/             # Next.js pages
-│   │   ├── lib/               # Utilities
-│   │   └── styles/            # Tailwind styles
-│   ├── docs/                  # Documentation
-│   ├── PRD.md                 # Product Requirements
-│   └── README.md              # This file
-```
+
+## 📖 Documentation
+
+- [API Setup Guide](frontend/API_SETUP.md)
+- [Authentication Setup](frontend/README_AUTH.md)
+- [Deepgram Integration](DEEPGRAM_INTEGRATION.md)
+- [Planning & Architecture](PLANNING.md)
 
 ## 🤝 Contributing
 
-1. Check `TASK.md` for current priorities
-2. Follow the code structure guidelines in `PLANNING.md`
-3. Write tests for new features
-4. Use conventional commits
-5. Submit PRs with clear descriptions
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Add tests if applicable
+5. Submit a pull request
 
-### Code Standards
-- **Python**: PEP8, type hints, docstrings
-- **JavaScript**: ESLint, Prettier
-- **Testing**: Pytest for backend, Jest for frontend
-- **Documentation**: Update README for new features
+## 📝 License
 
-## 🔒 Privacy & Security
+This project is licensed under the MIT License.
 
-- **Data Retention**: Audio deleted after summary generation
-- **Encryption**: AES-256 at rest, TLS in transit
-- **Compliance**: SOC-2 Type I readiness
-- **Privacy Controls**: User-controlled data deletion
+## 🆘 Support
 
-## 💰 Pricing
+For issues and questions:
+1. Check the documentation files
+2. Review existing issues
+3. Create a new issue with detailed information
 
-- **Free Tier**: 3 hours of audio processing per month
-- **Pro Tier**: $39/month unlimited usage
-- **Enterprise**: Custom pricing for teams
+## 🔄 Migration from OpenAI
 
-## 📞 Support
+If you're migrating from a previous version that used OpenAI directly:
 
-- **Documentation**: [docs.liveconvo.com](https://docs.liveconvo.com)
-- **Support Email**: support@liveconvo.com
-- **Status Page**: [status.liveconvo.com](https://status.liveconvo.com)
-
-## 📄 License
-
-This project is proprietary software. All rights reserved.
-
----
-
-**Built with ❤️ by the LiveConvo team** 
+1. Replace `OPENAI_API_KEY` with `OPENROUTER_API_KEY` in your environment
+2. Update any hardcoded references to OpenAI API endpoints
+3. Models are now prefixed (e.g., `openai/gpt-4o-mini`)
+4. All API calls now go through OpenRouter for better model access and pricing 

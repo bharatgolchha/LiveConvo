@@ -50,6 +50,7 @@ export async function GET(
       `)
       .eq('id', sessionId)
       .eq('user_id', user.id)
+      .is('deleted_at', null)
       .single();
 
     if (error) {
@@ -158,7 +159,9 @@ export async function PATCH(
 }
 
 /**
- * DELETE /api/sessions/[id] - Delete a session (soft delete)
+ * DELETE /api/sessions/[id] - Delete a session
+ * Query Parameters:
+ * - hard: Set to 'true' for permanent deletion, otherwise does soft delete (default)
  */
 export async function DELETE(
   request: NextRequest,
@@ -166,6 +169,8 @@ export async function DELETE(
 ) {
   try {
     const { id: sessionId } = await params;
+    const { searchParams } = new URL(request.url);
+    const hardDelete = searchParams.get('hard') === 'true';
 
     // Get current user from Supabase auth using the access token
     const authHeader = request.headers.get('authorization');
@@ -179,35 +184,67 @@ export async function DELETE(
       );
     }
 
-    const { data: session, error } = await supabase
-      .from('sessions')
-      .update({ 
-        deleted_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      })
-      .eq('id', sessionId)
-      .eq('user_id', user.id)
-      .select()
-      .single();
+    let result;
+    let message;
 
-    if (error) {
-      console.error('Database error:', error);
-      return NextResponse.json(
-        { error: 'Database error', message: error.message },
-        { status: 500 }
-      );
+    if (hardDelete) {
+      // Hard delete - permanently remove from database
+      const { data: session, error } = await supabase
+        .from('sessions')
+        .delete()
+        .eq('id', sessionId)
+        .eq('user_id', user.id)
+        .is('deleted_at', null)  // Only allow deleting non-deleted sessions
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Database error:', error);
+        return NextResponse.json(
+          { error: 'Database error', message: error.message },
+          { status: 500 }
+        );
+      }
+
+      result = session;
+      message = 'Session permanently deleted';
+    } else {
+      // Soft delete - set deleted_at timestamp
+      const { data: session, error } = await supabase
+        .from('sessions')
+        .update({ 
+          deleted_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', sessionId)
+        .eq('user_id', user.id)
+        .is('deleted_at', null)  // Only allow deleting non-deleted sessions
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Database error:', error);
+        return NextResponse.json(
+          { error: 'Database error', message: error.message },
+          { status: 500 }
+        );
+      }
+
+      result = session;
+      message = 'Session deleted successfully';
     }
 
-    if (!session) {
+    if (!result) {
       return NextResponse.json(
-        { error: 'Not found', message: 'Session not found' },
+        { error: 'Not found', message: 'Session not found or already deleted' },
         { status: 404 }
       );
     }
 
     return NextResponse.json({ 
-      message: 'Session deleted successfully',
-      session 
+      message,
+      session: result,
+      deleted_permanently: hardDelete
     });
 
   } catch (error) {

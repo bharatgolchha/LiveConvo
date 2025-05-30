@@ -26,6 +26,7 @@ import {
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/badge';
+import { useAuth } from '@/contexts/AuthContext';
 
 // Types
 interface SessionSummary {
@@ -69,8 +70,9 @@ export default function SummaryPage() {
   const params = useParams();
   const router = useRouter();
   const sessionId = params.id as string;
+  const { user, session, setSessionExpiredMessage } = useAuth();
   
-  const [session, setSession] = useState<SessionSummary | null>(null);
+  const [sessionData, setSessionData] = useState<SessionSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isEditing, setIsEditing] = useState(false);
@@ -79,31 +81,51 @@ export default function SummaryPage() {
   const [showExportModal, setShowExportModal] = useState(false);
 
   useEffect(() => {
-    fetchSessionSummary();
-  }, [sessionId]);
+    if (user && session) {
+      fetchSessionSummary();
+    }
+  }, [sessionId, user, session]);
 
   const fetchSessionSummary = async () => {
     try {
       setLoading(true);
       setError(null);
 
-      // Fetch session data
-      const sessionResponse = await fetch(`/api/sessions/${sessionId}`);
-      if (!sessionResponse.ok) {
-        throw new Error('Failed to fetch session');
+      // Prepare headers with authentication
+      const headers: HeadersInit = { 'Content-Type': 'application/json' };
+      if (session?.access_token) {
+        headers['Authorization'] = `Bearer ${session.access_token}`;
       }
-      const sessionData = await sessionResponse.json();
+
+      // Fetch session data
+      const sessionResponse = await fetch(`/api/sessions/${sessionId}`, { headers });
+      if (!sessionResponse.ok) {
+        const errorData = await sessionResponse.json();
+        if (sessionResponse.status === 401 && user) {
+          setSessionExpiredMessage(errorData.message || 'Your session has expired. Please sign in again.');
+        }
+        throw new Error(errorData.message || 'Failed to fetch session');
+      }
+      const { session: sessionDataResponse } = await sessionResponse.json();
 
       // Fetch transcript
-      const transcriptResponse = await fetch(`/api/sessions/${sessionId}/transcript`);
+      const transcriptResponse = await fetch(`/api/sessions/${sessionId}/transcript`, { headers });
       const transcriptData = transcriptResponse.ok ? await transcriptResponse.json() : { data: [] };
 
-      // Create mock summary data (in real app, this would come from database)
-      const mockSummary: SessionSummary = {
-        ...sessionData,
+      // Check if there's a final summary in the database
+      let finalSummary = null;
+      if (sessionDataResponse.summaries && sessionDataResponse.summaries.length > 0) {
+        // Use the most recent summary
+        finalSummary = sessionDataResponse.summaries[sessionDataResponse.summaries.length - 1];
+      }
+
+      // Create comprehensive summary data
+      const summaryData: SessionSummary = {
+        ...sessionDataResponse,
+        duration: sessionDataResponse.recording_duration_seconds || 0,
         participants: ['You', 'Guest'],
-        summary: {
-          overview: `This was a ${sessionData.conversation_type || 'general'} conversation that lasted ${Math.floor((sessionData.duration || 0) / 60)} minutes. The discussion covered various topics and included meaningful exchanges between participants.`,
+        summary: finalSummary ? {
+          overview: finalSummary.tldr || `This was a ${sessionDataResponse.conversation_type || 'general'} conversation.`,
           keyPoints: [
             'Main discussion points covered during the conversation',
             'Key insights and important information shared',
@@ -117,21 +139,41 @@ export default function SummaryPage() {
             'Follow-up tasks identified',
             'Next steps to be taken'
           ],
-          tldr: `${sessionData.conversation_type || 'Conversation'} lasting ${Math.floor((sessionData.duration || 0) / 60)} minutes with key discussion points and outcomes.`,
+          tldr: finalSummary.tldr,
           sentiment: 'positive',
-          topics: ['discussion', 'conversation', sessionData.conversation_type || 'general']
+          topics: ['discussion', 'conversation', sessionDataResponse.conversation_type || 'general']
+        } : {
+          overview: `This was a ${sessionDataResponse.conversation_type || 'general'} conversation that lasted ${Math.floor((sessionDataResponse.recording_duration_seconds || 0) / 60)} minutes. The discussion covered various topics and included meaningful exchanges between participants.`,
+          keyPoints: [
+            'Main discussion points covered during the conversation',
+            'Key insights and important information shared',
+            'Notable agreements or understandings reached'
+          ],
+          decisions: [
+            'Decisions made during the conversation',
+            'Agreements reached between participants'
+          ],
+          actionItems: [
+            'Follow-up tasks identified',
+            'Next steps to be taken'
+          ],
+          tldr: `${sessionDataResponse.conversation_type || 'Conversation'} lasting ${Math.floor((sessionDataResponse.recording_duration_seconds || 0) / 60)} minutes with key discussion points and outcomes.`,
+          sentiment: 'positive',
+          topics: ['discussion', 'conversation', sessionDataResponse.conversation_type || 'general']
         },
         transcript_lines: transcriptData.data || [],
         metadata: {
           audio_quality: 0.92,
           transcription_accuracy: 0.96,
           language: 'en-US',
-          tags: [sessionData.conversation_type || 'general']
+          tags: [sessionDataResponse.conversation_type || 'general']
         }
       };
 
-      setSession(mockSummary);
-      setEditedSummary(mockSummary.summary.overview);
+      setSessionData(summaryData);
+      setEditedSummary(summaryData.summary.overview);
+      
+      if (user) setSessionExpiredMessage(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load session');
     } finally {
@@ -140,11 +182,11 @@ export default function SummaryPage() {
   };
 
   const handleSave = () => {
-    if (session) {
-      setSession({
-        ...session,
+    if (sessionData) {
+      setSessionData({
+        ...sessionData,
         summary: {
-          ...session.summary,
+          ...sessionData.summary,
           overview: editedSummary
         }
       });
@@ -169,6 +211,18 @@ export default function SummaryPage() {
     });
   };
 
+  // Show loading if not authenticated yet
+  if (!user || !session) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-muted-foreground">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
   if (loading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -180,7 +234,7 @@ export default function SummaryPage() {
     );
   }
 
-  if (error || !session) {
+  if (error || !sessionData) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
@@ -211,19 +265,19 @@ export default function SummaryPage() {
               Dashboard
             </Button>
             <div>
-              <h1 className="text-xl font-bold text-foreground">{session.title}</h1>
+              <h1 className="text-xl font-bold text-foreground">{sessionData.title}</h1>
               <div className="flex items-center gap-4 text-sm text-muted-foreground mt-1">
                 <span className="flex items-center gap-1">
                   <Clock className="w-4 h-4" />
-                  {formatDuration(session.duration)}
+                  {formatDuration(sessionData.duration)}
                 </span>
                 <span className="flex items-center gap-1">
                   <FileText className="w-4 h-4" />
-                  {session.transcript_lines.length} lines
+                  {sessionData.transcript_lines.length} lines
                 </span>
                 <span className="flex items-center gap-1">
                   <Users className="w-4 h-4" />
-                  {session.participants.length} participants
+                  {sessionData.participants.length} participants
                 </span>
               </div>
             </div>
@@ -268,30 +322,30 @@ export default function SummaryPage() {
               <div className="space-y-4">
                 <div>
                   <p className="text-sm text-muted-foreground mb-1">Date & Time</p>
-                  <p className="text-sm font-medium">{formatDate(session.created_at)}</p>
+                  <p className="text-sm font-medium">{formatDate(sessionData.created_at)}</p>
                 </div>
                 
                 <div>
                   <p className="text-sm text-muted-foreground mb-1">Duration</p>
-                  <p className="text-sm font-medium">{formatDuration(session.duration)}</p>
+                  <p className="text-sm font-medium">{formatDuration(sessionData.duration)}</p>
                 </div>
                 
                 <div>
                   <p className="text-sm text-muted-foreground mb-1">Transcript Lines</p>
-                  <p className="text-sm font-medium">{session.transcript_lines.length}</p>
+                  <p className="text-sm font-medium">{sessionData.transcript_lines.length}</p>
                 </div>
                 
                 <div>
                   <p className="text-sm text-muted-foreground mb-1">Status</p>
-                  <Badge variant={session.status === 'completed' ? 'default' : 'secondary'}>
-                    {session.status}
+                  <Badge variant={sessionData.status === 'completed' ? 'default' : 'secondary'}>
+                    {sessionData.status}
                   </Badge>
                 </div>
                 
                 <div>
                   <p className="text-sm text-muted-foreground mb-1">Participants</p>
                   <div className="space-y-1">
-                    {session.participants.map((participant, index) => (
+                    {sessionData.participants.map((participant, index) => (
                       <p key={index} className="text-sm">{participant}</p>
                     ))}
                   </div>
@@ -299,14 +353,14 @@ export default function SummaryPage() {
                 
                 <div>
                   <p className="text-sm text-muted-foreground mb-1">Type</p>
-                  <Badge variant="outline">{session.conversation_type}</Badge>
+                  <Badge variant="outline">{sessionData.conversation_type}</Badge>
                 </div>
                 
-                {session.metadata.tags.length > 0 && (
+                {sessionData.metadata.tags.length > 0 && (
                   <div>
                     <p className="text-sm text-muted-foreground mb-2">Tags</p>
                     <div className="flex flex-wrap gap-1">
-                      {session.metadata.tags.map((tag, index) => (
+                      {sessionData.metadata.tags.map((tag, index) => (
                         <Badge key={index} variant="secondary" className="text-xs">
                           {tag}
                         </Badge>
@@ -331,7 +385,7 @@ export default function SummaryPage() {
                 <h3 className="text-lg font-semibold text-foreground">TL;DR</h3>
               </div>
               <div className="bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded-lg p-4">
-                <p className="text-amber-800 dark:text-amber-200">{session.summary.tldr}</p>
+                <p className="text-amber-800 dark:text-amber-200">{sessionData.summary.tldr}</p>
               </div>
             </Card>
 
@@ -367,14 +421,14 @@ export default function SummaryPage() {
                   placeholder="Edit the AI-generated summary..."
                 />
               ) : (
-                <p className="text-muted-foreground leading-relaxed">{session.summary.overview}</p>
+                <p className="text-muted-foreground leading-relaxed">{sessionData.summary.overview}</p>
               )}
               
               {/* Key Points */}
               <div className="mt-6">
                 <h4 className="font-medium text-foreground mb-3">Key Points</h4>
                 <ul className="space-y-2">
-                  {session.summary.keyPoints.map((point, index) => (
+                  {sessionData.summary.keyPoints.map((point, index) => (
                     <li key={index} className="flex items-start gap-2">
                       <div className="w-1.5 h-1.5 bg-primary rounded-full mt-2 flex-shrink-0"></div>
                       <span className="text-muted-foreground">{point}</span>
@@ -384,11 +438,11 @@ export default function SummaryPage() {
               </div>
               
               {/* Decisions */}
-              {session.summary.decisions.length > 0 && (
+              {sessionData.summary.decisions.length > 0 && (
                 <div className="mt-6">
                   <h4 className="font-medium text-foreground mb-3">Decisions Made</h4>
                   <ul className="space-y-2">
-                    {session.summary.decisions.map((decision, index) => (
+                    {sessionData.summary.decisions.map((decision, index) => (
                       <li key={index} className="flex items-start gap-2">
                         <CheckCircle className="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" />
                         <span className="text-muted-foreground">{decision}</span>
@@ -399,11 +453,11 @@ export default function SummaryPage() {
               )}
               
               {/* Action Items */}
-              {session.summary.actionItems.length > 0 && (
+              {sessionData.summary.actionItems.length > 0 && (
                 <div className="mt-6">
                   <h4 className="font-medium text-foreground mb-3">Action Items</h4>
                   <ul className="space-y-2">
-                    {session.summary.actionItems.map((item, index) => (
+                    {sessionData.summary.actionItems.map((item, index) => (
                       <li key={index} className="flex items-start gap-2">
                         <div className="w-4 h-4 border-2 border-amber-500 rounded mt-0.5 flex-shrink-0"></div>
                         <span className="text-muted-foreground">{item}</span>
@@ -415,14 +469,14 @@ export default function SummaryPage() {
             </Card>
 
             {/* Topics */}
-            {session.summary.topics && session.summary.topics.length > 0 && (
+            {sessionData.summary.topics && sessionData.summary.topics.length > 0 && (
               <Card className="p-6">
                 <h3 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
                   <MessageSquare className="w-5 h-5" />
                   Topics Discussed
                 </h3>
                 <div className="flex flex-wrap gap-2">
-                  {session.summary.topics.map((topic, index) => (
+                  {sessionData.summary.topics.map((topic, index) => (
                     <Badge key={index} variant="outline" className="capitalize">
                       {topic}
                     </Badge>
@@ -442,7 +496,7 @@ export default function SummaryPage() {
                   Full Transcript
                 </h3>
                 <div className="flex items-center gap-2">
-                  <span className="text-sm text-muted-foreground">{session.transcript_lines.length} lines</span>
+                  <span className="text-sm text-muted-foreground">{sessionData.transcript_lines.length} lines</span>
                   {transcriptExpanded ? (
                     <ChevronDown className="w-5 h-5 text-muted-foreground" />
                   ) : (
@@ -461,8 +515,8 @@ export default function SummaryPage() {
                     className="mt-4 overflow-hidden"
                   >
                     <div className="max-h-96 overflow-y-auto space-y-4 pr-2">
-                      {session.transcript_lines.length > 0 ? (
-                        session.transcript_lines.map((line) => (
+                      {sessionData.transcript_lines.length > 0 ? (
+                        sessionData.transcript_lines.map((line) => (
                           <div key={line.id} className="flex gap-3">
                             <div className="flex-shrink-0">
                               <div className="w-8 h-8 bg-muted rounded-full flex items-center justify-center">
@@ -503,7 +557,7 @@ export default function SummaryPage() {
       <ExportModal 
         isOpen={showExportModal}
         onClose={() => setShowExportModal(false)}
-        session={session}
+        session={sessionData}
       />
     </div>
   );

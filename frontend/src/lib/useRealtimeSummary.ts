@@ -51,22 +51,45 @@ export function useRealtimeSummary({
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   
   const lastTranscriptLength = useRef(0);
+  const lastTranscriptLineCount = useRef(0); // Track lines for better triggers
   const refreshIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const lastRefreshTime = useRef<number>(0);
   const initialSummaryGenerated = useRef(false);
 
   const generateSummary = useCallback(async (force: boolean = false) => {
+    const transcriptLines = transcript.split('\n').filter(line => line.trim().length > 0);
+    const transcriptWords = transcript.trim().split(' ').length;
+    
+    // Only log when actually generating or when there's an issue
+    if (force || (isRecording && !isPaused)) {
+      console.log('🔍 Summary Generation Check:', {
+        isRecording,
+        isPaused,
+        force,
+        transcriptLines: transcriptLines.length,
+        transcriptWords,
+        lastTranscriptLineCount: lastTranscriptLineCount.current,
+        conversationType
+      });
+    }
+
     // Don't generate if not recording and not forced, but allow when paused
-    if (!isRecording && !isPaused && !force) return;
+    if (!isRecording && !isPaused && !force) {
+      return;
+    }
     
     // Don't generate too frequently (minimum 30 seconds between calls unless forced)
     const now = Date.now();
-    if (!force && lastRefreshTime.current > 0 && (now - lastRefreshTime.current) < 30000) return;
+    if (!force && lastRefreshTime.current > 0 && (now - lastRefreshTime.current) < 30000) {
+      if (force) console.log('❌ Summary: Skipping - too frequent (30s limit)');
+      return;
+    }
     
-    // Don't generate for very short transcripts
-    if (!transcript || transcript.trim().split(' ').length < 10) {
+    // Don't generate for very short transcripts (increased minimum)
+    if (!transcript || transcriptWords < 40) {
+      if (force) console.log('❌ Summary: Transcript too short (<40 words)');
       setSummary({
-        tldr: 'Not enough conversation content to generate a summary yet.',
+        tldr: 'Not enough conversation content to generate a meaningful summary yet.',
         keyPoints: [],
         decisions: [],
         actionItems: [],
@@ -78,6 +101,15 @@ export function useRealtimeSummary({
       return;
     }
 
+    // Check if we have enough new content (15 new lines OR significant word increase OR force)
+    const newLinesSinceLastUpdate = transcriptLines.length - lastTranscriptLineCount.current;
+    const newWordsSinceLastUpdate = transcriptWords - lastTranscriptLength.current;
+    if (!force && newLinesSinceLastUpdate < 15 && newWordsSinceLastUpdate < 30) {
+      if (force) console.log(`❌ Summary: Not enough new content (${newLinesSinceLastUpdate} new lines, ${newWordsSinceLastUpdate} new words, need 15 lines or 30 words)`);
+      return;
+    }
+
+    console.log(`✅ Summary: Starting generation (${newLinesSinceLastUpdate} new lines, ${newWordsSinceLastUpdate} new words)...`);
     setIsLoading(true);
     setError(null);
     lastRefreshTime.current = now;
@@ -95,12 +127,27 @@ export function useRealtimeSummary({
         })
       });
 
+      console.log('🌐 Summary API Response:', {
+        status: response.status,
+        statusText: response.statusText,
+        ok: response.ok
+      });
+
       if (!response.ok) {
         const errorData = await response.json();
+        console.error('❌ Summary API Error:', errorData);
         throw new Error(errorData.error || 'Failed to generate summary');
       }
 
       const data: SummaryResponse = await response.json();
+      console.log('📊 Summary API Success:', {
+        hasSummary: !!data.summary,
+        tldrLength: data.summary?.tldr?.length || 0,
+        keyPointsCount: data.summary?.keyPoints?.length || 0,
+        decisionsCount: data.summary?.decisions?.length || 0,
+        actionItemsCount: data.summary?.actionItems?.length || 0,
+        generatedAt: data.generatedAt
+      });
       
       // Parse timeline timestamps if they exist
       let currentAccumulatedTimeline = accumulatedTimeline; // Capture current state
@@ -122,13 +169,27 @@ export function useRealtimeSummary({
         data.summary.timeline = [...currentAccumulatedTimeline].sort((a,b) => b.timestamp.getTime() - a.timestamp.getTime());
       }
       
+      console.log('📈 Setting Summary:', {
+        tldr: data.summary.tldr.substring(0, 50) + '...',
+        keyPoints: data.summary.keyPoints.length,
+        timeline: data.summary.timeline?.length || 0
+      });
+      
       setSummary(data.summary);
       setLastUpdated(new Date(data.generatedAt));
       setError(null);
+      
+      // Update tracking variables
+      lastTranscriptLength.current = transcriptWords;
+      lastTranscriptLineCount.current = transcriptLines.length;
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Unknown error occurred';
       setError(errorMessage);
-      console.error('Error generating summary:', err);
+      console.error('💥 Summary Generation Error:', {
+        error: err,
+        errorMessage,
+        transcript: transcript.substring(0, 100) + '...'
+      });
     } finally {
       setIsLoading(false);
     }
@@ -143,13 +204,17 @@ export function useRealtimeSummary({
 
     // Only set up auto-refresh if recording and have sufficient transcript
     // Don't auto-refresh when paused, but preserve existing data
-    if (isRecording && !isPaused && transcript && transcript.trim().split(' ').length >= 10) {
+    if (isRecording && !isPaused && transcript && transcript.trim().split(' ').length >= 40) {
       refreshIntervalRef.current = setInterval(() => {
-        // Only refresh if transcript has meaningfully changed (at least 20 new words)
-        const currentLength = transcript.trim().split(' ').length;
-        if (currentLength - lastTranscriptLength.current >= 20) {
+        const transcriptLines = transcript.split('\n').filter(line => line.trim().length > 0);
+        const transcriptWords = transcript.trim().split(' ').length;
+        const newLinesSinceLastUpdate = transcriptLines.length - lastTranscriptLineCount.current;
+        const newWordsSinceLastUpdate = transcriptWords - lastTranscriptLength.current;
+        
+        // Trigger if we have 15+ new lines OR 30+ new words
+        if (newLinesSinceLastUpdate >= 15 || newWordsSinceLastUpdate >= 30) {
+          console.log(`🚀 Auto-triggering summary update: ${newLinesSinceLastUpdate} new lines, ${newWordsSinceLastUpdate} new words`);
           generateSummary();
-          lastTranscriptLength.current = currentLength;
         }
       }, refreshIntervalMs);
     }
@@ -164,12 +229,12 @@ export function useRealtimeSummary({
   // Set default summary when not recording or insufficient content
   // BUT preserve data when paused
   useEffect(() => {
-    const currentLength = transcript.trim().split(' ').length;
+    const currentWords = transcript.trim().split(' ').length;
     
     // Only clear summary when truly stopped (not recording AND not paused) or insufficient content
-    if ((!isRecording && !isPaused) || currentLength < 10) {
+    if ((!isRecording && !isPaused) || currentWords < 40) {
       const defaultSummary: ConversationSummary = {
-        tldr: 'Not enough conversation content to generate a summary yet.',
+        tldr: 'Not enough conversation content to generate a meaningful summary yet.',
         keyPoints: [],
         decisions: [],
         actionItems: [],
@@ -186,17 +251,19 @@ export function useRealtimeSummary({
         setAccumulatedTimeline([]); // Clear accumulated timeline too
       }
       initialSummaryGenerated.current = false;
+      // Reset tracking variables
+      lastTranscriptLength.current = 0;
+      lastTranscriptLineCount.current = 0;
     }
   }, [isRecording, isPaused, summary]); // Add isPaused to dependencies
 
   // Generate initial summary when recording starts with sufficient content
   useEffect(() => {
-    const currentLength = transcript.trim().split(' ').length;
+    const currentWords = transcript.trim().split(' ').length;
     
-    if (isRecording && !isPaused && currentLength >= 10 && !initialSummaryGenerated.current && !isLoading) {
+    if (isRecording && !isPaused && currentWords >= 40 && !initialSummaryGenerated.current && !isLoading) {
       initialSummaryGenerated.current = true;
       generateSummary();
-      lastTranscriptLength.current = currentLength;
     }
   }, [isRecording, isPaused, generateSummary, isLoading]); // Add isPaused to dependencies
 

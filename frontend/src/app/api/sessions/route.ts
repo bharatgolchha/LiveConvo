@@ -72,6 +72,7 @@ export async function GET(request: NextRequest) {
         )
       `)
       .eq('organization_id', userData.current_organization_id)
+      .is('deleted_at', null)  // Only get non-deleted sessions
       .order('created_at', { ascending: false });
 
     // Apply filters
