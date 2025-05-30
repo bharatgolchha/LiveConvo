@@ -226,13 +226,16 @@ export function useRealtimeSummary({
     };
   }, [isRecording, isPaused, transcript, refreshIntervalMs, generateSummary]);
 
-  // Set default summary when not recording or insufficient content
-  // BUT preserve data when paused
+  // Set default summary when there isn't enough transcript content
+  // Previously this also cleared when recording stopped which wiped
+  // summaries for loaded sessions. We now only clear when the
+  // transcript itself is short so loaded summaries persist.
   useEffect(() => {
     const currentWords = transcript.trim().split(' ').length;
-    
-    // Only clear summary when truly stopped (not recording AND not paused) or insufficient content
-    if ((!isRecording && !isPaused) || currentWords < 40) {
+
+    // Only clear summary when there is not enough transcript content
+    // (e.g. a new session with an empty transcript)
+    if (currentWords < 40) {
       const defaultSummary: ConversationSummary = {
         tldr: 'Not enough conversation content to generate a meaningful summary yet.',
         keyPoints: [],
