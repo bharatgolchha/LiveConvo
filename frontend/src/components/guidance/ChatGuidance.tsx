@@ -38,7 +38,7 @@ const quickActions = [
   { id: 'key-points', label: 'Key points', icon: CheckCircle, color: 'purple' }
 ];
 
-const MessageBubble: React.FC<{ message: ChatMessage }> = ({ message }) => {
+const MessageBubble: React.FC<{ message: ChatMessage; onSendMessage?: (message: string) => void }> = ({ message, onSendMessage }) => {
   const isUser = message.type === 'user';
   const isAutoGuidance = message.type === 'auto-guidance';
   const isSystem = message.type === 'system';
@@ -106,7 +106,7 @@ const MessageBubble: React.FC<{ message: ChatMessage }> = ({ message }) => {
               <button
                 key={index}
                 className="block w-full text-left text-xs bg-muted hover:bg-muted/80 p-2 rounded-md transition-colors"
-                onClick={() => {/* TODO: Implement */}}
+                onClick={() => onSendMessage?.(action)}
               >
                 {action}
               </button>
@@ -265,7 +265,7 @@ export const ChatGuidance: React.FC<ChatGuidanceProps> = ({
         
         <AnimatePresence>
           {messages.map((message) => (
-            <MessageBubble key={message.id} message={message} />
+            <MessageBubble key={message.id} message={message} onSendMessage={sendMessage} />
           ))}
           
           {isLoading && <TypingIndicator />}

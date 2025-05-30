@@ -78,9 +78,11 @@ interface TranscriptLine {
 
 type ConversationState = 'setup' | 'ready' | 'recording' | 'paused' | 'processing' | 'completed' | 'error';
 
-// Database saving functions
-const saveTranscriptToDatabase = async (sessionId: string, transcriptLines: TranscriptLine[], session: any) => {
+// Database saving functions - Enhanced for reliability
+const saveTranscriptToDatabase = async (sessionId: string, transcriptLines: TranscriptLine[], session: any, retryCount = 0) => {
   try {
+    console.log(`💾 Saving transcript to database (${transcriptLines.length} lines)...`);
+    
     const transcriptData = transcriptLines.map((line, index) => ({
       session_id: sessionId,
       content: line.text,
@@ -97,11 +99,45 @@ const saveTranscriptToDatabase = async (sessionId: string, transcriptLines: Tran
     });
 
     if (!response.ok) {
-      console.error('Failed to save transcript:', await response.text());
+      const errorText = await response.text();
+      console.error('Failed to save transcript:', response.status, errorText);
+      
+      // Retry logic for failed saves (up to 3 times)
+      if (retryCount < 3) {
+        console.log(`🔄 Retrying transcript save (attempt ${retryCount + 1}/3)...`);
+        setTimeout(() => {
+          saveTranscriptToDatabase(sessionId, transcriptLines, session, retryCount + 1);
+        }, 1000 * (retryCount + 1)); // Exponential backoff
+      } else {
+        console.error('❌ Failed to save transcript after 3 retries');
+      }
+    } else {
+      console.log(`✅ Transcript saved successfully (${transcriptLines.length} lines)`);
     }
   } catch (error) {
     console.error('Error saving transcript to database:', error);
+    
+    // Retry on network/connection errors
+    if (retryCount < 3) {
+      console.log(`🔄 Retrying transcript save due to error (attempt ${retryCount + 1}/3)...`);
+      setTimeout(() => {
+        saveTranscriptToDatabase(sessionId, transcriptLines, session, retryCount + 1);
+      }, 1000 * (retryCount + 1));
+    } else {
+      console.error('❌ Failed to save transcript after 3 retries due to errors');
+    }
   }
+};
+
+// Manual save function for immediate transcript saving
+const saveTranscriptNow = async (sessionId: string, transcriptLines: TranscriptLine[], session: any) => {
+  if (!sessionId || !transcriptLines || transcriptLines.length === 0 || !session) {
+    console.log('⚠️ Cannot save transcript - missing required data');
+    return;
+  }
+  
+  console.log('🚀 Manual transcript save triggered');
+  await saveTranscriptToDatabase(sessionId, transcriptLines, session);
 };
 
 const saveTimelineToDatabase = async (sessionId: string, timelineEvents: TimelineEvent[], session: any) => {
@@ -163,6 +199,23 @@ export default function App() {
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
   const [systemAudioStream, setSystemAudioStream] = useState<MediaStream | null>(null);
 
+  // Add a ref to track whether we've loaded from localStorage
+  const hasLoadedFromStorage = useRef(false);
+
+  // Tab visibility and page lifecycle management
+  const [isTabVisible, setIsTabVisible] = useState(true);
+  const [wasRecordingBeforeHidden, setWasRecordingBeforeHidden] = useState(false);
+  const pageVisibilityTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const preventUnloadRef = useRef(false);
+
+  // Add a ref to track current recording state for database loading prevention
+  const isCurrentlyRecordingRef = useRef(false);
+
+  // Update the ref whenever conversation state changes
+  useEffect(() => {
+    isCurrentlyRecordingRef.current = (conversationState as string) === 'recording';
+  }, [conversationState]);
+
   // Save conversation state to localStorage whenever it changes
   useEffect(() => {
     if (conversationId && typeof window !== 'undefined') {
@@ -199,25 +252,129 @@ export default function App() {
           if (parsed.conversationType) setConversationType(parsed.conversationType);
           if (parsed.conversationTitle) setConversationTitle(parsed.conversationTitle);
           if (parsed.textContext) setTextContext(parsed.textContext);
-          if (parsed.conversationState) setConversationState(parsed.conversationState as ConversationState);
+          if (parsed.conversationState) {
+            setConversationState(parsed.conversationState as ConversationState);
+            hasLoadedFromStorage.current = true;
+          } else {
+            // If no state was saved but we have a conversation ID, set to ready
+            setConversationState('ready');
+            hasLoadedFromStorage.current = true;
+          }
         } catch (err) {
           console.error('Error loading saved conversation state:', err);
         }
+      } else if (conversationId) {
+        // If we have a conversation ID but no saved state, set to ready
+        setConversationState('ready');
+        hasLoadedFromStorage.current = true;
       }
     }
   }, [conversationId]);
+
+  // Handle page visibility changes to maintain recording state
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      const isVisible = !document.hidden;
+      setIsTabVisible(isVisible);
+      
+      console.log(`🔍 Tab ${isVisible ? 'visible' : 'hidden'}, recording state: ${conversationState}`);
+      
+      if (!isVisible) {
+        // Tab is being hidden
+        if (conversationState === 'recording') {
+          setWasRecordingBeforeHidden(true);
+          console.log('🔍 Tab hidden while recording - maintaining state');
+          
+          // Set a timeout to pause recording only if tab stays hidden for too long (optional)
+          pageVisibilityTimeoutRef.current = setTimeout(() => {
+            if (document.hidden && conversationState === 'recording') {
+              console.log('🔍 Tab hidden for too long, pausing recording');
+              // Reference the correct function name - we'll define this later
+              // handlePauseRecording();
+            }
+          }, 300000); // 5 minutes
+        }
+      } else {
+        // Tab is becoming visible
+        console.log('🔍 Tab became visible');
+        
+        // Clear any pending pause timeout
+        if (pageVisibilityTimeoutRef.current) {
+          clearTimeout(pageVisibilityTimeoutRef.current);
+          pageVisibilityTimeoutRef.current = null;
+        }
+        
+        // If we were recording before and are now paused, offer to resume
+        if (wasRecordingBeforeHidden && conversationState === 'paused') {
+          console.log('🔍 Tab visible again, was recording before - ready to resume');
+          setWasRecordingBeforeHidden(false);
+        }
+      }
+    };
+
+    // Prevent page unload while recording
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (conversationState === 'recording' || preventUnloadRef.current) {
+        e.preventDefault();
+        e.returnValue = 'You have an active recording. Are you sure you want to leave?';
+        return e.returnValue;
+      }
+    };
+
+    // Prevent accidental page refresh during recording
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (conversationState === 'recording') {
+        // Prevent Ctrl+R, F5, Cmd+R
+        if ((e.ctrlKey && e.key === 'r') || 
+            (e.metaKey && e.key === 'r') || 
+            e.key === 'F5') {
+          e.preventDefault();
+          console.log('🔍 Prevented page refresh during recording');
+          return false;
+        }
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    document.addEventListener('keydown', handleKeyDown);
+    
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      document.removeEventListener('keydown', handleKeyDown);
+      
+      if (pageVisibilityTimeoutRef.current) {
+        clearTimeout(pageVisibilityTimeoutRef.current);
+      }
+    };
+  }, [conversationState, wasRecordingBeforeHidden]);
+
+  // Temporary debug logging for auth state
+  useEffect(() => {
+    console.log('🔍 Auth State Debug:', {
+      session: session ? {
+        user: { id: session.user.id, email: session.user.email },
+        access_token: session.access_token ? `${session.access_token.substring(0, 50)}...` : 'null',
+        expires_at: session.expires_at
+      } : null,
+      authLoading,
+      conversationId
+    });
+  }, [session, authLoading, conversationId]);
 
   // Refs to keep latest state values for interval callbacks
   const latestTranscript = useRef<TranscriptLine[]>([]);
   const latestTextContext = useRef('');
   const contextSaveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const previousConversationState = useRef<ConversationState | null>(null);
   
   // UI State
   const [showContextPanel, setShowContextPanel] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [audioEnabled, setAudioEnabled] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'transcript' | 'summary' | 'timeline'>('summary');
+  const [activeTab, setActiveTab] = useState<'transcript' | 'summary' | 'timeline' | 'checklist'>('summary');
   const [selectedPreviousConversations, setSelectedPreviousConversations] = useState<string[]>([]);
   const [previousConversationSearch, setPreviousConversationSearch] = useState('');
   const [aiCoachWidth, setAiCoachWidth] = useState(400); // Default AI Coach sidebar width
@@ -286,7 +443,10 @@ export default function App() {
   // lastGuidanceIndex removed - auto-guidance no longer used
 
   // Real-time summary hook - include speaker tags for better context
-  const fullTranscriptText = transcript.map(t => `${t.speaker}: ${t.text}`).join('\n');
+  // Memoize fullTranscriptText to prevent unnecessary recalculations and re-renders
+  const fullTranscriptText = React.useMemo(() => 
+    transcript.map(t => `${t.speaker}: ${t.text}`).join('\n')
+  , [transcript]);
   
   // Only log state changes, not every render
   const lastLoggedState = useRef<{state: string, transcriptLength: number}>({state: '', transcriptLength: 0});
@@ -370,17 +530,41 @@ export default function App() {
     }
   }, [chatMessages.length, initializeChat]);
 
-  // Auto-save transcript to database when transcript changes and we have a conversationId
+  // Enhanced auto-save transcript to database - More frequent and reliable saves
   useEffect(() => {
-    if (conversationId && transcript.length > 0 && (conversationState === 'recording' || conversationState === 'completed')) {
-      // Debounce saving to avoid too many API calls
-      const timeoutId = setTimeout(() => {
-        saveTranscriptToDatabase(conversationId, transcript, session);
-      }, 2000); // Save after 2 seconds of no changes
+    if (conversationId && transcript.length > 0 && session && !authLoading) {
+      // Save in all active states: recording, paused, and completed
+      const shouldSave = ['recording', 'paused', 'completed'].includes(conversationState);
       
-      return () => clearTimeout(timeoutId);
+      if (shouldSave) {
+        // Reduced debounce time for more frequent saves (500ms instead of 2000ms)
+        const timeoutId = setTimeout(() => {
+          saveTranscriptToDatabase(conversationId, transcript, session);
+        }, 500); // Save after 500ms of no changes
+        
+        return () => clearTimeout(timeoutId);
+      }
     }
-  }, [transcript, conversationId, conversationState, session]);
+  }, [transcript, conversationId, conversationState, session, authLoading]);
+
+  // Immediate transcript save when conversation state changes (pause/stop/complete)
+  useEffect(() => {
+    if (previousConversationState.current && previousConversationState.current !== conversationState) {
+      // Save immediately when transitioning to these states
+      const immediateStates: ConversationState[] = ['paused', 'completed', 'error'];
+      
+      if (immediateStates.includes(conversationState) && 
+          conversationId && 
+          transcript.length > 0 && 
+          session && 
+          !authLoading) {
+        console.log(`💾 Immediate transcript save triggered by state change: ${previousConversationState.current} → ${conversationState}`);
+        saveTranscriptNow(conversationId, transcript, session);
+      }
+    }
+    
+    previousConversationState.current = conversationState;
+  }, [conversationState, conversationId, transcript, session, authLoading]);
 
   // Auto-save summary to database when summary changes
   useEffect(() => {
@@ -596,6 +780,137 @@ export default function App() {
     loadContextFromDatabase();
   }, [conversationId, session, authLoading, fetchContext]);
 
+  // Load complete session data from database when page loads with conversation ID
+  useEffect(() => {
+    const loadSessionFromDatabase = async () => {
+      if (conversationId && session && !authLoading) {
+        // CRITICAL FIX: Don't reload from database if we're currently recording!
+        // This prevents tab switches from killing active recordings
+        if (isCurrentlyRecordingRef.current) {
+          console.log('🚫 Skipping database reload - active recording in progress');
+          return;
+        }
+
+        try {
+          console.log('🔄 Loading session data from database...', conversationId);
+          
+          // Fetch session details
+          const sessionResponse = await authenticatedFetch(`/api/sessions/${conversationId}`, session);
+          if (!sessionResponse.ok) {
+            throw new Error('Failed to fetch session data');
+          }
+          const { session: sessionData } = await sessionResponse.json();
+          
+          // Load session configuration
+          if (sessionData.title) {
+            setConversationTitle(sessionData.title);
+          }
+          
+          if (sessionData.conversation_type) {
+            const typeMapping: Record<string, 'sales' | 'support' | 'meeting' | 'interview'> = {
+              'sales_call': 'sales',
+              'Sales Call': 'sales',
+              'Product Demo': 'sales',
+              'support_call': 'support',
+              'Support Call': 'support',
+              'Customer Support Call': 'support',
+              'meeting': 'meeting',
+              'Meeting': 'meeting',
+              'Team Standup Meeting': 'meeting',
+              'Project Meeting': 'meeting',
+              'interview': 'interview',
+              'Interview': 'interview',
+              'consultation': 'meeting',
+              'Consultation': 'meeting',
+              'Business Review': 'meeting'
+            };
+            const mappedType = typeMapping[sessionData.conversation_type] || sessionData.conversation_type || 'sales';
+            setConversationType(mappedType);
+          }
+          
+          // CRITICAL FIX: Update conversation state based on DB, overriding localStorage if necessary for loaded sessions.
+          // Only avoid this if currently recording in this tab.
+          if (!isCurrentlyRecordingRef.current) {
+            if (sessionData.status === 'completed') {
+              setConversationState('completed');
+              console.log('DB Load: Session is completed. Setting state to "completed".');
+            } else if (sessionData.status === 'active') {
+              // An 'active' session from DB means it was recording elsewhere or previously.
+              // Treat as 'paused' in this tab to allow viewing/resuming.
+              setConversationState('paused');
+              console.log('DB Load: Session is active. Setting state to "paused".');
+            } else { // 'draft' or other unknown status
+              // If conversationState is 'setup', move to 'ready'. Otherwise, preserve current state if DB is 'draft'.
+              if (conversationState === 'setup') {
+                 setConversationState('ready');
+                 console.log('DB Load: Session is draft, initial state was setup. Setting state to "ready".');
+              } else {
+                 console.log('DB Load: Session is draft or unknown. Preserving current non-setup state:', conversationState);
+              }
+            }
+            // Ensure hasLoadedFromStorage is true after DB state alignment attempt
+            if (!hasLoadedFromStorage.current) {
+              hasLoadedFromStorage.current = true;
+            }
+          } else {
+            console.log('🚫 Skipping DB state update due to active recording. Preserving current state:', conversationState);
+          }
+          
+          // Load transcript data if available (only if we don't have current transcript)
+          if (transcript.length === 0) {
+            try {
+              const transcriptResponse = await authenticatedFetch(`/api/sessions/${conversationId}/transcript`, session);
+              if (transcriptResponse.ok) {
+                const transcriptData = await transcriptResponse.json();
+                if (transcriptData.data && Array.isArray(transcriptData.data) && transcriptData.data.length > 0) {
+                  const loadedTranscript: TranscriptLine[] = transcriptData.data.map((line: any, index: number) => ({
+                    id: `loaded-${index}`,
+                    text: line.content || '',
+                    timestamp: new Date(line.created_at || Date.now()),
+                    speaker: (line.speaker === 'user' || line.speaker === 'me') ? 'ME' : 'THEM',
+                    confidence: line.confidence_score || 0.85
+                  }));
+                  setTranscript(loadedTranscript);
+                  
+                  // Calculate session duration from transcript
+                  if (sessionData.recording_duration_seconds) {
+                    setSessionDuration(sessionData.recording_duration_seconds);
+                  }
+                  
+                  // Update talk stats from loaded transcript
+                  const stats = loadedTranscript.reduce((acc, line) => {
+                    const wordCount = line.text.split(' ').length;
+                    if (line.speaker === 'ME') {
+                      acc.meWords += wordCount;
+                    } else {
+                      acc.themWords += wordCount;
+                    }
+                    return acc;
+                  }, { meWords: 0, themWords: 0 });
+                  setTalkStats(stats);
+                  
+                  console.log('✅ Transcript loaded from database:', loadedTranscript.length, 'lines');
+                }
+              }
+            } catch (transcriptError) {
+              console.warn('⚠️ Could not load transcript:', transcriptError);
+            }
+          } else {
+            console.log('🔒 Preserving current transcript data (', transcript.length, 'lines)');
+          }
+          
+          console.log('✅ Session data loaded successfully from database');
+          
+        } catch (error) {
+          console.error('❌ Failed to load session from database:', error);
+          // Don't set error state as user can still use the app
+        }
+      }
+    };
+
+    loadSessionFromDatabase();
+  }, [conversationId, session, authLoading, conversationState]); // Added conversationState to dependency array
+
   // Update textContext when context is fetched from database
   useEffect(() => {
     if (context && context.text_context && !textContext) {
@@ -729,6 +1044,15 @@ export default function App() {
 
     fetchAndIntegrateConversationSummaries();
   }, [selectedPreviousConversations, sessions, addContext, session, authLoading]);
+
+  // Helper Functions
+  const formatDuration = (seconds: number) => {
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    const secs = seconds % 60;
+    if (hours > 0) return `${hours}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+    return `${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  };
 
   // Event Handlers - Define handleGenerateGuidance before useEffect hooks
   const handleGenerateGuidance = React.useCallback(async () => {
@@ -1126,8 +1450,8 @@ export default function App() {
       
       // Ensure transcript is saved to database before finalizing
       if (conversationId && transcript.length > 0 && session) {
-        console.log('💾 Saving final transcript to database...');
-        await saveTranscriptToDatabase(conversationId, transcript, session);
+        console.log('💾 Saving final transcript to database before finalization...');
+        await saveTranscriptNow(conversationId, transcript, session);
       }
       
       // Trigger a final summary refresh to ensure we have the most up-to-date summary
@@ -1191,13 +1515,15 @@ export default function App() {
     }
   };
 
-  // Helper Functions
-  const formatDuration = (seconds: number) => {
-    const hours = Math.floor(seconds / 3600);
-    const minutes = Math.floor((seconds % 3600) / 60);
-    const secs = seconds % 60;
-    if (hours > 0) return `${hours}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
-    return `${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  // Manual transcript save function for UI buttons
+  const handleManualSaveTranscript = async () => {
+    if (!conversationId || !session || transcript.length === 0) {
+      console.log('⚠️ Cannot manually save transcript - missing data');
+      return;
+    }
+    
+    console.log('🔄 Manual transcript save requested by user');
+    await saveTranscriptNow(conversationId, transcript, session);
   };
 
   const getStateTextAndColor = (state: ConversationState): {text: string, color: string, icon?: React.ElementType} => {
@@ -1280,6 +1606,98 @@ export default function App() {
     };
   }, []);
 
+  // Periodic transcript save during recording (every 30 seconds)
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    
+    if (conversationState === 'recording' && conversationId && session && !authLoading) {
+      interval = setInterval(() => {
+        if (transcript.length > 0) {
+          console.log('⏰ Periodic transcript save (30s interval)');
+          saveTranscriptNow(conversationId, transcript, session);
+        }
+      }, 30000); // Save every 30 seconds during recording
+    }
+    
+    return () => {
+      if (interval) {
+        clearInterval(interval);
+      }
+    };
+  }, [conversationState, conversationId, transcript, session, authLoading]);
+
+  // Add ref to prevent infinite loops in forced generation
+  const hasTriggeredForcedGeneration = useRef(false);
+  
+  // Refs to store latest values for the forced generation effect
+  const latestRefreshSummary = useRef(refreshSummary);
+  const latestRefreshTimeline = useRef(refreshTimeline);
+  
+  // Update refs when functions change
+  useEffect(() => {
+    latestRefreshSummary.current = refreshSummary;
+  }, [refreshSummary]);
+  
+  useEffect(() => {
+    latestRefreshTimeline.current = refreshTimeline;
+  }, [refreshTimeline]);
+
+  // Force summary and timeline generation when loading existing transcript from database
+  useEffect(() => {
+    const forceGenerationOnLoad = async () => {
+      // Get the current values directly inside the effect to avoid dependency issues
+      const currentTranscriptLength = transcript.length;
+      const currentTranscriptWords = transcript.map(t => `${t.speaker}: ${t.text}`).join('\n').trim().split(' ').length;
+      
+      // Only force generation if we have a substantial transcript loaded from database
+      // and we're not currently recording (meaning this is restored data)
+      // and we haven't already triggered forced generation
+      if (currentTranscriptLength > 10 && 
+          currentTranscriptWords > 50 && 
+          conversationState !== 'recording' && 
+          conversationState !== 'setup' &&
+          conversationId &&
+          session &&
+          !authLoading &&
+          !hasTriggeredForcedGeneration.current) {
+        
+        console.log('🚀 Forcing summary and timeline generation for loaded transcript:', {
+          transcriptLines: currentTranscriptLength,
+          transcriptWords: currentTranscriptWords,
+          conversationState
+        });
+        
+        // Set flag to prevent repeated execution
+        hasTriggeredForcedGeneration.current = true;
+        
+        // Force refresh summary and timeline for loaded data using refs
+        setTimeout(() => {
+          latestRefreshSummary.current(); // Force refresh using ref
+        }, 1000);
+        
+        setTimeout(() => {
+          latestRefreshTimeline.current(); // Force refresh using ref
+        }, 2000);
+
+        // Ensure we're in a valid state for showing the content
+        if (!['ready', 'recording', 'paused', 'processing', 'completed'].includes(conversationState)) {
+          setConversationState('ready');
+        }
+      }
+    };
+
+    forceGenerationOnLoad();
+  }, [transcript.length, conversationState, conversationId, session, authLoading]);
+
+  // Reset the forced generation flag when conversation changes or when starting a new recording
+  useEffect(() => {
+    // Reset when a new conversation is loaded (ID changes) or when recording starts
+    // This allows forced generation to run again for the new session or after a reset
+    if (conversationState === 'recording' || conversationState === 'setup') {
+      hasTriggeredForcedGeneration.current = false;
+    }
+  }, [conversationState, conversationId]); // Only depend on conversationId and conversationState
+
   // UI Render
   return (
     <div className={cn("h-screen flex flex-col overflow-hidden", isFullscreen ? 'h-screen overflow-hidden' : '')}>
@@ -1311,6 +1729,19 @@ export default function App() {
                           </span>
                         )}
                       </div>
+                      {/* Tab Visibility Protection Indicator */}
+                      {conversationState === 'recording' && (
+                        <div className="flex items-center gap-1 text-xs text-green-600 bg-green-50 dark:bg-green-900/20 px-2 py-1 rounded-full border border-green-200 dark:border-green-800" title="Recording protected from tab switches">
+                          <ShieldCheck className="w-3 h-3" />
+                          <span className="hidden sm:inline">Protected</span>
+                        </div>
+                      )}
+                      {wasRecordingBeforeHidden && conversationState === 'paused' && (
+                        <div className="flex items-center gap-1 text-xs text-amber-600 bg-amber-50 dark:bg-amber-900/20 px-2 py-1 rounded-full border border-amber-200 dark:border-amber-800" title="Paused due to tab switch - click Resume to continue">
+                          <RefreshCw className="w-3 h-3" />
+                          <span className="hidden sm:inline">Tab Return</span>
+                        </div>
+                      )}
                     </div>
                   </div>
                   
@@ -1461,7 +1892,7 @@ export default function App() {
           )}
 
           {/* Core Interface - Summary/Transcript/Timeline - Always Visible */}
-          <div className="flex-1 h-full max-h-full overflow-hidden p-4 sm:p-6 lg:p-8">
+          <div className="flex-1 h-full max-h-full overflow-hidden">
             {conversationState === 'setup' && (
               <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="m-auto text-center max-w-lg p-8 bg-card rounded-xl shadow-2xl">
                 <div className="w-24 h-24 bg-app-info-light rounded-full flex items-center justify-center mx-auto mb-6 ring-4 ring-app-info/20">
@@ -1498,6 +1929,8 @@ export default function App() {
                   setIsFullscreen={setIsFullscreen}
                   handleStartRecording={handleStartRecording}
                   handleExportSession={handleExportSession}
+                  sessionId={conversationId || undefined}
+                  authToken={session?.access_token}
                 />
               </div>
             )}

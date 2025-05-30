@@ -9,20 +9,23 @@ process.env.NEXT_PUBLIC_APP_URL = 'http://localhost:3000'
 global.fetch = jest.fn()
 
 // Mock Request and Response for Next.js API testing
-global.Request = class Request {
-  constructor(input, init) {
-    this.url = typeof input === 'string' ? input : input.url;
-    this.method = init?.method || 'GET';
-    this.headers = new Map(Object.entries(init?.headers || {}));
-    this.body = init?.body || null;
-  }
-  
-  async json() {
-    return this.body ? JSON.parse(this.body) : {};
-  }
-  
-  async text() {
-    return this.body || '';
+// Note: Don't override Request in Node.js environment as NextRequest extends native Request
+if (typeof window !== 'undefined') {
+  global.Request = class Request {
+    constructor(input, init) {
+      this.url = typeof input === 'string' ? input : input.url;
+      this.method = init?.method || 'GET';
+      this.headers = new Map(Object.entries(init?.headers || {}));
+      this.body = init?.body || null;
+    }
+    
+    async json() {
+      return this.body ? JSON.parse(this.body) : {};
+    }
+    
+    async text() {
+      return this.body || '';
+    }
   }
 }
 
@@ -52,25 +55,27 @@ global.console = {
   error: jest.fn(),
 }
 
-// Mock window.navigator for audio tests
-Object.defineProperty(window, 'navigator', {
-  value: {
-    mediaDevices: {
-      getUserMedia: jest.fn(),
+// Mock window.navigator for audio tests (only in browser environment)
+if (typeof window !== 'undefined') {
+  Object.defineProperty(window, 'navigator', {
+    value: {
+      mediaDevices: {
+        getUserMedia: jest.fn(),
+      },
+      userAgent: 'test',
     },
-    userAgent: 'test',
-  },
-  writable: true,
-})
+    writable: true,
+  })
 
-// Mock window.location
-Object.defineProperty(window, 'location', {
-  value: {
-    href: 'http://localhost:3000',
-    origin: 'http://localhost:3000',
-  },
-  writable: true,
-})
+  // Mock window.location
+  Object.defineProperty(window, 'location', {
+    value: {
+      href: 'http://localhost:3000',
+      origin: 'http://localhost:3000',
+    },
+    writable: true,
+  })
+}
 
 // Mock AudioContext
 global.AudioContext = jest.fn().mockImplementation(() => ({

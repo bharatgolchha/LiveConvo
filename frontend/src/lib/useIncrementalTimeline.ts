@@ -77,16 +77,16 @@ export function useIncrementalTimeline({
       return;
     }
     
-    // Don't generate for very short transcripts (increased minimum)
-    if (!transcript || transcriptWords < 30) {
-      if (force) console.log('❌ Timeline: Transcript too short (<30 words)');
+    // Don't generate for very short transcripts (reduced minimum from 30 to 20 words)
+    if (!transcript || transcriptWords < 20) {
+      if (force) console.log(`❌ Timeline: Transcript too short (<20 words, current: ${transcriptWords})`);
       return;
     }
 
-    // Check if we have enough new content (10 new lines OR force)
+    // Check if we have enough new content (reduced from 10 to 5 new lines OR force)
     const newLinesSinceLastUpdate = transcriptLines.length - lastProcessedLineCount;
-    if (!force && newLinesSinceLastUpdate < 10 && transcript.length <= lastProcessedLength) {
-      if (force) console.log(`❌ Timeline: Not enough new content (${newLinesSinceLastUpdate} new lines, need 10)`);
+    if (!force && newLinesSinceLastUpdate < 5 && transcript.length <= lastProcessedLength) {
+      if (force) console.log(`❌ Timeline: Not enough new content (${newLinesSinceLastUpdate} new lines, need 5)`);
       return;
     }
 
@@ -181,13 +181,13 @@ export function useIncrementalTimeline({
 
     // Only set up auto-refresh if recording and have sufficient transcript
     // Don't auto-refresh when paused, but preserve existing data
-    if (isRecording && !isPaused && transcript && transcript.trim().split(' ').length >= 30) {
+    if (isRecording && !isPaused && transcript && transcript.trim().split(' ').length >= 20) {
       refreshIntervalRef.current = setInterval(() => {
         const transcriptLines = transcript.split('\n').filter(line => line.trim().length > 0);
         const newLinesSinceLastUpdate = transcriptLines.length - lastProcessedLineCount;
         
-        // Trigger if we have 10+ new lines OR if there's any new content and enough time has passed
-        if (newLinesSinceLastUpdate >= 10 || (transcript.length > lastProcessedLength && newLinesSinceLastUpdate >= 5)) {
+        // Trigger if we have 5+ new lines OR if there's any new content and enough time has passed (reduced thresholds)
+        if (newLinesSinceLastUpdate >= 5 || (transcript.length > lastProcessedLength && newLinesSinceLastUpdate >= 2)) {
           console.log(`🚀 Auto-triggering timeline update: ${newLinesSinceLastUpdate} new lines`);
           generateTimelineUpdate();
         }
@@ -206,8 +206,8 @@ export function useIncrementalTimeline({
   useEffect(() => {
     const currentWords = transcript.trim().split(' ').length;
     
-    // Only clear timeline when truly stopped (not recording AND not paused) or insufficient content
-    if ((!isRecording && !isPaused) || currentWords < 30) {
+    // Only clear timeline when truly stopped (not recording AND not paused) or insufficient content (reduced from 30 to 20 words)
+    if ((!isRecording && !isPaused) || currentWords < 20) {
       if (timeline.length > 0) {
         setTimeline([]);
         setLastProcessedLength(0);
@@ -221,7 +221,7 @@ export function useIncrementalTimeline({
   useEffect(() => {
     const currentWords = transcript.trim().split(' ').length;
     
-    if (isRecording && !isPaused && currentWords >= 30 && !initialTimelineGenerated.current && !isLoading) {
+    if (isRecording && !isPaused && currentWords >= 20 && !initialTimelineGenerated.current && !isLoading) {
       initialTimelineGenerated.current = true;
       generateTimelineUpdate();
     }

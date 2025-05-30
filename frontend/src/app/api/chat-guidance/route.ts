@@ -99,7 +99,7 @@ export async function POST(request: NextRequest) {
           }
         ],
         temperature: 0.4,
-        max_tokens: 600,
+        max_tokens: 1500,
         response_format: { type: 'json_object' }
       })
     });
@@ -114,7 +114,51 @@ export async function POST(request: NextRequest) {
     }
 
     const data = await response.json();
-    const chatResponse = JSON.parse(data.choices[0].message.content);
+    
+    // Add logging for debugging
+    console.log('OpenRouter response data:', data);
+    console.log('Raw content to parse:', data.choices[0]?.message?.content);
+    
+    let chatResponse;
+    try {
+      const rawContent = data.choices[0].message.content;
+      
+      // Check if the JSON response appears to be truncated
+      if (!rawContent.trim().endsWith('}')) {
+        console.warn('Response appears to be truncated:', rawContent);
+        
+        // Try to complete the JSON structure
+        let completedJson = rawContent;
+        if (!completedJson.includes('"suggestedActions"')) {
+          completedJson += ', "suggestedActions": ["Try rephrasing your question"], "confidence": 85}';
+        } else if (!completedJson.endsWith('}')) {
+          completedJson += '}';
+        }
+        
+        try {
+          chatResponse = JSON.parse(completedJson);
+          console.log('Successfully parsed completed JSON');
+        } catch (completionError) {
+          console.error('Failed to complete truncated JSON:', completionError);
+          throw new Error('Response was truncated and could not be completed');
+        }
+      } else {
+        chatResponse = JSON.parse(rawContent);
+      }
+    } catch (parseError) {
+      console.error('JSON parsing error:', parseError);
+      console.error('Content that failed to parse:', data.choices[0]?.message?.content);
+      
+      // Fallback response if JSON parsing fails
+      return NextResponse.json({ 
+        response: data.choices[0]?.message?.content || "I'm having trouble processing your request right now.",
+        suggestedActions: ["Try rephrasing your question", "Check your connection"],
+        confidence: 50,
+        generatedAt: new Date().toISOString(),
+        sessionId,
+        note: "Response parsed as plain text due to JSON parsing error"
+      });
+    }
     
     return NextResponse.json({ 
       response: chatResponse.response,
@@ -139,7 +183,7 @@ function getChatGuidanceSystemPrompt(conversationType?: string): string {
 RESPONSE FORMAT:
 Return a JSON object:
 {
-  "response": "Specific, actionable guidance using all available context (use markdown for clarity)",
+  "response": "Specific, actionable guidance using all available context (use markdown for clarity). Keep responses focused and concise - aim for 2-3 key points maximum.",
   "suggestedActions": ["Action 1", "Action 2", "Action 3"],
   "confidence": 85
 }
@@ -151,7 +195,8 @@ GUIDANCE PRINCIPLES:
 - If they ask a question, use their background notes to answer specifically
 - Adapt tone and advice to preparation vs live conversation modes
 - Reference conversation history and events when relevant
-- Be concise but comprehensive
+- Be concise but comprehensive - focus on the most important 2-3 points
+- Keep total response under 400 words to ensure completeness
 
 CONTEXT AWARENESS:
 - Always prioritize user's background notes and setup context

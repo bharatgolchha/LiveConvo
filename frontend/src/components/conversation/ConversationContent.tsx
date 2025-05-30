@@ -27,6 +27,7 @@ import { CompactTimeline } from '@/components/timeline/CompactTimeline';
 import { ConversationSummary } from '@/lib/useRealtimeSummary';
 import { TimelineEvent } from '@/lib/useIncrementalTimeline';
 import { ProcessingAnimation } from './ProcessingAnimation';
+import { ChecklistTab } from '@/components/checklist/ChecklistTab';
 
 interface TranscriptLine {
   id: string;
@@ -40,8 +41,8 @@ type ConversationState = 'setup' | 'ready' | 'recording' | 'paused' | 'processin
 
 interface ConversationContentProps {
   // Tab state
-  activeTab: 'transcript' | 'summary' | 'timeline';
-  setActiveTab: (tab: 'transcript' | 'summary' | 'timeline') => void;
+  activeTab: 'transcript' | 'summary' | 'timeline' | 'checklist';
+  setActiveTab: (tab: 'transcript' | 'summary' | 'timeline' | 'checklist') => void;
   
   // Conversation state
   conversationState: ConversationState;
@@ -71,6 +72,10 @@ interface ConversationContentProps {
   // Actions
   handleStartRecording: () => void;
   handleExportSession: () => void;
+  
+  // Session data (for checklist)
+  sessionId?: string;
+  authToken?: string;
 }
 
 export const ConversationContent: React.FC<ConversationContentProps> = ({
@@ -92,16 +97,11 @@ export const ConversationContent: React.FC<ConversationContentProps> = ({
   isFullscreen,
   setIsFullscreen,
   handleStartRecording,
-  handleExportSession
+  handleExportSession,
+  sessionId,
+  authToken
 }) => {
   const transcriptEndRef = useRef<null | HTMLDivElement>(null);
-
-  // Auto-redirect from transcript tab to summary if transcript is selected
-  React.useEffect(() => {
-    if (activeTab === 'transcript') {
-      setActiveTab('summary');
-    }
-  }, [activeTab, setActiveTab]);
 
   return (
     <div className="h-full max-h-full flex flex-col overflow-hidden bg-gradient-to-br from-background via-background to-muted/20">
@@ -110,7 +110,7 @@ export const ConversationContent: React.FC<ConversationContentProps> = ({
         <div className="px-6 pt-0 pb-2">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-6">
-              {/* Main Tabs - Transcript tab hidden */}
+              {/* Main Tabs - Now includes Checklist */}
               <div className="flex bg-muted/50 rounded-xl p-1.5 shadow-inner">
                 <button 
                   onClick={() => setActiveTab('summary')}
@@ -155,6 +155,18 @@ export const ConversationContent: React.FC<ConversationContentProps> = ({
                       {timeline.length}
                     </span>
                   )}
+                </button>
+                <button 
+                  onClick={() => setActiveTab('checklist')}
+                  className={cn(
+                    "flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium transition-all duration-200",
+                    activeTab === 'checklist' 
+                      ? "bg-background text-app-primary shadow-md ring-1 ring-app-primary/20" 
+                      : "text-muted-foreground hover:text-foreground hover:bg-background/50"
+                  )}
+                >
+                  <CheckSquare className="w-4 h-4" />
+                  <span>Checklist</span>
                 </button>
               </div>
 
@@ -470,6 +482,16 @@ export const ConversationContent: React.FC<ConversationContentProps> = ({
               error={timelineError}
               lastUpdated={timelineLastUpdated}
               onRefresh={refreshTimeline}
+            />
+          </div>
+        )}
+
+        {/* Checklist Tab */}
+        {activeTab === 'checklist' && !isSummarizing && sessionId && (
+          <div className="h-full max-h-full flex flex-col overflow-hidden bg-gradient-to-br from-background via-muted/10 to-muted/20">
+            <ChecklistTab
+              sessionId={sessionId}
+              authToken={authToken}
             />
           </div>
         )}

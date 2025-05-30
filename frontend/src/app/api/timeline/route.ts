@@ -101,7 +101,22 @@ export async function POST(request: NextRequest) {
     
     let timelineData;
     try {
-      timelineData = JSON.parse(data.choices[0].message.content);
+      // First, try to clean up the response if it has markdown code blocks
+      let responseContent = data.choices[0].message.content;
+      
+      // Remove markdown code blocks if present
+      if (responseContent.includes('```')) {
+        responseContent = responseContent.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim();
+      }
+      
+      // Remove any text before or after the JSON object
+      const jsonStart = responseContent.indexOf('{');
+      const jsonEnd = responseContent.lastIndexOf('}');
+      if (jsonStart !== -1 && jsonEnd !== -1 && jsonEnd > jsonStart) {
+        responseContent = responseContent.substring(jsonStart, jsonEnd + 1);
+      }
+      
+      timelineData = JSON.parse(responseContent);
       console.log('📋 Parsed Timeline Data:', {
         hasTimeline: !!timelineData.timeline,
         hasNewEvents: !!timelineData.newEvents,
@@ -111,8 +126,39 @@ export async function POST(request: NextRequest) {
       });
     } catch (parseError) {
       console.error('💥 JSON Parse Error for Timeline:', parseError);
-      // Fallback to empty timeline structure
-      timelineData = { timeline: [] };
+      console.error('💥 Raw content that failed to parse:', data.choices[0].message.content.substring(0, 500));
+      
+      // Try to extract events using regex as a fallback
+      let fallbackEvents = [];
+      try {
+        const responseContent = data.choices[0].message.content;
+        
+        // Look for timeline events in the response using regex patterns
+        const eventPattern = /"id":\s*"([^"]+)"[\s\S]*?"title":\s*"([^"]+)"[\s\S]*?"description":\s*"([^"]+)"[\s\S]*?"type":\s*"([^"]+)"[\s\S]*?"importance":\s*"([^"]+)"[\s\S]*?"speaker":\s*"?([^",}]+)"?/g;
+        let match;
+        
+        while ((match = eventPattern.exec(responseContent)) !== null) {
+          fallbackEvents.push({
+            id: match[1],
+            timestamp: new Date().toISOString(),
+            title: match[2],
+            description: match[3],
+            type: match[4],
+            importance: match[5],
+            speaker: match[6] === 'null' ? null : match[6]
+          });
+        }
+        
+        if (fallbackEvents.length > 0) {
+          console.log('🔧 Extracted events using regex fallback:', fallbackEvents.length);
+          timelineData = { timeline: fallbackEvents };
+        } else {
+          timelineData = { timeline: [] };
+        }
+      } catch (fallbackError) {
+        console.error('💥 Fallback extraction also failed:', fallbackError);
+        timelineData = { timeline: [] };
+      }
     }
     
     // Handle both possible response formats
@@ -174,122 +220,59 @@ function getTimelineSystemPrompt(conversationType?: string): string {
 
 Your role is to identify significant moments, decisions, and progressions in ongoing conversations and create specific, actionable timeline events that capture who said what and when.
 
-CRITICAL: You MUST respond with a JSON object that has a "timeline" array. Do not use "newEvents" or any other key name.
+CRITICAL JSON FORMATTING REQUIREMENTS:
+1. You MUST respond with ONLY a valid JSON object
+2. Do not include any text before or after the JSON
+3. Do not use markdown code blocks (no \`\`\`json)
+4. Do not include any explanatory text
+5. All strings must be properly escaped
+6. The JSON must have a "timeline" array as the root key
 
-RESPONSE FORMAT:
-Return a JSON object with this EXACT structure:
-{
-  "timeline": [
-    {
-      "id": "unique_event_id_here",
-      "timestamp": "2025-01-27T10:30:00Z",
-      "title": "Customer Identified Budget Range",
-      "description": "Customer confirmed they have allocated $50-75k for this solution this quarter",
-      "type": "milestone",
-      "importance": "high",
-      "speaker": "THEM",
-      "content": "Direct quote or paraphrase of what was actually said"
-    }
-  ]
-}
+EXACT RESPONSE FORMAT REQUIRED:
+{"timeline":[{"id":"unique_id","timestamp":"2025-01-27T10:30:00Z","title":"Event Title","description":"Event description","type":"milestone","importance":"high","speaker":"ME","content":"Optional quote"}]}
 
-TIMELINE EVENT TYPES (choose one):
-- milestone: Major progress points (deals advancing, problems solved, agreements reached)
-- decision: Concrete decisions made by either party
-- topic_shift: When conversation moves to new subject areas
-- action_item: Specific tasks or follow-ups identified
-- question: Important questions that drive the conversation forward
-- agreement: Points where both parties align or agree
-- speaker_change: Notable moments when conversation focus shifts between speakers
-- key_statement: Important declarations, requirements, or statements
+TIMELINE EVENT TYPES (use exactly these values):
+- milestone
+- decision  
+- topic_shift
+- action_item
+- question
+- agreement
+- key_statement
 
-IMPORTANCE LEVELS (choose one):
-- high: Critical decisions, major breakthroughs, deal-changing moments
-- medium: Significant progress, important clarifications, key requirements
-- low: Minor updates, background information, relationship building
+IMPORTANCE LEVELS (use exactly these values):
+- high
+- medium
+- low
 
-SPEAKER VALUES (choose one):
-- ME: When the primary speaker (usually the user) said something important
-- THEM: When the other party said something important
-- null: When it's unclear or involves both parties
+SPEAKER VALUES (use exactly these values):
+- ME
+- THEM
+- null
 
-GUIDELINES FOR CONCRETE TIMELINE EVENTS:
-- Be SPECIFIC: Include actual details mentioned (numbers, dates, names, requirements)
+GUIDELINES FOR TIMELINE EVENTS:
+- Be SPECIFIC: Include actual details mentioned
 - Quote or paraphrase ACTUAL content from the conversation
 - Focus on ACTIONABLE information that moves things forward
-- Identify WHO said WHAT and WHY it matters
-- Capture moments that change the conversation direction
-- Include concrete details like budget ranges, timelines, specific requirements
-- Note when important questions are asked or answered
-- Track when commitments or agreements are made
-- Generate at least 1-3 events for meaningful conversations
-- Each event should represent a distinct moment or statement
+- Generate 1-5 events for meaningful conversations
+- Each event should represent a distinct moment
+- Ensure all required fields are present: id, timestamp, title, description, type, importance
+- Keep descriptions under 200 characters
+- Use ISO 8601 timestamp format
 
-EXAMPLES OF GOOD TIMELINE EVENTS:
-{
-  "timeline": [
-    {
-      "id": "demo_1",
-      "timestamp": "2025-01-27T10:30:00Z",
-      "title": "AI System Demonstrates Object Recognition",
-      "description": "System successfully pointed directly at object when commanded, showing trained visual recognition capabilities",
-      "type": "milestone",
-      "importance": "high",
-      "speaker": "ME"
-    },
-    {
-      "id": "demo_2", 
-      "timestamp": "2025-01-27T10:31:00Z",
-      "title": "Optical Interference Test Introduced",
-      "description": "Prism placed in front of lens to test system's ability to handle visual distortion",
-      "type": "action_item",
-      "importance": "medium",
-      "speaker": "ME"
-    }
-  ]
-}
-
-Remember: Always return a JSON object with a "timeline" array containing concrete, specific events from the conversation.`;
+RESPONSE MUST BE VALID JSON ONLY - NO OTHER TEXT:`;
 }
 
 function buildTimelinePrompt(transcript: string, conversationType?: string, existingTimeline?: TimelineEvent[]): string {
   const existingEventsContext = existingTimeline && existingTimeline.length > 0 
-    ? `\nEXISTING TIMELINE EVENTS (avoid duplicating these):\n${existingTimeline.map(e => `- ${e.title}: ${e.description}`).join('\n')}\n` 
+    ? `\nEXISTING EVENTS (avoid duplicating): ${existingTimeline.map(e => e.title).join(', ')}\n` 
     : '';
 
-  return `
-TIMELINE ANALYSIS REQUEST:
-
-CONVERSATION TYPE: ${conversationType || 'general'}
-${existingEventsContext}
-FULL CONVERSATION TRANSCRIPT:
+  return `CONVERSATION TYPE: ${conversationType || 'general'}${existingEventsContext}
+TRANSCRIPT:
 ${transcript}
 
-INSTRUCTIONS:
-1. Analyze the conversation transcript for significant timeline events
-2. Create concrete, specific timeline events with actual details mentioned
-3. Include speaker information when identifiable (ME vs THEM)
-4. Capture direct quotes or specific content that triggered each event
-5. Focus on actionable information that moves the conversation forward
-6. Estimate realistic timestamps for each event based on conversation flow
-7. ${existingTimeline && existingTimeline.length > 0 ? 'AVOID DUPLICATING existing events listed above - only create NEW events' : 'Create comprehensive timeline events for the entire conversation'}
+Analyze this conversation and return a JSON object with timeline events. Include 1-5 key moments, decisions, or topic shifts. ${existingTimeline && existingTimeline.length > 0 ? 'Only include NEW events not already covered.' : 'Cover the most important moments in the conversation.'}
 
-Generate timeline events from the transcript that capture the most important, concrete moments. Be specific about what was actually said and why it matters to the conversation's progress.
-
-Remember: The goal is to create a useful timeline that someone could look at later and understand exactly what happened, when, and who said what.
-
-Return a JSON object with this structure:
-{
-  "timeline": [
-    {
-      "id": "unique_event_id",
-      "timestamp": "2025-01-27T10:30:00Z",
-      "title": "Brief event title",
-      "description": "Detailed description of what happened",
-      "type": "milestone|decision|topic_shift|action_item|question|agreement",
-      "importance": "low|medium|high",
-      "speaker": "ME|THEM"
-    }
-  ]
-}`;
+JSON ONLY:`;
 } 
