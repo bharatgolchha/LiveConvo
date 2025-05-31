@@ -243,7 +243,7 @@ export const ConversationContent: React.FC<ConversationContentProps> = ({
       </div>
 
       {/* Full-Screen Content Area */}
-      <div className="flex-1 min-h-0 overflow-hidden relative">
+      <div className="flex-1 min-h-0 overflow-y-auto relative">
         {/* Processing State - Enhanced animation */}
         {isSummarizing && (
           <div className="h-full max-h-full flex flex-col overflow-hidden bg-gradient-to-br from-background via-background to-muted/20">
@@ -253,7 +253,7 @@ export const ConversationContent: React.FC<ConversationContentProps> = ({
 
         {/* Summary Tab */}
         {(activeTab === 'summary' || activeTab === 'transcript') && !isSummarizing && (
-          <div className="h-full max-h-full flex flex-col overflow-hidden" data-summary-content>
+          <div className="h-full max-h-full flex flex-col overflow-y-auto" data-summary-content>
             {summaryError && (
               <div className="flex-shrink-0 mx-8 mt-6">
                 <div className="bg-gradient-to-r from-red-50 to-red-100/50 dark:from-red-950/50 dark:to-red-900/30 border border-red-200 dark:border-red-800/50 text-red-800 dark:text-red-300 p-6 rounded-2xl">
