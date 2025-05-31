@@ -199,6 +199,10 @@ export default function App() {
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
   const [systemAudioStream, setSystemAudioStream] = useState<MediaStream | null>(null);
 
+  // Database-loaded data (overrides AI-generated data when available)
+  const [loadedTimeline, setLoadedTimeline] = useState<TimelineEvent[] | null>(null);
+  const [loadedSummary, setLoadedSummary] = useState<ConversationSummary | null>(null);
+
   // Add a ref to track whether we've loaded from localStorage
   const hasLoadedFromStorage = useRef(false);
 
@@ -471,10 +475,10 @@ export default function App() {
     refreshSummary,
     getTimeUntilNextRefresh
   } = useRealtimeSummary({
-    transcript: fullTranscriptText,
+    transcript: fullTranscriptText, // Always pass full transcript for manual refresh capability
     sessionId: conversationId || undefined,
     conversationType,
-    isRecording: conversationState === 'recording',
+    isRecording: conversationState === 'recording' && !loadedSummary, // Don't auto-generate if we have DB data
     // Treat completed sessions like paused so summary data is retained
     isPaused: conversationState === 'paused' || conversationState === 'completed',
     refreshIntervalMs: 45000 // 45 seconds
@@ -489,14 +493,18 @@ export default function App() {
     refreshTimeline,
     getTimeUntilNextRefresh: getTimelineTimeUntilNextRefresh
   } = useIncrementalTimeline({
-    transcript: fullTranscriptText,
+    transcript: fullTranscriptText, // Always pass full transcript for manual refresh capability
     sessionId: conversationId || undefined,
     conversationType,
-    isRecording: conversationState === 'recording',
+    isRecording: conversationState === 'recording' && !loadedTimeline, // Don't auto-generate if we have DB data
     // Preserve timeline data when session is completed
     isPaused: conversationState === 'paused' || conversationState === 'completed',
     refreshIntervalMs: 15000 // 15 seconds for real-time timeline
   });
+
+  // Override AI-generated data with database-loaded data when available
+  const effectiveTimeline = loadedTimeline || timeline;
+  const effectiveSummary = loadedSummary || summary;
 
   // Chat guidance
   const {
@@ -517,11 +525,12 @@ export default function App() {
     // Enhanced context
     textContext,
     conversationTitle,
-    summary,
-    timeline,
+    summary: effectiveSummary || undefined,
+    timeline: effectiveTimeline || undefined,
     uploadedFiles,
     selectedPreviousConversations
   });
+
 
   // Initialize chat guidance when app loads, not just when recording starts
   useEffect(() => {
@@ -568,23 +577,25 @@ export default function App() {
 
   // Auto-save summary to database when summary changes
   useEffect(() => {
-    if (conversationId && summary && (conversationState === 'recording' || conversationState === 'completed')) {
+    if (conversationId && effectiveSummary && (conversationState === 'recording' || conversationState === 'completed')) {
       // Debounce saving to avoid too many API calls
       const timeoutId = setTimeout(() => {
-        saveSummaryToDatabase(conversationId, summary, session);
+        if (effectiveSummary) { // Add null check
+          saveSummaryToDatabase(conversationId, effectiveSummary, session);
+        }
       }, 1000); // Save after 1 second of no changes
       
       return () => clearTimeout(timeoutId);
     }
-  }, [summary, conversationId, conversationState, session]);
+  }, [effectiveSummary, conversationId, conversationState, session]);
 
   // Auto-save timeline to database when timeline changes
   useEffect(() => {
-    if (conversationId && timeline && timeline.length > 0 && (conversationState === 'recording' || conversationState === 'completed')) {
+    if (conversationId && effectiveTimeline && effectiveTimeline.length > 0 && (conversationState === 'recording' || conversationState === 'completed')) {
       // Debounce saving to avoid too many API calls
       const timeoutId = setTimeout(() => {
         // Filter to only include supported timeline event types for database
-        const supportedTimeline = timeline.filter(event => 
+        const supportedTimeline = effectiveTimeline.filter(event => 
           ['milestone', 'decision', 'topic_shift', 'action_item', 'question', 'agreement'].includes(event.type)
         ).map(event => ({
           ...event,
@@ -598,7 +609,7 @@ export default function App() {
       
       return () => clearTimeout(timeoutId);
     }
-  }, [timeline, conversationId, conversationState, session]);
+  }, [effectiveTimeline, conversationId, conversationState, session]);
 
   // Update session status in database when recording starts/stops
   useEffect(() => {
@@ -898,7 +909,32 @@ export default function App() {
           } else {
             console.log('🔒 Preserving current transcript data (', transcript.length, 'lines)');
           }
-          
+          // Load timeline events from database if available
+          if (sessionData.timeline_events && Array.isArray(sessionData.timeline_events) && sessionData.timeline_events.length > 0) {
+            const loadedTimelineData: TimelineEvent[] = sessionData.timeline_events.map((event: any) => ({
+              id: event.id || `db-${Date.now()}-${Math.random()}`,
+              timestamp: new Date(event.event_timestamp),
+              title: event.title,
+              description: event.description || '',
+              type: event.type as 'milestone' | 'decision' | 'topic_shift' | 'action_item' | 'question' | 'agreement',
+              importance: event.importance as 'low' | 'medium' | 'high'
+            }));
+            setLoadedTimeline(loadedTimelineData);
+            console.log('✅ Timeline loaded from database:', loadedTimelineData.length, 'events');
+          }
+
+          // Load cached summary from database if available
+          if (sessionData.realtime_summary_cache) {
+            try {
+              const cachedSummary = typeof sessionData.realtime_summary_cache === 'string'
+                ? JSON.parse(sessionData.realtime_summary_cache)
+                : sessionData.realtime_summary_cache;
+              setLoadedSummary(cachedSummary);
+              console.log('✅ Summary loaded from database cache:', cachedSummary);
+            } catch (summaryError) {
+              console.warn('⚠️ Could not parse cached summary:', summaryError);
+            }
+          }
           console.log('✅ Session data loaded successfully from database');
           
         } catch (error) {
@@ -1148,9 +1184,7 @@ export default function App() {
       lastMyTranscriptLen.current = 0;
       lastTheirTranscriptLen.current = 0;
       setSessionDuration(0);
-      if (transcript.length > 0 && conversationState !== 'paused') {
-        setTranscript([]);
-      }
+      // FIXED: Transcript is NEVER cleared in handleStartRecording - preserves all conversation data
       console.log('✅ Recording started successfully');
     } catch (err) {
       console.error('Failed to start realtime transcription', err);
@@ -1422,6 +1456,7 @@ export default function App() {
   const handleResetSession = () => {
     setConversationState('setup');
     setSessionDuration(0);
+      // FIXED: Transcript is NEVER cleared in handleStartRecording - preserves all conversation data
     setTranscript([]);
     setTextContext('');
     setUploadedFiles([]);
@@ -1915,12 +1950,12 @@ export default function App() {
                   conversationState={conversationState}
                   isSummarizing={isSummarizing}
                   transcript={transcript}
-                  summary={summary}
+                  summary={effectiveSummary}
                   isSummaryLoading={isSummaryLoading}
                   summaryError={summaryError}
                   summaryLastUpdated={summaryLastUpdated}
                   refreshSummary={refreshSummary}
-                  timeline={timeline}
+                  timeline={effectiveTimeline}
                   isTimelineLoading={isTimelineLoading}
                   timelineError={timelineError}
                   timelineLastUpdated={timelineLastUpdated}
