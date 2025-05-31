@@ -103,6 +103,31 @@ export const ConversationContent: React.FC<ConversationContentProps> = ({
 }) => {
   const transcriptEndRef = useRef<null | HTMLDivElement>(null);
 
+  // Debug logging for summary
+  React.useEffect(() => {
+    console.log('🔍 ConversationContent Summary Debug:', {
+      activeTab,
+      summaryExists: !!summary,
+      summaryType: typeof summary,
+      summaryContent: summary ? {
+        tldr: summary.tldr?.substring(0, 50) + '...',
+        keyPointsCount: summary.keyPoints?.length,
+        decisionsCount: summary.decisions?.length,
+        actionItemsCount: summary.actionItems?.length,
+        topicsCount: summary.topics?.length
+      } : null,
+      isSummaryLoading,
+      summaryError,
+      isSummarizing,
+      renderingConditions: {
+        showError: !!summaryError,
+        showPlaceholder: !summary && !isSummaryLoading && !summaryError,
+        showLoading: isSummaryLoading && !summary,
+        showSummary: !!summary
+      }
+    });
+  }, [activeTab, summary, isSummaryLoading, summaryError, isSummarizing]);
+
   return (
     <div className="h-full max-h-full flex flex-col overflow-hidden bg-gradient-to-br from-background via-background to-muted/20">
       {/* Enhanced Tab Header */}

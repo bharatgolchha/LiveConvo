@@ -506,6 +506,32 @@ export default function App() {
   const effectiveTimeline = loadedTimeline || timeline;
   const effectiveSummary = loadedSummary || summary;
 
+  // Add debugging for summary state
+  useEffect(() => {
+    console.log('🔍 Summary State Debug:', {
+      loadedSummary: !!loadedSummary,
+      loadedSummaryType: typeof loadedSummary,
+      loadedSummaryContent: loadedSummary ? Object.keys(loadedSummary) : null,
+      summary: !!summary,
+      summaryType: typeof summary,
+      summaryContent: summary ? Object.keys(summary) : null,
+      effectiveSummary: !!effectiveSummary,
+      effectiveSummaryType: typeof effectiveSummary,
+      effectiveSummaryContent: effectiveSummary ? Object.keys(effectiveSummary) : null,
+      isSummaryLoading,
+      summaryError
+    });
+  }, [loadedSummary, summary, effectiveSummary, isSummaryLoading, summaryError]);
+
+  // Add debugging for tab state
+  useEffect(() => {
+    console.log('🔍 Tab State Debug:', {
+      activeTab,
+      conversationState,
+      isSummarizing
+    });
+  }, [activeTab, conversationState, isSummarizing]);
+
   // Chat guidance
   const {
     messages: chatMessages,
@@ -926,11 +952,25 @@ export default function App() {
           // Load cached summary from database if available
           if (sessionData.realtime_summary_cache) {
             try {
-              const cachedSummary = typeof sessionData.realtime_summary_cache === 'string'
+              const cachedSummary: any = typeof sessionData.realtime_summary_cache === 'string'
                 ? JSON.parse(sessionData.realtime_summary_cache)
                 : sessionData.realtime_summary_cache;
-              setLoadedSummary(cachedSummary);
-              console.log('✅ Summary loaded from database cache:', cachedSummary);
+              
+              // Transform database format to match ConversationSummary interface
+              const transformedSummary: ConversationSummary = {
+                tldr: cachedSummary.tldr || '',
+                keyPoints: cachedSummary.keyPoints || cachedSummary.key_points || [],
+                decisions: cachedSummary.decisions || [],
+                actionItems: cachedSummary.actionItems || cachedSummary.action_items || [],
+                nextSteps: cachedSummary.nextSteps || cachedSummary.next_steps || [],
+                topics: cachedSummary.topics || [],
+                sentiment: cachedSummary.sentiment || 'neutral',
+                progressStatus: cachedSummary.progressStatus || cachedSummary.progress_status || 'building_momentum',
+                timeline: cachedSummary.timeline || []
+              };
+              
+              setLoadedSummary(transformedSummary);
+              console.log('✅ Summary loaded from database cache:', transformedSummary);
             } catch (summaryError) {
               console.warn('⚠️ Could not parse cached summary:', summaryError);
             }
