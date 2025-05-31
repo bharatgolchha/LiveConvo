@@ -49,7 +49,7 @@ export function useIncrementalTimeline({
 
   const generateTimelineUpdate = useCallback(async (force: boolean = false) => {
     const transcriptLines = transcript.split('\n').filter(line => line.trim().length > 0);
-    const transcriptWords = transcript.trim().split(' ').length;
+    const transcriptWords = transcript.trim().split(/\s+/).filter(Boolean).length;
     
     // Only log when actually generating or when there's an issue
     if (force || (isRecording && !isPaused)) {
@@ -181,7 +181,7 @@ export function useIncrementalTimeline({
 
     // Only set up auto-refresh if recording and have sufficient transcript
     // Don't auto-refresh when paused, but preserve existing data
-    if (isRecording && !isPaused && transcript && transcript.trim().split(' ').length >= 20) {
+    if (isRecording && !isPaused && transcript && transcript.trim().split(/\s+/).filter(Boolean).length >= 20) {
       refreshIntervalRef.current = setInterval(() => {
         const transcriptLines = transcript.split('\n').filter(line => line.trim().length > 0);
         const newLinesSinceLastUpdate = transcriptLines.length - lastProcessedLineCount;
@@ -206,7 +206,7 @@ export function useIncrementalTimeline({
   // which removed data when restoring a saved session. We now clear
   // solely based on transcript length so loaded timelines persist.
   useEffect(() => {
-    const currentWords = transcript.trim().split(' ').length;
+    const currentWords = transcript.trim().split(/\s+/).filter(Boolean).length;
 
     // Only clear when the transcript is too short (e.g. a new session)
     if (currentWords < 20) {
@@ -221,7 +221,7 @@ export function useIncrementalTimeline({
 
   // Generate initial timeline when recording starts with sufficient content
   useEffect(() => {
-    const currentWords = transcript.trim().split(' ').length;
+    const currentWords = transcript.trim().split(/\s+/).filter(Boolean).length;
     
     if (isRecording && !isPaused && currentWords >= 20 && !initialTimelineGenerated.current && !isLoading) {
       initialTimelineGenerated.current = true;
