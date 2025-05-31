@@ -20,6 +20,7 @@ import {
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent, CardHeader } from '@/components/ui/Card';
 import { CompactTimeline } from '@/components/timeline/CompactTimeline';
+import { ChecklistRecommendations } from './ChecklistRecommendations';
 import { 
   ActiveTab, 
   ConversationState, 
@@ -43,11 +44,14 @@ interface ContentPanelProps {
   timelineError: string | null;
   timelineLastUpdated: Date | null;
   isFullscreen: boolean;
+  sessionId?: string;
+  authToken?: string;
   onTabChange: (tab: ActiveTab) => void;
   onRefreshTimeline: () => void;
   onExportSession: () => void;
   onToggleFullscreen: () => void;
   onStartRecording: () => void;
+  onAddChecklistItem?: (text: string) => Promise<void>;
 }
 
 /**
@@ -65,11 +69,14 @@ export const ContentPanel: React.FC<ContentPanelProps> = ({
   timelineError,
   timelineLastUpdated,
   isFullscreen,
+  sessionId,
+  authToken,
   onTabChange,
   onRefreshTimeline,
   onExportSession,
   onToggleFullscreen,
-  onStartRecording
+  onStartRecording,
+  onAddChecklistItem
 }) => {
   return (
     <div className="h-full max-h-full flex flex-col overflow-hidden">
@@ -252,6 +259,53 @@ export const ContentPanel: React.FC<ContentPanelProps> = ({
                         <h3 className="font-semibold text-amber-800 mb-2">TL;DR</h3>
                         <p className="text-amber-700 text-sm">{summary.tldr}</p>
                       </div>
+                    )}
+
+                    {/* AI Checklist Recommendations */}
+                    {summary?.suggestedChecklistItems && summary.suggestedChecklistItems.length > 0 && sessionId && (
+                      <ChecklistRecommendations
+                        suggestions={summary.suggestedChecklistItems}
+                        onAddItem={async (text: string) => {
+                          if (onAddChecklistItem) {
+                            await onAddChecklistItem(text);
+                          } else {
+                            // Fallback: Add item to checklist via API
+                            try {
+                              const response = await fetch('/api/checklist', {
+                                method: 'POST',
+                                headers: {
+                                  'Content-Type': 'application/json',
+                                  ...(authToken && { 'Authorization': `Bearer ${authToken}` })
+                                },
+                                body: JSON.stringify({ sessionId, text })
+                              });
+                              
+                              if (!response.ok) {
+                                throw new Error('Failed to add checklist item');
+                              }
+                              
+                              // Optionally switch to checklist tab after adding
+                              // onTabChange('checklist');
+                              
+                              // Show success feedback (optional)
+                              console.log('✅ Added checklist item:', text);
+                            } catch (error) {
+                              console.error('❌ Failed to add checklist item:', error);
+                              throw error; // Re-throw to be handled by component
+                            }
+                          }
+                        }}
+                        onDismiss={(index: number) => {
+                          // Remove suggestion from the summary (temporary UI state)
+                          if (summary?.suggestedChecklistItems) {
+                            const updatedSuggestions = summary.suggestedChecklistItems.filter((_, i) => i !== index);
+                            // Note: This requires adding setSummary prop or using a context/state management
+                            // For now, the component handles dismissal internally
+                          }
+                        }}
+                        sessionId={sessionId}
+                        authToken={authToken}
+                      />
                     )}
 
                     {/* Key Points */}

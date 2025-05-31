@@ -154,15 +154,15 @@ const saveTranscriptNow = async (
   transcriptLines: TranscriptLine[],
   session: any,
   lastSavedIndex: number
-) => {
+): Promise<number> => {
   if (!sessionId || !transcriptLines || transcriptLines.length === 0 || !session) {
     console.log('⚠️ Cannot save transcript - missing required data');
-    return;
+    return lastSavedIndex; // Return current index if save fails
   }
 
   console.log('🚀 Manual transcript save triggered');
   const newIndex = await saveTranscriptToDatabase(sessionId, transcriptLines, session, lastSavedIndex);
-  return newIndex;
+  return newIndex || lastSavedIndex; // Fallback to current index if undefined
 };
 
 const saveTimelineToDatabase = async (sessionId: string, timelineEvents: TimelineEvent[], session: any) => {
@@ -278,7 +278,7 @@ export default function App() {
             }));
             setTranscript(restoredTranscript);
           }
-          if (parsed.sessionDuration) setSessionDuration(parsed.sessionDuration);
+          if (parsed.sessionDuration && typeof parsed.sessionDuration === 'number') setSessionDuration(parsed.sessionDuration);
           if (parsed.talkStats) setTalkStats(parsed.talkStats);
           if (parsed.conversationType) setConversationType(parsed.conversationType);
           if (parsed.conversationTitle) setConversationTitle(parsed.conversationTitle);
@@ -529,9 +529,25 @@ export default function App() {
     refreshIntervalMs: 15000 // 15 seconds for real-time timeline
   });
 
-  // Override AI-generated data with database-loaded data when available
-  const effectiveTimeline = loadedTimeline || timeline;
-  const effectiveSummary = loadedSummary || summary;
+  // Use fresh AI-generated data when available, fallback to database-loaded data
+  // This allows manual refresh to show updated content
+  const effectiveTimeline = timeline && timeline.length > 0 ? timeline : loadedTimeline;
+  const effectiveSummary = summary || loadedSummary;
+  
+  // Clear loaded data when fresh data is available to prevent conflicts
+  useEffect(() => {
+    if (timeline && timeline.length > 0 && loadedTimeline) {
+      console.log('🧹 Clearing loaded timeline to use fresh data');
+      setLoadedTimeline(null);
+    }
+  }, [timeline, loadedTimeline]);
+  
+  useEffect(() => {
+    if (summary && loadedSummary) {
+      console.log('🧹 Clearing loaded summary to use fresh data');
+      setLoadedSummary(null);
+    }
+  }, [summary, loadedSummary]);
 
   // Add debugging for summary state
   useEffect(() => {
@@ -945,7 +961,7 @@ export default function App() {
                   setLastSavedTranscriptIndex(loadedTranscript.length);
                   
                   // Calculate session duration from transcript
-                  if (sessionData.recording_duration_seconds) {
+                  if (sessionData.recording_duration_seconds && typeof sessionData.recording_duration_seconds === 'number') {
                     setSessionDuration(sessionData.recording_duration_seconds);
                   }
                   
@@ -1768,6 +1784,7 @@ export default function App() {
       // Only force generation if we have a substantial transcript loaded from database
       // and we're not currently recording (meaning this is restored data)
       // and we haven't already triggered forced generation
+      // and we have actually loaded existing summary/timeline data (indicating this is a resumed session)
       if (currentTranscriptLength > 10 && 
           currentTranscriptWords > 50 && 
           conversationState !== 'recording' && 
@@ -1775,25 +1792,35 @@ export default function App() {
           conversationId &&
           session &&
           !authLoading &&
-          !hasTriggeredForcedGeneration.current) {
+          !hasTriggeredForcedGeneration.current &&
+          (loadedSummary || loadedTimeline)) { // Only force if we have pre-existing data
         
         console.log('🚀 Forcing summary and timeline generation for loaded transcript:', {
           transcriptLines: currentTranscriptLength,
           transcriptWords: currentTranscriptWords,
-          conversationState
+          conversationState,
+          hasLoadedSummary: !!loadedSummary,
+          hasLoadedTimeline: !!loadedTimeline
         });
         
         // Set flag to prevent repeated execution
         hasTriggeredForcedGeneration.current = true;
         
-        // Force refresh summary and timeline for loaded data using refs
-        setTimeout(() => {
-          latestRefreshSummary.current(); // Force refresh using ref
-        }, 1000);
+        // Stagger the force calls to prevent simultaneous API requests
+        // Only force if we don't already have fresh data
+        if (loadedSummary && (!summary || summary.tldr === 'Not enough conversation content to generate a meaningful summary yet.')) {
+          setTimeout(() => {
+            console.log('🔄 Force-refreshing summary for resumed session');
+            latestRefreshSummary.current();
+          }, 1500);
+        }
         
-        setTimeout(() => {
-          latestRefreshTimeline.current(); // Force refresh using ref
-        }, 2000);
+        if (loadedTimeline && timeline.length === 0) {
+          setTimeout(() => {
+            console.log('🔄 Force-refreshing timeline for resumed session');
+            latestRefreshTimeline.current();
+          }, 3000);
+        }
 
         // Ensure we're in a valid state for showing the content
         if (!['ready', 'recording', 'paused', 'processing', 'completed'].includes(conversationState)) {
@@ -1803,7 +1830,7 @@ export default function App() {
     };
 
     forceGenerationOnLoad();
-  }, [transcript.length, conversationState, conversationId, session, authLoading]);
+  }, [transcript.length, conversationState, conversationId, session, authLoading, loadedSummary, loadedTimeline, summary, timeline.length]);
 
   // Reset the forced generation flag when conversation changes or when starting a new recording
   useEffect(() => {
@@ -2073,6 +2100,34 @@ export default function App() {
             }}
             transcriptLength={transcript.length}
             conversationState={conversationState}
+            sessionId={conversationId || undefined}
+            onAddToChecklist={async (text: string) => {
+              // Add to checklist
+              if (!conversationId) {
+                console.error('No conversation ID available');
+                return;
+              }
+              
+              try {
+                const response = await authenticatedFetch('/api/checklist', session, {
+                  method: 'POST',
+                  body: JSON.stringify({ sessionId: conversationId, text })
+                });
+                
+                if (!response.ok) {
+                  throw new Error('Failed to add checklist item');
+                }
+                
+                // Refresh checklist data if needed
+                console.log('✅ Added to checklist:', text);
+                
+                // Optional: Show success feedback
+                // You could add a toast notification here
+              } catch (error) {
+                console.error('❌ Failed to add checklist item:', error);
+                throw error; // Re-throw to handle in the component
+              }
+            }}
           />
         </div>
       </main>

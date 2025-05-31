@@ -1,5 +1,45 @@
 import { NextRequest, NextResponse } from 'next/server';
 
+const getContextSpecificGuidelines = (conversationType: string) => {
+  switch (conversationType) {
+    case 'sales':
+      return `
+SALES-SPECIFIC SUGGESTIONS:
+- Follow-up calls and demos
+- Proposal and contract preparation
+- Client research and needs analysis
+- Pricing and negotiation preparation
+- CRM updates and pipeline management`;
+    
+    case 'meeting':
+      return `
+MEETING-SPECIFIC SUGGESTIONS:
+- Action item assignments
+- Follow-up meetings and check-ins
+- Document sharing and preparation
+- Decision implementation steps
+- Meeting notes distribution`;
+    
+    case 'interview':
+      return `
+INTERVIEW-SPECIFIC SUGGESTIONS:
+- Thank you note sending
+- Reference checks and follow-ups
+- Skills assessment and preparation
+- Company research and culture fit
+- Next round preparation`;
+    
+    default:
+      return `
+GENERAL SUGGESTIONS:
+- Task follow-ups and assignments
+- Information gathering and research
+- Decision points and deadlines
+- Communication and coordination
+- Documentation and record keeping`;
+  }
+};
+
 export async function POST(request: NextRequest) {
   try {
     const { transcript, sessionId, conversationType } = await request.json();
@@ -35,7 +75,15 @@ CRITICAL: You MUST respond with valid JSON using this EXACT structure. Do not in
   "nextSteps": ["Next step 1", "Next step 2"],
   "topics": ["Topic 1", "Topic 2", "Topic 3"],
   "sentiment": "positive|negative|neutral",
-  "progressStatus": "just_started|building_momentum|making_progress|wrapping_up"
+  "progressStatus": "just_started|building_momentum|making_progress|wrapping_up",
+  "suggestedChecklistItems": [
+    {
+      "text": "Checklist item text",
+      "priority": "high|medium|low",
+      "type": "preparation|followup|research|decision|action",
+      "relevance": 85
+    }
+  ]
 }
 
 FIELD REQUIREMENTS:
@@ -47,6 +95,25 @@ FIELD REQUIREMENTS:
 - topics: Main subjects discussed (always include at least 1-2)
 - sentiment: Choose the most appropriate overall tone
 - progressStatus: Assess where the conversation stands
+
+CHECKLIST RECOMMENDATIONS GUIDELINES:
+- Generate 2-5 contextual checklist items based on conversation content
+- Focus on actionable items that emerge naturally from the discussion
+- Include both preparation items (for ongoing conversations) and follow-up items
+- Prioritize items that are specific, achievable, and time-relevant
+- Use relevance scores (0-100) to rank suggestions by importance
+- Types: preparation, followup, research, decision, action
+- Only suggest items that add value - avoid generic suggestions
+- Consider conversation type (${conversationType}) for context-appropriate suggestions
+
+EXAMPLES BY TYPE:
+- preparation: "Review quarterly sales numbers before next meeting"
+- followup: "Send meeting notes to all attendees" 
+- research: "Research competitor pricing for Project X"
+- decision: "Decide on final budget allocation by Friday"
+- action: "Schedule follow-up call with client"
+
+${getContextSpecificGuidelines(conversationType || 'general')}
 
 Focus on extracting concrete, actionable information. Return only valid JSON.`;
 
@@ -123,7 +190,16 @@ Focus on extracting concrete, actionable information. Return only valid JSON.`;
       nextSteps: Array.isArray(summaryData.nextSteps) ? summaryData.nextSteps : [],
       topics: Array.isArray(summaryData.topics) ? summaryData.topics : ['General'],
       sentiment: ['positive', 'negative', 'neutral'].includes(summaryData.sentiment) ? summaryData.sentiment : 'neutral',
-      progressStatus: ['just_started', 'building_momentum', 'making_progress', 'wrapping_up'].includes(summaryData.progressStatus) ? summaryData.progressStatus : 'building_momentum'
+      progressStatus: ['just_started', 'building_momentum', 'making_progress', 'wrapping_up'].includes(summaryData.progressStatus) ? summaryData.progressStatus : 'building_momentum',
+      suggestedChecklistItems: Array.isArray(summaryData.suggestedChecklistItems) ? summaryData.suggestedChecklistItems.filter(item => 
+        item && 
+        typeof item.text === 'string' && 
+        ['high', 'medium', 'low'].includes(item.priority) &&
+        ['preparation', 'followup', 'research', 'decision', 'action'].includes(item.type) &&
+        typeof item.relevance === 'number' && 
+        item.relevance >= 0 && 
+        item.relevance <= 100
+      ) : []
     };
     
     // Return in the expected format for useRealtimeSummary hook

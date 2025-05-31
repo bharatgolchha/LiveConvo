@@ -509,9 +509,9 @@ const EmptyState: React.FC<{ onNewConversation: () => void }> = ({ onNewConversa
     
     <div className="space-y-4">
       <Button 
+        variant="primary"
         size="lg" 
         onClick={onNewConversation}
-        className="bg-gradient-to-r from-app-primary to-app-primary-dark hover:from-app-primary-dark hover:to-app-primary"
       >
         <PlusIcon className="w-5 h-5 mr-2" />
         Start Your First Conversation

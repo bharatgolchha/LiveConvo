@@ -33,37 +33,46 @@ export function useIncrementalTimeline({
   sessionId,
   conversationType = 'general',
   isRecording,
-  isPaused = false, // Default to false for backwards compatibility
-  refreshIntervalMs = 25000 // 25 seconds for real-time timeline updates (reduced frequency for API costs)
+  isPaused = false,
+  refreshIntervalMs = 25000
 }: UseIncrementalTimelineProps) {
   const [timeline, setTimeline] = useState<TimelineEvent[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [lastProcessedLength, setLastProcessedLength] = useState(0);
-  const [lastProcessedLineCount, setLastProcessedLineCount] = useState(0); // Track lines instead of characters
+  const [lastProcessedLineCount, setLastProcessedLineCount] = useState(0);
   
   const refreshIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const lastRefreshTime = useRef<number>(0);
   const initialTimelineGenerated = useRef(false);
+  const isGenerating = useRef(false); // Prevent concurrent API calls
+  const lastGenerationRequestId = useRef<number>(0); // Track generation requests
 
   const generateTimelineUpdate = useCallback(async (force: boolean = false) => {
+    // Prevent concurrent API calls
+    if (isGenerating.current && !force) {
+      console.log('❌ Timeline: Skipping - generation already in progress');
+      return;
+    }
+
+    const requestId = ++lastGenerationRequestId.current;
     const transcriptLines = transcript.split('\n').filter(line => line.trim().length > 0);
     const transcriptWords = transcript.trim().split(/\s+/).filter(Boolean).length;
     
-    // Only log when actually generating or when there's an issue
-    if (force || (isRecording && !isPaused)) {
-      console.log('🔍 Timeline Generation Check:', {
-        isRecording,
-        isPaused,
-        force,
-        transcriptLines: transcriptLines.length,
-        transcriptWords,
-        lastProcessedLineCount,
-        lastProcessedLength,
-        conversationType
-      });
-    }
+    // Enhanced logging for debugging
+    console.log('🔍 Timeline Generation Check:', {
+      requestId,
+      isRecording,
+      isPaused,
+      force,
+      transcriptLines: transcriptLines.length,
+      transcriptWords,
+      lastProcessedLineCount,
+      lastProcessedLength,
+      conversationType,
+      isGenerating: isGenerating.current
+    });
 
     // Don't generate if not recording and not forced, but allow when paused
     if (!isRecording && !isPaused && !force) {
@@ -73,29 +82,37 @@ export function useIncrementalTimeline({
     // Don't generate too frequently (minimum 15 seconds between calls unless forced)
     const now = Date.now();
     if (!force && lastRefreshTime.current > 0 && (now - lastRefreshTime.current) < 15000) {
-      if (force) console.log('❌ Timeline: Skipping - too frequent (15s limit)');
+      console.log('❌ Timeline: Skipping - too frequent (15s limit)');
       return;
     }
     
-    // Don't generate for very short transcripts (reduced minimum from 30 to 20 words)
+    // Don't generate for very short transcripts
     if (!transcript || transcriptWords < 20) {
-      if (force) console.log(`❌ Timeline: Transcript too short (<20 words, current: ${transcriptWords})`);
+      console.log(`❌ Timeline: Transcript too short (<20 words, current: ${transcriptWords})`);
       return;
     }
 
-    // Check if we have enough new content (reduced from 10 to 5 new lines OR force)
+    // Check if we have enough new content (5 new lines OR force)
     const newLinesSinceLastUpdate = transcriptLines.length - lastProcessedLineCount;
     if (!force && newLinesSinceLastUpdate < 5 && transcript.length <= lastProcessedLength) {
-      if (force) console.log(`❌ Timeline: Not enough new content (${newLinesSinceLastUpdate} new lines, need 5)`);
+      console.log(`❌ Timeline: Not enough new content (${newLinesSinceLastUpdate} new lines, need 5)`);
       return;
     }
 
-    console.log(`✅ Timeline: Starting generation (${newLinesSinceLastUpdate} new lines, ${transcriptWords} total words)...`);
+    console.log(`✅ Timeline: Starting generation (requestId: ${requestId}, ${newLinesSinceLastUpdate} new lines, ${transcriptWords} total words)...`);
+    
+    isGenerating.current = true;
     setIsLoading(true);
     setError(null);
     lastRefreshTime.current = now;
 
     try {
+      // Check if this request is still valid (not superseded by a newer one)
+      if (requestId !== lastGenerationRequestId.current) {
+        console.log(`❌ Timeline: Request ${requestId} cancelled (superseded by ${lastGenerationRequestId.current})`);
+        return;
+      }
+
       const response = await fetch('/api/timeline', {
         method: 'POST',
         headers: {
@@ -111,10 +128,17 @@ export function useIncrementalTimeline({
       });
 
       console.log('🌐 Timeline API Response:', {
+        requestId,
         status: response.status,
         statusText: response.statusText,
         ok: response.ok
       });
+
+      // Check again if this request is still valid
+      if (requestId !== lastGenerationRequestId.current) {
+        console.log(`❌ Timeline: Request ${requestId} cancelled after API call`);
+        return;
+      }
 
       if (!response.ok) {
         const errorData = await response.json();
@@ -124,11 +148,18 @@ export function useIncrementalTimeline({
 
       const data: TimelineResponse = await response.json();
       console.log('📊 Timeline API Success:', {
+        requestId,
         timelineLength: data.timeline?.length || 0,
         lastProcessedLength: data.lastProcessedLength,
         newEventsCount: data.newEventsCount,
         generatedAt: data.generatedAt
       });
+      
+      // Final check before updating state
+      if (requestId !== lastGenerationRequestId.current) {
+        console.log(`❌ Timeline: Request ${requestId} cancelled before state update`);
+        return;
+      }
       
       // Parse timeline timestamps
       const updatedTimeline = data.timeline.map(event => ({
@@ -137,6 +168,7 @@ export function useIncrementalTimeline({
       }));
       
       console.log('📈 Setting Timeline:', {
+        requestId,
         previousLength: timeline.length,
         newLength: updatedTimeline.length,
         events: updatedTimeline.map(e => ({ 
@@ -160,14 +192,19 @@ export function useIncrementalTimeline({
       }
       
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Unknown error occurred';
-      setError(errorMessage);
-      console.error('💥 Timeline Generation Error:', {
-        error: err,
-        errorMessage,
-        transcript: transcript.substring(0, 100) + '...'
-      });
+      // Only update error state if this is still the latest request
+      if (requestId === lastGenerationRequestId.current) {
+        const errorMessage = err instanceof Error ? err.message : 'Unknown error occurred';
+        setError(errorMessage);
+        console.error('💥 Timeline Generation Error:', {
+          requestId,
+          error: err,
+          errorMessage,
+          transcript: transcript.substring(0, 100) + '...'
+        });
+      }
     } finally {
+      isGenerating.current = false;
       setIsLoading(false);
     }
   }, [transcript, timeline, sessionId, conversationType, isRecording, isPaused, lastProcessedLength]);
@@ -186,7 +223,7 @@ export function useIncrementalTimeline({
         const transcriptLines = transcript.split('\n').filter(line => line.trim().length > 0);
         const newLinesSinceLastUpdate = transcriptLines.length - lastProcessedLineCount;
         
-        // Trigger if we have 5+ new lines OR if there's any new content and enough time has passed (reduced thresholds)
+        // Trigger if we have 5+ new lines OR if there's any new content and enough time has passed
         if (newLinesSinceLastUpdate >= 5 || (transcript.length > lastProcessedLength && newLinesSinceLastUpdate >= 2)) {
           console.log(`🚀 Auto-triggering timeline update: ${newLinesSinceLastUpdate} new lines`);
           generateTimelineUpdate();
@@ -201,10 +238,7 @@ export function useIncrementalTimeline({
     };
   }, [isRecording, isPaused, transcript, lastProcessedLength, lastProcessedLineCount, refreshIntervalMs, generateTimelineUpdate]);
 
-  // Clear timeline only when there isn't enough transcript content.
-  // Previously the hook wiped the timeline whenever recording stopped,
-  // which removed data when restoring a saved session. We now clear
-  // solely based on transcript length so loaded timelines persist.
+  // Clear timeline only when there isn't enough transcript content
   useEffect(() => {
     const currentWords = transcript.trim().split(/\s+/).filter(Boolean).length;
 
@@ -213,17 +247,17 @@ export function useIncrementalTimeline({
       if (timeline.length > 0) {
         setTimeline([]);
         setLastProcessedLength(0);
-        setLastProcessedLineCount(0); // Reset line count too
+        setLastProcessedLineCount(0);
       }
       initialTimelineGenerated.current = false;
     }
-  }, [isRecording, isPaused, timeline.length]);
+  }, [transcript, timeline.length]); // Remove isRecording and isPaused dependencies to prevent clearing on state changes
 
   // Generate initial timeline when recording starts with sufficient content
   useEffect(() => {
     const currentWords = transcript.trim().split(/\s+/).filter(Boolean).length;
     
-    if (isRecording && !isPaused && currentWords >= 20 && !initialTimelineGenerated.current && !isLoading) {
+    if (isRecording && !isPaused && currentWords >= 20 && !initialTimelineGenerated.current && !isLoading && !isGenerating.current) {
       initialTimelineGenerated.current = true;
       generateTimelineUpdate();
     }

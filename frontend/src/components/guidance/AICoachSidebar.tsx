@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { Brain, MessageCircle, ChevronRight, ChevronLeft, Maximize2, Minimize2, RefreshCw } from 'lucide-react';
+import { Brain, MessageCircle, ChevronRight, ChevronLeft, Maximize2, Minimize2, RefreshCw, Plus, CheckSquare, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { Textarea } from '@/components/ui/textarea';
@@ -49,6 +49,10 @@ interface AICoachSidebarProps {
   contextSummary?: ContextSummary;
   transcriptLength?: number;
   conversationState?: string;
+  
+  // Checklist integration
+  sessionId?: string;
+  onAddToChecklist?: (text: string) => Promise<void>;
 }
 
 // Helper function to parse context from user messages and extract just the message
@@ -74,7 +78,9 @@ export default function AICoachSidebar({
   onWidthChange,
   contextSummary,
   transcriptLength,
-  conversationState
+  conversationState,
+  sessionId,
+  onAddToChecklist
 }: AICoachSidebarProps) {
   const [width, setWidth] = useState(400);
   const [isCollapsed, setIsCollapsed] = useState(false);
@@ -83,6 +89,7 @@ export default function AICoachSidebar({
   const [isResizing, setIsResizing] = useState(false);
   const [dynamicChips, setDynamicChips] = useState<GuidanceChip[]>([]);
   const [isGeneratingChips, setIsGeneratingChips] = useState(false);
+  const [addingToChecklistId, setAddingToChecklistId] = useState<string | null>(null);
   
   const sidebarRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -403,19 +410,79 @@ Please provide 6 helpful next-step suggestions as guidance chips with format: {"
     generateContextualChips(latestMessage, conversationContext);
   };
 
+  // Extract actionable content from AI messages
+  const extractActionableContent = (content: string): string => {
+    // Remove markdown formatting
+    let text = content
+      .replace(/^#+\s+/gm, '') // Remove headers
+      .replace(/\*\*([^*]+)\*\*/g, '$1') // Remove bold
+      .replace(/\*([^*]+)\*/g, '$1') // Remove italic
+      .replace(/`([^`]+)`/g, '$1') // Remove inline code
+      .replace(/```[^`]*```/gs, '') // Remove code blocks
+      .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1') // Remove links, keep text
+      .replace(/^>\s+/gm, '') // Remove blockquotes
+      .replace(/^-\s+/gm, '• ') // Convert dashes to bullets
+      .replace(/^\d+\.\s+/gm, '') // Remove numbered lists
+      .trim();
+
+    // Extract bullet points if present
+    const bulletPoints = text.match(/•\s+[^\n]+/g);
+    if (bulletPoints && bulletPoints.length > 0) {
+      // Return the first actionable bullet point
+      return bulletPoints[0].replace(/•\s+/, '').trim();
+    }
+
+    // Extract the first sentence or meaningful chunk
+    const sentences = text.match(/[^.!?]+[.!?]+/g);
+    if (sentences && sentences.length > 0) {
+      // Find the first sentence that seems actionable
+      for (const sentence of sentences) {
+        const trimmed = sentence.trim();
+        // Skip short sentences or ones that are just greetings
+        if (trimmed.length > 20 && 
+            !trimmed.toLowerCase().match(/^(hi|hello|hey|thanks|thank you|sure|okay|ok)/)) {
+          return trimmed;
+        }
+      }
+      // If no actionable sentence found, return the first one
+      return sentences[0].trim();
+    }
+
+    // Fallback: return first 100 characters
+    return text.substring(0, 100) + (text.length > 100 ? '...' : '');
+  };
+
+  // Handle adding to checklist
+  const handleAddToChecklist = async (messageId: string, content: string) => {
+    if (!onAddToChecklist || !sessionId) return;
+
+    setAddingToChecklistId(messageId);
+    try {
+      const actionableText = extractActionableContent(content);
+      await onAddToChecklist(actionableText);
+    } catch (error) {
+      console.error('Error adding to checklist:', error);
+    } finally {
+      setAddingToChecklistId(null);
+    }
+  };
+
   // Render message
   const renderMessage = (message: ChatMessage) => {
     const isUser = message.type === 'user';
     const isSystem = message.type === 'system';
     const isAutoGuidance = message.type === 'auto-guidance';
 
+    const showAddToChecklist = !isUser && !isSystem && onAddToChecklist && sessionId;
+    const isAddingThisMessage = addingToChecklistId === message.id;
+
     return (
       <div
         key={message.id}
-        className={`flex ${isUser ? 'justify-end' : 'justify-start'} mb-3`}
+        className={`flex ${isUser ? 'justify-end' : 'justify-start'} mb-3 group`}
       >
         <div
-          className={`max-w-[85%] rounded-lg px-3 py-2 ${
+          className={`max-w-[85%] rounded-lg px-3 py-2 relative ${
             isUser
               ? 'bg-blue-600 text-white dark:bg-blue-500 dark:text-white'
               : isSystem
@@ -426,11 +493,32 @@ Please provide 6 helpful next-step suggestions as guidance chips with format: {"
           }`}
         >
           {!isUser && (
-            <div className="flex items-center gap-2 mb-1">
-              <Brain className="h-4 w-4" />
-              <span className="text-xs font-medium">
-                {isSystem ? 'System' : isAutoGuidance ? 'Auto-Guidance' : 'AI Coach'}
-              </span>
+            <div className="flex items-center justify-between mb-1">
+              <div className="flex items-center gap-2">
+                <Brain className="h-4 w-4" />
+                <span className="text-xs font-medium">
+                  {isSystem ? 'System' : isAutoGuidance ? 'Auto-Guidance' : 'AI Coach'}
+                </span>
+              </div>
+              {showAddToChecklist && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => handleAddToChecklist(message.id, message.content)}
+                  disabled={isAddingThisMessage}
+                  className="h-6 px-2 -mt-1 -mr-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200 text-xs hover:bg-accent"
+                  title="Add to checklist"
+                >
+                  {isAddingThisMessage ? (
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                  ) : (
+                    <>
+                      <Plus className="h-3 w-3 mr-1" />
+                      <span>Add to checklist</span>
+                    </>
+                  )}
+                </Button>
+              )}
             </div>
           )}
           <div className="text-sm leading-relaxed prose prose-sm max-w-none dark:prose-invert">

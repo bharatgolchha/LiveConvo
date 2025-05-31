@@ -102,6 +102,71 @@ export const ConversationContent: React.FC<ConversationContentProps> = ({
   authToken
 }) => {
   const transcriptEndRef = useRef<null | HTMLDivElement>(null);
+  const [isRefreshing, setIsRefreshing] = React.useState(false);
+  const [selectedTopic, setSelectedTopic] = React.useState<string | null>(null);
+  const [topicSummary, setTopicSummary] = React.useState<string | null>(null);
+  const [isLoadingTopicSummary, setIsLoadingTopicSummary] = React.useState(false);
+
+  const handleTopicClick = async (topic: string) => {
+    setSelectedTopic(topic);
+    setIsLoadingTopicSummary(true);
+    setTopicSummary(null);
+    
+    try {
+      const transcriptText = transcript.map(t => `${t.speaker}: ${t.text}`).join('\n');
+      
+      const response = await fetch('/api/topic-summary', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(authToken && { 'Authorization': `Bearer ${authToken}` })
+        },
+        body: JSON.stringify({
+          topic,
+          transcript: transcriptText,
+          sessionId
+        })
+      });
+
+      if (response.ok) {
+        const { summary: topicSummaryText } = await response.json();
+        setTopicSummary(topicSummaryText);
+      } else {
+        let errorMessage = 'Please try again.';
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.error || errorMessage;
+          console.error('Topic summary API error:', { status: response.status, error: errorData });
+        } catch (jsonError) {
+          // Response body is not JSON, try to get text
+          try {
+            const errorText = await response.text();
+            console.error('Topic summary API error (non-JSON):', { status: response.status, text: errorText });
+            errorMessage = errorText || errorMessage;
+          } catch (textError) {
+            console.error('Topic summary API error (no body):', { status: response.status });
+          }
+        }
+        setTopicSummary(`Failed to generate summary for "${topic}". ${errorMessage}`);
+      }
+    } catch (error) {
+      console.error('Topic summary request failed:', error);
+      // Fallback: Generate a simple summary from transcript
+      const transcriptText = transcript.map(t => `${t.speaker}: ${t.text}`).join('\n');
+      const topicMentions = transcriptText.split('\n').filter(line => 
+        line.toLowerCase().includes(topic.toLowerCase())
+      );
+      
+      if (topicMentions.length > 0) {
+        const fallbackSummary = `Based on the transcript, "${topic}" was mentioned ${topicMentions.length} time(s):\n\n${topicMentions.slice(0, 5).join('\n\n')}${topicMentions.length > 5 ? '\n\n...and more' : ''}`;
+        setTopicSummary(fallbackSummary);
+      } else {
+        setTopicSummary(`Could not find specific mentions of "${topic}" in the current conversation transcript. The topic may have been discussed using different terminology.`);
+      }
+    } finally {
+      setIsLoadingTopicSummary(false);
+    }
+  };
 
   // Debug logging for summary
   React.useEffect(() => {
@@ -209,15 +274,25 @@ export const ConversationContent: React.FC<ConversationContentProps> = ({
               <Button 
                 variant="ghost" 
                 size="sm" 
-                onClick={() => {
-                  refreshSummary();
-                  refreshTimeline();
+                onClick={async () => {
+                  console.log('🔄 Manual refresh triggered by user');
+                  setIsRefreshing(true);
+                  try {
+                    await Promise.all([refreshSummary(), refreshTimeline()]);
+                  } finally {
+                    // Show visual feedback for at least 1 second
+                    setTimeout(() => setIsRefreshing(false), 1000);
+                  }
                 }} 
-                className="h-9 px-3 hover:bg-muted/80 transition-all duration-200 text-xs"
+                disabled={isRefreshing || isSummaryLoading || isTimelineLoading}
+                className={cn(
+                  "h-9 px-3 hover:bg-muted/80 transition-all duration-200 text-xs",
+                  isRefreshing && "pointer-events-none"
+                )}
                 title="Refresh Summary & Timeline"
               >
-                <RefreshCw className="w-3 h-3 mr-1.5" />
-                Refresh
+                <RefreshCw className={cn("w-3 h-3 mr-1.5", isRefreshing && "animate-spin")} />
+                {isRefreshing ? 'Refreshing...' : 'Refresh'}
               </Button>
               <Button 
                 variant="ghost" 
@@ -397,9 +472,13 @@ export const ConversationContent: React.FC<ConversationContentProps> = ({
                         </div>
                         <div className="flex flex-wrap gap-2">
                           {summary.topics.map((topic, index) => (
-                            <span key={index} className="inline-flex items-center px-3 py-1.5 bg-cyan-500/10 text-cyan-700 dark:text-cyan-300 rounded-lg text-sm font-medium">
+                            <button
+                              key={index}
+                              onClick={() => handleTopicClick(topic)}
+                              className="inline-flex items-center px-3 py-1.5 bg-cyan-500/10 text-cyan-700 dark:text-cyan-300 rounded-lg text-sm font-medium hover:bg-cyan-500/20 hover:scale-105 transition-all duration-200 cursor-pointer"
+                            >
                               {topic}
-                            </span>
+                            </button>
                           ))}
                         </div>
                       </div>
@@ -518,6 +597,59 @@ export const ConversationContent: React.FC<ConversationContentProps> = ({
               sessionId={sessionId}
               authToken={authToken}
             />
+          </div>
+        )}
+
+        {/* Topic Summary Popup */}
+        {selectedTopic && (
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+            <div className="bg-background rounded-3xl shadow-2xl max-w-2xl w-full max-h-[80vh] overflow-hidden border border-border">
+              <div className="p-6 border-b border-border bg-gradient-to-r from-cyan-50 to-cyan-100/50 dark:from-cyan-950/30 dark:to-cyan-900/20">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-cyan-500/10 rounded-xl flex items-center justify-center">
+                      <MessageCircle className="w-5 h-5 text-cyan-600 dark:text-cyan-400" />
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-semibold text-cyan-900 dark:text-cyan-100">Topic Discussion</h3>
+                      <p className="text-sm text-cyan-700 dark:text-cyan-300">"{selectedTopic}"</p>
+                    </div>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setSelectedTopic(null)}
+                    className="text-cyan-600 hover:text-cyan-800 dark:text-cyan-400 dark:hover:text-cyan-200"
+                  >
+                    <XCircle className="w-5 h-5" />
+                  </Button>
+                </div>
+              </div>
+              
+              <div className="p-6 max-h-[60vh] overflow-y-auto">
+                {isLoadingTopicSummary ? (
+                  <div className="flex items-center justify-center py-12">
+                    <div className="text-center">
+                      <div className="w-16 h-16 mx-auto mb-4 relative">
+                        <div className="absolute inset-0 rounded-full border-4 border-cyan-100 dark:border-cyan-900/30"></div>
+                        <div className="absolute inset-0 rounded-full border-4 border-cyan-500 border-t-transparent animate-spin"></div>
+                        <div className="absolute inset-3 rounded-full bg-gradient-to-br from-cyan-50 to-cyan-100 dark:from-cyan-900/30 dark:to-cyan-800/20 flex items-center justify-center">
+                          <Brain className="w-5 h-5 text-cyan-600 dark:text-cyan-400" />
+                        </div>
+                      </div>
+                      <h4 className="text-lg font-semibold text-foreground mb-2">Analyzing Discussion</h4>
+                      <p className="text-muted-foreground">AI is summarizing what was said about "{selectedTopic}"...</p>
+                    </div>
+                  </div>
+                ) : topicSummary ? (
+                  <div className="prose prose-sm max-w-none dark:prose-invert">
+                    <div className="bg-gradient-to-br from-cyan-50/50 to-cyan-100/30 dark:from-cyan-950/20 dark:to-cyan-900/10 rounded-2xl p-6 border border-cyan-200/50 dark:border-cyan-800/30">
+                      <p className="text-cyan-900 dark:text-cyan-100 leading-relaxed whitespace-pre-wrap">{topicSummary}</p>
+                    </div>
+                  </div>
+                ) : null}
+              </div>
+            </div>
           </div>
         )}
       </div>
