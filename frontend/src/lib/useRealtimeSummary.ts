@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { toast } from 'sonner';
 
 export interface TimelineEvent {
   id: string;
@@ -216,6 +217,11 @@ export function useRealtimeSummary({
       setSummary(data.summary);
       setLastUpdated(new Date(data.generatedAt));
       setError(null);
+      
+      // Show success toast
+      toast.success('Summary updated', {
+        description: 'AI has analyzed your conversation'
+      });
       
       // Update tracking variables
       lastTranscriptLength.current = transcriptWords;

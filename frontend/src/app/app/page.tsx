@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useSearchParams, useRouter } from 'next/navigation';
+import { toast } from 'sonner';
 import { 
   Brain, 
   MessageSquare,
@@ -272,8 +273,10 @@ export default function App() {
         try {
           const parsed = JSON.parse(storedState);
           if (parsed.transcript) {
-            const restoredTranscript = (parsed.transcript as any[]).map(line => ({
+            const restoredTranscript = (parsed.transcript as any[]).map((line, index) => ({
               ...line,
+              // Regenerate IDs to ensure uniqueness when restoring from localStorage
+              id: `restored-${conversationId}-${index}-${Date.now()}`,
               timestamp: new Date(line.timestamp)
             }));
             setTranscript(restoredTranscript);
@@ -651,6 +654,33 @@ export default function App() {
     previousConversationState.current = conversationState;
   }, [conversationState, conversationId, transcript, session, authLoading]);
 
+  // Auto-save transcript periodically during recording
+  useEffect(() => {
+    if (conversationState === 'recording' && conversationId && transcript.length > 0) {
+      const autoSaveInterval = setInterval(async () => {
+        try {
+          const newIndex = await saveTranscriptNow(conversationId, transcript, session, lastSavedTranscriptIndex);
+          if (newIndex !== undefined) {
+            setLastSavedTranscriptIndex(newIndex);
+            const linesSaved = newIndex - lastSavedTranscriptIndex;
+            if (linesSaved > 0) {
+              toast.success('Auto-saved', {
+                description: `${linesSaved} new lines saved`
+              });
+            }
+          }
+        } catch (error) {
+          console.error('❌ Auto-save failed:', error);
+          toast.error('Auto-save failed', {
+            description: 'Your conversation is still being recorded'
+          });
+        }
+      }, 30000); // Auto-save every 30 seconds
+      
+      return () => clearInterval(autoSaveInterval);
+    }
+  }, [conversationState, conversationId, transcript.length, session, lastSavedTranscriptIndex]);
+
   // Auto-save summary to database when summary changes
   useEffect(() => {
     if (conversationId && effectiveSummary && (conversationState === 'recording' || conversationState === 'completed')) {
@@ -824,7 +854,7 @@ export default function App() {
               restoredFiles.forEach((file) => {
                 // Simulate adding context for AI (content won't be real here due to localStorage limitations)
                 addContext({
-                  id: Math.random().toString(36).substring(7),
+                  id: generateUniqueId(),
                   name: file.name,
                   type: file.type.startsWith('text') ? 'txt' : (file.type.includes('pdf') ? 'pdf' : 'docx'), // Basic type inference
                   content: `Restored context for file: ${file.name}`,
@@ -951,7 +981,8 @@ export default function App() {
                 const transcriptData = await transcriptResponse.json();
                 if (transcriptData.data && Array.isArray(transcriptData.data) && transcriptData.data.length > 0) {
                   const loadedTranscript: TranscriptLine[] = transcriptData.data.map((line: any, index: number) => ({
-                    id: line.client_id || `loaded-${index}`,
+                    // Always use index-based ID to ensure uniqueness when loading from DB
+                    id: `loaded-${conversationId}-${index}-${Date.now()}`,
                     text: line.content || '',
                     timestamp: new Date(line.created_at || Date.now()),
                     speaker: (line.speaker === 'user' || line.speaker === 'me') ? 'ME' : 'THEM',
@@ -1360,10 +1391,21 @@ export default function App() {
     }
   };
 
+  // Generate unique ID with timestamp and counter to prevent duplicates
+  const generateUniqueId = (() => {
+    let counter = 0;
+    return () => {
+      const timestamp = Date.now();
+      const random = Math.random().toString(36).substring(2, 9);
+      counter = (counter + 1) % 10000;
+      return `${timestamp}-${random}-${counter}`;
+    };
+  })();
+
   const handleLiveTranscript = (newTranscriptText: string, speaker: 'ME' | 'THEM') => {
     if (newTranscriptText && newTranscriptText.trim().length > 0) {
       const newLine: TranscriptLine = {
-        id: Math.random().toString(36).substring(7),
+        id: generateUniqueId(),
         text: newTranscriptText.trim(),
         timestamp: new Date(),
         speaker,
@@ -1407,7 +1449,7 @@ export default function App() {
       try {
             const fileContent = await file.text();
           addContext({
-            id: Math.random().toString(36).substring(7),
+            id: generateUniqueId(),
             name: file.name,
               type: file.type.startsWith('text') ? 'txt' : (file.type.includes('pdf') ? 'pdf' : 'docx'),
           content: fileContent,
@@ -1424,7 +1466,7 @@ export default function App() {
         try {
           const fileContent = await file.text();
           addContext({
-            id: Math.random().toString(36).substring(7),
+            id: generateUniqueId(),
             name: file.name,
             type: file.type.startsWith('text') ? 'txt' : (file.type.includes('pdf') ? 'pdf' : 'docx'),
             content: fileContent,
@@ -1544,6 +1586,10 @@ export default function App() {
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
+    
+    toast.success('Session exported', {
+      description: `Downloaded ${conversationTitle}.json`
+    });
   };
 
   const handleResetSession = () => {
@@ -1963,9 +2009,6 @@ export default function App() {
                 <Button variant="ghost" size="sm" onClick={() => setShowContextPanel(!showContextPanel)} title={showContextPanel ? "Hide Setup & Context" : "Show Setup & Context"} className="hover:bg-accent/80 p-2 rounded-lg">
                   <Settings2 className="w-5 h-5" />
                 </Button>
-                <Button variant="ghost" size="sm" onClick={() => setAudioEnabled(!audioEnabled)} title={audioEnabled ? "Mute Audio Feedback" : "Unmute Audio Feedback"} className={cn(audioEnabled ? 'text-primary' : 'text-muted-foreground', "hover:bg-accent/80 p-2 rounded-lg")} >
-                  {audioEnabled ? <Volume2 className="w-5 h-5" /> : <VolumeX className="w-5 h-5" />}
-                </Button>
                 <Button variant="ghost" size="sm" onClick={() => setShowTranscriptModal(true)} title="View Transcript" className="hover:bg-accent/80 p-2 rounded-lg">
                   <FileText className="w-5 h-5" />
                 </Button>
@@ -2101,6 +2144,7 @@ export default function App() {
             transcriptLength={transcript.length}
             conversationState={conversationState}
             sessionId={conversationId || undefined}
+            authToken={session?.access_token}
             onAddToChecklist={async (text: string) => {
               // Add to checklist
               if (!conversationId) {
@@ -2118,13 +2162,15 @@ export default function App() {
                   throw new Error('Failed to add checklist item');
                 }
                 
-                // Refresh checklist data if needed
-                console.log('✅ Added to checklist:', text);
-                
-                // Optional: Show success feedback
-                // You could add a toast notification here
+                // Show success feedback
+                toast.success('Added to checklist', {
+                  description: text.length > 50 ? text.substring(0, 50) + '...' : text
+                });
               } catch (error) {
                 console.error('❌ Failed to add checklist item:', error);
+                toast.error('Failed to add checklist item', {
+                  description: 'Please try again'
+                });
                 throw error; // Re-throw to handle in the component
               }
             }}

@@ -4,6 +4,7 @@ import "./globals.css";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { ThemeProvider } from "@/contexts/ThemeContext";
 import { StagewiseToolbar } from "@/components/StagewiseToolbar";
+import { Toaster } from "sonner";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -33,6 +34,18 @@ export default function RootLayout({
         <ThemeProvider defaultTheme="system" storageKey="liveconvo-theme">
           <AuthProvider>
             {children}
+            <Toaster 
+              position="bottom-right"
+              toastOptions={{
+                classNames: {
+                  toast: 'bg-background border-border',
+                  title: 'text-foreground',
+                  description: 'text-muted-foreground',
+                  actionButton: 'bg-primary text-primary-foreground',
+                  cancelButton: 'bg-muted text-muted-foreground',
+                }
+              }}
+            />
           </AuthProvider>
         </ThemeProvider>
         <StagewiseToolbar />

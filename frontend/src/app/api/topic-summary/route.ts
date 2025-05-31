@@ -1,15 +1,39 @@
 import { NextRequest, NextResponse } from 'next/server';
 
+// Health check endpoint
+export async function GET() {
+  return NextResponse.json({ 
+    status: 'topic-summary health check ok', 
+    timestamp: new Date().toISOString()
+  });
+}
+
 export async function POST(request: NextRequest) {
+  console.log('🔥 Topic summary API POST called - Starting execution');
+  
   try {
-    console.log('🔥 Topic summary API called');
-    const { topic, transcript, sessionId } = await request.json();
+    console.log('📍 Topic summary API - Inside try block');
+    
+    // Parse request data
+    let requestData;
+    try {
+      requestData = await request.json();
+      console.log('📍 Topic summary API - JSON parsed successfully');
+    } catch (parseError) {
+      console.error('❌ Failed to parse request JSON:', parseError);
+      return NextResponse.json(
+        { error: 'Invalid JSON in request body' },
+        { status: 400 }
+      );
+    }
+
+    const { topic, transcript, sessionId } = requestData;
 
     console.log('📝 Request data:', { 
       topic: topic?.substring(0, 50), 
       transcriptLength: transcript?.length, 
       sessionId,
-      hasBody: !!request.body
+      requestDataKeys: Object.keys(requestData || {})
     });
 
     if (!topic || !transcript) {
@@ -20,6 +44,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    console.log('📍 Topic summary API - Checking API key');
     const apiKey = process.env.OPENROUTER_API_KEY;
     console.log('🔑 API Key check:', { 
       hasApiKey: !!apiKey, 
@@ -107,10 +132,17 @@ Focus specifically on what was said about "${topic}" and provide a comprehensive
     return NextResponse.json({ summary });
 
   } catch (error) {
-    console.error('💥 Topic summary error:', error);
+    console.error('💥 Topic summary error - MAIN CATCH BLOCK:', error);
     console.error('Error stack:', error instanceof Error ? error.stack : 'No stack trace');
+    console.error('Error name:', error instanceof Error ? error.name : 'Unknown');
+    console.error('Error message:', error instanceof Error ? error.message : 'Unknown error');
+    
+    // Return a proper JSON error response
     return NextResponse.json(
-      { error: `Internal server error: ${error instanceof Error ? error.message : 'Unknown error'}` },
+      { 
+        error: `Internal server error: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        details: error instanceof Error ? error.stack : 'No stack trace available'
+      },
       { status: 500 }
     );
   }

@@ -140,6 +140,47 @@
     - 🔧 Better resource utilization and memory management
     - 🎯 More responsive user experience with reduced UI re-renders
 
+- [x] **✅ Fix Topic Summary API 500 Error** (2025-05-31) 🚨 **JUST FIXED**
+  - **Issue**: Topic summary API endpoint returning 500 Internal Server Error when users click on topic buttons
+  - **Symptoms**: 
+    - Console shows "POST http://localhost:3000/api/topic-summary 500 (Internal Server Error)"
+    - "Topic summary API error (no body): {status: 500}" in frontend logs
+    - Users cannot get topic-specific summaries from conversations
+  - **Root Cause**: 
+    - Multiple conflicting Next.js dev server instances running simultaneously
+    - Server restart and cleanup resolved the issue
+    - API route implementation was correct, just needed proper server restart
+  - **Solution Implemented**:
+    - ✅ Killed all conflicting Next.js processes and background servers
+    - ✅ Restarted dev server from correct frontend directory (`cd frontend && npm run dev`)
+    - ✅ Added comprehensive error logging and health check endpoints for debugging
+    - ✅ Verified OpenRouter API integration works properly with Gemini 2.5 Flash model
+    - ✅ Tested topic-specific summary generation with real conversation data
+  - **Technical Details**:
+    - GET `/api/topic-summary` endpoint provides health check functionality
+    - POST endpoint accepts topic, transcript, and sessionId parameters
+    - Uses OpenRouter API with google/gemini-2.5-flash-preview-05-20 model
+    - Proper error handling and JSON response formatting
+    - Comprehensive logging for debugging future issues
+  - **Result**: ✅ Users can now successfully click topic buttons and get AI-generated topic-specific summaries
+  - **Testing**: ✅ Confirmed working with curl test: topic "polar night" correctly generated summary from Svalbard transcript
+
+- [x] **✅ Remove Mute Audio Feedback Button** (2025-05-31) 🚨 **JUST COMPLETED**
+  - **Request**: User requested removal of the "Mute Audio Feedback" button from the conversation interface
+  - **Location**: Button was located in both ConversationHeader component and main app page in right section with audio controls
+  - **Implementation**:
+    - ✅ Removed button from `frontend/src/components/conversation/ConversationHeader.tsx` right section actions
+    - ✅ Removed button from `frontend/src/app/app/page.tsx` header controls
+    - ✅ Cleaned up unused imports (Volume2, VolumeX icons)
+    - ✅ Removed audioEnabled prop and onToggleAudio handler from ConversationHeaderProps interface
+    - ✅ Updated component prop destructuring to remove unused audio-related parameters
+  - **Technical Details**:
+    - Button had title "Mute Audio Feedback" / "Unmute Audio Feedback" based on state
+    - Used Volume2/VolumeX icons from lucide-react
+    - Was positioned between Settings and Transcript buttons in header
+    - Proper cleanup of TypeScript interfaces and imports
+  - **Result**: ✅ Audio feedback button successfully removed from both interface locations
+
 ### ✅ Completed Tasks
 
 - [x] **✅ 📋 Checklist Tab Feature - Third Tab Implementation** (2025-01-30) 🆕 **JUST COMPLETED**
