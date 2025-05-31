@@ -395,6 +395,7 @@ CREATE TABLE transcripts (
     -- Processing Metadata
     stt_provider VARCHAR(50), -- 'deepgram', 'openai_realtime', 'whisper', 'assembly_ai'
     is_final BOOLEAN DEFAULT FALSE,
+    client_id VARCHAR(255),
     
     -- Timestamps
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
@@ -405,6 +406,8 @@ CREATE TABLE transcripts (
 CREATE INDEX idx_transcripts_session_id ON transcripts(session_id);
 CREATE INDEX idx_transcripts_start_time ON transcripts(start_time_seconds);
 CREATE INDEX idx_transcripts_is_final ON transcripts(is_final);
+CREATE UNIQUE INDEX unique_session_start_time ON transcripts(session_id, start_time_seconds);
+CREATE INDEX idx_transcripts_client_id ON transcripts(client_id);
 
 -- Guidance table - stores AI-generated guidance chips and their context
 CREATE TABLE guidance (

@@ -13,6 +13,7 @@ const transcriptLineSchema = z.object({
   duration_seconds: z.number().optional(),
   stt_provider: z.string().optional(),
   is_final: z.boolean().optional().default(true),
+  client_id: z.string().optional(),
 });
 
 // Zod schema for an array of transcript lines
@@ -127,7 +128,10 @@ export async function POST(
 
     const { data, error } = await supabase
       .from('transcripts')
-      .insert(transcriptLinesToInsert)
+      .upsert(transcriptLinesToInsert, {
+        onConflict: 'session_id,start_time_seconds',
+        ignoreDuplicates: false,
+      })
       .select();
 
     if (error) {

@@ -78,19 +78,35 @@ interface TranscriptLine {
 
 type ConversationState = 'setup' | 'ready' | 'recording' | 'paused' | 'processing' | 'completed' | 'error';
 
-// Database saving functions - Enhanced for reliability
-const saveTranscriptToDatabase = async (sessionId: string, transcriptLines: TranscriptLine[], session: any, retryCount = 0) => {
+// Database saving functions - Enhanced for reliability and duplicate prevention
+const saveTranscriptToDatabase = async (
+  sessionId: string,
+  transcriptLines: TranscriptLine[],
+  session: any,
+  lastSavedIndex = 0,
+  retryCount = 0
+) : Promise<number> => {
   try {
-    console.log(`💾 Saving transcript to database (${transcriptLines.length} lines)...`);
-    
-    const transcriptData = transcriptLines.map((line, index) => ({
+    // Only save new transcript lines that haven't been saved yet
+    const newLines = transcriptLines.slice(lastSavedIndex);
+
+    if (newLines.length === 0) {
+      console.log('💾 No new transcript lines to save');
+      return lastSavedIndex;
+    }
+
+    console.log(`💾 Saving ${newLines.length} new transcript lines to database (total: ${transcriptLines.length})...`);
+
+    const transcriptData = newLines.map((line, index) => ({
       session_id: sessionId,
       content: line.text,
       speaker: line.speaker.toLowerCase(),
       confidence_score: line.confidence || 0.85,
-      start_time_seconds: index * 2, // Rough estimation - in real app would use actual timing
+      start_time_seconds: (lastSavedIndex + index) * 2, // Sequential timing
       is_final: true,
-      stt_provider: 'deepgram'
+      stt_provider: 'deepgram',
+      // Add a unique identifier to prevent duplicates
+      client_id: line.id || `${Date.now()}-${lastSavedIndex + index}`
     }));
 
     const response = await authenticatedFetch(`/api/sessions/${sessionId}/transcript`, session, {
@@ -106,38 +122,47 @@ const saveTranscriptToDatabase = async (sessionId: string, transcriptLines: Tran
       if (retryCount < 3) {
         console.log(`🔄 Retrying transcript save (attempt ${retryCount + 1}/3)...`);
         setTimeout(() => {
-          saveTranscriptToDatabase(sessionId, transcriptLines, session, retryCount + 1);
+          saveTranscriptToDatabase(sessionId, transcriptLines, session, lastSavedIndex, retryCount + 1);
         }, 1000 * (retryCount + 1)); // Exponential backoff
       } else {
         console.error('❌ Failed to save transcript after 3 retries');
       }
     } else {
-      console.log(`✅ Transcript saved successfully (${transcriptLines.length} lines)`);
+      console.log(`✅ Transcript saved successfully (${newLines.length} new lines)`);
+      return transcriptLines.length;
     }
   } catch (error) {
     console.error('Error saving transcript to database:', error);
-    
+
     // Retry on network/connection errors
     if (retryCount < 3) {
       console.log(`🔄 Retrying transcript save due to error (attempt ${retryCount + 1}/3)...`);
       setTimeout(() => {
-        saveTranscriptToDatabase(sessionId, transcriptLines, session, retryCount + 1);
+        saveTranscriptToDatabase(sessionId, transcriptLines, session, lastSavedIndex, retryCount + 1);
       }, 1000 * (retryCount + 1));
     } else {
       console.error('❌ Failed to save transcript after 3 retries due to errors');
     }
   }
+
+  return lastSavedIndex;
 };
 
 // Manual save function for immediate transcript saving
-const saveTranscriptNow = async (sessionId: string, transcriptLines: TranscriptLine[], session: any) => {
+const saveTranscriptNow = async (
+  sessionId: string,
+  transcriptLines: TranscriptLine[],
+  session: any,
+  lastSavedIndex: number
+) => {
   if (!sessionId || !transcriptLines || transcriptLines.length === 0 || !session) {
     console.log('⚠️ Cannot save transcript - missing required data');
     return;
   }
-  
+
   console.log('🚀 Manual transcript save triggered');
-  await saveTranscriptToDatabase(sessionId, transcriptLines, session);
+  const newIndex = await saveTranscriptToDatabase(sessionId, transcriptLines, session, lastSavedIndex);
+  return newIndex;
 };
 
 const saveTimelineToDatabase = async (sessionId: string, timelineEvents: TimelineEvent[], session: any) => {
@@ -191,6 +216,8 @@ export default function App() {
   const [conversationState, setConversationState] = useState<ConversationState>('setup');
   const [isSummarizing, setIsSummarizing] = useState(false); // New state for End & Finalize animation
   const [transcript, setTranscript] = useState<TranscriptLine[]>([]);
+  // Track how many transcript lines have been saved to the database
+  const [lastSavedTranscriptIndex, setLastSavedTranscriptIndex] = useState(0);
   const [sessionDuration, setSessionDuration] = useState(0);
   const [talkStats, setTalkStats] = useState<TalkStats>({ meWords: 0, themWords: 0 });
   const [conversationType, setConversationType] = useState<'sales' | 'support' | 'meeting' | 'interview'>('sales');
@@ -565,22 +592,28 @@ export default function App() {
     }
   }, [chatMessages.length, initializeChat]);
 
-  // Enhanced auto-save transcript to database - More frequent and reliable saves
+  // Enhanced auto-save transcript to database - Only save new lines
   useEffect(() => {
-    if (conversationId && transcript.length > 0 && session && !authLoading) {
+    if (conversationId && transcript.length > lastSavedTranscriptIndex && session && !authLoading) {
       // Save in all active states: recording, paused, and completed
       const shouldSave = ['recording', 'paused', 'completed'].includes(conversationState);
-      
+
       if (shouldSave) {
-        // Reduced debounce time for more frequent saves (500ms instead of 2000ms)
-        const timeoutId = setTimeout(() => {
-          saveTranscriptToDatabase(conversationId, transcript, session);
-        }, 500); // Save after 500ms of no changes
-        
+        // Debounce time for saves (2 seconds for better batching)
+        const timeoutId = setTimeout(async () => {
+          const newSavedIndex = await saveTranscriptToDatabase(
+            conversationId,
+            transcript,
+            session,
+            lastSavedTranscriptIndex
+          );
+          setLastSavedTranscriptIndex(newSavedIndex);
+        }, 2000); // Save after 2 seconds of no changes
+
         return () => clearTimeout(timeoutId);
       }
     }
-  }, [transcript, conversationId, conversationState, session, authLoading]);
+  }, [transcript, conversationId, conversationState, session, authLoading, lastSavedTranscriptIndex]);
 
   // Immediate transcript save when conversation state changes (pause/stop/complete)
   useEffect(() => {
@@ -594,7 +627,8 @@ export default function App() {
           session && 
           !authLoading) {
         console.log(`💾 Immediate transcript save triggered by state change: ${previousConversationState.current} → ${conversationState}`);
-        saveTranscriptNow(conversationId, transcript, session);
+        saveTranscriptNow(conversationId, transcript, session, lastSavedTranscriptIndex)
+          .then(newIndex => setLastSavedTranscriptIndex(newIndex));
       }
     }
     
@@ -901,13 +935,14 @@ export default function App() {
                 const transcriptData = await transcriptResponse.json();
                 if (transcriptData.data && Array.isArray(transcriptData.data) && transcriptData.data.length > 0) {
                   const loadedTranscript: TranscriptLine[] = transcriptData.data.map((line: any, index: number) => ({
-                    id: `loaded-${index}`,
+                    id: line.client_id || `loaded-${index}`,
                     text: line.content || '',
                     timestamp: new Date(line.created_at || Date.now()),
                     speaker: (line.speaker === 'user' || line.speaker === 'me') ? 'ME' : 'THEM',
                     confidence: line.confidence_score || 0.85
                   }));
                   setTranscript(loadedTranscript);
+                  setLastSavedTranscriptIndex(loadedTranscript.length);
                   
                   // Calculate session duration from transcript
                   if (sessionData.recording_duration_seconds) {
@@ -1223,6 +1258,7 @@ export default function App() {
       // Reset transcript length trackers for new recording session
       lastMyTranscriptLen.current = 0;
       lastTheirTranscriptLen.current = 0;
+      setLastSavedTranscriptIndex(transcript.length);
       setSessionDuration(0);
       // FIXED: Transcript is NEVER cleared in handleStartRecording - preserves all conversation data
       console.log('✅ Recording started successfully');
@@ -1299,6 +1335,7 @@ export default function App() {
       // Reset length trackers so new transcript is captured after resume
       lastMyTranscriptLen.current = 0;
       lastTheirTranscriptLen.current = 0;
+      setLastSavedTranscriptIndex(transcript.length);
       console.log('✅ Recording resumed and Deepgram reconnected');
     } catch (err) {
       console.error('Failed to resume realtime transcription', err);
@@ -1498,6 +1535,7 @@ export default function App() {
     setSessionDuration(0);
       // FIXED: Transcript is NEVER cleared in handleStartRecording - preserves all conversation data
     setTranscript([]);
+    setLastSavedTranscriptIndex(0);
     setTextContext('');
     setUploadedFiles([]);
     clearAIGuidanceContext();
@@ -1526,7 +1564,8 @@ export default function App() {
       // Ensure transcript is saved to database before finalizing
       if (conversationId && transcript.length > 0 && session) {
         console.log('💾 Saving final transcript to database before finalization...');
-        await saveTranscriptNow(conversationId, transcript, session);
+        const newIndex = await saveTranscriptNow(conversationId, transcript, session, lastSavedTranscriptIndex);
+        setLastSavedTranscriptIndex(newIndex);
       }
       
       // Trigger a final summary refresh to ensure we have the most up-to-date summary
@@ -1598,7 +1637,8 @@ export default function App() {
     }
     
     console.log('🔄 Manual transcript save requested by user');
-    await saveTranscriptNow(conversationId, transcript, session);
+    const newIndex = await saveTranscriptNow(conversationId, transcript, session, lastSavedTranscriptIndex);
+    setLastSavedTranscriptIndex(newIndex);
   };
 
   const getStateTextAndColor = (state: ConversationState): {text: string, color: string, icon?: React.ElementType} => {
@@ -1689,7 +1729,8 @@ export default function App() {
       interval = setInterval(() => {
         if (transcript.length > 0) {
           console.log('⏰ Periodic transcript save (30s interval)');
-          saveTranscriptNow(conversationId, transcript, session);
+          saveTranscriptNow(conversationId, transcript, session, lastSavedTranscriptIndex)
+            .then(newIndex => setLastSavedTranscriptIndex(newIndex));
         }
       }, 30000); // Save every 30 seconds during recording
     }
