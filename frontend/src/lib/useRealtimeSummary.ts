@@ -58,7 +58,7 @@ export function useRealtimeSummary({
 
   const generateSummary = useCallback(async (force: boolean = false) => {
     const transcriptLines = transcript.split('\n').filter(line => line.trim().length > 0);
-    const transcriptWords = transcript.trim().split(' ').length;
+    const transcriptWords = transcript.trim().split(/\s+/).filter(Boolean).length;
     
     // Only log when actually generating or when there's an issue
     if (force || (isRecording && !isPaused)) {
@@ -204,10 +204,10 @@ export function useRealtimeSummary({
 
     // Only set up auto-refresh if recording and have sufficient transcript
     // Don't auto-refresh when paused, but preserve existing data
-    if (isRecording && !isPaused && transcript && transcript.trim().split(' ').length >= 40) {
+    if (isRecording && !isPaused && transcript && transcript.trim().split(/\s+/).filter(Boolean).length >= 40) {
       refreshIntervalRef.current = setInterval(() => {
         const transcriptLines = transcript.split('\n').filter(line => line.trim().length > 0);
-        const transcriptWords = transcript.trim().split(' ').length;
+        const transcriptWords = transcript.trim().split(/\s+/).filter(Boolean).length;
         const newLinesSinceLastUpdate = transcriptLines.length - lastTranscriptLineCount.current;
         const newWordsSinceLastUpdate = transcriptWords - lastTranscriptLength.current;
         
@@ -231,7 +231,7 @@ export function useRealtimeSummary({
   // summaries for loaded sessions. We now only clear when the
   // transcript itself is short so loaded summaries persist.
   useEffect(() => {
-    const currentWords = transcript.trim().split(' ').length;
+    const currentWords = transcript.trim().split(/\s+/).filter(Boolean).length;
 
     // Only clear summary when there is not enough transcript content
     // (e.g. a new session with an empty transcript)
@@ -262,7 +262,7 @@ export function useRealtimeSummary({
 
   // Generate initial summary when recording starts with sufficient content
   useEffect(() => {
-    const currentWords = transcript.trim().split(' ').length;
+    const currentWords = transcript.trim().split(/\s+/).filter(Boolean).length;
     
     if (isRecording && !isPaused && currentWords >= 40 && !initialSummaryGenerated.current && !isLoading) {
       initialSummaryGenerated.current = true;
