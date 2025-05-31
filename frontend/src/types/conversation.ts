@@ -10,6 +10,19 @@ export interface TranscriptLine {
   confidence?: number;
 }
 
+export interface DatabaseTranscriptLine {
+  id: string;
+  session_id: string;
+  content: string;
+  speaker: string;
+  confidence_score?: number;
+  start_time_seconds: number;
+  end_time_seconds?: number;
+  sequence_number?: number;
+  created_at?: string;
+  is_final?: boolean;
+}
+
 export type ConversationState = 'setup' | 'ready' | 'recording' | 'paused' | 'processing' | 'completed' | 'error';
 
 export type ConversationType = 'sales' | 'support' | 'meeting' | 'interview';

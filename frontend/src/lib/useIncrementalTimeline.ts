@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { toast } from 'sonner';
 
 export interface TimelineEvent {
   id: string;
@@ -189,6 +190,12 @@ export function useIncrementalTimeline({
       // Log new events for debugging
       if (data.newEventsCount > 0) {
         console.log(`✨ Timeline updated: ${data.newEventsCount} new events added`);
+        
+        if (data.newEventsCount > 0) {
+          toast.success('Timeline updated', {
+            description: `${data.newEventsCount} new event${data.newEventsCount > 1 ? 's' : ''} added`
+          });
+        }
       }
       
     } catch (err) {

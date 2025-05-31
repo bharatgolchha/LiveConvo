@@ -8,22 +8,26 @@ const transcriptLineSchema = z.object({
   content: z.string(),
   speaker: z.string().optional().default('user'),
   confidence_score: z.number().optional(),
-  start_time_seconds: z.number(), // Relative to session start
+  start_time_seconds: z.number(),
   end_time_seconds: z.number().optional(),
   duration_seconds: z.number().optional(),
   stt_provider: z.string().optional(),
   is_final: z.boolean().optional().default(true),
   client_id: z.string().optional(),
+  sequence_number: z.number().optional(), // Add sequence number support
 });
 
-// Zod schema for an array of transcript lines
-const transcriptPostSchema = z.array(transcriptLineSchema);
+// Zod schema for batch operations
+const transcriptBatchSchema = z.object({
+  lines: z.array(transcriptLineSchema),
+  lastSequenceNumber: z.number().optional(), // Track last known sequence
+});
 
-// Define the inferred type from Zod schema for clarity and type safety
 type TranscriptLineInput = z.infer<typeof transcriptLineSchema>;
 
 /**
  * GET /api/sessions/[id]/transcript - Retrieve transcript lines for a session
+ * Supports pagination via query params: ?limit=100&offset=0
  */
 export async function GET(
   request: NextRequest,
@@ -31,8 +35,12 @@ export async function GET(
 ) {
   try {
     const { id: sessionId } = await params;
+    const searchParams = request.nextUrl.searchParams;
+    const limit = parseInt(searchParams.get('limit') || '1000');
+    const offset = parseInt(searchParams.get('offset') || '0');
+    const since = searchParams.get('since'); // Get transcripts since sequence number
 
-    // Get current user from Supabase auth using the access token
+    // Get current user from Supabase auth
     const authHeader = request.headers.get('authorization');
     const token = authHeader?.split(' ')[1];
     const { data: { user }, error: authError } = await supabase.auth.getUser(token);
@@ -60,12 +68,21 @@ export async function GET(
       );
     }
 
-    // Fetch transcript lines
-    const { data: transcriptLines, error: transcriptError } = await supabase
+    // Build query
+    let query = supabase
       .from('transcripts')
-      .select('*')
-      .eq('session_id', sessionId)
-      .order('start_time_seconds', { ascending: true });
+      .select('*', { count: 'exact' })
+      .eq('session_id', sessionId);
+
+    // If 'since' is provided, get only newer transcripts
+    if (since) {
+      query = query.gt('sequence_number', parseInt(since));
+    }
+
+    // Fetch transcript lines with pagination
+    const { data: transcriptLines, error: transcriptError, count } = await query
+      .order('sequence_number', { ascending: true })
+      .range(offset, offset + limit - 1);
 
     if (transcriptError) {
       console.error('Database error fetching transcript:', transcriptError);
@@ -75,16 +92,30 @@ export async function GET(
       );
     }
 
-    return NextResponse.json({ data: transcriptLines || [] });
+    // Get the latest sequence number
+    const { data: latestSeq } = await supabase
+      .from('transcripts')
+      .select('sequence_number')
+      .eq('session_id', sessionId)
+      .order('sequence_number', { ascending: false })
+      .limit(1)
+      .single();
+
+    return NextResponse.json({ 
+      data: transcriptLines || [],
+      pagination: {
+        total: count || 0,
+        limit,
+        offset,
+        hasMore: (count || 0) > offset + limit
+      },
+      latestSequenceNumber: latestSeq?.sequence_number || 0
+    });
 
   } catch (error) {
     console.error('Transcript fetch API error:', error);
-    let errorMessage = 'Internal server error';
-    if (error instanceof Error) {
-      errorMessage = error.message;
-    }
     return NextResponse.json(
-      { error: 'Internal server error', message: errorMessage },
+      { error: 'Internal server error', message: error instanceof Error ? error.message : 'Unknown error' },
       { status: 500 }
     );
   }
@@ -92,7 +123,7 @@ export async function GET(
 
 /**
  * POST /api/sessions/[id]/transcript - Save transcript lines for a session
- * The [id] in the path is the session_id and should be used if not provided in body.
+ * Supports batch operations and proper sequence numbering
  */
 export async function POST(
   request: NextRequest,
@@ -102,10 +133,11 @@ export async function POST(
     const { id: pathSessionId } = await params;
     const body = await request.json();
 
-    // Get current user (optional, based on your auth strategy for internal service calls)
-    // For now, assuming direct service-to-service or frontend call with session context
+    // Support both old format (array) and new format (batch object)
+    const isOldFormat = Array.isArray(body);
+    const batchData = isOldFormat ? { lines: body } : body;
 
-    const validationResult = transcriptPostSchema.safeParse(body);
+    const validationResult = transcriptBatchSchema.safeParse(batchData);
 
     if (!validationResult.success) {
       return NextResponse.json(
@@ -114,45 +146,92 @@ export async function POST(
       );
     }
 
-    const transcriptLinesToInsert = validationResult.data.map((line: TranscriptLineInput) => ({
-      ...line,
-      session_id: line.session_id || pathSessionId, // Ensure session_id is set
-    }));
+    const { lines, lastSequenceNumber } = validationResult.data;
 
-    if (transcriptLinesToInsert.length === 0) {
+    if (lines.length === 0) {
       return NextResponse.json(
         { message: 'No transcript lines to insert' },
         { status: 200 }
       );
     }
 
-    const { data, error } = await supabase
-      .from('transcripts')
-      .upsert(transcriptLinesToInsert, {
-        onConflict: 'session_id,start_time_seconds',
-        ignoreDuplicates: false,
-      })
-      .select();
-
-    if (error) {
-      console.error('Database error saving transcript:', error);
-      return NextResponse.json(
-        { error: 'Database error', message: error.message },
-        { status: 500 }
-      );
+    // Get the current max sequence number if not provided
+    let currentSequence = lastSequenceNumber;
+    if (currentSequence === undefined) {
+      const { data: maxSeq } = await supabase
+        .from('transcripts')
+        .select('sequence_number')
+        .eq('session_id', pathSessionId)
+        .order('sequence_number', { ascending: false })
+        .limit(1)
+        .single();
+      
+      currentSequence = maxSeq?.sequence_number || 0;
     }
 
-    return NextResponse.json({ data }, { status: 201 });
+    // Prepare lines with sequence numbers
+    const transcriptLinesToInsert = lines.map((line: TranscriptLineInput, index) => ({
+      ...line,
+      session_id: line.session_id || pathSessionId,
+      sequence_number: line.sequence_number || (currentSequence! + index + 1),
+    }));
+
+    // Insert in batches to avoid timeouts
+    const BATCH_SIZE = 100;
+    const results = [];
+    
+    for (let i = 0; i < transcriptLinesToInsert.length; i += BATCH_SIZE) {
+      const batch = transcriptLinesToInsert.slice(i, i + BATCH_SIZE);
+      
+      const { data, error } = await supabase
+        .from('transcripts')
+        .upsert(batch, {
+          onConflict: 'session_id,sequence_number',
+          ignoreDuplicates: false,
+        })
+        .select();
+
+      if (error) {
+        console.error('Database error saving transcript batch:', error);
+        return NextResponse.json(
+          { error: 'Database error', message: error.message },
+          { status: 500 }
+        );
+      }
+
+      results.push(...(data || []));
+    }
+
+    // Get current session word count
+    const { data: sessionData } = await supabase
+      .from('sessions')
+      .select('total_words_spoken')
+      .eq('id', pathSessionId)
+      .single();
+
+    const currentWords = sessionData?.total_words_spoken || 0;
+    const newWords = lines.reduce((sum, line) => sum + line.content.split(' ').length, 0);
+
+    // Update session with latest transcript info
+    await supabase
+      .from('sessions')
+      .update({ 
+        updated_at: new Date().toISOString(),
+        total_words_spoken: currentWords + newWords
+      })
+      .eq('id', pathSessionId);
+
+    return NextResponse.json({ 
+      data: results,
+      inserted: results.length,
+      latestSequenceNumber: Math.max(...results.map(r => r.sequence_number || 0))
+    }, { status: 201 });
 
   } catch (error) {
     console.error('Transcript save API error:', error);
-    let errorMessage = 'Internal server error';
-    if (error instanceof Error) {
-      errorMessage = error.message;
-    }
     return NextResponse.json(
-      { error: 'Internal server error', message: errorMessage },
+      { error: 'Internal server error', message: error instanceof Error ? error.message : 'Unknown error' },
       { status: 500 }
     );
   }
-} 
+}

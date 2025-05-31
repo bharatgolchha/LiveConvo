@@ -14,8 +14,6 @@ import {
   FileText,
   PauseCircle,
   RotateCcw,
-  Volume2,
-  VolumeX,
   Maximize2,
   Minimize2,
   Lightbulb,
@@ -38,7 +36,6 @@ interface ConversationHeaderProps {
   sessionDuration: number;
   talkStats: TalkStats;
   isFullscreen: boolean;
-  audioEnabled: boolean;
   showContextPanel: boolean;
   textContext: string;
   onStartRecording: () => void;
@@ -48,7 +45,6 @@ interface ConversationHeaderProps {
   onResetSession: () => void;
   onSetupComplete: () => void;
   onToggleFullscreen: () => void;
-  onToggleAudio: () => void;
   onToggleContextPanel: () => void;
   onGenerateGuidance: () => void;
 }
@@ -62,7 +58,6 @@ export const ConversationHeader: React.FC<ConversationHeaderProps> = ({
   sessionDuration,
   talkStats,
   isFullscreen,
-  audioEnabled,
   showContextPanel,
   textContext,
   onStartRecording,
@@ -72,7 +67,6 @@ export const ConversationHeader: React.FC<ConversationHeaderProps> = ({
   onResetSession,
   onSetupComplete,
   onToggleFullscreen,
-  onToggleAudio,
   onToggleContextPanel,
   onGenerateGuidance
 }) => {
@@ -207,19 +201,6 @@ export const ConversationHeader: React.FC<ConversationHeaderProps> = ({
 
           {/* Right Section - Actions */}
           <div className="flex items-center gap-1">
-            <Button 
-              variant="ghost" 
-              size="sm" 
-              onClick={onToggleAudio} 
-              title={audioEnabled ? "Mute Audio Feedback" : "Unmute Audio Feedback"} 
-              className={cn(
-                audioEnabled ? 'text-app-primary' : 'text-muted-foreground', 
-                "hover:bg-accent p-2"
-              )}
-            >
-              {audioEnabled ? <Volume2 className="w-5 h-5" /> : <VolumeX className="w-5 h-5" />}
-            </Button>
-            
             <Button 
               variant="ghost" 
               size="sm" 

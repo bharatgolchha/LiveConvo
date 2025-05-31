@@ -1,15 +1,15 @@
 'use client';
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { Brain, MessageCircle, ChevronRight, ChevronLeft, Maximize2, Minimize2, RefreshCw, Plus, CheckSquare, Loader2 } from 'lucide-react';
+import { Brain, MessageCircle, ChevronRight, ChevronLeft, Maximize2, Minimize2, RefreshCw, Plus, Loader2, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
-import { Card } from '@/components/ui/Card';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeHighlight from 'rehype-highlight';
 import 'highlight.js/styles/github.css';
+import { toast } from 'sonner';
 
 interface ChatMessage {
   id: string;
@@ -53,6 +53,7 @@ interface AICoachSidebarProps {
   // Checklist integration
   sessionId?: string;
   onAddToChecklist?: (text: string) => Promise<void>;
+  authToken?: string;
 }
 
 // Helper function to parse context from user messages and extract just the message
@@ -80,7 +81,8 @@ export default function AICoachSidebar({
   transcriptLength,
   conversationState,
   sessionId,
-  onAddToChecklist
+  onAddToChecklist,
+  authToken
 }: AICoachSidebarProps) {
   const [width, setWidth] = useState(400);
   const [isCollapsed, setIsCollapsed] = useState(false);
@@ -90,6 +92,7 @@ export default function AICoachSidebar({
   const [dynamicChips, setDynamicChips] = useState<GuidanceChip[]>([]);
   const [isGeneratingChips, setIsGeneratingChips] = useState(false);
   const [addingToChecklistId, setAddingToChecklistId] = useState<string | null>(null);
+  const [isAutoGuidanceActive, setIsAutoGuidanceActive] = useState(false);
   
   const sidebarRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -410,6 +413,59 @@ Please provide 6 helpful next-step suggestions as guidance chips with format: {"
     generateContextualChips(latestMessage, conversationContext);
   };
 
+  // Handle auto-guidance - automatically generate and send the best guidance
+  const handleAutoGuidance = async () => {
+    if (!onSendMessage || !transcriptLength || transcriptLength === 0) return;
+    
+    setIsAutoGuidanceActive(true);
+    
+    // Determine the best guidance based on conversation type and context
+    let autoPrompt = '';
+    
+    switch (contextSummary?.conversationType) {
+      case 'sales':
+        autoPrompt = "What's the best question I should ask next to move this sales conversation forward?";
+        break;
+      case 'support':
+        autoPrompt = "What should I say next to help resolve this customer's issue effectively?";
+        break;
+      case 'interview':
+        autoPrompt = "What's the most impactful question I should ask this candidate now?";
+        break;
+      case 'meeting':
+      default:
+        autoPrompt = "What should I focus on next in this conversation to achieve the best outcome?";
+        break;
+    }
+    
+    // Add context about current conversation state
+    if (transcriptLength && transcriptLength < 10) {
+      autoPrompt = "How should I start this conversation effectively?";
+    } else if (messages.length > 0 && messages[messages.length - 1].type === 'ai') {
+      // If last message was AI guidance, ask for next steps
+      autoPrompt = "What's the next best action based on how the conversation has progressed?";
+    }
+    
+    // Show toast notification
+    toast.info('Getting AI guidance...', {
+      description: 'Analyzing conversation context',
+      duration: 2000
+    });
+    
+    // Directly send the message without setting it in the input
+    if (onSendMessage) {
+      onSendMessage(autoPrompt);
+      
+      // Clear the input field
+      setNewMessage('');
+    }
+    
+    // Reset the active state after a delay
+    setTimeout(() => {
+      setIsAutoGuidanceActive(false);
+    }, 2000);
+  };
+
   // Extract actionable content from AI messages
   const extractActionableContent = (content: string): string => {
     // Remove markdown formatting
@@ -452,16 +508,51 @@ Please provide 6 helpful next-step suggestions as guidance chips with format: {"
     return text.substring(0, 100) + (text.length > 100 ? '...' : '');
   };
 
-  // Handle adding to checklist
+  // Handle adding to checklist with AI generation
   const handleAddToChecklist = async (messageId: string, content: string) => {
     if (!onAddToChecklist || !sessionId) return;
 
     setAddingToChecklistId(messageId);
     try {
+      // First, try to generate multiple checklist items using AI if we have an auth token
+      if (authToken) {
+        const response = await fetch('/api/checklist/generate', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${authToken}`
+          },
+          body: JSON.stringify({
+            message: content,
+            sessionId,
+            conversationType: contextSummary?.conversationType
+          })
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          if (data.items && data.items.length > 0) {
+            // Add each generated item to the checklist
+            for (const item of data.items) {
+              await onAddToChecklist(item.text);
+            }
+            return;
+          }
+        }
+      }
+
+      // Fallback to simple extraction if AI generation fails or no auth token
       const actionableText = extractActionableContent(content);
       await onAddToChecklist(actionableText);
     } catch (error) {
       console.error('Error adding to checklist:', error);
+      // Try fallback extraction on error
+      try {
+        const actionableText = extractActionableContent(content);
+        await onAddToChecklist(actionableText);
+      } catch (fallbackError) {
+        console.error('Fallback extraction also failed:', fallbackError);
+      }
     } finally {
       setAddingToChecklistId(null);
     }
@@ -507,14 +598,14 @@ Please provide 6 helpful next-step suggestions as guidance chips with format: {"
                   onClick={() => handleAddToChecklist(message.id, message.content)}
                   disabled={isAddingThisMessage}
                   className="h-6 px-2 -mt-1 -mr-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200 text-xs hover:bg-accent"
-                  title="Add to checklist"
+                  title="Generate checklist items from this message"
                 >
                   {isAddingThisMessage ? (
                     <Loader2 className="h-3 w-3 animate-spin" />
                   ) : (
                     <>
                       <Plus className="h-3 w-3 mr-1" />
-                      <span>Add to checklist</span>
+                      <span>Generate checklist</span>
                     </>
                   )}
                 </Button>
@@ -695,16 +786,35 @@ Please provide 6 helpful next-step suggestions as guidance chips with format: {"
                     </span>
                   )}
                 </h4>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={handleRefreshChips}
-                  disabled={isGeneratingChips}
-                  className="h-6 w-6 p-0 text-muted-foreground hover:text-foreground"
-                  title="Refresh AI guidance suggestions"
-                >
-                  <RefreshCw className={`h-3 w-3 ${isGeneratingChips ? 'animate-spin' : ''}`} />
-                </Button>
+                <div className="flex gap-1">
+                  {isRecording && !isPaused && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={handleAutoGuidance}
+                      disabled={!onSendMessage || transcriptLength === 0 || isAutoGuidanceActive}
+                      className={`h-6 px-2 flex items-center gap-1 transition-colors ${
+                        isAutoGuidanceActive 
+                          ? 'text-blue-500 bg-blue-50 dark:bg-blue-950 dark:text-blue-400' 
+                          : 'text-muted-foreground hover:text-foreground'
+                      }`}
+                      title="Get instant AI guidance for this moment"
+                    >
+                      <Sparkles className={`h-3 w-3 ${isAutoGuidanceActive ? 'animate-pulse' : ''}`} />
+                      <span className="text-xs">Auto</span>
+                    </Button>
+                  )}
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleRefreshChips}
+                    disabled={isGeneratingChips}
+                    className="h-6 w-6 p-0 text-muted-foreground hover:text-foreground"
+                    title="Refresh AI guidance suggestions"
+                  >
+                    <RefreshCw className={`h-3 w-3 ${isGeneratingChips ? 'animate-spin' : ''}`} />
+                  </Button>
+                </div>
               </div>
               <div className="grid grid-cols-2 gap-2 mb-3">
                 {(dynamicChips.length > 0 ? dynamicChips : quickHelpButtons).slice(0, 4).map((help, idx) => (
