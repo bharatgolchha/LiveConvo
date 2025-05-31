@@ -128,6 +128,8 @@ npm run build          # Type check and build
 
 ## Database Schema
 
+The complete database schema is defined in `supabase_schema_latest.sql`. This is the source of truth for the database structure.
+
 ### Key Tables
 - `users` - User accounts with onboarding status
 - `sessions` - Conversation sessions
@@ -137,6 +139,7 @@ npm run build          # Type check and build
 - `documents` - Uploaded files
 - `prep_checklist` - Session task items
 - `session_timeline_events` - Chronological events
+- `user_stats` - User statistics and usage metrics
 
 ## Environment Variables
 
@@ -242,9 +245,9 @@ GROUP BY session_id, sequence_number
 HAVING COUNT(*) > 1;
 
 -- View user statistics
-SELECT u.email, us.total_sessions, us.total_duration_seconds 
-FROM users u 
-JOIN user_stats us ON u.id = us.user_id;
+SELECT id, email, total_sessions, total_audio_seconds
+FROM users
+WHERE total_sessions > 0;
 ```
 
 ### Quick Fixes
