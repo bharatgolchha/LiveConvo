@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { Brain, MessageCircle, ChevronRight, ChevronLeft, Maximize2, Minimize2, RefreshCw, Plus, Loader2, Sparkles } from 'lucide-react';
+import { Brain, MessageCircle, ChevronRight, ChevronLeft, Maximize2, Minimize2, RefreshCw, Plus, Loader2, Sparkles, CheckCircle } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
@@ -70,6 +70,38 @@ function parseMessageForDisplay(message: string): string {
   return message;
 }
 
+// AI Thinking Animation Component
+const AIThinkingAnimation = () => (
+  <div className="flex justify-start mb-3">
+    <div className="flex gap-2">
+      <div className="flex-shrink-0">
+        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center shadow-md">
+          <Brain className="h-4 w-4 text-white" />
+        </div>
+      </div>
+      <div className="bg-card text-foreground border border-border shadow-sm rounded-lg rounded-bl-md px-4 py-3">
+        <div className="flex items-center gap-2">
+          <div className="flex gap-1">
+            <div 
+              className="w-2 h-2 bg-gray-400 dark:bg-gray-500 rounded-full animate-pulse" 
+              style={{ animationDelay: '0ms' }} 
+            />
+            <div 
+              className="w-2 h-2 bg-gray-400 dark:bg-gray-500 rounded-full animate-pulse" 
+              style={{ animationDelay: '200ms' }} 
+            />
+            <div 
+              className="w-2 h-2 bg-gray-400 dark:bg-gray-500 rounded-full animate-pulse" 
+              style={{ animationDelay: '400ms' }} 
+            />
+          </div>
+          <span className="text-sm text-muted-foreground">Thinking...</span>
+        </div>
+      </div>
+    </div>
+  </div>
+);
+
 export default function AICoachSidebar({
   isRecording,
   isPaused,
@@ -84,6 +116,8 @@ export default function AICoachSidebar({
   onAddToChecklist,
   authToken
 }: AICoachSidebarProps) {
+  // Detect if we're viewing a finalized/completed conversation
+  const isViewingFinalized = conversationState === 'completed';
   const [width, setWidth] = useState(400);
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
@@ -93,6 +127,7 @@ export default function AICoachSidebar({
   const [isGeneratingChips, setIsGeneratingChips] = useState(false);
   const [addingToChecklistId, setAddingToChecklistId] = useState<string | null>(null);
   const [isAutoGuidanceActive, setIsAutoGuidanceActive] = useState(false);
+  const [isAIThinking, setIsAIThinking] = useState(false);
   
   const sidebarRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -130,7 +165,8 @@ Context: ${conversationContext}
 Latest message: ${latestMessage}
 Conversation type: ${contextSummary?.conversationType || 'general'}
 
-Please provide 6 helpful next-step suggestions as guidance chips with format: {"text": "🔥 Build rapport", "prompt": "How can I build better rapport with them?"}`,
+Return the chips as suggestedActions array with exactly 6 items. Each item should be a JSON object with "text" (emoji + 2-4 words) and "prompt" (the full question to ask).
+Example format for each chip: {"text": "🔥 Build rapport", "prompt": "How can I build better rapport with them?"}`,
           conversationType: contextSummary?.conversationType || 'general',
           textContext: conversationContext,
           summary: '',
@@ -143,29 +179,64 @@ Please provide 6 helpful next-step suggestions as guidance chips with format: {"
         const data = await response.json();
         // Try to parse the AI response
         try {
-          // Check if data has the expected structure
+          // Check if data has the expected structure with suggestedActions
           if (data && data.suggestedActions && Array.isArray(data.suggestedActions)) {
-            // If we have suggested actions, use them
-            if (data.suggestedActions.length > 0) {
-              setDynamicChips(data.suggestedActions.slice(0, 6)); // Limit to 6 chips
+            // Convert suggestedActions to chip format if needed
+            const chips = data.suggestedActions.map((action: string | GuidanceChip) => {
+              // If action is already in the correct format
+              if (typeof action === 'object' && action.text && action.prompt) {
+                return action;
+              }
+              // If action is a string, try to parse it
+              if (typeof action === 'string') {
+                try {
+                  const parsed = JSON.parse(action);
+                  if (parsed.text && parsed.prompt) {
+                    return parsed;
+                  }
+                } catch (e) {
+                  // If parsing fails, create a default chip
+                  return {
+                    text: action.substring(0, 20),
+                    prompt: action
+                  };
+                }
+              }
+              // Default fallback
+              return {
+                text: String(action).substring(0, 20),
+                prompt: String(action)
+              };
+            });
+            
+            if (chips.length > 0) {
+              setDynamicChips(chips.slice(0, 6)); // Limit to 6 chips
               return; // Success, exit early
             }
           }
           
-          // Check for legacy message format as fallback
-          if (data && data.message && typeof data.message === 'string') {
-            const chipsMatch = data.message.match(/\[[\s\S]*\]/);
-            if (chipsMatch) {
-              const chips = JSON.parse(chipsMatch[0]);
-              if (Array.isArray(chips) && chips.length > 0) {
-                setDynamicChips(chips.slice(0, 6)); // Limit to 6 chips
-                return; // Success, exit early
+          // Try to extract chips from the response content if available
+          if (data && data.response && typeof data.response === 'string') {
+            // Look for JSON array in the response
+            const jsonMatch = data.response.match(/\[[\s\S]*?\]/);
+            if (jsonMatch) {
+              try {
+                const parsedChips = JSON.parse(jsonMatch[0]);
+                if (Array.isArray(parsedChips) && parsedChips.length > 0) {
+                  const validChips = parsedChips.filter((chip: GuidanceChip) => chip.text && chip.prompt);
+                  if (validChips.length > 0) {
+                    setDynamicChips(validChips.slice(0, 6));
+                    return;
+                  }
+                }
+              } catch (e) {
+                console.error('Failed to parse chips from response:', e);
               }
             }
           }
           
           // If we get here, no valid chips were found
-          console.warn('No valid guidance chips in response:', data);
+          console.warn('No valid guidance chips in response, using defaults:', data);
           setDynamicChips(getDefaultQuickHelp());
         } catch (parseError) {
           console.error('Error parsing AI chip response:', parseError);
@@ -290,15 +361,37 @@ Please provide 6 helpful next-step suggestions as guidance chips with format: {"
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  // Generate initial contextual chips when context is available
+  // Watch for new AI messages to stop thinking animation
   useEffect(() => {
-    if (contextSummary?.textContext && messages.length === 0 && dynamicChips.length === 0) {
+    if (messages.length > 0) {
+      const lastMessage = messages[messages.length - 1];
+      if ((lastMessage.type === 'ai' || lastMessage.type === 'system') && isAIThinking) {
+        setIsAIThinking(false);
+      }
+    }
+  }, [messages, isAIThinking]);
+
+  // Timeout to clear thinking state if no response after 30 seconds
+  useEffect(() => {
+    if (isAIThinking) {
+      const timeout = setTimeout(() => {
+        setIsAIThinking(false);
+        toast.error('AI response timed out. Please try again.');
+      }, 30000);
+
+      return () => clearTimeout(timeout);
+    }
+  }, [isAIThinking]);
+
+  // Generate initial contextual chips when context is available (but not for completed conversations)
+  useEffect(() => {
+    if (contextSummary?.textContext && messages.length === 0 && dynamicChips.length === 0 && !isViewingFinalized) {
       generateContextualChips(
         `Starting ${contextSummary.conversationType} conversation`, 
         contextSummary.textContext
       );
     }
-  }, [contextSummary?.textContext, messages.length, dynamicChips.length, generateContextualChips]);
+  }, [contextSummary?.textContext, messages.length, dynamicChips.length, generateContextualChips, isViewingFinalized]);
 
   // Handle resize functionality
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
@@ -376,6 +469,9 @@ Please provide 6 helpful next-step suggestions as guidance chips with format: {"
         ? `[Context: ${contextSummary.conversationType} - ${contextSummary.conversationTitle}] ${messageContent}`
         : messageContent;
       
+      // Set AI thinking state
+      setIsAIThinking(true);
+      
       onSendMessage(messageToSend);
       setNewMessage('');
       
@@ -401,6 +497,8 @@ Please provide 6 helpful next-step suggestions as guidance chips with format: {"
 
   // Handle refreshing guidance chips
   const handleRefreshChips = () => {
+    if (isViewingFinalized) return; // Don't refresh chips for completed conversations
+    
     const conversationContext = [
       contextSummary?.textContext || '',
       messages.slice(-3).map(m => `${m.type}: ${parseMessageForDisplay(m.content)}`).join('\n')
@@ -454,6 +552,8 @@ Please provide 6 helpful next-step suggestions as guidance chips with format: {"
     
     // Directly send the message without setting it in the input
     if (onSendMessage) {
+      // Set AI thinking state for auto-guidance
+      setIsAIThinking(true);
       onSendMessage(autoPrompt);
       
       // Clear the input field
@@ -469,7 +569,7 @@ Please provide 6 helpful next-step suggestions as guidance chips with format: {"
   // Extract actionable content from AI messages
   const extractActionableContent = (content: string): string => {
     // Remove markdown formatting
-    let text = content
+    const text = content
       .replace(/^#+\s+/gm, '') // Remove headers
       .replace(/\*\*([^*]+)\*\*/g, '$1') // Remove bold
       .replace(/\*([^*]+)\*/g, '$1') // Remove italic
@@ -564,7 +664,7 @@ Please provide 6 helpful next-step suggestions as guidance chips with format: {"
     const isSystem = message.type === 'system';
     const isAutoGuidance = message.type === 'auto-guidance';
 
-    const showAddToChecklist = !isUser && !isSystem && onAddToChecklist && sessionId;
+    const showAddToChecklist = !isUser && !isSystem && onAddToChecklist && sessionId && !isViewingFinalized;
     const isAddingThisMessage = addingToChecklistId === message.id;
 
     return (
@@ -726,12 +826,20 @@ Please provide 6 helpful next-step suggestions as guidance chips with format: {"
               <div className="flex items-center gap-2">
                 <Brain className="h-4 w-4 text-muted-foreground" />
                 <span className="text-sm font-medium text-foreground">AI Coach</span>
-                <div className={`w-2 h-2 rounded-full flex-shrink-0 ${status.color} ${status.pulse ? 'animate-pulse' : ''}`} />
-                <span className="text-xs text-muted-foreground">{status.text}</span>
-                {isRecording && (
-                  <span className="text-xs font-mono text-muted-foreground">
-                    {formatDuration(sessionDuration)}
-                  </span>
+                {isViewingFinalized ? (
+                  <>
+                    <Badge variant="secondary" className="text-xs">Viewing Completed</Badge>
+                  </>
+                ) : (
+                  <>
+                    <div className={`w-2 h-2 rounded-full flex-shrink-0 ${status.color} ${status.pulse ? 'animate-pulse' : ''}`} />
+                    <span className="text-xs text-muted-foreground">{status.text}</span>
+                    {isRecording && (
+                      <span className="text-xs font-mono text-muted-foreground">
+                        {formatDuration(sessionDuration)}
+                      </span>
+                    )}
+                  </>
                 )}
               </div>
               <div className="flex items-center gap-1">
@@ -761,12 +869,22 @@ Please provide 6 helpful next-step suggestions as guidance chips with format: {"
               {messages.length === 0 ? (
                 <div className="text-center text-muted-foreground mt-8">
                   <Brain className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                  <p className="text-sm">Start recording to get AI guidance</p>
-                  <p className="text-xs mt-2">I'll provide real-time coaching and feedback</p>
+                  {isViewingFinalized ? (
+                    <>
+                      <p className="text-sm">Chat about this completed conversation</p>
+                      <p className="text-xs mt-2">Ask questions or get insights about what happened</p>
+                    </>
+                  ) : (
+                    <>
+                      <p className="text-sm">Start recording to get AI guidance</p>
+                      <p className="text-xs mt-2">I'll provide real-time coaching and feedback</p>
+                    </>
+                  )}
                 </div>
               ) : (
                 <>
                   {messages.map(renderMessage)}
+                  {isAIThinking && <AIThinkingAnimation />}
                   <div ref={messagesEndRef} />
                 </>
               )}
@@ -776,11 +894,13 @@ Please provide 6 helpful next-step suggestions as guidance chips with format: {"
             <div className="flex-shrink-0 p-4 border-t border-border bg-muted/30">
               <div className="flex items-center justify-between mb-3">
                 <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                  {contextSummary 
-                    ? `${currentMode} ${contextSummary.conversationType} Help`
-                    : 'Quick Help'
+                  {isViewingFinalized 
+                    ? 'Analysis Questions'
+                    : contextSummary 
+                      ? `${currentMode} ${contextSummary.conversationType} Help`
+                      : 'Quick Help'
                   }
-                  {isGeneratingChips && (
+                  {isGeneratingChips && !isViewingFinalized && (
                     <span className="ml-2 text-xs text-blue-500 animate-pulse">
                       • AI generating...
                     </span>
@@ -808,9 +928,9 @@ Please provide 6 helpful next-step suggestions as guidance chips with format: {"
                     variant="ghost"
                     size="sm"
                     onClick={handleRefreshChips}
-                    disabled={isGeneratingChips}
+                    disabled={isGeneratingChips || isViewingFinalized}
                     className="h-6 w-6 p-0 text-muted-foreground hover:text-foreground"
-                    title="Refresh AI guidance suggestions"
+                    title={isViewingFinalized ? "Cannot refresh guidance for completed conversations" : "Refresh AI guidance suggestions"}
                   >
                     <RefreshCw className={`h-3 w-3 ${isGeneratingChips ? 'animate-spin' : ''}`} />
                   </Button>
@@ -822,10 +942,11 @@ Please provide 6 helpful next-step suggestions as guidance chips with format: {"
                     key={`${help.text}-${idx}`}
                     variant="outline"
                     size="sm"
-                    onClick={() => setNewMessage(help.prompt)}
+                    onClick={() => !isViewingFinalized && setNewMessage(help.prompt)}
+                    disabled={isViewingFinalized}
                     className={`text-xs h-8 bg-card hover:bg-accent border-border justify-start ${
                       dynamicChips.length > 0 ? 'ring-1 ring-blue-200 dark:ring-blue-800' : ''
-                    }`}
+                    } ${isViewingFinalized ? 'opacity-50 cursor-not-allowed' : ''}`}
                   >
                     {help.text}
                   </Button>
@@ -837,10 +958,11 @@ Please provide 6 helpful next-step suggestions as guidance chips with format: {"
                     key={`${help.text}-${idx + 4}`}
                     variant="outline"
                     size="sm"
-                    onClick={() => setNewMessage(help.prompt)}
+                    onClick={() => !isViewingFinalized && setNewMessage(help.prompt)}
+                    disabled={isViewingFinalized}
                     className={`text-xs h-7 bg-card hover:bg-accent border-border justify-start ${
                       dynamicChips.length > 0 ? 'ring-1 ring-blue-200 dark:ring-blue-800' : ''
-                    }`}
+                    } ${isViewingFinalized ? 'opacity-50 cursor-not-allowed' : ''}`}
                   >
                     {help.text}
                   </Button>
@@ -855,20 +977,28 @@ Please provide 6 helpful next-step suggestions as guidance chips with format: {"
                   value={newMessage}
                   onChange={(e) => setNewMessage(e.target.value)}
                   onKeyPress={handleKeyPress}
-                  placeholder={contextSummary 
-                    ? `Ask about your ${contextSummary.conversationType} (${isLiveConversation ? 'live' : 'planning'})...`
-                    : "Ask the AI coach anything..."
+                  placeholder={isViewingFinalized
+                    ? `Analyze this completed ${contextSummary?.conversationType || 'conversation'}...`
+                    : (contextSummary 
+                        ? `Ask about your ${contextSummary.conversationType} (${isLiveConversation ? 'live' : 'planning'})...`
+                        : "Ask the AI coach anything..."
+                      )
                   }
                   className="flex-1 min-h-[40px] max-h-[120px] resize-none"
                   rows={1}
+                  disabled={isAIThinking}
                 />
                 <Button
                   onClick={handleSendMessage}
-                  disabled={!newMessage.trim()}
+                  disabled={!newMessage.trim() || isAIThinking}
                   size="sm"
                   className="px-4"
                 >
-                  <MessageCircle className="h-4 w-4" />
+                  {isAIThinking ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <MessageCircle className="h-4 w-4" />
+                  )}
                 </Button>
               </div>
             </div>

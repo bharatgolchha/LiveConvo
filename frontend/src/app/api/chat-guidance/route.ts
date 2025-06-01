@@ -188,6 +188,21 @@ Return a JSON object:
   "confidence": 85
 }
 
+SPECIAL INSTRUCTIONS FOR CHIP GENERATION:
+If the user asks for "guidance chips" or mentions "6 contextual guidance chips", the suggestedActions array should contain exactly 6 items in this format:
+{
+  "response": "Here are 6 contextual guidance chips for your conversation:",
+  "suggestedActions": [
+    {"text": "🎯 Key objective", "prompt": "What's the key objective for this conversation?"},
+    {"text": "💡 Discovery questions", "prompt": "What discovery questions should I ask?"},
+    {"text": "🔥 Build rapport", "prompt": "How can I build rapport effectively?"},
+    {"text": "📊 Present value", "prompt": "How should I present our value proposition?"},
+    {"text": "🛡️ Handle objections", "prompt": "How do I handle potential objections?"},
+    {"text": "🤝 Next steps", "prompt": "What should be the next steps?"}
+  ],
+  "confidence": 90
+}
+
 GUIDANCE PRINCIPLES:
 - Use ALL provided context (background notes, conversation type, summary, timeline, files, etc.)
 - Be specific rather than generic - reference their actual situation

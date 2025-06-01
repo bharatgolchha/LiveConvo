@@ -129,7 +129,7 @@ export async function POST(request: NextRequest) {
       console.error('💥 Raw content that failed to parse:', data.choices[0].message.content.substring(0, 500));
       
       // Try to extract events using regex as a fallback
-      let fallbackEvents = [];
+      const fallbackEvents = [];
       try {
         const responseContent = data.choices[0].message.content;
         

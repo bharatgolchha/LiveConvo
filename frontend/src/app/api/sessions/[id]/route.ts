@@ -31,6 +31,11 @@ export async function GET(
           id,
           title,
           tldr,
+          key_decisions,
+          action_items,
+          follow_up_questions,
+          conversation_highlights,
+          structured_notes,
           generation_status,
           created_at
         ),

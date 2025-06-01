@@ -268,10 +268,17 @@ export default function App() {
   // Load conversation state from localStorage on mount
   useEffect(() => {
     if (conversationId && typeof window !== 'undefined') {
+      // Always load session details from backend first to get the latest state
+      // This ensures finalized conversations show correctly when accessed from dashboard
+      loadSessionDetails(conversationId);
+      
+      // Also check localStorage for any draft data (transcript, etc.)
       const storedState = localStorage.getItem(`conversation_state_${conversationId}`);
       if (storedState) {
         try {
           const parsed = JSON.parse(storedState);
+          // Only restore transcript and other non-state data from localStorage
+          // The actual conversation state will come from the backend
           if (parsed.transcript) {
             const restoredTranscript = (parsed.transcript as any[]).map((line, index) => ({
               ...line,
@@ -286,24 +293,80 @@ export default function App() {
           if (parsed.conversationType) setConversationType(parsed.conversationType);
           if (parsed.conversationTitle) setConversationTitle(parsed.conversationTitle);
           if (parsed.textContext) setTextContext(parsed.textContext);
-          if (parsed.conversationState) {
-            setConversationState(parsed.conversationState as ConversationState);
-            hasLoadedFromStorage.current = true;
-          } else {
-            // If no state was saved but we have a conversation ID, set to ready
-            setConversationState('ready');
-            hasLoadedFromStorage.current = true;
-          }
+          // Don't load conversation state from localStorage - let backend determine it
         } catch (err) {
           console.error('Error loading saved conversation state:', err);
         }
-      } else if (conversationId) {
-        // If we have a conversation ID but no saved state, set to ready
-        setConversationState('ready');
-        hasLoadedFromStorage.current = true;
       }
     }
   }, [conversationId]);
+
+  // Load session details from backend
+  const loadSessionDetails = async (sessionId: string) => {
+    if (!session || authLoading) return;
+    
+    try {
+      const response = await authenticatedFetch(`/api/sessions/${sessionId}`, session);
+      if (response.ok) {
+        const sessionData = await response.json();
+        
+        // Set the conversation details - backend data takes precedence
+        setConversationTitle(sessionData.title || 'Untitled Conversation');
+        setConversationType(sessionData.conversation_type || 'general');
+        
+        // Set state based on session status - this is the authoritative source
+        if (sessionData.status === 'completed') {
+          console.log('🔍 Loading completed session:', sessionId);
+          setConversationState('completed');
+          setSessionDuration(sessionData.recording_duration_seconds || 0);
+          // Clear any stale localStorage state for completed sessions
+          if (typeof window !== 'undefined') {
+            localStorage.removeItem(`conversation_state_${sessionId}`);
+          }
+        } else if (sessionData.status === 'active') {
+          setConversationState('paused'); // Show as paused if coming from dashboard
+        } else {
+          setConversationState('ready');
+        }
+        
+        hasLoadedFromStorage.current = true;
+        
+        // Load transcript if available
+        if (sessionData.status === 'completed' || sessionData.status === 'active') {
+          loadSessionTranscript(sessionId);
+        }
+      }
+    } catch (error) {
+      console.error('Error loading session details:', error);
+      setConversationState('ready');
+      hasLoadedFromStorage.current = true;
+    }
+  };
+
+  // Load session transcript
+  const loadSessionTranscript = async (sessionId: string) => {
+    if (!session || authLoading) return;
+    
+    try {
+      const response = await authenticatedFetch(`/api/sessions/${sessionId}/transcript`, session);
+      if (response.ok) {
+        const transcriptData = await response.json();
+        
+        // Convert transcript data to TranscriptLine format
+        const formattedTranscript = transcriptData.transcripts.map((item: any, index: number) => ({
+          id: `loaded-${sessionId}-${index}-${Date.now()}`,
+          text: item.content,
+          timestamp: new Date(item.created_at),
+          speaker: item.speaker === 'user' ? 'ME' : 'THEM',
+          confidence: item.confidence_score || 0.85
+        }));
+        
+        setTranscript(formattedTranscript);
+      }
+    } catch (error) {
+      console.error('Error loading session transcript:', error);
+    }
+  };
 
   // Handle page visibility changes to maintain recording state
   useEffect(() => {
@@ -1991,15 +2054,19 @@ export default function App() {
                     )}
                     
                     {(conversationState === 'completed' || conversationState === 'error') && (
-                      <Button 
-                        onClick={handleResetSession}
-                        size="md" 
-                        variant="outline"
-                        className="border-2 border-border hover:bg-accent font-semibold"
-                      >
-                        <RotateCcw className="w-4 h-4 mr-2" />
-                        New Session
-                      </Button>
+                      <>
+                        {conversationId && conversationState === 'completed' && (
+                          <Button 
+                            onClick={() => router.push(`/summary/${conversationId}`)}
+                            size="md" 
+                            variant="primary"
+                            className="bg-app-primary hover:bg-app-primary/90 text-primary-foreground font-semibold"
+                          >
+                            <FileText className="w-4 h-4 mr-2" />
+                            View Final Summary
+                          </Button>
+                        )}
+                      </>
                     )}
                   </div>
                 </div>
