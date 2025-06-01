@@ -4,6 +4,36 @@
 
 ### 🚀 New Features
 
+- [ ] **🔗 Implement Supabase MCP (Model Context Protocol)** (2025-01-30) 🆕 **CURRENT TASK**
+  - **Feature**: Configure Model Context Protocol to allow AI tools (Cursor, Claude, etc.) to interact directly with Supabase database
+  - **Benefits**: 
+    - Eliminate manual database context feeding to AI assistants
+    - Enable automatic access to LiveConvo database schema and data
+    - Streamline development workflow with AI-powered database queries
+    - Allow AI tools to understand database structure and relationships
+  - **Implementation Requirements**:
+    - ✅ Create Supabase Personal Access Token (PAT) - Instructions provided
+    - ✅ Set up `.cursor/mcp.json` configuration file for Cursor IDE
+    - ✅ Configure MCP server with Supabase connection details
+    - ✅ Test MCP connection and database access from Cursor - Test guide created
+    - ✅ Document setup process and usage guidelines - Comprehensive guide created
+    - ✅ Add MCP configuration to project documentation - Added to README
+  - **Technical Details**:
+    - ✅ Use `@supabase/mcp-server-supabase@latest` NPM package
+    - ✅ Configure authentication with PAT for secure access
+    - ✅ Enable AI tools to query LiveConvo database schema, sessions, transcripts, usage tracking, etc.
+    - ✅ Maintain security best practices for database access (gitignore, token management)
+    - ✅ Support multiple AI tools (Cursor, VS Code, Claude Desktop)
+  - **Files Created**:
+    - `.cursor/mcp.json` - Cursor IDE MCP configuration
+    - `.vscode/mcp.json` - VS Code Copilot MCP configuration  
+    - `claude-mcp-config.json` - Claude Desktop configuration template
+    - `SUPABASE_MCP_SETUP.md` - Comprehensive setup guide
+    - `test-mcp-connection.md` - Connection testing guide
+    - Updated `.gitignore` to protect MCP tokens
+    - Updated `README.md` with MCP documentation
+  - **Status**: ✅ COMPLETED
+
 ### 🔧 Bug Fixes & Issues
 
 - [x] **✅ Fix Tab Switching Recording Loss Issue** (2025-01-27) 🚨 **JUST FIXED**

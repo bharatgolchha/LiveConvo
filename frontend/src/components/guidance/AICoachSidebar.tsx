@@ -73,30 +73,23 @@ function parseMessageForDisplay(message: string): string {
 // AI Thinking Animation Component
 const AIThinkingAnimation = () => (
   <div className="flex justify-start mb-3">
-    <div className="flex gap-2">
-      <div className="flex-shrink-0">
-        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center shadow-md">
-          <Brain className="h-4 w-4 text-white" />
+    <div className="bg-card text-foreground border border-border shadow-sm rounded-lg px-4 py-3">
+      <div className="flex items-center gap-2">
+        <div className="flex gap-1">
+          <div 
+            className="w-2 h-2 bg-gray-400 dark:bg-gray-500 rounded-full animate-pulse" 
+            style={{ animationDelay: '0ms' }} 
+          />
+          <div 
+            className="w-2 h-2 bg-gray-400 dark:bg-gray-500 rounded-full animate-pulse" 
+            style={{ animationDelay: '200ms' }} 
+          />
+          <div 
+            className="w-2 h-2 bg-gray-400 dark:bg-gray-500 rounded-full animate-pulse" 
+            style={{ animationDelay: '400ms' }} 
+          />
         </div>
-      </div>
-      <div className="bg-card text-foreground border border-border shadow-sm rounded-lg rounded-bl-md px-4 py-3">
-        <div className="flex items-center gap-2">
-          <div className="flex gap-1">
-            <div 
-              className="w-2 h-2 bg-gray-400 dark:bg-gray-500 rounded-full animate-pulse" 
-              style={{ animationDelay: '0ms' }} 
-            />
-            <div 
-              className="w-2 h-2 bg-gray-400 dark:bg-gray-500 rounded-full animate-pulse" 
-              style={{ animationDelay: '200ms' }} 
-            />
-            <div 
-              className="w-2 h-2 bg-gray-400 dark:bg-gray-500 rounded-full animate-pulse" 
-              style={{ animationDelay: '400ms' }} 
-            />
-          </div>
-          <span className="text-sm text-muted-foreground">Thinking...</span>
-        </div>
+        <span className="text-sm text-muted-foreground">Thinking...</span>
       </div>
     </div>
   </div>
@@ -574,7 +567,7 @@ Example format for each chip: {"text": "🔥 Build rapport", "prompt": "How can 
       .replace(/\*\*([^*]+)\*\*/g, '$1') // Remove bold
       .replace(/\*([^*]+)\*/g, '$1') // Remove italic
       .replace(/`([^`]+)`/g, '$1') // Remove inline code
-      .replace(/```[^`]*```/gms, '') // Remove code blocks
+      .replace(/```[\s\S]*?```/gm, '') // Remove code blocks
       .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1') // Remove links, keep text
       .replace(/^>\s+/gm, '') // Remove blockquotes
       .replace(/^-\s+/gm, '• ') // Convert dashes to bullets

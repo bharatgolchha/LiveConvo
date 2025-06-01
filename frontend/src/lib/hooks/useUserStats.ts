@@ -5,6 +5,9 @@ import { useAuth } from '@/contexts/AuthContext';
 export interface UserStats {
   monthlyAudioHours: number;
   monthlyAudioLimit: number;
+  monthlyMinutesUsed?: number;
+  monthlyMinutesLimit?: number;
+  minutesRemaining?: number;
   totalSessions: number;
   completedSessions: number;
   activeSessions: number;
@@ -49,7 +52,7 @@ export function useUserStats(): UserStatsHookReturn {
         headers['Authorization'] = `Bearer ${session.access_token}`
       }
 
-      const response = await fetch('/api/users/stats', {
+      const response = await fetch('/api/users/stats-v2', {
         method: 'GET',
         headers,
       })
@@ -107,6 +110,9 @@ export function useUserStats(): UserStatsHookReturn {
 export const defaultStats: UserStats = {
   monthlyAudioHours: 0,
   monthlyAudioLimit: 10,
+  monthlyMinutesUsed: 0,
+  monthlyMinutesLimit: 600, // 10 hours * 60 minutes
+  minutesRemaining: 600,
   totalSessions: 0,
   completedSessions: 0,
   activeSessions: 0,

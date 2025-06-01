@@ -68,6 +68,7 @@ import { SetupModal } from '@/components/setup/SetupModal';
 import AICoachSidebar from '@/components/guidance/AICoachSidebar';
 import { TranscriptModal } from '@/components/conversation/TranscriptModal';
 import { useSessionData, SessionDocument } from '@/lib/hooks/useSessionData';
+import { useMinuteTracking } from '@/lib/hooks/useMinuteTracking';
 
 interface TranscriptLine {
   id: string;
@@ -234,6 +235,53 @@ export default function App() {
   // Add a ref to track whether we've loaded from localStorage
   const hasLoadedFromStorage = useRef(false);
 
+  // Minute tracking for usage limits
+  const limitReachedRef = useRef(false);
+  const approachingLimitRef = useRef(false);
+  
+  const {
+    currentSessionMinutes,
+    currentSessionSeconds,
+    sessionTime,
+    remainingTime,
+    checkUsageLimit,
+    resetSession: resetMinuteTracking,
+    error: minuteTrackingError
+  } = useMinuteTracking({
+    sessionId: conversationId,
+    isRecording: conversationState === 'recording',
+    onLimitReached: () => {
+      // Only trigger once per session
+      if (!limitReachedRef.current && conversationState === 'recording') {
+        limitReachedRef.current = true;
+        console.log('📊 Usage limit reached, stopping recording');
+        handleStopRecording();
+        toast.error('Monthly limit reached', {
+          description: 'You\'ve used all your available minutes. Please upgrade your plan to continue.',
+          duration: 10000
+        });
+      }
+    },
+    onApproachingLimit: (minutes) => {
+      // Only show warning once per session
+      if (!approachingLimitRef.current && conversationState === 'recording') {
+        approachingLimitRef.current = true;
+        toast.warning(`Only ${minutes} minutes remaining`, {
+          description: 'Consider upgrading your plan for uninterrupted recording.',
+          duration: 8000
+        });
+      }
+    }
+  });
+
+  // Reset limit flags when starting a new recording
+  useEffect(() => {
+    if (conversationState === 'ready') {
+      limitReachedRef.current = false;
+      approachingLimitRef.current = false;
+    }
+  }, [conversationState]);
+
   // Tab visibility and page lifecycle management
   const [isTabVisible, setIsTabVisible] = useState(true);
   const [wasRecordingBeforeHidden, setWasRecordingBeforeHidden] = useState(false);
@@ -246,6 +294,19 @@ export default function App() {
   // Update the ref whenever conversation state changes
   useEffect(() => {
     isCurrentlyRecordingRef.current = (conversationState as string) === 'recording';
+  }, [conversationState]);
+
+  // Timer to update session duration during recording
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    if (conversationState === 'recording') {
+      interval = setInterval(() => {
+        setSessionDuration(prev => prev + 1);
+      }, 1000);
+    }
+    return () => {
+      if (interval) clearInterval(interval);
+    };
   }, [conversationState]);
 
   // Save conversation state to localStorage whenever it changes
@@ -1336,6 +1397,56 @@ export default function App() {
   // Other Event Handlers
   const handleStartRecording = async () => {
     try {
+      // Check usage limits before starting
+      const usageCheck = await checkUsageLimit();
+      console.log('📊 Usage check result:', JSON.stringify(usageCheck, null, 2));
+      
+      // Handle different error cases
+      if (!usageCheck) {
+        console.error('❌ Failed to check usage limits - no response');
+        if (process.env.NODE_ENV === 'development') {
+          console.warn('⚠️ Development mode: Allowing recording despite API failure');
+          toast.info('Development mode: Usage tracking unavailable', {
+            duration: 3000
+          });
+        } else {
+          toast.error('Unable to verify usage limits', {
+            description: 'Please try again or contact support.',
+            duration: 5000
+          });
+          return;
+        }
+      } else if (usageCheck.can_record === null || usageCheck.can_record === undefined) {
+        console.warn('⚠️ Usage check returned null/undefined can_record');
+        if (process.env.NODE_ENV === 'development') {
+          console.warn('⚠️ Development mode: Allowing recording despite null data');
+          toast.info('Development mode: Usage tracking disabled', {
+            duration: 3000
+          });
+        } else {
+          toast.error('Unable to verify usage limits', {
+            description: 'Please try again or contact support.',
+            duration: 5000
+          });
+          return;
+        }
+      } else if (usageCheck.can_record === false) {
+        console.error('❌ Cannot record - limit reached');
+        toast.error('Monthly limit exceeded', {
+          description: `You've used ${usageCheck.minutes_used || 0} of ${usageCheck.minutes_limit || 0} minutes. Please upgrade your plan.`,
+          duration: 8000
+        });
+        return;
+      }
+
+      // Show warning if approaching limit
+      if (usageCheck && usageCheck.minutes_remaining <= 10 && usageCheck.minutes_remaining > 0) {
+        toast.warning(`Only ${usageCheck.minutes_remaining} minutes remaining`, {
+          description: 'You\'re approaching your monthly limit.',
+          duration: 5000
+        });
+      }
+
       setConversationState('processing');
 
       console.log('🔄 Connecting to transcription services...');
@@ -1370,6 +1481,7 @@ export default function App() {
       lastTheirTranscriptLen.current = 0;
       setLastSavedTranscriptIndex(transcript.length);
       setSessionDuration(0);
+      resetMinuteTracking(); // Reset minute tracking for new session
       // FIXED: Transcript is NEVER cleared in handleStartRecording - preserves all conversation data
       console.log('✅ Recording started successfully');
     } catch (err) {

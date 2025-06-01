@@ -147,6 +147,32 @@ npm run format
 - [Authentication Setup](frontend/README_AUTH.md)
 - [Deepgram Integration](DEEPGRAM_INTEGRATION.md)
 - [Planning & Architecture](PLANNING.md)
+- **[Supabase MCP Setup](SUPABASE_MCP_SETUP.md)** - Connect AI tools to your database
+
+## 🤖 AI Development with MCP
+
+LiveConvo supports the Model Context Protocol (MCP) for connecting AI tools directly to your Supabase database. This enables:
+
+- **Automatic Database Context**: AI assistants can query your schema and data directly
+- **Enhanced Development**: Get intelligent suggestions based on your actual database structure
+- **Smart Analytics**: Generate insights from your LiveConvo data without manual queries
+
+### Quick MCP Setup
+
+1. **Create Supabase Personal Access Token**
+   - Go to [Supabase Dashboard](https://supabase.com/dashboard) → Settings → Access Tokens
+   - Generate new token with appropriate scopes
+
+2. **Configure Your AI Tool**
+   - **Cursor**: Token goes in `.cursor/mcp.json` (already created)
+   - **VS Code**: Use `.vscode/mcp.json` configuration
+   - **Claude**: Copy `claude-mcp-config.json` to Claude settings
+
+3. **Test Connection**
+   - Ask your AI: *"What tables do I have in my LiveConvo database?"*
+   - Follow the test guide in `test-mcp-connection.md`
+
+For detailed setup instructions, see **[SUPABASE_MCP_SETUP.md](SUPABASE_MCP_SETUP.md)**.
 
 ## 🤝 Contributing
 
