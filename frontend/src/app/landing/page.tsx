@@ -19,38 +19,80 @@ import {
   Users,
   Shield,
   Briefcase,
-  PhoneCall
+  PhoneCall,
+  Star,
+  UserCheck,
+  Mail
 } from 'lucide-react';
 
 export default function LandingPage() {
   const router = useRouter();
   const [expandedFaq, setExpandedFaq] = useState<number | null>(null);
+  const [formData, setFormData] = useState({
+    name: '',
+    email: '',
+    company: '',
+    useCase: 'sales'
+  });
+  const [isSubmitted, setIsSubmitted] = useState(false);
+
+  const handleWaitlistSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    try {
+      const response = await fetch('/api/waitlist', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(formData),
+      });
+
+      const result = await response.json();
+
+      if (response.ok) {
+        setIsSubmitted(true);
+      } else {
+        // Show detailed error message if available
+        const errorMessage = result.details 
+          ? `${result.error}\n\n${result.details}`
+          : result.error || 'Failed to join waitlist';
+        alert(errorMessage);
+      }
+    } catch (error) {
+      console.error('Error submitting waitlist:', error);
+      alert('Failed to join waitlist. Please try again.');
+    }
+  };
 
   const testimonials = [
     {
-      quote: "+23% meetings → deals after 2 weeks.",
+      quote: "Invaluable feedback during alpha testing. This will change how we do discovery.",
       name: "Sarah Chen",
-      role: "Sales Director",
-      company: "TechCorp"
+      role: "Beta Tester",
+      company: "TechCorp",
+      badge: "Alpha Tester"
     },
     {
-      quote: "Stopped winging discovery calls completely.",
+      quote: "Direct line to founders made this feel like a true partnership.",
       name: "Mike Rodriguez", 
-      role: "Account Executive",
-      company: "CloudSoft"
+      role: "Early Access",
+      company: "CloudSoft",
+      badge: "Beta Tester"
     },
     {
-      quote: "Bills for insights, not note-taking now.",
+      quote: "Excited to help shape the future of AI-powered conversations.",
       name: "Lisa Wang",
-      role: "Management Consultant", 
-      company: "Strategic Partners"
+      role: "Product Advisor", 
+      company: "Strategic Partners",
+      badge: "Founding User"
     }
   ];
 
   const faqs = [
     {
-      question: 'Does it record my calls?',
-      answer: 'No recordings stored. We process audio in real-time and delete it immediately after generating cues and summaries.'
+      question: 'How do I get selected for early access?',
+      answer: 'We review applications weekly and prioritize users who can provide detailed feedback. Sales professionals, consultants, and hiring managers get priority.'
     },
     {
       question: 'Will my prospect hear anything?',
@@ -65,8 +107,31 @@ export default function LandingPage() {
       answer: 'Bank-level encryption, SOC 2 compliant, zero data retention after processing.'
     },
     {
-      question: 'Can I cancel anytime?',
-      answer: 'Yes, cancel with one click. No contracts, no questions asked.'
+      question: 'What happens after the beta period?',
+      answer: 'Beta testers get grandfather pricing and continued priority support when we launch publicly.'
+    }
+  ];
+
+  const perks = [
+    {
+      icon: <Star className="w-6 h-6" />,
+      title: 'Free Beta Access',
+      description: 'Full platform access during testing period'
+    },
+    {
+      icon: <UserCheck className="w-6 h-6" />,
+      title: 'Direct Founder Access',
+      description: 'Weekly feedback sessions and feature requests'
+    },
+    {
+      icon: <Zap className="w-6 h-6" />,
+      title: 'Priority Features',
+      description: 'Your use cases drive our development roadmap'
+    },
+    {
+      icon: <Shield className="w-6 h-6" />,
+      title: 'Grandfather Pricing',
+      description: 'Lock in special rates before public launch'
     }
   ];
 
@@ -88,13 +153,13 @@ export default function LandingPage() {
                 onClick={() => router.push('/auth/login')}
                 className="hidden sm:flex px-4 py-2 text-gray-300 hover:text-white hover:bg-gray-800 rounded-lg transition-colors"
               >
-                Log In
+                Beta Login
               </button>
               <button
-                onClick={() => router.push('/auth/signup')}
+                onClick={() => document.getElementById('waitlist')?.scrollIntoView({ behavior: 'smooth' })}
                 className="px-6 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg font-medium transition-colors"
               >
-                Start Free
+                Request Access
               </button>
             </div>
           </div>
@@ -104,12 +169,21 @@ export default function LandingPage() {
       {/* 1. Above-the-Fold Hero */}
       <section className="relative pt-24 pb-20">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="inline-flex items-center gap-2 bg-blue-500/10 border border-blue-500/20 rounded-full px-4 py-2 mb-6"
+          >
+            <div className="w-2 h-2 bg-blue-400 rounded-full animate-pulse" />
+            <span className="text-blue-300 text-sm font-medium">Limited Beta • Invitation Only</span>
+          </motion.div>
+          
           <motion.h1 
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             className="text-5xl sm:text-6xl font-bold text-white leading-tight mb-6"
           >
-            Real-time AI cues that close more deals
+            Never wing another important conversation again
           </motion.h1>
           
           <motion.p 
@@ -118,7 +192,7 @@ export default function LandingPage() {
             transition={{ delay: 0.1 }}
             className="text-xl text-gray-300 mb-8"
           >
-            Live prompts, instant summaries—zero extra effort.
+            Real-time AI cues, instant summaries—get exclusive early access to the future of conversation intelligence.
           </motion.p>
           
           <motion.div 
@@ -128,10 +202,10 @@ export default function LandingPage() {
             className="flex flex-col sm:flex-row gap-4 justify-center"
           >
             <button
-              onClick={() => router.push('/auth/signup')}
+              onClick={() => document.getElementById('waitlist')?.scrollIntoView({ behavior: 'smooth' })}
               className="bg-blue-500 hover:bg-blue-600 text-white px-8 py-4 text-lg rounded-lg font-medium inline-flex items-center justify-center transition-colors"
             >
-              Start Free
+              Request Early Access
               <ArrowRight className="ml-2 w-5 h-5" />
             </button>
             <button
@@ -142,6 +216,15 @@ export default function LandingPage() {
               Watch 90-sec Demo
             </button>
           </motion.div>
+          
+          <motion.p
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.4 }}
+            className="mt-6 text-gray-400 text-sm"
+          >
+            🔥 <span className="text-orange-400 font-medium">47 spots filled</span> of 100 beta testers
+          </motion.p>
         </div>
       </section>
 
@@ -159,22 +242,19 @@ export default function LandingPage() {
                 <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-purple-500 rounded-2xl mx-auto mb-4 flex items-center justify-center">
                   <Mic className="w-8 h-8 text-white" />
                 </div>
-                <p className="text-gray-400 text-lg font-medium">LiveConvo Dashboard</p>
-                <p className="text-gray-500 text-sm">Screenshot placeholder</p>
+                <p className="text-gray-400 text-lg font-medium">LiveConvo Beta Dashboard</p>
+                <p className="text-gray-500 text-sm">Real-time cues as you speak</p>
               </div>
             </div>
-            <p className="text-gray-400 text-sm">
-              Replace with: <code className="bg-gray-800 px-2 py-1 rounded text-blue-400">&lt;img src="/screenshot.png" alt="LiveConvo Dashboard" /&gt;</code>
-            </p>
           </motion.div>
         </div>
       </section>
 
-      {/* 2. Fast Credibility Strip */}
+      {/* 2. Beta Tester Credibility */}
       <section className="py-8 bg-gray-900/50 border-y border-gray-800">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center">
-            <p className="text-gray-400 text-sm mb-4">Trusted by sales teams at</p>
+            <p className="text-gray-400 text-sm mb-4">Trusted by beta testers from</p>
             <div className="flex justify-center items-center gap-8 opacity-60">
               {['TechCorp', 'CloudSoft', 'DataFlow', 'ScaleUp'].map((company) => (
                 <div key={company} className="text-gray-500 font-medium">
@@ -321,9 +401,14 @@ export default function LandingPage() {
                 whileInView={{ opacity: 1, y: 0 }}
                 transition={{ delay: index * 0.1 }}
                 viewport={{ once: true }}
-                className="bg-gray-800/50 rounded-xl p-6 border border-gray-700"
+                className="bg-gray-800/50 rounded-xl p-6 border border-gray-700 relative"
               >
-                <p className="text-white font-medium mb-4">"{testimonial.quote}"</p>
+                <div className="absolute top-4 right-4">
+                  <span className="bg-blue-500/20 text-blue-300 px-2 py-1 rounded-full text-xs font-medium">
+                    {testimonial.badge}
+                  </span>
+                </div>
+                <p className="text-white font-medium mb-4 pr-20">"{testimonial.quote}"</p>
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 bg-gray-600 rounded-full" />
                   <div>
@@ -337,83 +422,7 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* 7. Pricing Snapshot */}
-      <section className="py-20">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-12">
-            <h2 className="text-3xl font-bold text-white mb-4">Simple pricing</h2>
-          </div>
-          
-          <div className="bg-gray-800/50 rounded-2xl overflow-hidden border border-gray-700">
-            <table className="w-full">
-              <thead className="bg-gray-900/50">
-                <tr>
-                  <th className="text-left p-6 text-white font-medium">Plan</th>
-                  <th className="text-center p-6 text-white font-medium">Free</th>
-                  <th className="text-center p-6 text-white font-medium">Pro</th>
-                  <th className="text-center p-6 text-white font-medium">Teams*</th>
-                </tr>
-              </thead>
-              <tbody className="text-gray-300">
-                <tr className="border-t border-gray-700">
-                  <td className="p-6">Live minutes / month</td>
-                  <td className="text-center p-6">120</td>
-                  <td className="text-center p-6">2,000</td>
-                  <td className="text-center p-6">10,000</td>
-                </tr>
-                <tr className="border-t border-gray-700">
-                  <td className="p-6">Real-time cues</td>
-                  <td className="text-center p-6"><Check className="w-5 h-5 text-green-500 mx-auto" /></td>
-                  <td className="text-center p-6"><Check className="w-5 h-5 text-green-500 mx-auto" /></td>
-                  <td className="text-center p-6"><Check className="w-5 h-5 text-green-500 mx-auto" /></td>
-                </tr>
-                <tr className="border-t border-gray-700">
-                  <td className="p-6">CRM Push</td>
-                  <td className="text-center p-6">—</td>
-                  <td className="text-center p-6"><Check className="w-5 h-5 text-green-500 mx-auto" /></td>
-                  <td className="text-center p-6"><Check className="w-5 h-5 text-green-500 mx-auto" /></td>
-                </tr>
-                <tr className="border-t border-gray-700">
-                  <td className="p-6">Seat price</td>
-                  <td className="text-center p-6">$0</td>
-                  <td className="text-center p-6 font-bold text-white">$39</td>
-                  <td className="text-center p-6">Bulk</td>
-                </tr>
-                <tr className="border-t border-gray-700">
-                  <td className="p-6"></td>
-                  <td className="text-center p-6">
-                    <button 
-                      onClick={() => router.push('/auth/signup')}
-                      className="bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded-lg text-sm transition-colors"
-                    >
-                      Start Free
-                    </button>
-                  </td>
-                  <td className="text-center p-6">
-                    <button 
-                      onClick={() => router.push('/auth/signup')}
-                      className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg text-sm transition-colors"
-                    >
-                      Start Trial
-                    </button>
-                  </td>
-                  <td className="text-center p-6">
-                    <button 
-                      onClick={() => window.location.href = 'mailto:sales@liveconvo.ai'}
-                      className="bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded-lg text-sm transition-colors"
-                    >
-                      Contact Sales
-                    </button>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-          <p className="text-center text-gray-400 text-sm mt-4">
-            *Teams pricing available on request for volume discounts
-          </p>
-        </div>
-      </section>
+
 
       {/* 8. FAQ Accordion */}
       <section className="py-20 bg-gray-900/50">
@@ -461,21 +470,161 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* Early Access Program */}
+      <section id="waitlist" className="py-20 bg-gradient-to-r from-blue-900/20 to-purple-900/20">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-12">
+            <h2 className="text-4xl font-bold text-white mb-4">Join the Early Access Program</h2>
+            <p className="text-xl text-gray-300">Limited spots available for beta testers who will shape our product</p>
+          </div>
+
+          {!isSubmitted ? (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              className="grid grid-cols-1 lg:grid-cols-2 gap-12"
+            >
+              {/* Beta Perks */}
+              <div>
+                <h3 className="text-2xl font-bold text-white mb-6">What You Get</h3>
+                <div className="space-y-4">
+                  {perks.map((perk, index) => (
+                    <motion.div
+                      key={index}
+                      initial={{ opacity: 0, x: -20 }}
+                      whileInView={{ opacity: 1, x: 0 }}
+                      transition={{ delay: index * 0.1 }}
+                      viewport={{ once: true }}
+                      className="flex items-start gap-4 p-4 bg-gray-800/50 rounded-lg border border-gray-700"
+                    >
+                      <div className="text-blue-400 mt-1">{perk.icon}</div>
+                      <div>
+                        <h4 className="font-semibold text-white mb-1">{perk.title}</h4>
+                        <p className="text-gray-300 text-sm">{perk.description}</p>
+                      </div>
+                    </motion.div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Application Form */}
+              <div>
+                <div className="bg-gray-800/50 rounded-xl p-6 border border-gray-700">
+                  <form onSubmit={handleWaitlistSubmit} className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-300 mb-2">
+                        Full Name
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        value={formData.name}
+                        onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                        className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-blue-500"
+                        placeholder="Your name"
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-gray-300 mb-2">
+                        Work Email
+                      </label>
+                      <input
+                        type="email"
+                        required
+                        value={formData.email}
+                        onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                        className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-blue-500"
+                        placeholder="you@company.com"
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-gray-300 mb-2">
+                        Company
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        value={formData.company}
+                        onChange={(e) => setFormData({ ...formData, company: e.target.value })}
+                        className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-blue-500"
+                        placeholder="Company name"
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-gray-300 mb-2">
+                        Primary Use Case
+                      </label>
+                      <select
+                        value={formData.useCase}
+                        onChange={(e) => setFormData({ ...formData, useCase: e.target.value })}
+                        className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:border-blue-500"
+                      >
+                        <option value="sales">Sales Calls</option>
+                        <option value="consulting">Client Consulting</option>
+                        <option value="hiring">Interviews & Hiring</option>
+                        <option value="support">Customer Support</option>
+                        <option value="other">Other</option>
+                      </select>
+                    </div>
+                    
+                    <button
+                      type="submit"
+                      className="w-full bg-blue-500 hover:bg-blue-600 text-white py-3 rounded-lg font-medium transition-colors"
+                    >
+                      Request Early Access
+                    </button>
+                  </form>
+                  
+                  <p className="text-gray-400 text-xs mt-4 text-center">
+                    We review applications weekly. Selected testers get immediate access.
+                  </p>
+                </div>
+              </div>
+            </motion.div>
+          ) : (
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              className="text-center bg-green-900/20 border border-green-500/50 rounded-2xl p-12"
+            >
+              <div className="w-16 h-16 bg-green-500 rounded-full flex items-center justify-center mx-auto mb-6">
+                <Check className="w-8 h-8 text-white" />
+              </div>
+              <h3 className="text-2xl font-bold text-white mb-4">Application Submitted!</h3>
+              <p className="text-gray-300 mb-6">
+                Thanks for your interest! We'll review your application and get back to you within 3-5 business days.
+              </p>
+              <div className="inline-flex items-center gap-2 text-green-400 text-sm">
+                <Mail className="w-4 h-4" />
+                <span>Keep an eye on {formData.email}</span>
+              </div>
+            </motion.div>
+          )}
+        </div>
+      </section>
+
       {/* 9. Final CTA */}
       <section className="py-20 bg-gradient-to-r from-blue-900 to-purple-900">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <h2 className="text-4xl font-bold text-white mb-6">
-            Pitch smarter on your very next call.
+            Ready to transform your conversations?
           </h2>
+          <p className="text-xl text-blue-200 mb-8">
+            Join the exclusive group shaping the future of AI-powered conversations.
+          </p>
           <button
-            onClick={() => router.push('/auth/signup')}
+            onClick={() => document.getElementById('waitlist')?.scrollIntoView({ behavior: 'smooth' })}
             className="bg-white text-blue-900 hover:bg-gray-100 px-8 py-4 text-lg font-semibold rounded-lg inline-flex items-center transition-colors"
           >
-            Get Started Free
+            Apply for Early Access
             <ArrowRight className="ml-2 w-5 h-5" />
           </button>
           <p className="mt-4 text-blue-200">
-            No credit card. 2-minute setup.
+            Limited spots • Rolling invitations • Free during beta
           </p>
         </div>
       </section>
