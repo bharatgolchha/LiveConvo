@@ -1,0 +1,919 @@
+'use client';
+
+import { useState, useEffect } from 'react';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { motion, AnimatePresence } from 'framer-motion';
+import { 
+  Mic, 
+  MessageSquare, 
+  FileText, 
+  CheckCircle2, 
+  ArrowRight, 
+  Play,
+  Upload,
+  Sparkles,
+  Users,
+  Shield,
+  Zap,
+  ChevronDown,
+  Check,
+  X
+} from 'lucide-react';
+
+export default function LandingPage() {
+  const router = useRouter();
+  const [activeFeature, setActiveFeature] = useState(0);
+  const [expandedFaq, setExpandedFaq] = useState<number | null>(null);
+
+  const features = [
+    {
+      title: 'Real-Time Guidance',
+      description: 'Get AI-powered suggestions as you speak, with less than 2-second latency',
+      icon: <Sparkles className="w-5 h-5" />,
+      demo: (
+        <div className="space-y-3">
+          <div className="bg-white/80 backdrop-blur p-3 rounded-lg shadow-sm">
+            <p className="text-sm text-gray-600">Customer: "Your pricing seems high compared to competitors..."</p>
+          </div>
+          <motion.div
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: 0.5 }}
+            className="ml-8"
+          >
+            <div className="bg-gradient-to-r from-blue-50 to-purple-50 p-3 rounded-lg border border-blue-200">
+              <p className="text-sm font-medium text-blue-900">💡 Emphasize ROI and time savings</p>
+            </div>
+          </motion.div>
+        </div>
+      )
+    },
+    {
+      title: 'Context Upload',
+      description: 'Upload documents, notes, and objectives to personalize your AI coaching',
+      icon: <Upload className="w-5 h-5" />,
+      demo: (
+        <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
+          <Upload className="w-8 h-8 mx-auto text-gray-400 mb-2" />
+          <p className="text-sm text-gray-600">Drop your PDFs, docs, or images here</p>
+          <p className="text-xs text-gray-500 mt-1">Product specs, meeting agendas, customer history</p>
+        </div>
+      )
+    },
+    {
+      title: 'Smart Summaries',
+      description: 'Auto-generated summaries with key points, decisions, and action items',
+      icon: <FileText className="w-5 h-5" />,
+      demo: (
+        <div className="bg-gray-50 p-4 rounded-lg space-y-3">
+          <div>
+            <h4 className="text-xs font-semibold text-gray-500 uppercase">Key Points</h4>
+            <ul className="mt-1 space-y-1">
+              <li className="text-sm text-gray-700">• Customer interested in enterprise plan</li>
+              <li className="text-sm text-gray-700">• Concerns about implementation timeline</li>
+            </ul>
+          </div>
+          <div>
+            <h4 className="text-xs font-semibold text-gray-500 uppercase">Action Items</h4>
+            <div className="mt-1 flex items-center gap-2">
+              <CheckCircle2 className="w-4 h-4 text-green-500" />
+              <span className="text-sm text-gray-700">Send implementation roadmap</span>
+            </div>
+          </div>
+        </div>
+      )
+    },
+    {
+      title: 'Action Tracking',
+      description: 'Never forget a follow-up with integrated checklist management',
+      icon: <CheckCircle2 className="w-5 h-5" />,
+      demo: (
+        <div className="space-y-2">
+          {['Schedule follow-up demo', 'Send pricing proposal', 'Check integration requirements'].map((item, i) => (
+            <motion.div
+              key={i}
+              initial={{ opacity: 0, x: -10 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: i * 0.2 }}
+              className="flex items-center gap-2 p-2 bg-gray-700/50 rounded-lg shadow-sm"
+            >
+              <div className={`w-4 h-4 rounded border-2 ${i === 0 ? 'bg-blue-500 border-blue-500' : 'border-gray-500'}`}>
+                {i === 0 && <Check className="w-3 h-3 text-white" />}
+              </div>
+              <span className={`text-sm ${i === 0 ? 'line-through text-gray-500' : 'text-gray-300'}`}>{item}</span>
+            </motion.div>
+          ))}
+        </div>
+      )
+    }
+  ];
+
+  const useCases = [
+    {
+      icon: <Users className="w-8 h-8" />,
+      title: 'Sales Reps',
+      benefit: 'Close 40% more deals',
+      description: 'Navigate objections and position value in real-time'
+    },
+    {
+      icon: <MessageSquare className="w-8 h-8" />,
+      title: 'Support Teams',
+      benefit: 'Resolve tickets 2x faster',
+      description: 'Access instant solutions and escalation guidance'
+    },
+    {
+      icon: <Mic className="w-8 h-8" />,
+      title: 'Hiring Managers',
+      benefit: 'Better hiring decisions',
+      description: 'Structured interviews with consistent evaluation'
+    },
+    {
+      icon: <Zap className="w-8 h-8" />,
+      title: 'Consultants',
+      benefit: 'Flawless client meetings',
+      description: 'Professional presentations without missing details'
+    }
+  ];
+
+  const pricingTiers = [
+    {
+      name: 'Free',
+      price: '$0',
+      description: 'Perfect for trying out LiveConvo',
+      features: [
+        '20 minutes of audio/month',
+        'Basic AI guidance',
+        'Session summaries',
+        'Export to PDF'
+      ],
+      cta: 'Start Free',
+      highlighted: false
+    },
+    {
+      name: 'Pro',
+      price: '$39',
+      description: 'For professionals who need more',
+      features: [
+        'Unlimited audio processing',
+        'Advanced AI models',
+        'Priority processing',
+        'Custom templates',
+        'API access'
+      ],
+      cta: 'Start Free Trial',
+      highlighted: true
+    },
+    {
+      name: 'Team',
+      price: 'Custom',
+      description: 'For growing organizations',
+      features: [
+        'Everything in Pro',
+        'Team collaboration',
+        'Admin dashboard',
+        'SSO integration',
+        'Dedicated support'
+      ],
+      cta: 'Contact Sales',
+      highlighted: false
+    }
+  ];
+
+  const faqs = [
+    {
+      question: 'How fast is the real-time guidance?',
+      answer: 'Our AI provides suggestions in less than 2 seconds from when you speak. This near-instant feedback helps you respond naturally without breaking conversation flow.'
+    },
+    {
+      question: 'Is my conversation data secure?',
+      answer: 'Absolutely. We use bank-level encryption, delete audio after processing, and never train AI models on your data. You control data retention and can delete sessions anytime.'
+    },
+    {
+      question: 'What types of documents can I upload?',
+      answer: 'LiveConvo supports PDFs, Word docs, text files, and even images (PNG/JPG) with OCR. Upload product specs, meeting agendas, customer profiles, or any relevant context.'
+    },
+    {
+      question: 'Can I use it for phone calls?',
+      answer: 'Yes! LiveConvo works with any audio input. Use it for in-person meetings, phone calls, or video conferences. Just ensure your microphone can capture the conversation.'
+    }
+  ];
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setActiveFeature((prev) => (prev + 1) % features.length);
+    }, 5000);
+    return () => clearInterval(interval);
+  }, [features.length]);
+
+  return (
+    <div className="min-h-screen bg-gradient-to-b from-gray-950 to-gray-900">
+      {/* Header */}
+      <header className="fixed top-0 left-0 right-0 z-50 bg-gray-950/80 backdrop-blur-md border-b border-gray-800">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between h-16">
+            {/* Logo */}
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-500 rounded-lg flex items-center justify-center">
+                <Mic className="w-5 h-5 text-white" />
+              </div>
+              <span className="text-xl font-bold text-white">LiveConvo</span>
+            </div>
+            
+            {/* Navigation */}
+            <nav className="hidden md:flex items-center gap-8">
+              <a href="#features" className="text-gray-300 hover:text-white transition-colors">Features</a>
+              <a href="#how-it-works" className="text-gray-300 hover:text-white transition-colors">How it Works</a>
+              <a href="#pricing" className="text-gray-300 hover:text-white transition-colors">Pricing</a>
+              <a href="#faq" className="text-gray-300 hover:text-white transition-colors">FAQ</a>
+            </nav>
+            
+            {/* CTA Buttons */}
+            <div className="flex items-center gap-4">
+              <button
+                onClick={() => router.push('/auth/login')}
+                className="hidden sm:flex px-4 py-2 text-gray-300 hover:text-white hover:bg-gray-800 rounded-lg transition-colors"
+              >
+                Log In
+              </button>
+              <button
+                onClick={() => router.push('/auth/signup')}
+                className="px-6 py-2 bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 text-white shadow-lg shadow-blue-500/25 rounded-lg font-medium transition-all"
+              >
+                Sign Up
+              </button>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      {/* Hero Section */}
+      <section className="relative overflow-hidden pt-24 pb-32">
+        {/* Background Effects */}
+        <div className="absolute inset-0">
+          <div className="absolute inset-0 bg-gradient-to-br from-blue-950/20 via-gray-900 to-purple-950/20" />
+          <div className="absolute top-0 left-1/4 w-96 h-96 bg-blue-500/10 rounded-full filter blur-3xl" />
+          <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-purple-500/10 rounded-full filter blur-3xl" />
+        </div>
+        
+        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
+            {/* Left Column - Text Content */}
+            <div className="text-center lg:text-left">
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="inline-flex items-center gap-2 bg-gradient-to-r from-blue-500/10 to-purple-500/10 border border-blue-500/20 rounded-full px-4 py-1.5 mb-6"
+              >
+                <Sparkles className="w-4 h-4 text-blue-400" />
+                <span className="text-sm text-blue-300">AI-Powered Real-Time Coaching</span>
+              </motion.div>
+              
+              <motion.h1 
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.1 }}
+                className="text-5xl sm:text-6xl lg:text-7xl font-bold text-white tracking-tight leading-tight"
+              >
+                Turn Every
+                <br />
+                Conversation
+                <span className="block text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-400 mt-2">
+                  Into a Success
+                </span>
+              </motion.h1>
+              
+              <motion.p 
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.2 }}
+                className="mt-6 text-xl text-gray-300 max-w-xl"
+              >
+                Get instant AI guidance during sales calls, support tickets, and meetings. 
+                Navigate difficult conversations with confidence and close more deals.
+              </motion.p>
+              
+              <motion.div 
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.3 }}
+                className="mt-10 flex flex-col sm:flex-row gap-4 justify-center lg:justify-start"
+              >
+                <button
+                  onClick={() => router.push('/auth/signup')}
+                  className="bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 text-white px-8 py-4 text-lg shadow-lg shadow-blue-500/25 hover:shadow-xl hover:shadow-blue-500/30 transition-all rounded-lg font-medium inline-flex items-center"
+                >
+                  Start Free Trial
+                  <ArrowRight className="ml-2 w-5 h-5" />
+                </button>
+                <button
+                  onClick={() => router.push('/demo')}
+                  className="border border-gray-600 text-gray-300 hover:bg-gray-800 hover:text-white hover:border-gray-500 px-8 py-4 text-lg transition-all rounded-lg font-medium inline-flex items-center"
+                >
+                  <Play className="mr-2 w-5 h-5" />
+                  Watch Demo
+                </button>
+              </motion.div>
+              
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 0.4 }}
+                className="mt-8 flex flex-col sm:flex-row gap-6 text-sm text-gray-400 justify-center lg:justify-start"
+              >
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 className="w-5 h-5 text-green-500" />
+                  <span>No credit card required</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 className="w-5 h-5 text-green-500" />
+                  <span>20 minutes free monthly</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 className="w-5 h-5 text-green-500" />
+                  <span>Setup in 2 minutes</span>
+                </div>
+              </motion.div>
+            </div>
+            
+            {/* Right Column - Screenshot */}
+            <motion.div
+              initial={{ opacity: 0, x: 40 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: 0.5 }}
+              className="relative"
+            >
+              <div className="relative">
+                {/* Glow Effect */}
+                <div className="absolute -inset-4 bg-gradient-to-r from-blue-500/20 to-purple-500/20 rounded-2xl blur-2xl" />
+                
+                {/* Screenshot Placeholder */}
+                <div className="relative bg-gray-800/50 backdrop-blur rounded-2xl shadow-2xl border border-gray-700 overflow-hidden">
+                  <div className="bg-gray-900/50 px-4 py-3 border-b border-gray-700">
+                    <div className="flex items-center gap-2">
+                      <div className="w-3 h-3 bg-red-500 rounded-full" />
+                      <div className="w-3 h-3 bg-yellow-500 rounded-full" />
+                      <div className="w-3 h-3 bg-green-500 rounded-full" />
+                      <span className="ml-4 text-xs text-gray-400">app.liveconvo.ai</span>
+                    </div>
+                  </div>
+                  
+                  {/* Placeholder Content */}
+                  <div className="p-8 h-[500px] flex items-center justify-center">
+                    <div className="text-center">
+                      <div className="w-24 h-24 bg-gradient-to-br from-blue-500 to-purple-500 rounded-2xl mx-auto mb-4 flex items-center justify-center">
+                        <Mic className="w-12 h-12 text-white" />
+                      </div>
+                      <p className="text-gray-400 text-lg font-medium">LiveConvo Dashboard</p>
+                      <p className="text-gray-500 text-sm mt-2">Screenshot coming soon</p>
+                    </div>
+                  </div>
+                </div>
+                
+                {/* Floating Elements */}
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.8 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ delay: 0.7 }}
+                  className="absolute -bottom-6 -left-6 bg-gray-800/90 backdrop-blur p-4 rounded-xl shadow-xl border border-gray-700"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
+                    <span className="text-sm text-gray-300">Live AI Guidance</span>
+                  </div>
+                </motion.div>
+                
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.8 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ delay: 0.9 }}
+                  className="absolute -top-6 -right-6 bg-gradient-to-r from-blue-500 to-purple-500 p-4 rounded-xl shadow-xl"
+                >
+                  <div className="flex items-center gap-2 text-white">
+                    <Zap className="w-5 h-5" />
+                    <span className="text-sm font-medium"><2s Response</span>
+                  </div>
+                </motion.div>
+              </div>
+            </motion.div>
+          </div>
+        </div>
+      </section>
+
+      {/* Problem/Solution Strip */}
+      <section className="py-16 bg-gray-900/50">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            {[
+              { problem: 'Missing key moments in conversations', icon: <X className="w-6 h-6 text-red-500" /> },
+              { problem: 'Struggling to handle objections', icon: <X className="w-6 h-6 text-red-500" /> },
+              { problem: 'Forgetting important follow-ups', icon: <X className="w-6 h-6 text-red-500" /> }
+            ].map((item, index) => (
+              <motion.div
+                key={index}
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                transition={{ delay: index * 0.1 }}
+                viewport={{ once: true }}
+                className="text-center"
+              >
+                <div className="flex justify-center mb-3">{item.icon}</div>
+                <p className="text-gray-300">{item.problem}</p>
+              </motion.div>
+            ))}
+          </div>
+          <motion.div
+            initial={{ opacity: 0 }}
+            whileInView={{ opacity: 1 }}
+            viewport={{ once: true }}
+            className="text-center mt-12"
+          >
+            <p className="text-2xl font-semibold text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-400">
+              LiveConvo gives you conversation superpowers
+            </p>
+          </motion.div>
+        </div>
+      </section>
+
+      {/* Feature Showcase */}
+      <section id="features" className="py-20 bg-gray-950">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-16">
+            <h2 className="text-3xl sm:text-4xl font-bold text-white">
+              Everything you need to excel in conversations
+            </h2>
+            <p className="mt-4 text-xl text-gray-400">
+              Powerful features that work seamlessly together
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
+            <div className="space-y-4">
+              {features.map((feature, index) => (
+                <motion.div
+                  key={index}
+                  initial={{ opacity: 0, x: -20 }}
+                  whileInView={{ opacity: 1, x: 0 }}
+                  transition={{ delay: index * 0.1 }}
+                  viewport={{ once: true }}
+                  onClick={() => setActiveFeature(index)}
+                  className={`cursor-pointer p-6 rounded-xl transition-all ${
+                    activeFeature === index 
+                      ? 'bg-white shadow-lg border-2 border-blue-500' 
+                      : 'bg-gray-50 hover:bg-white hover:shadow-md border-2 border-transparent'
+                  }`}
+                >
+                  <div className="flex items-start gap-4">
+                    <div className={`p-2 rounded-lg ${
+                      activeFeature === index ? 'bg-blue-100 text-blue-600' : 'bg-gray-100 text-gray-600'
+                    }`}>
+                      {feature.icon}
+                    </div>
+                    <div className="flex-1">
+                      <h3 className="font-semibold text-gray-900">{feature.title}</h3>
+                      <p className="mt-1 text-sm text-gray-600">{feature.description}</p>
+                    </div>
+                  </div>
+                </motion.div>
+              ))}
+            </div>
+
+            <div className="relative bg-gray-800/50 rounded-2xl p-8 min-h-[400px] flex items-center justify-center border border-gray-700 overflow-hidden">
+              <AnimatePresence mode="wait">
+                <motion.div
+                  key={activeFeature}
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.95 }}
+                  className="w-full"
+                >
+                  {features[activeFeature].demo}
+                </motion.div>
+              </AnimatePresence>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Use Cases */}
+      <section className="py-20 bg-gray-900/50">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-16">
+            <h2 className="text-3xl sm:text-4xl font-bold text-white">
+              Built for professionals like you
+            </h2>
+            <p className="mt-4 text-xl text-gray-400">
+              See how different teams use LiveConvo to excel
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+            {useCases.map((useCase, index) => (
+              <motion.div
+                key={index}
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                transition={{ delay: index * 0.1 }}
+                viewport={{ once: true }}
+                className="bg-gray-800/50 backdrop-blur p-6 rounded-xl shadow-sm hover:shadow-lg transition-shadow border border-gray-700 hover:border-gray-600"
+              >
+                <div className="text-blue-400 mb-4">{useCase.icon}</div>
+                <h3 className="font-semibold text-white">{useCase.title}</h3>
+                <p className="text-sm font-medium text-blue-400 mt-1">{useCase.benefit}</p>
+                <p className="text-sm text-gray-400 mt-2">{useCase.description}</p>
+              </motion.div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* How It Works */}
+      <section id="how-it-works" className="py-20 bg-gray-950">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-16">
+            <h2 className="text-3xl sm:text-4xl font-bold text-white">
+              Start improving conversations in minutes
+            </h2>
+          </div>
+
+          <div className="max-w-4xl mx-auto">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+              {[
+                { step: '1', title: 'Upload Context', description: 'Add documents and notes about your conversation' },
+                { step: '2', title: 'Start Conversation', description: 'Click record and speak naturally' },
+                { step: '3', title: 'Get Real-Time Help', description: 'Receive AI guidance as you talk' }
+              ].map((item, index) => (
+                <motion.div
+                  key={index}
+                  initial={{ opacity: 0, y: 20 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  transition={{ delay: index * 0.1 }}
+                  viewport={{ once: true }}
+                  className="text-center"
+                >
+                  <div className="w-16 h-16 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full flex items-center justify-center text-white text-2xl font-bold mx-auto mb-4 shadow-lg shadow-blue-500/25">
+                    {item.step}
+                  </div>
+                  <h3 className="font-semibold text-white mb-2">{item.title}</h3>
+                  <p className="text-sm text-gray-400">{item.description}</p>
+                </motion.div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Social Proof */}
+      <section className="py-20 bg-gray-900/50">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-16">
+              {[
+                { metric: '10,000+', label: 'Conversations Enhanced' },
+                { metric: '95%', label: 'User Satisfaction' },
+                { metric: '<2 sec', label: 'Response Time' }
+              ].map((stat, index) => (
+                <motion.div
+                  key={index}
+                  initial={{ opacity: 0, scale: 0.9 }}
+                  whileInView={{ opacity: 1, scale: 1 }}
+                  transition={{ delay: index * 0.1 }}
+                  viewport={{ once: true }}
+                  className="text-center"
+                >
+                  <p className="text-4xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-400">
+                    {stat.metric}
+                  </p>
+                  <p className="text-gray-400 mt-2">{stat.label}</p>
+                </motion.div>
+              ))}
+            </div>
+
+            <div className="bg-gray-800/50 backdrop-blur p-8 rounded-2xl shadow-sm max-w-3xl mx-auto border border-gray-700">
+              <p className="text-lg text-gray-300 italic">
+                "LiveConvo transformed how I handle sales calls. The real-time guidance helps me address objections 
+                confidently, and I've increased my close rate by 40% in just two months."
+              </p>
+              <div className="mt-6 flex items-center justify-center gap-4">
+                <div className="w-12 h-12 bg-gray-600 rounded-full" />
+                <div>
+                  <p className="font-semibold text-white">Sarah Chen</p>
+                  <p className="text-sm text-gray-400">Enterprise Sales, TechCorp</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Screenshots Gallery */}
+      <section className="py-20 bg-gray-950">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-16">
+            <h2 className="text-3xl sm:text-4xl font-bold text-white">
+              See LiveConvo in Action
+            </h2>
+            <p className="mt-4 text-xl text-gray-400">
+              Explore our intuitive interface and powerful features
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+            {[
+              {
+                title: 'Real-Time Dashboard',
+                description: 'Monitor live transcriptions and AI suggestions',
+                placeholder: (
+                  <div className="h-48 bg-gradient-to-br from-blue-900/20 to-purple-900/20 rounded-lg flex items-center justify-center">
+                    <div className="text-center">
+                      <MessageSquare className="w-12 h-12 text-blue-400 mx-auto mb-2" />
+                      <p className="text-sm text-gray-400">Dashboard Screenshot</p>
+                    </div>
+                  </div>
+                )
+              },
+              {
+                title: 'AI Guidance Panel',
+                description: 'Get contextual suggestions in real-time',
+                placeholder: (
+                  <div className="h-48 bg-gradient-to-br from-purple-900/20 to-pink-900/20 rounded-lg flex items-center justify-center">
+                    <div className="text-center">
+                      <Sparkles className="w-12 h-12 text-purple-400 mx-auto mb-2" />
+                      <p className="text-sm text-gray-400">AI Panel Screenshot</p>
+                    </div>
+                  </div>
+                )
+              },
+              {
+                title: 'Conversation Summary',
+                description: 'Comprehensive post-call analysis',
+                placeholder: (
+                  <div className="h-48 bg-gradient-to-br from-green-900/20 to-emerald-900/20 rounded-lg flex items-center justify-center">
+                    <div className="text-center">
+                      <FileText className="w-12 h-12 text-green-400 mx-auto mb-2" />
+                      <p className="text-sm text-gray-400">Summary Screenshot</p>
+                    </div>
+                  </div>
+                )
+              },
+              {
+                title: 'Context Upload',
+                description: 'Easy document and context management',
+                placeholder: (
+                  <div className="h-48 bg-gradient-to-br from-orange-900/20 to-red-900/20 rounded-lg flex items-center justify-center">
+                    <div className="text-center">
+                      <Upload className="w-12 h-12 text-orange-400 mx-auto mb-2" />
+                      <p className="text-sm text-gray-400">Upload Screenshot</p>
+                    </div>
+                  </div>
+                )
+              },
+              {
+                title: 'Analytics Dashboard',
+                description: 'Track your conversation performance',
+                placeholder: (
+                  <div className="h-48 bg-gradient-to-br from-cyan-900/20 to-blue-900/20 rounded-lg flex items-center justify-center">
+                    <div className="text-center">
+                      <Zap className="w-12 h-12 text-cyan-400 mx-auto mb-2" />
+                      <p className="text-sm text-gray-400">Analytics Screenshot</p>
+                    </div>
+                  </div>
+                )
+              },
+              {
+                title: 'Team Collaboration',
+                description: 'Share insights with your team',
+                placeholder: (
+                  <div className="h-48 bg-gradient-to-br from-indigo-900/20 to-purple-900/20 rounded-lg flex items-center justify-center">
+                    <div className="text-center">
+                      <Users className="w-12 h-12 text-indigo-400 mx-auto mb-2" />
+                      <p className="text-sm text-gray-400">Team Screenshot</p>
+                    </div>
+                  </div>
+                )
+              }
+            ].map((item, index) => (
+              <motion.div
+                key={index}
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                transition={{ delay: index * 0.1 }}
+                viewport={{ once: true }}
+                className="group cursor-pointer"
+              >
+                <div className="bg-gray-800/50 rounded-xl overflow-hidden border border-gray-700 hover:border-gray-600 transition-all hover:shadow-xl">
+                  {item.placeholder}
+                  <div className="p-6">
+                    <h3 className="font-semibold text-white mb-2">{item.title}</h3>
+                    <p className="text-sm text-gray-400">{item.description}</p>
+                  </div>
+                </div>
+              </motion.div>
+            ))}
+          </div>
+
+          <motion.div
+            initial={{ opacity: 0 }}
+            whileInView={{ opacity: 1 }}
+            viewport={{ once: true }}
+            className="text-center mt-12"
+          >
+            <button
+              onClick={() => router.push('/demo')}
+              className="bg-gray-700 hover:bg-gray-600 text-white px-6 py-3 rounded-lg font-medium inline-flex items-center transition-colors"
+            >
+              <Play className="mr-2 w-5 h-5" />
+              Watch Full Demo
+            </button>
+          </motion.div>
+        </div>
+      </section>
+
+      {/* Pricing */}
+      <section id="pricing" className="py-20 bg-gray-900/50">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-16">
+            <h2 className="text-3xl sm:text-4xl font-bold text-white">
+              Simple, transparent pricing
+            </h2>
+            <p className="mt-4 text-xl text-gray-400">
+              Choose the plan that fits your needs
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-5xl mx-auto">
+            {pricingTiers.map((tier, index) => (
+              <motion.div
+                key={index}
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                transition={{ delay: index * 0.1 }}
+                viewport={{ once: true }}
+                className={`relative bg-gray-800/50 backdrop-blur rounded-2xl p-8 ${
+                  tier.highlighted 
+                    ? 'shadow-2xl border-2 border-blue-500' 
+                    : 'shadow-sm border border-gray-700'
+                }`}
+              >
+                {tier.highlighted && (
+                  <div className="absolute -top-4 left-1/2 transform -translate-x-1/2">
+                    <span className="bg-gradient-to-r from-blue-500 to-purple-500 text-white px-4 py-1 rounded-full text-sm font-medium shadow-lg shadow-blue-500/25">
+                      MOST POPULAR
+                    </span>
+                  </div>
+                )}
+                <div className="text-center mb-8">
+                  <h3 className="text-xl font-semibold text-white">{tier.name}</h3>
+                  <div className="mt-4">
+                    <span className="text-4xl font-bold text-white">{tier.price}</span>
+                    {tier.price !== 'Custom' && <span className="text-gray-400">/month</span>}
+                  </div>
+                  <p className="mt-2 text-sm text-gray-400">{tier.description}</p>
+                </div>
+                <ul className="space-y-3 mb-8">
+                  {tier.features.map((feature, featureIndex) => (
+                    <li key={featureIndex} className="flex items-start gap-3">
+                      <Check className="w-5 h-5 text-green-500 mt-0.5" />
+                      <span className="text-sm text-gray-300">{feature}</span>
+                    </li>
+                  ))}
+                </ul>
+                <button
+                  className={`w-full px-4 py-2 rounded-lg font-medium transition-all ${
+                    tier.highlighted
+                      ? 'bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 text-white shadow-lg shadow-blue-500/25'
+                      : 'bg-gray-700 hover:bg-gray-600 text-white'
+                  }`}
+                  onClick={() => {
+                    if (tier.name === 'Team') {
+                      window.location.href = 'mailto:sales@liveconvo.ai';
+                    } else {
+                      router.push('/auth/signup');
+                    }
+                  }}
+                >
+                  {tier.cta}
+                </button>
+              </motion.div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* FAQ */}
+      <section id="faq" className="py-20 bg-gray-900/50">
+        <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-16">
+            <h2 className="text-3xl sm:text-4xl font-bold text-white">
+              Frequently asked questions
+            </h2>
+          </div>
+
+          <div className="space-y-4">
+            {faqs.map((faq, index) => (
+              <motion.div
+                key={index}
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                transition={{ delay: index * 0.1 }}
+                viewport={{ once: true }}
+                className="bg-gray-800/50 backdrop-blur rounded-lg shadow-sm border border-gray-700"
+              >
+                <button
+                  onClick={() => setExpandedFaq(expandedFaq === index ? null : index)}
+                  className="w-full px-6 py-4 text-left flex items-center justify-between"
+                >
+                  <span className="font-medium text-white">{faq.question}</span>
+                  <ChevronDown 
+                    className={`w-5 h-5 text-gray-400 transition-transform ${
+                      expandedFaq === index ? 'rotate-180' : ''
+                    }`}
+                  />
+                </button>
+                <AnimatePresence>
+                  {expandedFaq === index && (
+                    <motion.div
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: 'auto', opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      className="px-6 pb-4"
+                    >
+                      <p className="text-gray-300">{faq.answer}</p>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </motion.div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Final CTA */}
+      <section className="py-20 bg-gradient-to-r from-blue-900 to-purple-900">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+          <h2 className="text-3xl sm:text-4xl font-bold text-white mb-6">
+            Ready to Transform Your Conversations?
+          </h2>
+          <p className="text-xl text-blue-200 mb-8">
+            Join thousands of professionals using AI to excel in every conversation
+          </p>
+          <button
+            onClick={() => router.push('/auth/signup')}
+            className="bg-white text-blue-900 hover:bg-gray-100 px-8 py-4 text-lg font-semibold shadow-lg rounded-lg inline-flex items-center transition-colors"
+          >
+            Get Started Free
+            <ArrowRight className="ml-2 w-5 h-5" />
+          </button>
+          <p className="mt-4 text-sm text-blue-200">
+            No credit card required • 20 minutes free monthly
+          </p>
+        </div>
+      </section>
+
+      {/* Footer */}
+      <footer className="bg-gray-950 text-gray-400 py-12">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-8 mb-8">
+            <div>
+              <h3 className="text-white font-semibold mb-4">LiveConvo</h3>
+              <p className="text-sm text-gray-400">
+                Your AI conversation co-pilot for better outcomes
+              </p>
+            </div>
+            <div>
+              <h4 className="text-white font-medium mb-4">Product</h4>
+              <ul className="space-y-2 text-sm">
+                <li><Link href="/demo" className="hover:text-white">Demo</Link></li>
+                <li><Link href="/pricing" className="hover:text-white">Pricing</Link></li>
+                <li><Link href="/features" className="hover:text-white">Features</Link></li>
+              </ul>
+            </div>
+            <div>
+              <h4 className="text-white font-medium mb-4">Company</h4>
+              <ul className="space-y-2 text-sm">
+                <li><Link href="/about" className="hover:text-white">About</Link></li>
+                <li><Link href="/blog" className="hover:text-white">Blog</Link></li>
+                <li><Link href="/careers" className="hover:text-white">Careers</Link></li>
+              </ul>
+            </div>
+            <div>
+              <h4 className="text-white font-medium mb-4">Legal</h4>
+              <ul className="space-y-2 text-sm">
+                <li><Link href="/privacy" className="hover:text-white">Privacy Policy</Link></li>
+                <li><Link href="/terms" className="hover:text-white">Terms of Service</Link></li>
+                <li><Link href="/security" className="hover:text-white">Security</Link></li>
+              </ul>
+            </div>
+          </div>
+          <div className="border-t border-gray-800 pt-8 flex flex-col sm:flex-row justify-between items-center">
+            <p className="text-sm text-gray-500">© 2024 LiveConvo. All rights reserved.</p>
+            <div className="flex items-center gap-4 mt-4 sm:mt-0">
+              <Shield className="w-5 h-5 text-gray-500" />
+              <span className="text-sm text-gray-500">SOC 2 Compliant</span>
+            </div>
+          </div>
+        </div>
+      </footer>
+    </div>
+  );
+}

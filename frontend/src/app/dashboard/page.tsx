@@ -39,6 +39,9 @@ interface User {
 interface UsageStats {
   monthlyAudioHours: number;
   monthlyAudioLimit: number;
+  monthlyMinutesUsed?: number;
+  monthlyMinutesLimit?: number;
+  minutesRemaining?: number;
   totalSessions: number;
   completedSessions: number;
 }
@@ -188,6 +191,19 @@ const DashboardSidebar: React.FC<{
   const archivedCount = sessions.filter(s => s.status === 'archived').length;
   const activeCount = sessions.filter(s => s.status !== 'archived').length;
 
+  // Format minutes to hours and minutes
+  const formatMinutes = (minutes: number): string => {
+    if (minutes < 60) {
+      return `${minutes} min`;
+    }
+    const hours = Math.floor(minutes / 60);
+    const mins = minutes % 60;
+    if (mins === 0) {
+      return `${hours} hr${hours !== 1 ? 's' : ''}`;
+    }
+    return `${hours} hr${hours !== 1 ? 's' : ''} ${mins} min`;
+  };
+
   const navItems = [
     { path: 'conversations', label: 'Conversations', icon: MicrophoneIcon, count: activeCount },
     { path: 'templates', label: 'Templates', icon: DocumentTextIcon },
@@ -235,22 +251,29 @@ const DashboardSidebar: React.FC<{
           {/* Audio Usage */}
           <div className="mb-4">
             <div className="flex justify-between text-sm mb-1">
-              <span className="text-muted-foreground">Audio Hours</span>
-              <span className="font-medium">{usageStats.monthlyAudioHours}/{usageStats.monthlyAudioLimit}h</span>
+              <span className="text-muted-foreground">Usage</span>
+              <span className="font-medium">
+                {formatMinutes(usageStats.monthlyMinutesUsed || 0)} / {formatMinutes(usageStats.monthlyMinutesLimit || 600)}
+              </span>
             </div>
             <div className="w-full bg-muted rounded-full h-2">
               <div 
                 className="bg-app-primary h-2 rounded-full transition-all duration-300"
                 style={{ 
                   width: `${Math.min(
-                    usageStats.monthlyAudioLimit > 0 
-                      ? (usageStats.monthlyAudioHours / usageStats.monthlyAudioLimit) * 100 
+                    (usageStats.monthlyMinutesLimit || 600) > 0 
+                      ? ((usageStats.monthlyMinutesUsed || 0) / (usageStats.monthlyMinutesLimit || 600)) * 100 
                       : 0, 
                     100
                   )}%` 
                 }}
               />
             </div>
+            {usageStats.minutesRemaining !== undefined && usageStats.minutesRemaining < 60 && (
+              <p className="text-xs text-warning mt-1">
+                Only {formatMinutes(usageStats.minutesRemaining)} remaining
+              </p>
+            )}
           </div>
 
           {/* Session Stats */}

@@ -11,6 +11,10 @@ Thumbs.db
 *.swp
 *.swo
 
+# MCP Configuration (contains sensitive tokens)
+.cursor/
+.claude/
+
 # Logs
 *.log
 logs/
