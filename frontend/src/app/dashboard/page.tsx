@@ -182,11 +182,16 @@ const DashboardSidebar: React.FC<{
   activePath: string;
   onNavigate: (path: string) => void;
   currentUser: User;
-}> = ({ usageStats, activePath, onNavigate, currentUser }) => {
+  sessions: Session[];
+}> = ({ usageStats, activePath, onNavigate, currentUser, sessions }) => {
+  // Calculate archived count from parent component's sessions
+  const archivedCount = sessions.filter(s => s.status === 'archived').length;
+  const activeCount = sessions.filter(s => s.status !== 'archived').length;
+
   const navItems = [
-    { path: 'conversations', label: 'Conversations', icon: MicrophoneIcon, count: usageStats.totalSessions },
+    { path: 'conversations', label: 'Conversations', icon: MicrophoneIcon, count: activeCount },
     { path: 'templates', label: 'Templates', icon: DocumentTextIcon },
-    { path: 'archive', label: 'Archive', icon: ArchiveBoxIcon, count: 3 },
+    { path: 'archive', label: 'Archive', icon: ArchiveBoxIcon, count: archivedCount },
     { path: 'analytics', label: 'Analytics', icon: ChartBarIcon },
     { path: 'settings', label: 'Settings', icon: Cog6ToothIcon }
   ];
@@ -461,17 +466,33 @@ const ConversationInboxItem: React.FC<{
                 </Button>
               )}
 
-              <Button 
-                variant="ghost" 
-                size="sm"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onArchive(session.id);
-                }}
-                className="text-xs px-2 py-1 h-7 text-muted text-muted-foreground hover:bg-muted/30"
-              >
-                <ArchiveBoxIcon className="w-3 h-3" />
-              </Button>
+              {session.status !== 'archived' ? (
+                <Button 
+                  variant="ghost" 
+                  size="sm"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onArchive(session.id);
+                  }}
+                  className="text-xs px-2 py-1 h-7 text-muted text-muted-foreground hover:bg-muted/30"
+                  title="Archive conversation"
+                >
+                  <ArchiveBoxIcon className="w-3 h-3" />
+                </Button>
+              ) : (
+                <Button 
+                  variant="ghost" 
+                  size="sm"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onArchive(session.id);
+                  }}
+                  className="text-xs px-2 py-1 h-7 text-app-primary hover:bg-app-primary/10"
+                  title="Unarchive conversation"
+                >
+                  <ArchiveBoxIcon className="w-3 h-3" />
+                </Button>
+              )}
 
               <Button 
                 variant="ghost" 
@@ -1105,8 +1126,13 @@ const DashboardPage: React.FC = () => {
     }
   }, [sessionsError]);
 
-  // Filter sessions based on search query
+  // Filter sessions based on search query and active path
   const filteredSessions = sessions.filter(session => {
+    // Filter by archive status
+    if (activePath === 'archive' && session.status !== 'archived') return false;
+    if (activePath === 'conversations' && session.status === 'archived') return false;
+    
+    // Filter by search query
     if (!searchQuery) return true;
     return session.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
            session.conversation_type?.toLowerCase().includes(searchQuery.toLowerCase());
@@ -1204,7 +1230,14 @@ const DashboardPage: React.FC = () => {
   };
 
   const handleArchiveSession = async (sessionId: string) => {
-    await updateSession(sessionId, { status: 'archived' });
+    const session = sessions.find(s => s.id === sessionId);
+    if (session) {
+      // Toggle between archived and previous status
+      const newStatus = session.status === 'archived' 
+        ? (session.recording_ended_at ? 'completed' : 'draft')
+        : 'archived';
+      await updateSession(sessionId, { status: newStatus });
+    }
   };
 
   const handleDeleteSession = async (sessionId: string) => {
@@ -1240,8 +1273,6 @@ const DashboardPage: React.FC = () => {
           });
           
           if (response.ok) {
-            // Remove from local state manually since we bypassed the hook
-            const updatedSessions = sessions.filter(s => s.id !== sessionId);
             // We need to update the sessions list - let's just refresh it
             await fetchSessions();
           } else {
@@ -1279,9 +1310,16 @@ const DashboardPage: React.FC = () => {
 
   const handleBulkArchive = async () => {
     // Update all selected sessions
-    const updatePromises = Array.from(selectedSessions).map(sessionId => 
-      updateSession(sessionId, { status: 'archived' })
-    );
+    const updatePromises = Array.from(selectedSessions).map(sessionId => {
+      const session = sessions.find(s => s.id === sessionId);
+      if (session) {
+        const newStatus = session.status === 'archived' 
+          ? (session.recording_ended_at ? 'completed' : 'draft')
+          : 'archived';
+        return updateSession(sessionId, { status: newStatus });
+      }
+      return Promise.resolve();
+    });
     await Promise.all(updatePromises);
     setSelectedSessions(new Set());
   };
@@ -1365,6 +1403,7 @@ const DashboardPage: React.FC = () => {
           activePath={activePath}
           onNavigate={setActivePath}
           currentUser={currentUser}
+          sessions={sessions}
         />
         
         <main className="flex-1 overflow-auto flex flex-col">
@@ -1439,7 +1478,9 @@ const DashboardPage: React.FC = () => {
                             {selectedSessions.size > 0 ? (
                               `${selectedSessions.size} selected`
                             ) : (
-                              `Conversations (${filteredSessions.length})`
+                              activePath === 'archive' 
+                                ? `Archived Conversations (${filteredSessions.length})`
+                                : `Conversations (${filteredSessions.length})`
                             )}
                           </h2>
                           
@@ -1452,7 +1493,7 @@ const DashboardPage: React.FC = () => {
                                 onClick={handleBulkArchive}
                                 className="text-xs"
                               >
-                                Archive Selected
+                                {activePath === 'archive' ? 'Unarchive Selected' : 'Archive Selected'}
                               </Button>
                               <Button
                                 variant="ghost"
@@ -1491,7 +1532,7 @@ const DashboardPage: React.FC = () => {
 
                     {/* Conversation List */}
                     <div className="divide-y divide-border flex-1 overflow-y-auto">
-                      {filteredSessions.map((session, index) => (
+                      {filteredSessions.map((session) => (
                         <div key={session.id} onClick={() => handleResumeSession(session.id)}>
                           <ConversationInboxItem
                             session={session}
@@ -1517,9 +1558,8 @@ const DashboardPage: React.FC = () => {
                       <h3 className="text-lg font-medium text-foreground mb-2">No conversations found</h3>
                       <p className="text-muted-foreground mb-6">Try adjusting your search terms or start a new conversation.</p>
                       <Button
-                        variant="primary"
                         onClick={handleNewConversation}
-                        className="bg-gradient-to-r from-app-primary to-app-primary-dark hover:from-app-primary-dark hover:to-app-primary"
+                        className="bg-primary hover:bg-primary/90 text-primary-foreground"
                       >
                         <PlusIcon className="w-4 h-4 mr-2" />
                         Start New Conversation
