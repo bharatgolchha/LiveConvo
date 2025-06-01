@@ -2,6 +2,8 @@
 
 import React, { useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import { 
   FileText,
   Clock3,
@@ -644,7 +646,24 @@ export const ConversationContent: React.FC<ConversationContentProps> = ({
                 ) : topicSummary ? (
                   <div className="prose prose-sm max-w-none dark:prose-invert">
                     <div className="bg-gradient-to-br from-cyan-50/50 to-cyan-100/30 dark:from-cyan-950/20 dark:to-cyan-900/10 rounded-2xl p-6 border border-cyan-200/50 dark:border-cyan-800/30">
-                      <p className="text-cyan-900 dark:text-cyan-100 leading-relaxed whitespace-pre-wrap">{topicSummary}</p>
+                      <ReactMarkdown
+                        remarkPlugins={[remarkGfm]}
+                        components={{
+                          p: ({ children }) => <p className="text-cyan-900 dark:text-cyan-100 leading-relaxed mb-3 last:mb-0">{children}</p>,
+                          strong: ({ children }) => <strong className="font-semibold text-cyan-800 dark:text-cyan-200">{children}</strong>,
+                          em: ({ children }) => <em className="italic text-cyan-800 dark:text-cyan-200">{children}</em>,
+                          ul: ({ children }) => <ul className="list-disc list-inside space-y-1 my-2 text-cyan-900 dark:text-cyan-100">{children}</ul>,
+                          ol: ({ children }) => <ol className="list-decimal list-inside space-y-1 my-2 text-cyan-900 dark:text-cyan-100">{children}</ol>,
+                          li: ({ children }) => <li className="text-cyan-900 dark:text-cyan-100">{children}</li>,
+                          h1: ({ children }) => <h1 className="text-lg font-semibold text-cyan-800 dark:text-cyan-200 mt-4 mb-2 first:mt-0">{children}</h1>,
+                          h2: ({ children }) => <h2 className="text-md font-semibold text-cyan-800 dark:text-cyan-200 mt-3 mb-2 first:mt-0">{children}</h2>,
+                          h3: ({ children }) => <h3 className="text-sm font-semibold text-cyan-800 dark:text-cyan-200 mt-3 mb-1 first:mt-0">{children}</h3>,
+                          code: ({ children }) => <code className="px-1 py-0.5 rounded text-xs font-mono bg-cyan-100 dark:bg-cyan-900 text-cyan-800 dark:text-cyan-200">{children}</code>,
+                          blockquote: ({ children }) => <blockquote className="border-l-4 border-cyan-400 pl-4 my-2 italic text-cyan-800 dark:text-cyan-200">{children}</blockquote>,
+                        }}
+                      >
+                        {topicSummary}
+                      </ReactMarkdown>
                     </div>
                   </div>
                 ) : null}

@@ -59,6 +59,7 @@ export class DeepgramTranscriptionService {
   private readonly MAX_RETRY_ATTEMPTS = 3;
   private retryTimeout: NodeJS.Timeout | null = null;
   private visibilityHandler: (() => void) | null = null;
+  private connectionPromise: Promise<void> | null = null;
 
   constructor(config: DeepgramConfig) {
     this.config = {
@@ -309,19 +310,29 @@ export class DeepgramTranscriptionService {
       return;
     }
 
-    try {
-      console.log('🔄 Connecting to Deepgram streaming API...');
-      if (this.verboseLogging) {
-        console.log('🔑 API Key:', this.config.apiKey.substring(0, 8) + '...');
-        console.log('🎯 Model:', this.config.model);
-        console.log('🌍 Language:', this.config.language);
-      }
+    // Return existing connection promise if we're already connecting
+    if (this.connectionPromise) {
+      return this.connectionPromise;
+    }
 
-      // Create Deepgram client
-      this.deepgram = createClient(this.config.apiKey);
+    this.connectionPromise = new Promise<void>((resolve, reject) => {
+      const connectionTimeout = setTimeout(() => {
+        reject(new Error('Connection timeout - Deepgram did not respond within 10 seconds'));
+      }, 10000);
 
-      // Create live transcription connection with optimized configuration
-      this.connection = this.deepgram.listen.live({
+      try {
+        console.log('🔄 Connecting to Deepgram streaming API...');
+        if (this.verboseLogging) {
+          console.log('🔑 API Key:', this.config.apiKey.substring(0, 8) + '...');
+          console.log('🎯 Model:', this.config.model);
+          console.log('🌍 Language:', this.config.language);
+        }
+
+        // Create Deepgram client
+        this.deepgram = createClient(this.config.apiKey);
+
+        // Create live transcription connection with optimized configuration
+        this.connection = this.deepgram.listen.live({
         model: this.config.model,
         language: this.config.language,
         smart_format: this.config.smartFormat,
@@ -345,12 +356,16 @@ export class DeepgramTranscriptionService {
       this.connection.on(LiveTranscriptionEvents.Open, () => {
         console.log('✅ Deepgram connection opened');
         this.isConnected = true;
+        clearTimeout(connectionTimeout);
+        this.connectionPromise = null;
+        resolve();
         this.emit({ type: 'connected', timestamp: new Date() });
       });
 
       this.connection.on(LiveTranscriptionEvents.Close, () => {
         console.log('❌ Deepgram connection closed');
         this.isConnected = false;
+        this.connectionPromise = null;
         this.emit({ type: 'disconnected', timestamp: new Date() });
       });
 
@@ -393,6 +408,10 @@ export class DeepgramTranscriptionService {
           errorMessage = typeof err.error === 'string' ? err.error : JSON.stringify(err.error);
         }
         
+        clearTimeout(connectionTimeout);
+        this.connectionPromise = null;
+        reject(new Error(errorMessage));
+        
         this.emit({
           type: 'error',
           error: errorMessage,
@@ -400,16 +419,23 @@ export class DeepgramTranscriptionService {
         });
       });
 
-      // Wait a moment for connection to establish
-      await new Promise(resolve => setTimeout(resolve, 500)); // Reduced wait time
+      } catch (error) {
+        clearTimeout(connectionTimeout);
+        this.connectionPromise = null;
+        console.error('Failed to connect to Deepgram API:', error);
+        this.emit({ 
+          type: 'error', 
+          error: error instanceof Error ? error.message : 'Connection failed',
+          timestamp: new Date()
+        });
+        reject(error);
+      }
+    });
 
+    try {
+      await this.connectionPromise;
     } catch (error) {
-      console.error('Failed to connect to Deepgram API:', error);
-      this.emit({ 
-        type: 'error', 
-        error: error instanceof Error ? error.message : 'Connection failed',
-        timestamp: new Date()
-      });
+      this.connectionPromise = null;
       throw error;
     }
   }
@@ -620,6 +646,13 @@ export class DeepgramTranscriptionService {
       console.log('✅ Disconnected from Deepgram');
     }
   }
+
+  /**
+   * Get recording state
+   */
+  getIsRecording(): boolean {
+    return this.isRecording;
+  }
 }
 
 /**
@@ -657,7 +690,7 @@ export function useDeepgramTranscription() {
         }
 
         // Check if we have a Deepgram API key in the config
-        let deepgramApiKey = config.deepgramApiKey;
+        const deepgramApiKey = config.deepgramApiKey;
         
         if (!deepgramApiKey) {
           // For now, we'll show an error if no Deepgram key is configured
@@ -755,21 +788,25 @@ export function useDeepgramTranscription() {
 
     return () => {
       unsubscribe();
-      // Clean up service when component unmounts
-      if (service) {
-        service.disconnect();
-      }
+      // Note: We don't disconnect the service here to avoid issues with React StrictMode
+      // The service will be cleaned up when the parent component unmounts
     };
   }, [service]);
 
-  // Cleanup timeouts on unmount
+  // Cleanup on unmount - this runs only once when component truly unmounts
   React.useEffect(() => {
+    const currentService = service;
     return () => {
       if (interimUpdateTimeoutRef.current) {
         clearTimeout(interimUpdateTimeoutRef.current);
       }
+      // Only disconnect if we're truly unmounting (not just re-rendering)
+      if (currentService && currentService.getIsRecording()) {
+        console.log('⚠️ Component unmounting while recording - stopping recording');
+        currentService.stopRecording();
+      }
     };
-  }, []);
+  }, []); // Empty deps ensures this only runs on mount/unmount
 
   const connect = React.useCallback(async () => {
     if (!service) {

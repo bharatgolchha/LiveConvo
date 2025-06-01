@@ -1175,17 +1175,24 @@ const DashboardPage: React.FC = () => {
     // Find the session to get its details
     const session = sessions.find(s => s.id === sessionId);
     if (session && typeof window !== 'undefined') {
-      // Store basic session config for resuming
-      const conversationConfig = {
-        id: sessionId,
-        title: session.title,
-        type: session.conversation_type,
-        context: { text: '', files: [] }, // Context will be loaded from backend in conversation page
-        createdAt: session.created_at,
-        isResuming: true
-      };
-      
-      localStorage.setItem(`conversation_${sessionId}`, JSON.stringify(conversationConfig));
+      // For completed sessions, just navigate without storing resuming config
+      if (session.status === 'completed') {
+        // Clear any existing localStorage state for completed sessions
+        localStorage.removeItem(`conversation_${sessionId}`);
+        localStorage.removeItem(`conversation_state_${sessionId}`);
+      } else {
+        // Only store resuming config for non-completed sessions
+        const conversationConfig = {
+          id: sessionId,
+          title: session.title,
+          type: session.conversation_type,
+          context: { text: '', files: [] }, // Context will be loaded from backend in conversation page
+          createdAt: session.created_at,
+          isResuming: true
+        };
+        
+        localStorage.setItem(`conversation_${sessionId}`, JSON.stringify(conversationConfig));
+      }
       
       // Navigate to conversation page
       window.location.href = `/app?cid=${sessionId}`;
@@ -1485,16 +1492,17 @@ const DashboardPage: React.FC = () => {
                     {/* Conversation List */}
                     <div className="divide-y divide-border flex-1 overflow-y-auto">
                       {filteredSessions.map((session, index) => (
-                        <ConversationInboxItem
-                          key={session.id}
-                          session={session}
-                          isSelected={selectedSessions.has(session.id)}
-                          onClick={() => handleSessionSelect(session.id)}
-                          onResume={handleResumeSession}
-                          onViewSummary={handleViewSummary}
-                          onArchive={handleArchiveSession}
-                          onDelete={handleDeleteSession}
-                        />
+                        <div key={session.id} onClick={() => handleResumeSession(session.id)}>
+                          <ConversationInboxItem
+                            session={session}
+                            isSelected={selectedSessions.has(session.id)}
+                            onClick={() => handleSessionSelect(session.id)}
+                            onResume={handleResumeSession}
+                            onViewSummary={handleViewSummary}
+                            onArchive={handleArchiveSession}
+                            onDelete={handleDeleteSession}
+                          />
+                        </div>
                       ))}
                     </div>
                   </motion.div>

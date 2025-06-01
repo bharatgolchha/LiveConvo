@@ -46,6 +46,19 @@ interface SessionSummary {
     tldr: string;
     sentiment?: string;
     topics?: string[];
+    insights?: any[];
+    missedOpportunities?: string[];
+    successfulMoments?: string[];
+    followUpQuestions?: string[];
+    conversationDynamics?: any;
+    effectivenessMetrics?: any;
+    coachingRecommendations?: string[];
+    performanceAnalysis?: any;
+    conversationPatterns?: any;
+    keyTechniquesUsed?: any[];
+    followUpStrategy?: any;
+    successIndicators?: string[];
+    riskFactors?: string[];
   };
   transcript_lines: TranscriptLine[];
   metadata: {
@@ -114,9 +127,20 @@ export default function SummaryPage() {
 
       // Check if there's a final summary in the database
       let finalSummary = null;
+      let enhancedData = null;
       if (sessionDataResponse.summaries && sessionDataResponse.summaries.length > 0) {
         // Use the most recent summary
         finalSummary = sessionDataResponse.summaries[sessionDataResponse.summaries.length - 1];
+        
+        // Parse structured notes if available
+        if (finalSummary.structured_notes) {
+          try {
+            enhancedData = JSON.parse(finalSummary.structured_notes);
+            console.log('✅ Loaded enhanced summary data:', enhancedData);
+          } catch (e) {
+            console.error('Failed to parse structured notes:', e);
+          }
+        }
       }
 
       // Create comprehensive summary data
@@ -126,40 +150,33 @@ export default function SummaryPage() {
         participants: ['You', 'Guest'],
         summary: finalSummary ? {
           overview: finalSummary.tldr || `This was a ${sessionDataResponse.conversation_type || 'general'} conversation.`,
-          keyPoints: [
-            'Main discussion points covered during the conversation',
-            'Key insights and important information shared',
-            'Notable agreements or understandings reached'
-          ],
-          decisions: [
-            'Decisions made during the conversation',
-            'Agreements reached between participants'
-          ],
-          actionItems: [
-            'Follow-up tasks identified',
-            'Next steps to be taken'
-          ],
+          keyPoints: finalSummary.conversation_highlights || [],
+          decisions: finalSummary.key_decisions || [],
+          actionItems: finalSummary.action_items || [],
           tldr: finalSummary.tldr,
-          sentiment: 'positive',
-          topics: ['discussion', 'conversation', sessionDataResponse.conversation_type || 'general']
+          sentiment: enhancedData?.conversation_dynamics?.tone || 'neutral',
+          topics: [sessionDataResponse.conversation_type || 'general'],
+          insights: enhancedData?.insights || [],
+          missedOpportunities: enhancedData?.missed_opportunities || [],
+          successfulMoments: enhancedData?.successful_moments || [],
+          followUpQuestions: finalSummary.follow_up_questions || [],
+          conversationDynamics: enhancedData?.conversation_dynamics || {},
+          effectivenessMetrics: enhancedData?.effectiveness_metrics || {},
+          coachingRecommendations: enhancedData?.coaching_recommendations || [],
+          performanceAnalysis: enhancedData?.performance_analysis || {},
+          conversationPatterns: enhancedData?.conversation_patterns || {},
+          keyTechniquesUsed: enhancedData?.key_techniques_used || [],
+          followUpStrategy: enhancedData?.follow_up_strategy || {},
+          successIndicators: enhancedData?.success_indicators || [],
+          riskFactors: enhancedData?.risk_factors || []
         } : {
-          overview: `This was a ${sessionDataResponse.conversation_type || 'general'} conversation that lasted ${Math.floor((sessionDataResponse.recording_duration_seconds || 0) / 60)} minutes. The discussion covered various topics and included meaningful exchanges between participants.`,
-          keyPoints: [
-            'Main discussion points covered during the conversation',
-            'Key insights and important information shared',
-            'Notable agreements or understandings reached'
-          ],
-          decisions: [
-            'Decisions made during the conversation',
-            'Agreements reached between participants'
-          ],
-          actionItems: [
-            'Follow-up tasks identified',
-            'Next steps to be taken'
-          ],
-          tldr: `${sessionDataResponse.conversation_type || 'Conversation'} lasting ${Math.floor((sessionDataResponse.recording_duration_seconds || 0) / 60)} minutes with key discussion points and outcomes.`,
-          sentiment: 'positive',
-          topics: ['discussion', 'conversation', sessionDataResponse.conversation_type || 'general']
+          overview: `This was a ${sessionDataResponse.conversation_type || 'general'} conversation that lasted ${Math.floor((sessionDataResponse.recording_duration_seconds || 0) / 60)} minutes.`,
+          keyPoints: [],
+          decisions: [],
+          actionItems: [],
+          tldr: `${sessionDataResponse.conversation_type || 'Conversation'} lasting ${Math.floor((sessionDataResponse.recording_duration_seconds || 0) / 60)} minutes.`,
+          sentiment: 'neutral',
+          topics: [sessionDataResponse.conversation_type || 'general']
         },
         transcript_lines: transcriptData.data || [],
         metadata: {
@@ -425,17 +442,19 @@ export default function SummaryPage() {
               )}
               
               {/* Key Points */}
-              <div className="mt-6">
-                <h4 className="font-medium text-foreground mb-3">Key Points</h4>
-                <ul className="space-y-2">
-                  {sessionData.summary.keyPoints.map((point, index) => (
-                    <li key={index} className="flex items-start gap-2">
-                      <div className="w-1.5 h-1.5 bg-primary rounded-full mt-2 flex-shrink-0"></div>
-                      <span className="text-muted-foreground">{point}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
+              {sessionData.summary.keyPoints && sessionData.summary.keyPoints.length > 0 && (
+                <div className="mt-6">
+                  <h4 className="font-medium text-foreground mb-3">Key Points</h4>
+                  <ul className="space-y-2">
+                    {sessionData.summary.keyPoints.map((point, index) => (
+                      <li key={index} className="flex items-start gap-2">
+                        <div className="w-1.5 h-1.5 bg-primary rounded-full mt-2 flex-shrink-0"></div>
+                        <span className="text-muted-foreground">{point}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
               
               {/* Decisions */}
               {sessionData.summary.decisions.length > 0 && (
@@ -481,6 +500,221 @@ export default function SummaryPage() {
                       {topic}
                     </Badge>
                   ))}
+                </div>
+              </Card>
+            )}
+
+            {/* Insights & Analysis */}
+            {sessionData.summary.insights && sessionData.summary.insights.length > 0 && (
+              <Card className="p-6">
+                <h3 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
+                  <Star className="w-5 h-5 text-amber-500" />
+                  Key Insights
+                </h3>
+                <div className="space-y-4">
+                  {sessionData.summary.insights.map((insight: any, index: number) => (
+                    <div key={index} className="border-l-2 border-amber-500 pl-4">
+                      <p className="font-medium text-foreground mb-1">{insight.observation}</p>
+                      {insight.evidence && (
+                        <p className="text-sm text-muted-foreground italic mb-2">"{insight.evidence}"</p>
+                      )}
+                      {insight.recommendation && (
+                        <p className="text-sm text-amber-600 dark:text-amber-400">
+                          💡 {insight.recommendation}
+                        </p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </Card>
+            )}
+
+            {/* Performance Metrics */}
+            {sessionData.summary.effectivenessMetrics && (
+              <Card className="p-6">
+                <h3 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
+                  <TrendingUp className="w-5 h-5 text-green-500" />
+                  Performance Metrics
+                </h3>
+                <div className="grid grid-cols-2 gap-4">
+                  {Object.entries(sessionData.summary.effectivenessMetrics).map(([key, value]) => (
+                    <div key={key} className="bg-muted/50 rounded-lg p-4">
+                      <p className="text-sm text-muted-foreground mb-2">
+                        {key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                      </p>
+                      <div className="flex items-center gap-2">
+                        <div className="flex-1 bg-muted rounded-full h-2">
+                          <div
+                            className="bg-gradient-to-r from-green-500 to-green-600 h-2 rounded-full transition-all duration-500"
+                            style={{ width: `${value}%` }}
+                          />
+                        </div>
+                        <span className="text-sm font-semibold text-foreground">{value}%</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </Card>
+            )}
+
+            {/* Coaching Recommendations */}
+            {sessionData.summary.coachingRecommendations && sessionData.summary.coachingRecommendations.length > 0 && (
+              <Card className="p-6 bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-950/20 dark:to-indigo-950/20 border-blue-200 dark:border-blue-800">
+                <h3 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
+                  <MessageSquare className="w-5 h-5 text-blue-600" />
+                  Coaching Recommendations
+                </h3>
+                <div className="space-y-3">
+                  {sessionData.summary.coachingRecommendations.map((rec, index) => (
+                    <div key={index} className="flex items-start gap-3">
+                      <div className="w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0">
+                        {index + 1}
+                      </div>
+                      <p className="text-blue-900 dark:text-blue-200">{rec}</p>
+                    </div>
+                  ))}
+                </div>
+              </Card>
+            )}
+
+            {/* Opportunities & Successes */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Missed Opportunities */}
+              {sessionData.summary.missedOpportunities && sessionData.summary.missedOpportunities.length > 0 && (
+                <Card className="p-6">
+                  <h3 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
+                    <AlertTriangle className="w-5 h-5 text-orange-500" />
+                    Areas for Improvement
+                  </h3>
+                  <ul className="space-y-2">
+                    {sessionData.summary.missedOpportunities.map((opp, index) => (
+                      <li key={index} className="flex items-start gap-2">
+                        <span className="text-orange-500 mt-0.5">•</span>
+                        <span className="text-muted-foreground text-sm">{opp}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </Card>
+              )}
+
+              {/* Successful Moments */}
+              {sessionData.summary.successfulMoments && sessionData.summary.successfulMoments.length > 0 && (
+                <Card className="p-6">
+                  <h3 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
+                    <CheckCircle className="w-5 h-5 text-green-500" />
+                    What Went Well
+                  </h3>
+                  <ul className="space-y-2">
+                    {sessionData.summary.successfulMoments.map((moment, index) => (
+                      <li key={index} className="flex items-start gap-2">
+                        <span className="text-green-500 mt-0.5">✓</span>
+                        <span className="text-muted-foreground text-sm">{moment}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </Card>
+              )}
+            </div>
+
+            {/* Performance Analysis */}
+            {sessionData.summary.performanceAnalysis && (
+              <Card className="p-6">
+                <h3 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
+                  <TrendingUp className="w-5 h-5 text-blue-500" />
+                  Performance Analysis
+                </h3>
+                
+                {/* Strengths */}
+                {sessionData.summary.performanceAnalysis.strengths && sessionData.summary.performanceAnalysis.strengths.length > 0 && (
+                  <div className="mb-6">
+                    <h4 className="font-medium text-foreground mb-3">Strengths Demonstrated</h4>
+                    <div className="space-y-2">
+                      {sessionData.summary.performanceAnalysis.strengths.map((strength: string, index: number) => (
+                        <div key={index} className="flex items-start gap-2">
+                          <Star className="w-4 h-4 text-amber-500 mt-0.5 flex-shrink-0" />
+                          <span className="text-muted-foreground text-sm">{strength}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                
+                {/* Areas for Improvement */}
+                {sessionData.summary.performanceAnalysis.areas_for_improvement && sessionData.summary.performanceAnalysis.areas_for_improvement.length > 0 && (
+                  <div className="mb-6">
+                    <h4 className="font-medium text-foreground mb-3">Areas for Improvement</h4>
+                    <div className="space-y-2">
+                      {sessionData.summary.performanceAnalysis.areas_for_improvement.map((area: string, index: number) => (
+                        <div key={index} className="flex items-start gap-2">
+                          <AlertTriangle className="w-4 h-4 text-orange-500 mt-0.5 flex-shrink-0" />
+                          <span className="text-muted-foreground text-sm">{area}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                
+                {/* Performance Scores */}
+                <div className="grid grid-cols-2 gap-4">
+                  {sessionData.summary.performanceAnalysis.communication_effectiveness && (
+                    <div className="bg-muted/50 rounded-lg p-3">
+                      <p className="text-xs text-muted-foreground mb-1">Communication Effectiveness</p>
+                      <div className="flex items-center gap-2">
+                        <div className="flex-1 bg-muted rounded-full h-1.5">
+                          <div
+                            className="bg-blue-500 h-1.5 rounded-full transition-all duration-500"
+                            style={{ width: `${sessionData.summary.performanceAnalysis.communication_effectiveness}%` }}
+                          />
+                        </div>
+                        <span className="text-xs font-semibold">{sessionData.summary.performanceAnalysis.communication_effectiveness}%</span>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {sessionData.summary.performanceAnalysis.goal_achievement && (
+                    <div className="bg-muted/50 rounded-lg p-3">
+                      <p className="text-xs text-muted-foreground mb-1">Goal Achievement</p>
+                      <div className="flex items-center gap-2">
+                        <div className="flex-1 bg-muted rounded-full h-1.5">
+                          <div
+                            className="bg-green-500 h-1.5 rounded-full transition-all duration-500"
+                            style={{ width: `${sessionData.summary.performanceAnalysis.goal_achievement}%` }}
+                          />
+                        </div>
+                        <span className="text-xs font-semibold">{sessionData.summary.performanceAnalysis.goal_achievement}%</span>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {sessionData.summary.performanceAnalysis.listening_quality && (
+                    <div className="bg-muted/50 rounded-lg p-3">
+                      <p className="text-xs text-muted-foreground mb-1">Listening Quality</p>
+                      <div className="flex items-center gap-2">
+                        <div className="flex-1 bg-muted rounded-full h-1.5">
+                          <div
+                            className="bg-purple-500 h-1.5 rounded-full transition-all duration-500"
+                            style={{ width: `${sessionData.summary.performanceAnalysis.listening_quality}%` }}
+                          />
+                        </div>
+                        <span className="text-xs font-semibold">{sessionData.summary.performanceAnalysis.listening_quality}%</span>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {sessionData.summary.performanceAnalysis.question_effectiveness && (
+                    <div className="bg-muted/50 rounded-lg p-3">
+                      <p className="text-xs text-muted-foreground mb-1">Question Effectiveness</p>
+                      <div className="flex items-center gap-2">
+                        <div className="flex-1 bg-muted rounded-full h-1.5">
+                          <div
+                            className="bg-indigo-500 h-1.5 rounded-full transition-all duration-500"
+                            style={{ width: `${sessionData.summary.performanceAnalysis.question_effectiveness}%` }}
+                          />
+                        </div>
+                        <span className="text-xs font-semibold">{sessionData.summary.performanceAnalysis.question_effectiveness}%</span>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </Card>
             )}
