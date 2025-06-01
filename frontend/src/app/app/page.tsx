@@ -229,7 +229,6 @@ export default function App() {
   const [systemAudioStream, setSystemAudioStream] = useState<MediaStream | null>(null);
 
   // Database-loaded data (overrides AI-generated data when available)
-  const [loadedTimeline, setLoadedTimeline] = useState<TimelineEvent[] | null>(null);
   const [loadedSummary, setLoadedSummary] = useState<ConversationSummary | null>(null);
 
   // Add a ref to track whether we've loaded from localStorage
@@ -650,24 +649,18 @@ export default function App() {
     transcript: fullTranscriptText, // Always pass full transcript for manual refresh capability
     sessionId: conversationId || undefined,
     conversationType,
-    isRecording: conversationState === 'recording' && !loadedTimeline, // Don't auto-generate if we have DB data
+    isRecording: conversationState === 'recording', // Auto-generate during recording
     // Preserve timeline data when session is completed
     isPaused: conversationState === 'paused' || conversationState === 'completed',
-    refreshIntervalMs: 15000 // 15 seconds for real-time timeline
+    refreshIntervalMs: 15000, // 15 seconds for real-time timeline
+    session // Pass auth session for API calls
   });
 
-  // Use fresh AI-generated data when available, fallback to database-loaded data
-  // This allows manual refresh to show updated content
-  const effectiveTimeline = timeline && timeline.length > 0 ? timeline : loadedTimeline;
+  // Use timeline data from the hook (which now handles both DB loading and AI generation)
+  const effectiveTimeline = timeline;
   const effectiveSummary = summary || loadedSummary;
   
   // Clear loaded data when fresh data is available to prevent conflicts
-  useEffect(() => {
-    if (timeline && timeline.length > 0 && loadedTimeline) {
-      console.log('🧹 Clearing loaded timeline to use fresh data');
-      setLoadedTimeline(null);
-    }
-  }, [timeline, loadedTimeline]);
   
   useEffect(() => {
     if (summary && loadedSummary) {
@@ -1141,19 +1134,7 @@ export default function App() {
           } else {
             console.log('🔒 Preserving current transcript data (', transcript.length, 'lines)');
           }
-          // Load timeline events from database if available
-          if (sessionData.timeline_events && Array.isArray(sessionData.timeline_events) && sessionData.timeline_events.length > 0) {
-            const loadedTimelineData: TimelineEvent[] = sessionData.timeline_events.map((event: any) => ({
-              id: event.id || `db-${Date.now()}-${Math.random()}`,
-              timestamp: new Date(event.event_timestamp),
-              title: event.title,
-              description: event.description || '',
-              type: event.type as 'milestone' | 'decision' | 'topic_shift' | 'action_item' | 'question' | 'agreement',
-              importance: event.importance as 'low' | 'medium' | 'high'
-            }));
-            setLoadedTimeline(loadedTimelineData);
-            console.log('✅ Timeline loaded from database:', loadedTimelineData.length, 'events');
-          }
+          // Timeline events are now loaded directly in the useIncrementalTimeline hook
 
           // Load cached summary from database if available
           if (sessionData.realtime_summary_cache) {
@@ -2014,14 +1995,14 @@ export default function App() {
           session &&
           !authLoading &&
           !hasTriggeredForcedGeneration.current &&
-          (loadedSummary || loadedTimeline)) { // Only force if we have pre-existing data
+          loadedSummary) { // Only force if we have pre-existing data
         
         console.log('🚀 Forcing summary and timeline generation for loaded transcript:', {
           transcriptLines: currentTranscriptLength,
           transcriptWords: currentTranscriptWords,
           conversationState,
           hasLoadedSummary: !!loadedSummary,
-          hasLoadedTimeline: !!loadedTimeline
+          hasLoadedTimeline: timeline.length > 0
         });
         
         // Set flag to prevent repeated execution
@@ -2036,7 +2017,7 @@ export default function App() {
           }, 1500);
         }
         
-        if (loadedTimeline && timeline.length === 0) {
+        if (timeline.length === 0) {
           setTimeout(() => {
             console.log('🔄 Force-refreshing timeline for resumed session');
             latestRefreshTimeline.current();
@@ -2051,7 +2032,7 @@ export default function App() {
     };
 
     forceGenerationOnLoad();
-  }, [transcript.length, conversationState, conversationId, session, authLoading, loadedSummary, loadedTimeline, summary, timeline.length]);
+  }, [transcript.length, conversationState, conversationId, session, authLoading, loadedSummary, summary, timeline.length]);
 
   // Reset the forced generation flag when conversation changes or when starting a new recording
   useEffect(() => {

@@ -1,5 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { toast } from 'sonner';
+import { Session } from '@supabase/supabase-js';
+import { authenticatedFetch } from '@/lib/api';
 
 export interface TimelineEvent {
   id: string;
@@ -27,6 +29,7 @@ interface UseIncrementalTimelineProps {
   isRecording: boolean;
   isPaused?: boolean; // Add isPaused to differentiate from stopped
   refreshIntervalMs?: number; // Default 25 seconds for timeline
+  session?: Session | null; // Supabase session for authentication
 }
 
 export function useIncrementalTimeline({
@@ -35,7 +38,8 @@ export function useIncrementalTimeline({
   conversationType = 'general',
   isRecording,
   isPaused = false,
-  refreshIntervalMs = 25000
+  refreshIntervalMs = 25000,
+  session
 }: UseIncrementalTimelineProps) {
   const [timeline, setTimeline] = useState<TimelineEvent[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -43,6 +47,7 @@ export function useIncrementalTimeline({
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [lastProcessedLength, setLastProcessedLength] = useState(0);
   const [lastProcessedLineCount, setLastProcessedLineCount] = useState(0);
+  const [hasLoadedFromDb, setHasLoadedFromDb] = useState(false);
   
   const refreshIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const lastRefreshTime = useRef<number>(0);
@@ -276,6 +281,46 @@ export function useIncrementalTimeline({
       initialTimelineGenerated.current = false;
     }
   }, [isRecording, isPaused]);
+
+  // Load timeline from database on mount or when sessionId changes
+  useEffect(() => {
+    if (!sessionId || hasLoadedFromDb || !session) return;
+
+    const loadTimelineFromDb = async () => {
+      try {
+        console.log('📥 Loading timeline from database for session:', sessionId);
+        
+        const response = await authenticatedFetch(`/api/sessions/${sessionId}/timeline`, session, {
+          method: 'GET'
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          if (data.timeline && data.timeline.length > 0) {
+            const loadedEvents: TimelineEvent[] = data.timeline.map((event: any) => ({
+              id: event.id,
+              timestamp: new Date(event.event_timestamp),
+              title: event.title,
+              description: event.description || '',
+              type: event.type,
+              importance: event.importance,
+              speaker: event.speaker || undefined,
+              content: event.content || undefined
+            }));
+            
+            setTimeline(loadedEvents);
+            setHasLoadedFromDb(true);
+            setLastUpdated(new Date());
+            console.log('✅ Loaded', loadedEvents.length, 'timeline events from database');
+          }
+        }
+      } catch (error) {
+        console.error('❌ Failed to load timeline from database:', error);
+      }
+    };
+
+    loadTimelineFromDb();
+  }, [sessionId, hasLoadedFromDb, session]);
 
   const refreshTimeline = useCallback(() => {
     generateTimelineUpdate(true);

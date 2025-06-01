@@ -13,7 +13,6 @@ import {
   ArrowRight,
   Users,
   Lightbulb,
-  Target,
   Quote,
   Calendar,
   Zap,
@@ -264,7 +263,7 @@ export const CompactTimeline: React.FC<CompactTimelineProps> = ({
                                       <Quote className="w-3 h-3 text-muted-foreground" />
                                       <span className="text-xs font-medium text-muted-foreground">Quote</span>
                                     </div>
-                                    <p className="text-xs text-muted-foreground italic">"{event.content}"</p>
+                                    <p className="text-xs text-muted-foreground italic">&quot;{event.content}&quot;</p>
                                   </div>
                                 )}
                                 
