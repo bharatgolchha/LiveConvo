@@ -574,7 +574,7 @@ Example format for each chip: {"text": "🔥 Build rapport", "prompt": "How can 
       .replace(/\*\*([^*]+)\*\*/g, '$1') // Remove bold
       .replace(/\*([^*]+)\*/g, '$1') // Remove italic
       .replace(/`([^`]+)`/g, '$1') // Remove inline code
-      .replace(/```[^`]*```/gs, '') // Remove code blocks
+      .replace(/```[^`]*```/gms, '') // Remove code blocks
       .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1') // Remove links, keep text
       .replace(/^>\s+/gm, '') // Remove blockquotes
       .replace(/^-\s+/gm, '• ') // Convert dashes to bullets
