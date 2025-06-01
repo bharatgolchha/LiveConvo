@@ -79,4 +79,71 @@ export async function POST(
       { status: 500 }
     );
   }
+}
+
+/**
+ * GET /api/sessions/[id]/timeline - Get timeline events for a session
+ */
+export async function GET(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id: sessionId } = await params;
+
+    // Get current user from Supabase auth using the access token
+    const authHeader = request.headers.get('authorization');
+    const token = authHeader?.split(' ')[1];
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+    
+    if (authError || !user) {
+      return NextResponse.json(
+        { error: 'Unauthorized', message: 'Please sign in to view timeline' },
+        { status: 401 }
+      );
+    }
+
+    // Verify user owns this session
+    const { data: session, error: sessionError } = await supabase
+      .from('sessions')
+      .select('id')
+      .eq('id', sessionId)
+      .eq('user_id', user.id)
+      .is('deleted_at', null)
+      .single();
+
+    if (sessionError || !session) {
+      return NextResponse.json(
+        { error: 'Not found', message: 'Session not found' },
+        { status: 404 }
+      );
+    }
+
+    // Fetch timeline events
+    const { data: timelineEvents, error: timelineError } = await supabase
+      .from('session_timeline_events')
+      .select('*')
+      .eq('session_id', sessionId)
+      .order('event_timestamp', { ascending: false });
+
+    if (timelineError) {
+      console.error('Timeline fetch error:', timelineError);
+      return NextResponse.json(
+        { error: 'Database error', message: timelineError.message },
+        { status: 500 }
+      );
+    }
+
+    return NextResponse.json({ 
+      timeline: timelineEvents || [],
+      count: timelineEvents?.length || 0
+    });
+
+  } catch (error) {
+    console.error('Timeline fetch API error:', error);
+    return NextResponse.json(
+      { error: 'Internal server error', message: 'Failed to fetch timeline' },
+      { status: 500 }
+    );
+  }
 } 

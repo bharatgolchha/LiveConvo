@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { supabase } from '@/lib/supabase';
 
 interface TimelineEvent {
   id: string;
@@ -166,7 +167,7 @@ export async function POST(request: NextRequest) {
     console.log('📅 Raw Events Count:', rawEvents.length);
     
     // Generate timeline events with IDs if missing
-    const newTimelineEvents = rawEvents.map((event: any, index: number) => {
+    const newTimelineEvents = rawEvents.map((event: Partial<TimelineEvent>, index: number) => {
       // Validate and ensure all required fields exist
       const validatedEvent = {
         id: event.id || `timeline_${Date.now()}_${index}`,
@@ -204,6 +205,37 @@ export async function POST(request: NextRequest) {
       lastProcessedLength: transcript.length
     });
 
+    // Save new events to database if sessionId is provided
+    if (sessionId && uniqueNewEvents.length > 0) {
+      try {
+        console.log('💾 Saving timeline events to database...');
+        
+        // Format events for database
+        const eventsToSave = uniqueNewEvents.map(event => ({
+          session_id: sessionId,
+          event_timestamp: new Date(event.timestamp),
+          title: event.title,
+          description: event.description,
+          type: event.type,
+          importance: event.importance
+        }));
+
+        const { error: saveError } = await supabase
+          .from('session_timeline_events')
+          .insert(eventsToSave);
+
+        if (saveError) {
+          console.error('❌ Failed to save timeline events:', saveError);
+          // Continue without throwing - we still want to return the generated timeline
+        } else {
+          console.log('✅ Timeline events saved to database:', eventsToSave.length, 'events');
+        }
+      } catch (dbError) {
+        console.error('❌ Database save error:', dbError);
+        // Continue without throwing - we still want to return the generated timeline
+      }
+    }
+
     return NextResponse.json(responseData);
 
   } catch (error) {
@@ -215,7 +247,7 @@ export async function POST(request: NextRequest) {
   }
 }
 
-function getTimelineSystemPrompt(conversationType?: string): string {
+function getTimelineSystemPrompt(): string {
   return `You are an expert conversation analyst specialized in creating detailed, concrete timeline events from conversation transcripts.
 
 Your role is to identify significant moments, decisions, and progressions in ongoing conversations and create specific, actionable timeline events that capture who said what and when.
