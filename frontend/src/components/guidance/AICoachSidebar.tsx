@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { Brain, MessageCircle, ChevronRight, ChevronLeft, Maximize2, Minimize2, RefreshCw, Plus, Loader2, Sparkles, CheckCircle } from 'lucide-react';
+import { Brain, MessageCircle, ChevronRight, ChevronLeft, Maximize2, Minimize2, RefreshCw, Plus, Loader2, Sparkles, CheckCircle, UserCheck } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
@@ -679,9 +679,9 @@ Example format for each chip: {"text": "🔥 Build rapport", "prompt": "How can 
           {!isUser && (
             <div className="flex items-center justify-between mb-1">
               <div className="flex items-center gap-2">
-                <Brain className="h-4 w-4" />
+                <UserCheck className="h-4 w-4" />
                 <span className="text-xs font-medium">
-                  {isSystem ? 'System' : isAutoGuidance ? 'Auto-Guidance' : 'AI Coach'}
+                  {isSystem ? 'System' : isAutoGuidance ? 'Auto-Guidance' : 'AI Advisor'}
                 </span>
               </div>
               {showAddToChecklist && (
@@ -817,8 +817,8 @@ Example format for each chip: {"text": "🔥 Build rapport", "prompt": "How can 
             {/* Compact Control Bar */}
             <div className="flex items-center justify-between px-3 pt-3 pb-3 bg-muted/30 border-b border-border">
               <div className="flex items-center gap-2">
-                <Brain className="h-4 w-4 text-muted-foreground" />
-                <span className="text-sm font-medium text-foreground">AI Coach</span>
+                <UserCheck className="h-4 w-4 text-muted-foreground" />
+                <span className="text-sm font-medium text-foreground">AI Advisor</span>
                 {isViewingFinalized ? (
                   <>
                     <Badge variant="secondary" className="text-xs">Viewing Completed</Badge>
@@ -861,7 +861,7 @@ Example format for each chip: {"text": "🔥 Build rapport", "prompt": "How can 
             <div className="flex-1 overflow-y-auto p-4 space-y-4">
               {messages.length === 0 ? (
                 <div className="text-center text-muted-foreground mt-8">
-                  <Brain className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                  <UserCheck className="h-12 w-12 mx-auto mb-4 opacity-50" />
                   {isViewingFinalized ? (
                     <>
                       <p className="text-sm">Chat about this completed conversation</p>
@@ -974,7 +974,7 @@ Example format for each chip: {"text": "🔥 Build rapport", "prompt": "How can 
                     ? `Analyze this completed ${contextSummary?.conversationType || 'conversation'}...`
                     : (contextSummary 
                         ? `Ask about your ${contextSummary.conversationType} (${isLiveConversation ? 'live' : 'planning'})...`
-                        : "Ask the AI coach anything..."
+                        : "Ask the AI advisor anything..."
                       )
                   }
                   className="flex-1 min-h-[40px] max-h-[120px] resize-none"
@@ -1006,11 +1006,11 @@ Example format for each chip: {"text": "🔥 Build rapport", "prompt": "How can 
               size="sm"
               className="text-muted-foreground hover:text-foreground w-full justify-center h-8"
               onClick={() => setIsCollapsed(false)}
-              title="Expand AI Coach"
+              title="Expand AI Advisor"
             >
               <ChevronLeft className="h-4 w-4" />
             </Button>
-            <Brain className="h-8 w-8 text-primary" />
+            <UserCheck className="h-8 w-8 text-primary" />
             {isRecording && (
               <div className={`w-3 h-3 rounded-full ${status.color} ${status.pulse ? 'animate-pulse' : ''}`} />
             )}

@@ -136,28 +136,55 @@ export default function LandingPage() {
   ];
 
   return (
-    <div className="dark min-h-screen bg-gradient-to-b from-gray-950 to-gray-900">
+    <div className="min-h-screen" style={{ background: 'linear-gradient(to bottom, #030712, #111827)' }}>
       {/* Header */}
-      <header className="fixed top-0 left-0 right-0 z-50 bg-gray-950/80 backdrop-blur-md border-b border-gray-800">
+      <header className="fixed top-0 left-0 right-0 z-50 backdrop-blur-md border-b" style={{ backgroundColor: 'rgba(3, 7, 18, 0.8)', borderColor: '#374151' }}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center gap-2">
-              <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-500 rounded-lg flex items-center justify-center">
-                <Mic className="w-5 h-5 text-white" />
+              <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: 'linear-gradient(to bottom right, #3b82f6, #8b5cf6)' }}>
+                <Mic className="w-5 h-5" style={{ color: '#ffffff' }} />
               </div>
-              <span className="text-xl font-bold text-white">LiveConvo</span>
+              <span className="text-xl font-bold" style={{ color: '#ffffff' }}>LiveConvo</span>
             </div>
             
             <div className="flex items-center gap-4">
+              <Link
+                href="/pricing"
+                className="hidden sm:flex px-4 py-2 rounded-lg transition-colors"
+                style={{ color: '#d1d5db' }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.color = '#ffffff';
+                  e.currentTarget.style.backgroundColor = '#374151';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.color = '#d1d5db';
+                  e.currentTarget.style.backgroundColor = 'transparent';
+                }}
+              >
+                Pricing
+              </Link>
               <button
                 onClick={() => router.push('/auth/login')}
-                className="hidden sm:flex px-4 py-2 text-gray-300 hover:text-white hover:bg-gray-800 rounded-lg transition-colors"
+                className="hidden sm:flex px-4 py-2 rounded-lg transition-colors"
+                style={{ color: '#d1d5db' }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.color = '#ffffff';
+                  e.currentTarget.style.backgroundColor = '#374151';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.color = '#d1d5db';
+                  e.currentTarget.style.backgroundColor = 'transparent';
+                }}
               >
                 Beta Login
               </button>
               <button
                 onClick={() => document.getElementById('waitlist')?.scrollIntoView({ behavior: 'smooth' })}
-                className="px-6 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg font-medium transition-colors"
+                className="px-6 py-2 rounded-lg font-medium transition-colors"
+                style={{ backgroundColor: '#3b82f6', color: '#ffffff' }}
+                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#2563eb'}
+                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#3b82f6'}
               >
                 Request Access
               </button>
@@ -172,16 +199,18 @@ export default function LandingPage() {
           <motion.div
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
-            className="inline-flex items-center gap-2 bg-blue-500/10 border border-blue-500/20 rounded-full px-4 py-2 mb-6"
+            className="inline-flex items-center gap-2 rounded-full px-4 py-2 mb-6"
+            style={{ backgroundColor: 'rgba(59, 130, 246, 0.1)', border: '1px solid rgba(59, 130, 246, 0.2)' }}
           >
-            <div className="w-2 h-2 bg-blue-400 rounded-full animate-pulse" />
-            <span className="text-blue-300 text-sm font-medium">Limited Beta • Invitation Only</span>
+            <div className="w-2 h-2 rounded-full animate-pulse" style={{ backgroundColor: '#60a5fa' }} />
+            <span className="text-sm font-medium" style={{ color: '#93c5fd' }}>Limited Beta • Invitation Only</span>
           </motion.div>
           
           <motion.h1 
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            className="text-5xl sm:text-6xl font-bold text-white leading-tight mb-6"
+            className="text-5xl sm:text-6xl font-bold leading-tight mb-6"
+            style={{ color: '#ffffff' }}
           >
             Never wing another important conversation again
           </motion.h1>
@@ -190,7 +219,8 @@ export default function LandingPage() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.1 }}
-            className="text-xl text-gray-300 mb-8"
+            className="text-xl mb-8"
+            style={{ color: '#d1d5db' }}
           >
             Real-time AI cues, instant summaries—get exclusive early access to the future of conversation intelligence.
           </motion.p>
@@ -203,14 +233,26 @@ export default function LandingPage() {
           >
             <button
               onClick={() => document.getElementById('waitlist')?.scrollIntoView({ behavior: 'smooth' })}
-              className="bg-blue-500 hover:bg-blue-600 text-white px-8 py-4 text-lg rounded-lg font-medium inline-flex items-center justify-center transition-colors"
+              className="px-8 py-4 text-lg rounded-lg font-medium inline-flex items-center justify-center transition-colors"
+              style={{ backgroundColor: '#3b82f6', color: '#ffffff' }}
+              onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#2563eb'}
+              onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#3b82f6'}
             >
               Request Early Access
               <ArrowRight className="ml-2 w-5 h-5" />
             </button>
             <button
               onClick={() => router.push('/demo')}
-              className="border border-gray-600 text-gray-300 hover:bg-gray-800 hover:text-white px-8 py-4 text-lg rounded-lg font-medium inline-flex items-center justify-center transition-colors"
+              className="px-8 py-4 text-lg rounded-lg font-medium inline-flex items-center justify-center transition-colors"
+              style={{ border: '1px solid #4b5563', color: '#d1d5db' }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor = '#374151';
+                e.currentTarget.style.color = '#ffffff';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = 'transparent';
+                e.currentTarget.style.color = '#d1d5db';
+              }}
             >
               <Play className="mr-2 w-5 h-5" />
               Watch 90-sec Demo
@@ -221,29 +263,31 @@ export default function LandingPage() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 0.4 }}
-            className="mt-6 text-gray-400 text-sm"
+            className="mt-6 text-sm"
+            style={{ color: '#9ca3af' }}
           >
-            🔥 <span className="text-orange-400 font-medium">47 spots filled</span> of 100 beta testers
+            🔥 <span className="font-medium" style={{ color: '#fb923c' }}>47 spots filled</span> of 100 beta testers
           </motion.p>
         </div>
       </section>
 
       {/* Screenshot Placeholder */}
-      <section className="py-16 bg-gray-900/50">
+      <section className="py-16" style={{ backgroundColor: 'rgba(17, 24, 39, 0.5)' }}>
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
-            className="bg-gray-800/50 rounded-2xl p-8 border border-gray-700 text-center"
+            className="rounded-2xl p-8 text-center"
+            style={{ backgroundColor: 'rgba(31, 41, 55, 0.5)', border: '1px solid #374151' }}
           >
-            <div className="aspect-video bg-gray-900/50 rounded-lg flex items-center justify-center mb-4">
+            <div className="aspect-video rounded-lg flex items-center justify-center mb-4" style={{ backgroundColor: 'rgba(17, 24, 39, 0.5)' }}>
               <div className="text-center">
-                <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-purple-500 rounded-2xl mx-auto mb-4 flex items-center justify-center">
-                  <Mic className="w-8 h-8 text-white" />
+                <div className="w-16 h-16 rounded-2xl mx-auto mb-4 flex items-center justify-center" style={{ background: 'linear-gradient(to bottom right, #3b82f6, #8b5cf6)' }}>
+                  <Mic className="w-8 h-8" style={{ color: '#ffffff' }} />
                 </div>
-                <p className="text-gray-400 text-lg font-medium">LiveConvo Beta Dashboard</p>
-                <p className="text-gray-500 text-sm">Real-time cues as you speak</p>
+                <p className="text-lg font-medium" style={{ color: '#9ca3af' }}>LiveConvo Beta Dashboard</p>
+                <p className="text-sm" style={{ color: '#6b7280' }}>Real-time cues as you speak</p>
               </div>
             </div>
           </motion.div>
@@ -251,13 +295,13 @@ export default function LandingPage() {
       </section>
 
       {/* 2. Beta Tester Credibility */}
-      <section className="py-8 bg-gray-900/50 border-y border-gray-800">
+      <section className="py-8" style={{ backgroundColor: 'rgba(17, 24, 39, 0.5)', borderTop: '1px solid #374151', borderBottom: '1px solid #374151' }}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center">
-            <p className="text-gray-400 text-sm mb-4">Trusted by beta testers from</p>
-            <div className="flex justify-center items-center gap-8 opacity-60">
+            <p className="text-sm mb-4" style={{ color: '#9ca3af' }}>Trusted by beta testers from</p>
+            <div className="flex justify-center items-center gap-8" style={{ opacity: 0.6 }}>
               {['TechCorp', 'CloudSoft', 'DataFlow', 'ScaleUp'].map((company) => (
-                <div key={company} className="text-gray-500 font-medium">
+                <div key={company} className="font-medium" style={{ color: '#6b7280' }}>
                   {company}
                 </div>
               ))}
@@ -293,12 +337,18 @@ export default function LandingPage() {
                 whileInView={{ opacity: 1, y: 0 }}
                 transition={{ delay: index * 0.1 }}
                 viewport={{ once: true }}
-                className="bg-gray-800/50 rounded-xl p-6 border border-gray-700 text-center"
+                className="rounded-xl p-6 text-center"
+                style={{ backgroundColor: 'rgba(31, 41, 55, 0.5)', border: '1px solid #374151' }}
               >
-                <div className="text-blue-400 mb-4">{item.icon}</div>
-                <h3 className="text-lg font-semibold text-white mb-2">{item.title}</h3>
-                <p className="text-gray-300 text-sm">{item.description}</p>
-                <button className="text-blue-400 text-sm mt-3 hover:text-blue-300">
+                <div className="mb-4" style={{ color: '#60a5fa' }}>{item.icon}</div>
+                <h3 className="text-lg font-semibold mb-2" style={{ color: '#ffffff' }}>{item.title}</h3>
+                <p className="text-sm" style={{ color: '#d1d5db' }}>{item.description}</p>
+                <button 
+                  className="text-sm mt-3 transition-colors"
+                  style={{ color: '#60a5fa' }}
+                  onMouseEnter={(e) => e.currentTarget.style.color = '#93c5fd'}
+                  onMouseLeave={(e) => e.currentTarget.style.color = '#60a5fa'}
+                >
                   Learn how →
                 </button>
               </motion.div>
@@ -308,15 +358,15 @@ export default function LandingPage() {
       </section>
 
       {/* 4. Demo Stripe */}
-      <section className="py-16 bg-gray-900/50">
+      <section className="py-16" style={{ backgroundColor: 'rgba(17, 24, 39, 0.5)' }}>
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <div className="bg-gray-800/50 rounded-2xl p-8 border border-gray-700">
+          <div className="rounded-2xl p-8" style={{ backgroundColor: 'rgba(31, 41, 55, 0.5)', border: '1px solid #374151' }}>
             <div className="relative">
               {/* Demo Video Placeholder */}
-              <div className="bg-gray-900/50 rounded-lg aspect-video flex items-center justify-center mb-4">
+              <div className="rounded-lg aspect-video flex items-center justify-center mb-4" style={{ backgroundColor: 'rgba(17, 24, 39, 0.5)' }}>
                 <div className="text-center">
-                  <Play className="w-16 h-16 text-blue-400 mx-auto mb-4" />
-                  <p className="text-gray-300">Live Demo: Cue appears while prospect talks</p>
+                  <Play className="w-16 h-16 mx-auto mb-4" style={{ color: '#60a5fa' }} />
+                  <p style={{ color: '#d1d5db' }}>Live Demo: Cue appears while prospect talks</p>
                 </div>
               </div>
               
@@ -325,14 +375,15 @@ export default function LandingPage() {
                 initial={{ opacity: 0, y: 10 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
-                className="inline-flex items-center gap-2 bg-green-900/30 border border-green-500/50 rounded-lg px-4 py-2"
+                className="inline-flex items-center gap-2 rounded-lg px-4 py-2"
+                style={{ backgroundColor: 'rgba(20, 83, 45, 0.3)', border: '1px solid rgba(34, 197, 94, 0.5)' }}
               >
-                <Copy className="w-4 h-4 text-green-400" />
-                <span className="text-sm text-green-300">Summary copied to clipboard</span>
-                <Check className="w-4 h-4 text-green-400" />
+                <Copy className="w-4 h-4" style={{ color: '#4ade80' }} />
+                <span className="text-sm" style={{ color: '#86efac' }}>Summary copied to clipboard</span>
+                <Check className="w-4 h-4" style={{ color: '#4ade80' }} />
               </motion.div>
             </div>
-            <p className="text-gray-400 mt-4">
+            <p className="mt-4" style={{ color: '#9ca3af' }}>
               Nothing to install. Just hit 'Start' before your call.
             </p>
           </div>
@@ -374,14 +425,14 @@ export default function LandingPage() {
                 className={`grid grid-cols-1 lg:grid-cols-2 gap-12 items-center ${useCase.reverse ? 'lg:grid-flow-col-dense' : ''}`}
               >
                 <div className={useCase.reverse ? 'lg:col-start-2' : ''}>
-                  <div className="text-blue-400 mb-4">{useCase.icon}</div>
-                  <h3 className="text-3xl font-bold text-white mb-2">{useCase.title}</h3>
-                  <p className="text-blue-400 font-medium mb-4">{useCase.subtitle}</p>
-                  <p className="text-gray-300 text-lg">{useCase.description}</p>
+                  <div className="mb-4" style={{ color: '#60a5fa' }}>{useCase.icon}</div>
+                  <h3 className="text-3xl font-bold mb-2" style={{ color: '#ffffff' }}>{useCase.title}</h3>
+                  <p className="font-medium mb-4" style={{ color: '#60a5fa' }}>{useCase.subtitle}</p>
+                  <p className="text-lg" style={{ color: '#d1d5db' }}>{useCase.description}</p>
                 </div>
-                <div className={`bg-gray-800/50 rounded-xl p-8 border border-gray-700 ${useCase.reverse ? 'lg:col-start-1' : ''}`}>
-                  <div className="h-48 bg-gradient-to-br from-gray-700 to-gray-800 rounded-lg flex items-center justify-center">
-                    <span className="text-gray-400">Demo Screenshot</span>
+                <div className={`rounded-xl p-8 ${useCase.reverse ? 'lg:col-start-1' : ''}`} style={{ backgroundColor: 'rgba(31, 41, 55, 0.5)', border: '1px solid #374151' }}>
+                  <div className="h-48 rounded-lg flex items-center justify-center" style={{ background: 'linear-gradient(to bottom right, #374151, #1f2937)' }}>
+                    <span style={{ color: '#9ca3af' }}>Demo Screenshot</span>
                   </div>
                 </div>
               </motion.div>
@@ -391,7 +442,7 @@ export default function LandingPage() {
       </section>
 
       {/* 6. Social Proof */}
-      <section className="py-20 bg-gray-900/50">
+      <section className="py-20" style={{ backgroundColor: 'rgba(17, 24, 39, 0.5)' }}>
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             {testimonials.map((testimonial, index) => (
@@ -401,19 +452,20 @@ export default function LandingPage() {
                 whileInView={{ opacity: 1, y: 0 }}
                 transition={{ delay: index * 0.1 }}
                 viewport={{ once: true }}
-                className="bg-gray-800/50 rounded-xl p-6 border border-gray-700 relative"
+                className="rounded-xl p-6 relative"
+                style={{ backgroundColor: 'rgba(31, 41, 55, 0.5)', border: '1px solid #374151' }}
               >
                 <div className="absolute top-4 right-4">
-                  <span className="bg-blue-500/20 text-blue-300 px-2 py-1 rounded-full text-xs font-medium">
+                  <span className="px-2 py-1 rounded-full text-xs font-medium" style={{ backgroundColor: 'rgba(59, 130, 246, 0.2)', color: '#93c5fd' }}>
                     {testimonial.badge}
                   </span>
                 </div>
-                <p className="text-white font-medium mb-4 pr-20">"{testimonial.quote}"</p>
+                <p className="font-medium mb-4 pr-20" style={{ color: '#ffffff' }}>"{testimonial.quote}"</p>
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-gray-600 rounded-full" />
+                  <div className="w-10 h-10 rounded-full" style={{ backgroundColor: '#4b5563' }} />
                   <div>
-                    <p className="text-white text-sm font-medium">{testimonial.name}</p>
-                    <p className="text-gray-400 text-xs">{testimonial.role}, {testimonial.company}</p>
+                    <p className="text-sm font-medium" style={{ color: '#ffffff' }}>{testimonial.name}</p>
+                    <p className="text-xs" style={{ color: '#9ca3af' }}>{testimonial.role}, {testimonial.company}</p>
                   </div>
                 </div>
               </motion.div>
@@ -425,10 +477,10 @@ export default function LandingPage() {
 
 
       {/* 8. FAQ Accordion */}
-      <section className="py-20 bg-gray-900/50">
+      <section className="py-20" style={{ backgroundColor: 'rgba(17, 24, 39, 0.5)' }}>
         <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-12">
-            <h2 className="text-3xl font-bold text-white">FAQ</h2>
+            <h2 className="text-3xl font-bold" style={{ color: '#ffffff' }}>FAQ</h2>
           </div>
 
           <div className="space-y-4">
@@ -439,17 +491,19 @@ export default function LandingPage() {
                 whileInView={{ opacity: 1, y: 0 }}
                 transition={{ delay: index * 0.1 }}
                 viewport={{ once: true }}
-                className="bg-gray-800/50 rounded-lg border border-gray-700"
+                className="rounded-lg"
+                style={{ backgroundColor: 'rgba(31, 41, 55, 0.5)', border: '1px solid #374151' }}
               >
                 <button
                   onClick={() => setExpandedFaq(expandedFaq === index ? null : index)}
                   className="w-full px-6 py-4 text-left flex items-center justify-between"
                 >
-                  <span className="font-medium text-white">{faq.question}</span>
+                  <span className="font-medium" style={{ color: '#ffffff' }}>{faq.question}</span>
                   <ChevronDown 
-                    className={`w-5 h-5 text-gray-400 transition-transform ${
+                    className={`w-5 h-5 transition-transform ${
                       expandedFaq === index ? 'rotate-180' : ''
                     }`}
+                    style={{ color: '#9ca3af' }}
                   />
                 </button>
                 <AnimatePresence>
@@ -460,7 +514,7 @@ export default function LandingPage() {
                       exit={{ height: 0, opacity: 0 }}
                       className="px-6 pb-4"
                     >
-                      <p className="text-gray-300">{faq.answer}</p>
+                      <p style={{ color: '#d1d5db' }}>{faq.answer}</p>
                     </motion.div>
                   )}
                 </AnimatePresence>
@@ -471,11 +525,11 @@ export default function LandingPage() {
       </section>
 
       {/* Early Access Program */}
-      <section id="waitlist" className="py-20 bg-gradient-to-r from-blue-900/20 to-purple-900/20">
+      <section id="waitlist" className="py-20" style={{ background: 'linear-gradient(to right, rgba(30, 58, 138, 0.2), rgba(88, 28, 135, 0.2))' }}>
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-12">
-            <h2 className="text-4xl font-bold text-white mb-4">Join the Early Access Program</h2>
-            <p className="text-xl text-gray-300">Limited spots available for beta testers who will shape our product</p>
+            <h2 className="text-4xl font-bold mb-4" style={{ color: '#ffffff' }}>Join the Early Access Program</h2>
+            <p className="text-xl" style={{ color: '#d1d5db' }}>Limited spots available for beta testers who will shape our product</p>
           </div>
 
           {!isSubmitted ? (
@@ -483,37 +537,14 @@ export default function LandingPage() {
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
-              className="grid grid-cols-1 lg:grid-cols-2 gap-12"
+              className="max-w-lg mx-auto"
             >
-              {/* Beta Perks */}
-              <div>
-                <h3 className="text-2xl font-bold text-white mb-6">What You Get</h3>
-                <div className="space-y-4">
-                  {perks.map((perk, index) => (
-                    <motion.div
-                      key={index}
-                      initial={{ opacity: 0, x: -20 }}
-                      whileInView={{ opacity: 1, x: 0 }}
-                      transition={{ delay: index * 0.1 }}
-                      viewport={{ once: true }}
-                      className="flex items-start gap-4 p-4 bg-gray-800/50 rounded-lg border border-gray-700"
-                    >
-                      <div className="text-blue-400 mt-1">{perk.icon}</div>
-                      <div>
-                        <h4 className="font-semibold text-white mb-1">{perk.title}</h4>
-                        <p className="text-gray-300 text-sm">{perk.description}</p>
-                      </div>
-                    </motion.div>
-                  ))}
-                </div>
-              </div>
-
               {/* Application Form */}
               <div>
-                <div className="bg-gray-800/50 rounded-xl p-6 border border-gray-700">
+                <div className="rounded-xl p-6" style={{ backgroundColor: 'rgba(31, 41, 55, 0.5)', border: '1px solid #374151' }}>
                   <form onSubmit={handleWaitlistSubmit} className="space-y-4">
                     <div>
-                      <label className="block text-sm font-medium text-gray-300 mb-2">
+                      <label className="block text-sm font-medium mb-2" style={{ color: '#d1d5db' }}>
                         Full Name
                       </label>
                       <input
@@ -521,8 +552,15 @@ export default function LandingPage() {
                         required
                         value={formData.name}
                         onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                        className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-blue-500"
+                        className="w-full px-3 py-2 rounded-lg focus:outline-none"
+                        style={{ 
+                          backgroundColor: '#374151', 
+                          border: '1px solid #4b5563', 
+                          color: '#ffffff'
+                        }}
                         placeholder="Your name"
+                        onFocus={(e) => e.target.style.borderColor = '#3b82f6'}
+                        onBlur={(e) => e.target.style.borderColor = '#4b5563'}
                       />
                     </div>
                     
@@ -573,13 +611,16 @@ export default function LandingPage() {
                     
                     <button
                       type="submit"
-                      className="w-full bg-blue-500 hover:bg-blue-600 text-white py-3 rounded-lg font-medium transition-colors"
+                      className="w-full py-3 rounded-lg font-medium transition-colors"
+                      style={{ backgroundColor: '#3b82f6', color: '#ffffff' }}
+                      onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#2563eb'}
+                      onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#3b82f6'}
                     >
                       Request Early Access
                     </button>
                   </form>
                   
-                  <p className="text-gray-400 text-xs mt-4 text-center">
+                  <p className="text-xs mt-4 text-center" style={{ color: '#9ca3af' }}>
                     We review applications weekly. Selected testers get immediate access.
                   </p>
                 </div>
@@ -589,16 +630,17 @@ export default function LandingPage() {
             <motion.div
               initial={{ opacity: 0, scale: 0.9 }}
               animate={{ opacity: 1, scale: 1 }}
-              className="text-center bg-green-900/20 border border-green-500/50 rounded-2xl p-12"
+              className="text-center rounded-2xl p-12"
+              style={{ backgroundColor: 'rgba(20, 83, 45, 0.2)', border: '1px solid rgba(34, 197, 94, 0.5)' }}
             >
-              <div className="w-16 h-16 bg-green-500 rounded-full flex items-center justify-center mx-auto mb-6">
-                <Check className="w-8 h-8 text-white" />
+              <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-6" style={{ backgroundColor: '#22c55e' }}>
+                <Check className="w-8 h-8" style={{ color: '#ffffff' }} />
               </div>
-              <h3 className="text-2xl font-bold text-white mb-4">Application Submitted!</h3>
-              <p className="text-gray-300 mb-6">
+              <h3 className="text-2xl font-bold mb-4" style={{ color: '#ffffff' }}>Application Submitted!</h3>
+              <p className="mb-6" style={{ color: '#d1d5db' }}>
                 Thanks for your interest! We'll review your application and get back to you within 3-5 business days.
               </p>
-              <div className="inline-flex items-center gap-2 text-green-400 text-sm">
+              <div className="inline-flex items-center gap-2 text-sm" style={{ color: '#4ade80' }}>
                 <Mail className="w-4 h-4" />
                 <span>Keep an eye on {formData.email}</span>
               </div>
@@ -608,51 +650,54 @@ export default function LandingPage() {
       </section>
 
       {/* 9. Final CTA */}
-      <section className="py-20 bg-gradient-to-r from-blue-900 to-purple-900">
+      <section className="py-20" style={{ background: 'linear-gradient(to right, #1e3a8a, #581c87)' }}>
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <h2 className="text-4xl font-bold text-white mb-6">
+          <h2 className="text-4xl font-bold mb-6" style={{ color: '#ffffff' }}>
             Ready to transform your conversations?
           </h2>
-          <p className="text-xl text-blue-200 mb-8">
+          <p className="text-xl mb-8" style={{ color: '#bfdbfe' }}>
             Join the exclusive group shaping the future of AI-powered conversations.
           </p>
           <button
             onClick={() => document.getElementById('waitlist')?.scrollIntoView({ behavior: 'smooth' })}
-            className="bg-white text-blue-900 hover:bg-gray-100 px-8 py-4 text-lg font-semibold rounded-lg inline-flex items-center transition-colors"
+            className="px-8 py-4 text-lg font-semibold rounded-lg inline-flex items-center transition-colors"
+            style={{ backgroundColor: '#ffffff', color: '#1e3a8a' }}
+            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f3f4f6'}
+            onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#ffffff'}
           >
             Apply for Early Access
             <ArrowRight className="ml-2 w-5 h-5" />
           </button>
-          <p className="mt-4 text-blue-200">
+          <p className="mt-4" style={{ color: '#bfdbfe' }}>
             Limited spots • Rolling invitations • Free during beta
           </p>
         </div>
       </section>
 
       {/* 10. Footer */}
-      <footer className="bg-gray-950 text-gray-400 py-12">
+      <footer className="py-12" style={{ backgroundColor: '#030712', color: '#9ca3af' }}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex flex-col md:flex-row justify-between items-center gap-8">
             <div>
               <div className="flex items-center gap-2 mb-2">
-                <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-500 rounded-lg flex items-center justify-center">
-                  <Mic className="w-5 h-5 text-white" />
+                <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: 'linear-gradient(to bottom right, #3b82f6, #8b5cf6)' }}>
+                  <Mic className="w-5 h-5" style={{ color: '#ffffff' }} />
                 </div>
-                <span className="text-xl font-bold text-white">LiveConvo</span>
+                <span className="text-xl font-bold" style={{ color: '#ffffff' }}>LiveConvo</span>
               </div>
-              <p className="text-sm text-gray-400">Your AI conversation co-pilot for better outcomes</p>
+              <p className="text-sm" style={{ color: '#9ca3af' }}>Your AI conversation co-pilot for better outcomes</p>
             </div>
             
             <div className="flex items-center gap-8">
-              <Link href="/privacy" className="text-sm hover:text-white transition-colors">Privacy</Link>
-              <Link href="/terms" className="text-sm hover:text-white transition-colors">Terms</Link>
-              <Link href="/security" className="text-sm hover:text-white transition-colors">Security</Link>
-              <Link href="/status" className="text-sm hover:text-white transition-colors">Status</Link>
+              <Link href="/privacy" className="text-sm transition-colors" style={{ color: '#9ca3af' }} onMouseEnter={(e) => e.currentTarget.style.color = '#ffffff'} onMouseLeave={(e) => e.currentTarget.style.color = '#9ca3af'}>Privacy</Link>
+              <Link href="/terms" className="text-sm transition-colors" style={{ color: '#9ca3af' }} onMouseEnter={(e) => e.currentTarget.style.color = '#ffffff'} onMouseLeave={(e) => e.currentTarget.style.color = '#9ca3af'}>Terms</Link>
+              <Link href="/security" className="text-sm transition-colors" style={{ color: '#9ca3af' }} onMouseEnter={(e) => e.currentTarget.style.color = '#ffffff'} onMouseLeave={(e) => e.currentTarget.style.color = '#9ca3af'}>Security</Link>
+              <Link href="/status" className="text-sm transition-colors" style={{ color: '#9ca3af' }} onMouseEnter={(e) => e.currentTarget.style.color = '#ffffff'} onMouseLeave={(e) => e.currentTarget.style.color = '#9ca3af'}>Status</Link>
             </div>
             
             <div className="flex items-center gap-4">
-              <Shield className="w-5 h-5 text-gray-500" />
-              <span className="text-sm text-gray-500">SOC 2 Compliant</span>
+              <Shield className="w-5 h-5" style={{ color: '#6b7280' }} />
+              <span className="text-sm" style={{ color: '#6b7280' }}>SOC 2 Compliant</span>
             </div>
           </div>
         </div>
