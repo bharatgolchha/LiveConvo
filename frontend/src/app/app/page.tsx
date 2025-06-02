@@ -221,6 +221,8 @@ export default function App() {
   // Track how many transcript lines have been saved to the database
   const [lastSavedTranscriptIndex, setLastSavedTranscriptIndex] = useState(0);
   const [sessionDuration, setSessionDuration] = useState(0);
+  const [cumulativeDuration, setCumulativeDuration] = useState(0); // Total duration across all recording sessions
+  const [recordingStartTime, setRecordingStartTime] = useState<number | null>(null); // Track when current recording started
   const [talkStats, setTalkStats] = useState<TalkStats>({ meWords: 0, themWords: 0 });
   const [conversationType, setConversationType] = useState<'sales' | 'support' | 'meeting' | 'interview'>('sales');
   const [conversationTitle, setConversationTitle] = useState('New Conversation');
@@ -296,18 +298,33 @@ export default function App() {
     isCurrentlyRecordingRef.current = (conversationState as string) === 'recording';
   }, [conversationState]);
 
-  // Timer to update session duration during recording
+  // Timer to update session duration during recording - Fixed to track cumulative duration
   useEffect(() => {
     let interval: NodeJS.Timeout;
     if (conversationState === 'recording') {
+      // Capture the start time when recording begins
+      if (!recordingStartTime) {
+        setRecordingStartTime(Date.now());
+      }
+      
       interval = setInterval(() => {
-        setSessionDuration(prev => prev + 1);
+        if (recordingStartTime) {
+          // Calculate elapsed time since recording started
+          const elapsed = Math.floor((Date.now() - recordingStartTime) / 1000);
+          setSessionDuration(cumulativeDuration + elapsed);
+        }
       }, 1000);
+    } else if (conversationState !== 'recording' && recordingStartTime) {
+      // Recording stopped/paused, update cumulative duration
+      const elapsed = Math.floor((Date.now() - recordingStartTime) / 1000);
+      setCumulativeDuration(prev => prev + elapsed);
+      setRecordingStartTime(null);
     }
+    
     return () => {
       if (interval) clearInterval(interval);
     };
-  }, [conversationState]);
+  }, [conversationState, recordingStartTime, cumulativeDuration]);
 
   // Save conversation state to localStorage whenever it changes
   useEffect(() => {
@@ -349,7 +366,10 @@ export default function App() {
             }));
             setTranscript(restoredTranscript);
           }
-          if (parsed.sessionDuration && typeof parsed.sessionDuration === 'number') setSessionDuration(parsed.sessionDuration);
+          if (parsed.sessionDuration && typeof parsed.sessionDuration === 'number') {
+            setSessionDuration(parsed.sessionDuration);
+            setCumulativeDuration(parsed.sessionDuration);
+          }
           if (parsed.talkStats) setTalkStats(parsed.talkStats);
           if (parsed.conversationType) setConversationType(parsed.conversationType);
           if (parsed.conversationTitle) setConversationTitle(parsed.conversationTitle);
@@ -380,12 +400,18 @@ export default function App() {
           console.log('🔍 Loading completed session:', sessionId);
           setConversationState('completed');
           setSessionDuration(sessionData.recording_duration_seconds || 0);
+          setCumulativeDuration(sessionData.recording_duration_seconds || 0);
           // Clear any stale localStorage state for completed sessions
           if (typeof window !== 'undefined') {
             localStorage.removeItem(`conversation_state_${sessionId}`);
           }
         } else if (sessionData.status === 'active') {
           setConversationState('paused'); // Show as paused if coming from dashboard
+          // Restore duration for active (paused) sessions
+          if (sessionData.recording_duration_seconds) {
+            setSessionDuration(sessionData.recording_duration_seconds);
+            setCumulativeDuration(sessionData.recording_duration_seconds);
+          }
         } else {
           setConversationState('ready');
         }
@@ -700,6 +726,7 @@ export default function App() {
     }
   }, [summary, loadedSummary]);
 
+
   // Add debugging for summary state
   useEffect(() => {
     console.log('🔍 Summary State Debug:', {
@@ -885,8 +912,15 @@ export default function App() {
           };
 
           // Add recording timestamps and duration
-          if (conversationState === 'recording' && !sessionDuration) {
-            sessionData.recording_started_at = new Date().toISOString();
+          if (conversationState === 'recording') {
+            // Check if recording_started_at is already set in the database
+            const checkResponse = await authenticatedFetch(`/api/sessions/${conversationId}`, session);
+            if (checkResponse.ok) {
+              const existingData = await checkResponse.json();
+              if (!existingData.recording_started_at) {
+                sessionData.recording_started_at = new Date().toISOString();
+              }
+            }
           } else if (conversationState === 'completed') {
             sessionData.recording_ended_at = new Date().toISOString();
             sessionData.recording_duration_seconds = sessionDuration;
@@ -1515,8 +1549,8 @@ export default function App() {
       lastMyTranscriptLen.current = 0;
       lastTheirTranscriptLen.current = 0;
       setLastSavedTranscriptIndex(transcript.length);
-      setSessionDuration(0);
-      resetMinuteTracking(); // Reset minute tracking for new session
+      // Don't reset duration when resuming recording - maintain cumulative time
+      // resetMinuteTracking() is also removed to maintain minute tracking continuity
       // FIXED: Transcript is NEVER cleared in handleStartRecording - preserves all conversation data
       console.log('✅ Recording started successfully');
     } catch (err) {
@@ -1805,6 +1839,8 @@ export default function App() {
   const handleResetSession = () => {
     setConversationState('setup');
     setSessionDuration(0);
+    setCumulativeDuration(0);
+    setRecordingStartTime(null);
       // FIXED: Transcript is NEVER cleared in handleStartRecording - preserves all conversation data
     setTranscript([]);
     setLastSavedTranscriptIndex(0);
@@ -2125,7 +2161,7 @@ export default function App() {
                       <div className={cn("flex items-center gap-1 text-xs font-medium px-2 py-1 rounded-full", stateColorClass)}>
                         {StateIcon && <StateIcon className="w-3 h-3" />}
                         <span>{stateText}</span>
-                        {conversationState === 'recording' && (
+                        {(conversationState === 'recording' || conversationState === 'paused') && sessionDuration > 0 && (
                           <span className="font-mono text-xs bg-black/10 dark:bg-white/10 px-1.5 py-0.5 rounded-md ml-1">
                             {formatDuration(sessionDuration)}
                           </span>

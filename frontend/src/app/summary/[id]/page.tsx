@@ -92,6 +92,9 @@ export default function SummaryPage() {
   const [editedSummary, setEditedSummary] = useState('');
   const [transcriptExpanded, setTranscriptExpanded] = useState(false);
   const [showExportModal, setShowExportModal] = useState(false);
+  const [showShareModal, setShowShareModal] = useState(false);
+  const [shareLink, setShareLink] = useState<string | null>(null);
+  const [isGeneratingShareLink, setIsGeneratingShareLink] = useState(false);
 
   useEffect(() => {
     if (user && session) {
@@ -226,6 +229,29 @@ export default function SummaryPage() {
       hour: '2-digit',
       minute: '2-digit'
     });
+  };
+
+  const handleGenerateShareLink = async () => {
+    setIsGeneratingShareLink(true);
+    try {
+      // In a real implementation, this would call an API to create a shareable link
+      // For now, we'll create a mock share link
+      const baseUrl = window.location.origin;
+      const shareableId = btoa(sessionId).replace(/=/g, ''); // Simple encoding for demo
+      const mockShareLink = `${baseUrl}/shared/summary/${shareableId}`;
+      
+      setShareLink(mockShareLink);
+      
+      // In production, you'd want to:
+      // 1. Call an API to create a shareable version with access controls
+      // 2. Set expiration dates
+      // 3. Track who accesses the shared link
+    } catch (error) {
+      console.error('Failed to generate share link:', error);
+      alert('Failed to generate share link. Please try again.');
+    } finally {
+      setIsGeneratingShareLink(false);
+    }
   };
 
   // Show loading if not authenticated yet
@@ -434,6 +460,7 @@ export default function SummaryPage() {
               variant="outline"
               size="sm"
               className="flex items-center gap-2"
+              onClick={() => setShowShareModal(true)}
             >
               <Share className="w-4 h-4" />
               Share
@@ -913,6 +940,19 @@ export default function SummaryPage() {
         onClose={() => setShowExportModal(false)}
         session={sessionData}
       />
+      
+      {/* Share Modal */}
+      <ShareModal
+        isOpen={showShareModal}
+        onClose={() => {
+          setShowShareModal(false);
+          setShareLink(null); // Reset share link when closing
+        }}
+        session={sessionData}
+        shareLink={shareLink}
+        onGenerateLink={handleGenerateShareLink}
+        isGenerating={isGeneratingShareLink}
+      />
     </div>
   );
 }
@@ -922,14 +962,154 @@ const ExportModal: React.FC<{
   isOpen: boolean;
   onClose: () => void;
   session: SessionSummary;
-}> = ({ isOpen, onClose }) => {
+}> = ({ isOpen, onClose, session }) => {
   const [exportFormat, setExportFormat] = useState<'pdf' | 'word' | 'text' | 'json'>('pdf');
   const [includeTranscript, setIncludeTranscript] = useState(true);
 
-  const handleExport = () => {
-    // In a real app, this would trigger the actual export
-    console.log('Exporting...', { format: exportFormat, includeTranscript });
-    onClose();
+  const handleExport = async () => {
+    try {
+      const sessionData = session;
+      
+      // Prepare export data
+      const exportData = {
+        title: sessionData.title,
+        type: sessionData.conversation_type,
+        date: sessionData.created_at,
+        duration: sessionData.duration,
+        summary: sessionData.summary,
+        transcript: includeTranscript ? sessionData.transcript_lines : undefined,
+        metadata: sessionData.metadata
+      };
+
+      switch (exportFormat) {
+        case 'json':
+          // Export as JSON
+          const jsonBlob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+          const jsonUrl = URL.createObjectURL(jsonBlob);
+          const jsonLink = document.createElement('a');
+          jsonLink.href = jsonUrl;
+          jsonLink.download = `${sessionData.title.replace(/[^a-z0-9]/gi, '_')}_summary.json`;
+          document.body.appendChild(jsonLink);
+          jsonLink.click();
+          document.body.removeChild(jsonLink);
+          URL.revokeObjectURL(jsonUrl);
+          break;
+
+        case 'text':
+          // Export as plain text
+          let textContent = `CONVERSATION SUMMARY\n`;
+          textContent += `==================\n\n`;
+          textContent += `Title: ${sessionData.title}\n`;
+          textContent += `Type: ${sessionData.conversation_type}\n`;
+          textContent += `Date: ${new Date(sessionData.created_at).toLocaleString()}\n`;
+          textContent += `Duration: ${Math.floor(sessionData.duration / 60)} minutes\n\n`;
+          
+          textContent += `SUMMARY\n`;
+          textContent += `-------\n`;
+          textContent += sessionData.summary.tldr + '\n\n';
+          
+          if (sessionData.summary.keyPoints?.length > 0) {
+            textContent += `KEY POINTS\n`;
+            textContent += `----------\n`;
+            sessionData.summary.keyPoints.forEach((point, idx) => {
+              textContent += `${idx + 1}. ${point}\n`;
+            });
+            textContent += '\n';
+          }
+          
+          if (sessionData.summary.actionItems?.length > 0) {
+            textContent += `ACTION ITEMS\n`;
+            textContent += `------------\n`;
+            sessionData.summary.actionItems.forEach((item, idx) => {
+              textContent += `${idx + 1}. ${item}\n`;
+            });
+            textContent += '\n';
+          }
+          
+          if (sessionData.summary.decisions?.length > 0) {
+            textContent += `DECISIONS\n`;
+            textContent += `---------\n`;
+            sessionData.summary.decisions.forEach((decision, idx) => {
+              textContent += `${idx + 1}. ${decision}\n`;
+            });
+            textContent += '\n';
+          }
+          
+          if (sessionData.summary.insights?.length > 0) {
+            textContent += `KEY INSIGHTS\n`;
+            textContent += `------------\n`;
+            sessionData.summary.insights.forEach((insight: any, idx) => {
+              if (typeof insight === 'string') {
+                textContent += `${idx + 1}. ${insight}\n`;
+              } else if (insight.observation) {
+                textContent += `${idx + 1}. ${insight.observation}\n`;
+                if (insight.recommendation) {
+                  textContent += `   Recommendation: ${insight.recommendation}\n`;
+                }
+              }
+            });
+            textContent += '\n';
+          }
+          
+          if (sessionData.summary.followUpQuestions?.length > 0) {
+            textContent += `FOLLOW-UP QUESTIONS\n`;
+            textContent += `------------------\n`;
+            sessionData.summary.followUpQuestions.forEach((question, idx) => {
+              textContent += `${idx + 1}. ${question}\n`;
+            });
+            textContent += '\n';
+          }
+          
+          if (sessionData.summary.successfulMoments?.length > 0) {
+            textContent += `SUCCESSFUL MOMENTS\n`;
+            textContent += `-----------------\n`;
+            sessionData.summary.successfulMoments.forEach((moment, idx) => {
+              textContent += `${idx + 1}. ${moment}\n`;
+            });
+            textContent += '\n';
+          }
+          
+          if (sessionData.summary.coachingRecommendations?.length > 0) {
+            textContent += `COACHING RECOMMENDATIONS\n`;
+            textContent += `-----------------------\n`;
+            sessionData.summary.coachingRecommendations.forEach((rec, idx) => {
+              textContent += `${idx + 1}. ${rec}\n`;
+            });
+            textContent += '\n';
+          }
+          
+          if (includeTranscript && sessionData.transcript_lines?.length > 0) {
+            textContent += `\nTRANSCRIPT\n`;
+            textContent += `----------\n`;
+            sessionData.transcript_lines.forEach(line => {
+              textContent += `${line.speaker}: ${line.content}\n`;
+            });
+          }
+          
+          const textBlob = new Blob([textContent], { type: 'text/plain' });
+          const textUrl = URL.createObjectURL(textBlob);
+          const textLink = document.createElement('a');
+          textLink.href = textUrl;
+          textLink.download = `${sessionData.title.replace(/[^a-z0-9]/gi, '_')}_summary.txt`;
+          document.body.appendChild(textLink);
+          textLink.click();
+          document.body.removeChild(textLink);
+          URL.revokeObjectURL(textUrl);
+          break;
+
+        case 'pdf':
+        case 'word':
+          // For PDF and Word, we'll need to implement server-side generation
+          // For now, show a message
+          alert(`${exportFormat.toUpperCase()} export will be available soon. Please use Text or JSON format for now.`);
+          break;
+      }
+      
+      onClose();
+    } catch (error) {
+      console.error('Export error:', error);
+      alert('Failed to export summary. Please try again.');
+    }
   };
 
   if (!isOpen) return null;
@@ -1004,6 +1184,231 @@ const ExportModal: React.FC<{
             onClick={onClose}
           >
             Cancel
+          </Button>
+        </div>
+      </motion.div>
+    </motion.div>
+  );
+};
+
+// Share Modal Component
+const ShareModal: React.FC<{
+  isOpen: boolean;
+  onClose: () => void;
+  session: SessionSummary | null;
+  shareLink: string | null;
+  onGenerateLink: () => void;
+  isGenerating: boolean;
+}> = ({ isOpen, onClose, session, shareLink, onGenerateLink, isGenerating }) => {
+  const [copied, setCopied] = useState(false);
+  const [shareOptions, setShareOptions] = useState({
+    includeTranscript: false,
+    expiresIn: '7' // days
+  });
+
+  const handleCopyLink = async () => {
+    if (shareLink) {
+      try {
+        await navigator.clipboard.writeText(shareLink);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+      } catch (error) {
+        console.error('Failed to copy:', error);
+        // Fallback for older browsers
+        const textArea = document.createElement('textarea');
+        textArea.value = shareLink;
+        document.body.appendChild(textArea);
+        textArea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textArea);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+      }
+    }
+  };
+
+  const handleShare = async (platform: 'email' | 'linkedin' | 'twitter' | 'whatsapp') => {
+    if (!shareLink || !session) return;
+
+    const title = `Summary: ${session.title}`;
+    const text = `Check out this conversation summary from liveprompt.ai`;
+
+    switch (platform) {
+      case 'email':
+        window.location.href = `mailto:?subject=${encodeURIComponent(title)}&body=${encodeURIComponent(text + '\n\n' + shareLink)}`;
+        break;
+      case 'linkedin':
+        window.open(`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(shareLink)}`, '_blank');
+        break;
+      case 'twitter':
+        window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(shareLink)}`, '_blank');
+        break;
+      case 'whatsapp':
+        window.open(`https://wa.me/?text=${encodeURIComponent(text + ' ' + shareLink)}`, '_blank');
+        break;
+    }
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
+      onClick={onClose}
+    >
+      <motion.div
+        initial={{ scale: 0.9, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        exit={{ scale: 0.9, opacity: 0 }}
+        className="bg-card rounded-lg p-6 w-full max-w-md border border-border"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <h3 className="text-lg font-semibold text-foreground mb-4">Share Summary</h3>
+        
+        <div className="space-y-4">
+          {!shareLink ? (
+            <>
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-sm font-medium text-foreground mb-2">
+                    Share Options
+                  </label>
+                  <label className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={shareOptions.includeTranscript}
+                      onChange={(e) => setShareOptions({ ...shareOptions, includeTranscript: e.target.checked })}
+                      className="rounded border-border text-primary focus:ring-primary"
+                    />
+                    <span className="text-sm text-foreground">Include transcript</span>
+                  </label>
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-foreground mb-2">
+                    Link expires in
+                  </label>
+                  <select
+                    value={shareOptions.expiresIn}
+                    onChange={(e) => setShareOptions({ ...shareOptions, expiresIn: e.target.value })}
+                    className="w-full px-3 py-2 border border-border rounded-lg bg-background text-foreground"
+                  >
+                    <option value="1">1 day</option>
+                    <option value="7">7 days</option>
+                    <option value="30">30 days</option>
+                    <option value="never">Never</option>
+                  </select>
+                </div>
+              </div>
+              
+              <Button
+                variant="primary"
+                onClick={onGenerateLink}
+                disabled={isGenerating}
+                className="w-full"
+              >
+                {isGenerating ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
+                    Generating Link...
+                  </>
+                ) : (
+                  'Generate Share Link'
+                )}
+              </Button>
+            </>
+          ) : (
+            <>
+              <div>
+                <label className="block text-sm font-medium text-foreground mb-2">
+                  Share Link
+                </label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    value={shareLink}
+                    readOnly
+                    className="flex-1 px-3 py-2 border border-border rounded-lg bg-background text-foreground text-sm"
+                  />
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleCopyLink}
+                    className="flex items-center gap-2"
+                  >
+                    {copied ? (
+                      <>
+                        <Check className="w-4 h-4" />
+                        Copied!
+                      </>
+                    ) : (
+                      'Copy'
+                    )}
+                  </Button>
+                </div>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-foreground mb-2">
+                  Share via
+                </label>
+                <div className="grid grid-cols-2 gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleShare('email')}
+                    className="flex items-center justify-center gap-2"
+                  >
+                    Email
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleShare('linkedin')}
+                    className="flex items-center justify-center gap-2"
+                  >
+                    LinkedIn
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleShare('twitter')}
+                    className="flex items-center justify-center gap-2"
+                  >
+                    Twitter
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleShare('whatsapp')}
+                    className="flex items-center justify-center gap-2"
+                  >
+                    WhatsApp
+                  </Button>
+                </div>
+              </div>
+              
+              <Button
+                variant="outline"
+                onClick={onGenerateLink}
+                className="w-full"
+              >
+                Generate New Link
+              </Button>
+            </>
+          )}
+        </div>
+        
+        <div className="mt-6">
+          <Button
+            variant="outline"
+            onClick={onClose}
+            className="w-full"
+          >
+            Close
           </Button>
         </div>
       </motion.div>
