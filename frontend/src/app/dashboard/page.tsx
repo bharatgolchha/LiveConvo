@@ -218,12 +218,16 @@ const DashboardSidebar: React.FC<{
     { path: 'settings', label: 'Settings', icon: Cog6ToothIcon }
   ];
 
+  // Calculate usage percentage
+  const usagePercentage = Math.min(
+    (usageStats.monthlyMinutesLimit || 600) > 0 
+      ? ((usageStats.monthlyMinutesUsed || 0) / (usageStats.monthlyMinutesLimit || 600)) * 100 
+      : 0, 
+    100
+  );
+
   return (
-    <motion.aside 
-      initial={{ opacity: 0, x: -20 }}
-      animate={{ opacity: 1, x: 0 }}
-      className="w-64 bg-muted/80 border-r border-border flex flex-col"
-    >
+    <aside className="w-64 bg-card border-r border-border flex flex-col">
       {/* Navigation */}
       <nav className="flex-1 px-4 py-6 space-y-2">
         {navItems.map((item) => (
@@ -240,7 +244,7 @@ const DashboardSidebar: React.FC<{
               <item.icon className="w-5 h-5" />
               <span className="font-medium">{item.label}</span>
             </div>
-            {item.count && (
+            {item.count !== undefined && (
               <span className="text-xs bg-muted text-muted-foreground px-2 py-1 rounded-full">
                 {item.count}
               </span>
@@ -251,7 +255,7 @@ const DashboardSidebar: React.FC<{
 
       {/* Usage Stats Widget */}
       <div className="p-4 border-t border-border">
-        <Card className="p-4 bg-card">
+        <div className="bg-card border border-border rounded-lg p-4">
           <h3 className="text-sm font-medium text-foreground mb-3">This Month</h3>
           
           {/* Audio Usage */}
@@ -264,15 +268,14 @@ const DashboardSidebar: React.FC<{
             </div>
             <div className="w-full bg-muted rounded-full h-2">
               <div 
-                className="bg-app-primary h-2 rounded-full transition-all duration-300"
-                style={{ 
-                  width: `${Math.min(
-                    (usageStats.monthlyMinutesLimit || 600) > 0 
-                      ? ((usageStats.monthlyMinutesUsed || 0) / (usageStats.monthlyMinutesLimit || 600)) * 100 
-                      : 0, 
-                    100
-                  )}%` 
-                }}
+                className={`h-2 rounded-full ${
+                  usagePercentage > 80 
+                    ? 'bg-red-500' 
+                    : usagePercentage > 60 
+                    ? 'bg-yellow-500'
+                    : 'bg-app-primary'
+                }`}
+                style={{ width: `${usagePercentage}%` }}
               />
             </div>
             {usageStats.minutesRemaining !== undefined && usageStats.minutesRemaining < 60 && (
@@ -305,9 +308,9 @@ const DashboardSidebar: React.FC<{
               Upgrade to Pro
             </Button>
           )}
-        </Card>
+        </div>
       </div>
-    </motion.aside>
+    </aside>
   );
 };
 
