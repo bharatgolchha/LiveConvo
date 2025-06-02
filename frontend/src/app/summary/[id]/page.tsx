@@ -27,6 +27,7 @@ import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/contexts/AuthContext';
+import { toast } from 'sonner';
 
 // Types
 interface SessionSummary {
@@ -95,6 +96,7 @@ export default function SummaryPage() {
   const [showShareModal, setShowShareModal] = useState(false);
   const [shareLink, setShareLink] = useState<string | null>(null);
   const [isGeneratingShareLink, setIsGeneratingShareLink] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
     if (user && session) {
@@ -201,8 +203,31 @@ export default function SummaryPage() {
     }
   };
 
-  const handleSave = () => {
-    if (sessionData) {
+  const handleSave = async () => {
+    if (!sessionData || !session || isSaving) return;
+
+    setIsSaving(true);
+    try {
+      // Update the summary in the database
+      const response = await fetch(`/api/sessions/${sessionId}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`
+        },
+        body: JSON.stringify({
+          summary_data: {
+            ...sessionData.summary,
+            overview: editedSummary
+          }
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to save summary');
+      }
+
+      // Update local state after successful save
       setSessionData({
         ...sessionData,
         summary: {
@@ -210,8 +235,26 @@ export default function SummaryPage() {
           overview: editedSummary
         }
       });
+      
+      setIsEditing(false);
+      
+      // Show success feedback
+      toast.success('Summary saved successfully', {
+        description: 'Your changes have been saved to the database.'
+      });
+    } catch (error) {
+      console.error('Error saving summary:', error);
+      
+      // Show error message
+      toast.error('Failed to save summary', {
+        description: 'Please try again. Your changes have not been saved.'
+      });
+      
+      // Keep editing mode open on error so user doesn't lose changes
+      // setIsEditing(true); // Optional: uncomment if you want to keep edit mode on error
+    } finally {
+      setIsSaving(false);
     }
-    setIsEditing(false);
   };
 
   const formatDuration = (seconds: number) => {
@@ -557,24 +600,48 @@ export default function SummaryPage() {
             <Card className="p-6">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-lg font-semibold text-foreground">AI Summary</h3>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => isEditing ? handleSave() : setIsEditing(true)}
-                  className="flex items-center gap-2"
-                >
-                  {isEditing ? (
-                    <>
-                      <Check className="w-4 h-4" />
-                      Save
-                    </>
-                  ) : (
-                    <>
-                      <Edit3 className="w-4 h-4" />
-                      Edit
-                    </>
+                <div className="flex items-center gap-2">
+                  {isEditing && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        setEditedSummary(sessionData.summary.overview);
+                        setIsEditing(false);
+                      }}
+                      className="text-muted-foreground"
+                      disabled={isSaving}
+                    >
+                      Cancel
+                    </Button>
                   )}
-                </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => isEditing ? handleSave() : setIsEditing(true)}
+                    className="flex items-center gap-2"
+                    disabled={isSaving}
+                  >
+                    {isEditing ? (
+                      isSaving ? (
+                        <>
+                          <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                          Saving...
+                        </>
+                      ) : (
+                        <>
+                          <Check className="w-4 h-4" />
+                          Save
+                        </>
+                      )
+                    ) : (
+                      <>
+                        <Edit3 className="w-4 h-4" />
+                        Edit
+                      </>
+                    )}
+                  </Button>
+                </div>
               </div>
               
               {isEditing ? (

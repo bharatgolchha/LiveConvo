@@ -197,9 +197,25 @@ export function useRealtimeSummary({
           timestamp: new Date(event.timestamp)
         }));
         
-        // Update accumulated timeline state, ensuring newest are first overall
+        // Update accumulated timeline state, deduplicating by ID
         setAccumulatedTimeline(prevTimeline => {
-          currentAccumulatedTimeline = [...newTimelineEvents, ...prevTimeline].sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
+          // Create a Map to track unique events by ID
+          const eventMap = new Map<string, TimelineEvent>();
+          
+          // Add existing events first
+          prevTimeline.forEach(event => {
+            eventMap.set(event.id, event);
+          });
+          
+          // Add new events, overwriting any duplicates
+          newTimelineEvents.forEach(event => {
+            eventMap.set(event.id, event);
+          });
+          
+          // Convert back to array and sort by timestamp (newest first)
+          currentAccumulatedTimeline = Array.from(eventMap.values())
+            .sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
+          
           return currentAccumulatedTimeline;
         });
         data.summary.timeline = currentAccumulatedTimeline;

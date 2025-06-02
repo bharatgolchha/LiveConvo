@@ -86,8 +86,15 @@ const saveTranscriptToDatabase = async (
   transcriptLines: TranscriptLine[],
   session: any,
   lastSavedIndex = 0,
-  retryCount = 0
-) : Promise<number> => {
+  retryCount = 0,
+  abortSignal?: AbortSignal
+): Promise<number> => {
+  // Check if operation was aborted
+  if (abortSignal?.aborted) {
+    console.log('⚠️ Transcript save aborted');
+    return lastSavedIndex;
+  }
+
   try {
     // Only save new transcript lines that haven't been saved yet
     const newLines = transcriptLines.slice(lastSavedIndex);
@@ -121,13 +128,17 @@ const saveTranscriptToDatabase = async (
       console.error('Failed to save transcript:', response.status, errorText);
       
       // Retry logic for failed saves (up to 3 times)
-      if (retryCount < 3) {
+      if (retryCount < 3 && !abortSignal?.aborted) {
         console.log(`🔄 Retrying transcript save (attempt ${retryCount + 1}/3)...`);
-        setTimeout(() => {
-          saveTranscriptToDatabase(sessionId, transcriptLines, session, lastSavedIndex, retryCount + 1);
-        }, 1000 * (retryCount + 1)); // Exponential backoff
+        
+        // Wait with exponential backoff
+        await new Promise(resolve => setTimeout(resolve, 1000 * Math.pow(2, retryCount)));
+        
+        // Recursive retry - this will return the eventual result
+        return await saveTranscriptToDatabase(sessionId, transcriptLines, session, lastSavedIndex, retryCount + 1, abortSignal);
       } else {
         console.error('❌ Failed to save transcript after 3 retries');
+        throw new Error(`Failed to save transcript: ${response.status} ${errorText}`);
       }
     } else {
       console.log(`✅ Transcript saved successfully (${newLines.length} new lines)`);
@@ -137,17 +148,19 @@ const saveTranscriptToDatabase = async (
     console.error('Error saving transcript to database:', error);
 
     // Retry on network/connection errors
-    if (retryCount < 3) {
+    if (retryCount < 3 && !abortSignal?.aborted) {
       console.log(`🔄 Retrying transcript save due to error (attempt ${retryCount + 1}/3)...`);
-      setTimeout(() => {
-        saveTranscriptToDatabase(sessionId, transcriptLines, session, lastSavedIndex, retryCount + 1);
-      }, 1000 * (retryCount + 1));
+      
+      // Wait with exponential backoff
+      await new Promise(resolve => setTimeout(resolve, 1000 * Math.pow(2, retryCount)));
+      
+      // Recursive retry
+      return await saveTranscriptToDatabase(sessionId, transcriptLines, session, lastSavedIndex, retryCount + 1, abortSignal);
     } else {
       console.error('❌ Failed to save transcript after 3 retries due to errors');
+      throw error;
     }
   }
-
-  return lastSavedIndex;
 };
 
 // Manual save function for immediate transcript saving
@@ -155,16 +168,23 @@ const saveTranscriptNow = async (
   sessionId: string,
   transcriptLines: TranscriptLine[],
   session: any,
-  lastSavedIndex: number
+  lastSavedIndex: number,
+  abortSignal?: AbortSignal
 ): Promise<number> => {
   if (!sessionId || !transcriptLines || transcriptLines.length === 0 || !session) {
     console.log('⚠️ Cannot save transcript - missing required data');
     return lastSavedIndex; // Return current index if save fails
   }
 
-  console.log('🚀 Manual transcript save triggered');
-  const newIndex = await saveTranscriptToDatabase(sessionId, transcriptLines, session, lastSavedIndex);
-  return newIndex || lastSavedIndex; // Fallback to current index if undefined
+  try {
+    console.log('🚀 Manual transcript save triggered');
+    const newIndex = await saveTranscriptToDatabase(sessionId, transcriptLines, session, lastSavedIndex, 0, abortSignal);
+    return newIndex;
+  } catch (error) {
+    console.error('❌ Manual save failed:', error);
+    // Return the current index on error, so we don't lose track of what was saved
+    return lastSavedIndex;
+  }
 };
 
 const saveTimelineToDatabase = async (sessionId: string, timelineEvents: TimelineEvent[], session: any) => {
@@ -289,6 +309,9 @@ export default function App() {
   const [wasRecordingBeforeHidden, setWasRecordingBeforeHidden] = useState(false);
   const pageVisibilityTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const preventUnloadRef = useRef(false);
+  
+  // AbortController for canceling async operations on unmount
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   // Add a ref to track current recording state for database loading prevention
   const isCurrentlyRecordingRef = useRef(false);
@@ -796,13 +819,21 @@ export default function App() {
       if (shouldSave) {
         // Debounce time for saves (2 seconds for better batching)
         const timeoutId = setTimeout(async () => {
-          const newSavedIndex = await saveTranscriptToDatabase(
-            conversationId,
-            transcript,
-            session,
-            lastSavedTranscriptIndex
-          );
-          setLastSavedTranscriptIndex(newSavedIndex);
+          try {
+            const newSavedIndex = await saveTranscriptToDatabase(
+              conversationId,
+              transcript,
+              session,
+              lastSavedTranscriptIndex,
+              0,
+              abortControllerRef.current?.signal
+            );
+            setLastSavedTranscriptIndex(newSavedIndex);
+          } catch (error) {
+            if (error.name !== 'AbortError') {
+              console.error('Failed to auto-save transcript:', error);
+            }
+          }
         }, 2000); // Save after 2 seconds of no changes
 
         return () => clearTimeout(timeoutId);
@@ -822,8 +853,13 @@ export default function App() {
           session && 
           !authLoading) {
         console.log(`💾 Immediate transcript save triggered by state change: ${previousConversationState.current} → ${conversationState}`);
-        saveTranscriptNow(conversationId, transcript, session, lastSavedTranscriptIndex)
-          .then(newIndex => setLastSavedTranscriptIndex(newIndex));
+        saveTranscriptNow(conversationId, transcript, session, lastSavedTranscriptIndex, abortControllerRef.current?.signal)
+          .then(newIndex => setLastSavedTranscriptIndex(newIndex))
+          .catch(error => {
+            if (error.name !== 'AbortError') {
+              console.error('Failed to save transcript on state change:', error);
+            }
+          });
       }
     }
     
@@ -835,7 +871,7 @@ export default function App() {
     if (conversationState === 'recording' && conversationId && transcript.length > 0) {
       const autoSaveInterval = setInterval(async () => {
         try {
-          const newIndex = await saveTranscriptNow(conversationId, transcript, session, lastSavedTranscriptIndex);
+          const newIndex = await saveTranscriptNow(conversationId, transcript, session, lastSavedTranscriptIndex, abortControllerRef.current?.signal);
           if (newIndex !== undefined) {
             setLastSavedTranscriptIndex(newIndex);
             const linesSaved = newIndex - lastSavedTranscriptIndex;
@@ -2025,9 +2061,16 @@ export default function App() {
 
   // Cleanup timeout on unmount
   useEffect(() => {
+    // Create new AbortController on mount
+    abortControllerRef.current = new AbortController();
+    
     return () => {
       if (contextSaveTimeoutRef.current) {
         clearTimeout(contextSaveTimeoutRef.current);
+      }
+      // Abort any pending async operations
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
       }
     };
   }, []);
@@ -2040,8 +2083,13 @@ export default function App() {
       interval = setInterval(() => {
         if (transcript.length > 0) {
           console.log('⏰ Periodic transcript save (30s interval)');
-          saveTranscriptNow(conversationId, transcript, session, lastSavedTranscriptIndex)
-            .then(newIndex => setLastSavedTranscriptIndex(newIndex));
+          saveTranscriptNow(conversationId, transcript, session, lastSavedTranscriptIndex, abortControllerRef.current?.signal)
+            .then(newIndex => setLastSavedTranscriptIndex(newIndex))
+            .catch(error => {
+              if (error.name !== 'AbortError') {
+                console.error('Failed to save transcript periodically:', error);
+              }
+            });
         }
       }, 30000); // Save every 30 seconds during recording
     }
