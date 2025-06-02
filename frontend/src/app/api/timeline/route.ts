@@ -60,7 +60,7 @@ export async function POST(request: NextRequest) {
     }
 
     const systemPrompt = getTimelineSystemPrompt(conversationType);
-    const prompt = buildTimelinePrompt(transcript, conversationType, existingTimeline);
+    const prompt = buildTimelinePrompt(transcript, conversationType, existingTimeline, lastProcessedLength);
 
     const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
       method: 'POST',
@@ -167,11 +167,20 @@ export async function POST(request: NextRequest) {
     console.log('📅 Raw Events Count:', rawEvents.length);
     
     // Generate timeline events with IDs if missing
+    const baseTimestamp = new Date();
     const newTimelineEvents = rawEvents.map((event: Partial<TimelineEvent>, index: number) => {
+      // Generate sequential timestamps if missing
+      let eventTimestamp = event.timestamp;
+      if (!eventTimestamp || eventTimestamp === new Date().toISOString().split('T')[0] + 'T10:30:00Z') {
+        // Add 30-60 seconds for each event
+        const secondsOffset = index * 45;
+        eventTimestamp = new Date(baseTimestamp.getTime() + (secondsOffset * 1000)).toISOString();
+      }
+      
       // Validate and ensure all required fields exist
       const validatedEvent = {
         id: event.id || `timeline_${Date.now()}_${index}`,
-        timestamp: event.timestamp || new Date().toISOString(),
+        timestamp: eventTimestamp,
         title: event.title || 'Timeline Event',
         description: event.description || 'Event description not available',
         type: ['milestone', 'decision', 'topic_shift', 'action_item', 'question', 'agreement'].includes(event.type) 
@@ -188,7 +197,7 @@ export async function POST(request: NextRequest) {
     const uniqueNewEvents = newTimelineEvents.filter((event: TimelineEvent) => !existingIds.has(event.id));
     
     const allTimelineEvents = [...existingTimeline, ...uniqueNewEvents].sort((a, b) => 
-      new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+      new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
     );
     
     const responseData: TimelineResponse = {
@@ -248,6 +257,7 @@ export async function POST(request: NextRequest) {
 }
 
 function getTimelineSystemPrompt(): string {
+  const currentTimestamp = new Date().toISOString();
   return `You are an expert conversation analyst specialized in creating detailed, concrete timeline events from conversation transcripts.
 
 Your role is to identify significant moments, decisions, and progressions in ongoing conversations and create specific, actionable timeline events that capture who said what and when.
@@ -261,7 +271,13 @@ CRITICAL JSON FORMATTING REQUIREMENTS:
 6. The JSON must have a "timeline" array as the root key
 
 EXACT RESPONSE FORMAT REQUIRED:
-{"timeline":[{"id":"unique_id","timestamp":"2025-01-27T10:30:00Z","title":"Event Title","description":"Event description","type":"milestone","importance":"high","speaker":"ME","content":"Optional quote"}]}
+{"timeline":[{"id":"unique_id","timestamp":"${currentTimestamp}","title":"Event Title","description":"Event description","type":"milestone","importance":"high","speaker":"ME","content":"Optional quote"}]}
+
+IMPORTANT TIMESTAMP RULES:
+- Generate timestamps sequentially based on the order events appear in the transcript
+- Start with the current timestamp (${currentTimestamp}) for the first event
+- Add 30-60 seconds between each subsequent event
+- Events should be in chronological order matching their appearance in the transcript
 
 TIMELINE EVENT TYPES (use exactly these values):
 - milestone
@@ -295,16 +311,23 @@ GUIDELINES FOR TIMELINE EVENTS:
 RESPONSE MUST BE VALID JSON ONLY - NO OTHER TEXT:`;
 }
 
-function buildTimelinePrompt(transcript: string, conversationType?: string, existingTimeline?: TimelineEvent[]): string {
+function buildTimelinePrompt(transcript: string, conversationType?: string, existingTimeline?: TimelineEvent[], lastProcessedLength?: number): string {
   const existingEventsContext = existingTimeline && existingTimeline.length > 0 
-    ? `\nEXISTING EVENTS (avoid duplicating): ${existingTimeline.map(e => e.title).join(', ')}\n` 
+    ? `\nEXISTING EVENTS (DO NOT REGENERATE THESE): ${existingTimeline.map(e => e.title).join(', ')}\n` 
     : '';
+  
+  // If we have a lastProcessedLength, only analyze the new portion
+  const transcriptToAnalyze = lastProcessedLength && lastProcessedLength > 0 && transcript.length > lastProcessedLength
+    ? `\n[ONLY ANALYZE THIS NEW PORTION]:\n${transcript.substring(lastProcessedLength)}`
+    : transcript;
 
   return `CONVERSATION TYPE: ${conversationType || 'general'}${existingEventsContext}
-TRANSCRIPT:
-${transcript}
+TRANSCRIPT TO ANALYZE:
+${transcriptToAnalyze}
 
-Analyze this conversation and return a JSON object with timeline events. Include 1-5 key moments, decisions, or topic shifts. ${existingTimeline && existingTimeline.length > 0 ? 'Only include NEW events not already covered.' : 'Cover the most important moments in the conversation.'}
+${lastProcessedLength && lastProcessedLength > 0 ? 'IMPORTANT: Only analyze the NEW portion of the transcript marked above. Do NOT regenerate events for the earlier parts.' : ''}
+
+Analyze this conversation and return a JSON object with timeline events. Include 1-5 key moments, decisions, or topic shifts. ${existingTimeline && existingTimeline.length > 0 ? 'Only include NEW events from the NEW transcript portion. DO NOT include events already listed above.' : 'Cover the most important moments in the conversation.'}
 
 JSON ONLY:`;
 } 

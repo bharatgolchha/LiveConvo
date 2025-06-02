@@ -28,7 +28,7 @@ interface UseIncrementalTimelineProps {
   conversationType?: string;
   isRecording: boolean;
   isPaused?: boolean; // Add isPaused to differentiate from stopped
-  refreshIntervalMs?: number; // Default 25 seconds for timeline
+  refreshIntervalMs?: number; // Default 10 seconds for live notes
   session?: Session | null; // Supabase session for authentication
 }
 
@@ -38,7 +38,7 @@ export function useIncrementalTimeline({
   conversationType = 'general',
   isRecording,
   isPaused = false,
-  refreshIntervalMs = 25000,
+  refreshIntervalMs = 10000,
   session
 }: UseIncrementalTimelineProps) {
   const [timeline, setTimeline] = useState<TimelineEvent[]>([]);
@@ -85,10 +85,10 @@ export function useIncrementalTimeline({
       return;
     }
     
-    // Don't generate too frequently (minimum 15 seconds between calls unless forced)
+    // Don't generate too frequently (minimum 8 seconds between calls unless forced)
     const now = Date.now();
-    if (!force && lastRefreshTime.current > 0 && (now - lastRefreshTime.current) < 15000) {
-      console.log('❌ Timeline: Skipping - too frequent (15s limit)');
+    if (!force && lastRefreshTime.current > 0 && (now - lastRefreshTime.current) < 8000) {
+      console.log('❌ Timeline: Skipping - too frequent (8s limit)');
       return;
     }
     
@@ -98,10 +98,10 @@ export function useIncrementalTimeline({
       return;
     }
 
-    // Check if we have enough new content (5 new lines OR force)
+    // Check if we have enough new content (3 new lines OR force)
     const newLinesSinceLastUpdate = transcriptLines.length - lastProcessedLineCount;
-    if (!force && newLinesSinceLastUpdate < 5 && transcript.length <= lastProcessedLength) {
-      console.log(`❌ Timeline: Not enough new content (${newLinesSinceLastUpdate} new lines, need 5)`);
+    if (!force && newLinesSinceLastUpdate < 3 && transcript.length <= lastProcessedLength) {
+      console.log(`❌ Timeline: Not enough new content (${newLinesSinceLastUpdate} new lines, need 3)`);
       return;
     }
 

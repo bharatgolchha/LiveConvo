@@ -709,7 +709,7 @@ export default function App() {
     isRecording: conversationState === 'recording', // Auto-generate during recording
     // Preserve timeline data when session is completed
     isPaused: conversationState === 'paused' || conversationState === 'completed',
-    refreshIntervalMs: 15000, // 15 seconds for real-time timeline
+    refreshIntervalMs: 10000, // 10 seconds for real-time live notes
     session // Pass auth session for API calls
   });
 

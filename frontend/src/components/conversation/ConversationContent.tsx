@@ -1,11 +1,10 @@
 'use client';
 
-import React, { useRef } from 'react';
+import React from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { 
   FileText,
-  Clock3,
   RefreshCw,
   Download,
   Maximize2,
@@ -19,16 +18,19 @@ import {
   CheckSquare,
   ArrowRight,
   Brain,
-  Mic
+  Mic,
+  Plus,
+  Sparkles
 } from 'lucide-react';
 
 import { Button } from '@/components/ui/Button';
 import { cn } from '@/lib/utils';
 import { CompactTimeline } from '@/components/timeline/CompactTimeline';
-import { ConversationSummary } from '@/lib/useRealtimeSummary';
+import { ConversationSummary, SuggestedChecklistItem as SuggestedChecklistItemType } from '@/lib/useRealtimeSummary';
 import { TimelineEvent } from '@/lib/useIncrementalTimeline';
 import { ProcessingAnimation } from './ProcessingAnimation';
 import { ChecklistTab } from '@/components/checklist/ChecklistTab';
+import { toast } from 'sonner';
 
 interface TranscriptLine {
   id: string;
@@ -39,6 +41,126 @@ interface TranscriptLine {
 }
 
 type ConversationState = 'setup' | 'ready' | 'recording' | 'paused' | 'processing' | 'completed' | 'error';
+
+// Component for rendering individual suggested checklist items
+const SuggestedChecklistItem: React.FC<{
+  item: SuggestedChecklistItemType;
+  sessionId?: string;
+  authToken?: string;
+}> = ({ item, sessionId, authToken }) => {
+  const [isAdding, setIsAdding] = React.useState(false);
+  const [isAdded, setIsAdded] = React.useState(false);
+
+  const handleAddToChecklist = async () => {
+    if (!sessionId || !authToken || isAdded) return;
+
+    setIsAdding(true);
+    try {
+      const response = await fetch('/api/checklist', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${authToken}`
+        },
+        body: JSON.stringify({
+          sessionId,
+          text: item.text
+        })
+      });
+
+      if (response.ok) {
+        setIsAdded(true);
+        toast.success('Added to checklist', {
+          description: item.text
+        });
+      } else {
+        const errorData = await response.text();
+        console.error('Failed to add to checklist:', errorData);
+        toast.error('Failed to add to checklist');
+      }
+    } catch (error) {
+      console.error('Error adding to checklist:', error);
+      toast.error('Network error');
+    } finally {
+      setIsAdding(false);
+    }
+  };
+
+  const getPriorityColor = (priority: string) => {
+    switch (priority) {
+      case 'high': return 'text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-950/50 border-red-200 dark:border-red-800';
+      case 'medium': return 'text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/50 border-amber-200 dark:border-amber-800';
+      case 'low': return 'text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-950/50 border-green-200 dark:border-green-800';
+      default: return 'text-gray-600 dark:text-gray-400 bg-gray-50 dark:bg-gray-950/50 border-gray-200 dark:border-gray-800';
+    }
+  };
+
+  const getTypeIcon = (type: string) => {
+    switch (type) {
+      case 'action': return ArrowRight;
+      case 'followup': return MessageCircle;
+      case 'research': return Brain;
+      case 'decision': return CheckCircle;
+      case 'preparation': return FileText;
+      default: return CheckSquare;
+    }
+  };
+
+  const TypeIcon = getTypeIcon(item.type);
+
+  return (
+    <div className={cn(
+      "flex items-start gap-3 p-4 rounded-xl border transition-all",
+      getPriorityColor(item.priority),
+      isAdded && "opacity-60"
+    )}>
+      <div className="flex-shrink-0">
+        <TypeIcon className="w-5 h-5 mt-0.5" />
+      </div>
+      <div className="flex-1 min-w-0">
+        <p className={cn(
+          "text-sm leading-relaxed",
+          isAdded && "line-through"
+        )}>
+          {item.text}
+        </p>
+        <div className="flex items-center gap-4 mt-2">
+          <span className="text-xs opacity-75">
+            {item.type.charAt(0).toUpperCase() + item.type.slice(1)}
+          </span>
+          <span className="text-xs opacity-75">
+            {item.priority.charAt(0).toUpperCase() + item.priority.slice(1)} priority
+          </span>
+          {item.relevance && (
+            <span className="text-xs opacity-75">
+              {item.relevance}% relevant
+            </span>
+          )}
+        </div>
+      </div>
+      {sessionId && authToken && (
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={handleAddToChecklist}
+          disabled={isAdding || isAdded}
+          className={cn(
+            "flex-shrink-0",
+            isAdded && "text-green-600 dark:text-green-400"
+          )}
+        >
+          {isAdding ? (
+            <RefreshCw className="w-4 h-4 animate-spin" />
+          ) : isAdded ? (
+            <CheckCircle className="w-4 h-4" />
+          ) : (
+            <Plus className="w-4 h-4" />
+          )}
+        </Button>
+      )}
+    </div>
+  );
+};
 
 interface ConversationContentProps {
   // Tab state
@@ -102,7 +224,6 @@ export const ConversationContent: React.FC<ConversationContentProps> = ({
   sessionId,
   authToken
 }) => {
-  const transcriptEndRef = useRef<null | HTMLDivElement>(null);
   const [isRefreshing, setIsRefreshing] = React.useState(false);
   const [selectedTopic, setSelectedTopic] = React.useState<string | null>(null);
   const [topicSummary, setTopicSummary] = React.useState<string | null>(null);
@@ -236,8 +357,8 @@ export const ConversationContent: React.FC<ConversationContentProps> = ({
                       : "text-muted-foreground hover:text-foreground hover:bg-background/50"
                   )}
                 >
-                  <Clock3 className="w-4 h-4" />
-                  <span>Timeline</span>
+                  <FileText className="w-4 h-4" />
+                  <span>Live Notes</span>
                   {timeline && timeline.length > 0 && (
                     <span className={cn(
                       "px-1.5 py-0.5 rounded-full text-xs font-semibold",
@@ -548,6 +669,28 @@ export const ConversationContent: React.FC<ConversationContentProps> = ({
                     </div>
                   )}
 
+                  {/* Suggested Checklist Items */}
+                  {summary.suggestedChecklistItems && summary.suggestedChecklistItems.length > 0 && (
+                    <div className="p-6 bg-gradient-to-br from-amber-50 to-amber-100/50 dark:from-amber-950/30 dark:to-amber-900/20 border border-amber-200 dark:border-amber-800/50 rounded-2xl">
+                      <div className="flex items-center gap-3 mb-4">
+                        <div className="w-10 h-10 bg-amber-500/10 rounded-xl flex items-center justify-center">
+                          <Sparkles className="w-5 h-5 text-amber-600 dark:text-amber-400" />
+                        </div>
+                        <h3 className="text-lg font-semibold text-amber-900 dark:text-amber-100">Suggested Checklist Items</h3>
+                      </div>
+                      <div className="space-y-3">
+                        {summary.suggestedChecklistItems.map((item, index) => (
+                          <SuggestedChecklistItem
+                            key={index}
+                            item={item}
+                            sessionId={sessionId}
+                            authToken={authToken}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
                   {/* Summary Metadata */}
                   <div className="flex items-center justify-between py-6 px-6 bg-muted/30 rounded-2xl border border-border/50">
                     <div className="flex items-center gap-6 text-sm text-muted-foreground">
@@ -578,7 +721,7 @@ export const ConversationContent: React.FC<ConversationContentProps> = ({
           </div>
         )}
 
-        {/* Timeline Tab */}
+        {/* Live Notes Tab */}
         {activeTab === 'timeline' && !isSummarizing && (
           <div className="h-full max-h-full flex flex-col overflow-hidden bg-gradient-to-br from-background via-muted/10 to-muted/20">
             <CompactTimeline
@@ -587,6 +730,8 @@ export const ConversationContent: React.FC<ConversationContentProps> = ({
               error={timelineError}
               lastUpdated={timelineLastUpdated}
               onRefresh={refreshTimeline}
+              sessionId={sessionId}
+              authToken={authToken}
             />
           </div>
         )}
