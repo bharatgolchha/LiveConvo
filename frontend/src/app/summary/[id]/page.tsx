@@ -133,7 +133,35 @@ export default function SummaryPage() {
       // Check if there's a final summary in the database
       let finalSummary = null;
       let enhancedData = null;
-      if (sessionDataResponse.summaries && sessionDataResponse.summaries.length > 0) {
+      
+      // First check for realtime_summary_cache (used during conversation)
+      if (sessionDataResponse.realtime_summary_cache) {
+        try {
+          const cachedSummary = typeof sessionDataResponse.realtime_summary_cache === 'string' 
+            ? JSON.parse(sessionDataResponse.realtime_summary_cache)
+            : sessionDataResponse.realtime_summary_cache;
+          
+          console.log('💾 Loaded realtime summary cache:', {
+            hasTldr: !!cachedSummary.tldr,
+            keyPointsCount: cachedSummary.keyPoints?.length || 0,
+            decisionsCount: cachedSummary.decisions?.length || 0
+          });
+          
+          // Transform to match expected format
+          finalSummary = {
+            tldr: cachedSummary.tldr,
+            conversation_highlights: cachedSummary.keyPoints || [],
+            key_decisions: cachedSummary.decisions || [],
+            action_items: cachedSummary.actionItems || [],
+            follow_up_questions: cachedSummary.nextSteps || []
+          };
+        } catch (e) {
+          console.error('Failed to parse realtime_summary_cache:', e);
+        }
+      }
+      
+      // If no realtime cache, check for finalized summaries
+      if (!finalSummary && sessionDataResponse.summaries && sessionDataResponse.summaries.length > 0) {
         // Use the most recent summary
         finalSummary = sessionDataResponse.summaries[sessionDataResponse.summaries.length - 1];
         

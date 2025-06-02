@@ -144,6 +144,17 @@ export async function PATCH(
       }
     }
 
+    // Log summary cache updates for debugging
+    if (updateData.realtime_summary_cache) {
+      console.log('💾 Updating realtime_summary_cache:', {
+        sessionId,
+        hasSummary: !!updateData.realtime_summary_cache,
+        tldrLength: updateData.realtime_summary_cache?.tldr?.length,
+        keyPointsCount: updateData.realtime_summary_cache?.keyPoints?.length,
+        decisionsCount: updateData.realtime_summary_cache?.decisions?.length
+      });
+    }
+
     // Add updated timestamp
     updateData.updated_at = new Date().toISOString();
 

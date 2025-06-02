@@ -78,6 +78,16 @@ export const saveSummaryToDatabase = async (
   session: any
 ): Promise<void> => {
   try {
+    console.log('💾 Saving summary to database:', {
+      sessionId,
+      hasSummary: !!summary,
+      tldrLength: summary?.tldr?.length,
+      keyPointsCount: summary?.keyPoints?.length,
+      decisionsCount: summary?.decisions?.length,
+      hasTimeline: !!summary?.timeline,
+      timelineLength: summary?.timeline?.length
+    });
+
     const response = await authenticatedFetch(`/api/sessions/${sessionId}`, session, {
       method: 'PATCH',
       body: JSON.stringify({
@@ -86,7 +96,10 @@ export const saveSummaryToDatabase = async (
     });
 
     if (!response.ok) {
-      console.error('Failed to save summary cache:', await response.text());
+      const errorText = await response.text();
+      console.error('Failed to save summary cache:', errorText);
+    } else {
+      console.log('✅ Summary saved successfully to database');
     }
   } catch (error) {
     console.error('Error saving summary to database:', error);
