@@ -2122,43 +2122,50 @@ export default function App() {
     const forceGenerationOnLoad = async () => {
       // Get the current values directly inside the effect to avoid dependency issues
       const currentTranscriptLength = transcript.length;
-      const currentTranscriptWords = transcript.map(t => `${t.speaker}: ${t.text}`).join('\n').trim().split(' ').length;
-      
+      const currentTranscriptWords = transcript
+        .map(t => `${t.speaker}: ${t.text}`)
+        .join('\n')
+        .trim()
+        .split(' ').length;
+
+      const hasCachedSummary = !!loadedSummary;
+      const hasCachedTimeline = timeline.length > 0;
+
       // Only force generation if we have a substantial transcript loaded from database
       // and we're not currently recording (meaning this is restored data)
       // and we haven't already triggered forced generation
-      // and we have actually loaded existing summary/timeline data (indicating this is a resumed session)
-      if (currentTranscriptLength > 10 && 
-          currentTranscriptWords > 50 && 
-          conversationState !== 'recording' && 
-          conversationState !== 'setup' &&
-          conversationId &&
-          session &&
-          !authLoading &&
-          !hasTriggeredForcedGeneration.current &&
-          loadedSummary) { // Only force if we have pre-existing data
-        
+      // and we don't already have both summary and timeline cached
+      if (
+        currentTranscriptLength > 10 &&
+        currentTranscriptWords > 50 &&
+        conversationState !== 'recording' &&
+        conversationState !== 'setup' &&
+        conversationId &&
+        session &&
+        !authLoading &&
+        !hasTriggeredForcedGeneration.current &&
+        (!hasCachedSummary || !hasCachedTimeline)
+      ) {
         console.log('🚀 Forcing summary and timeline generation for loaded transcript:', {
           transcriptLines: currentTranscriptLength,
           transcriptWords: currentTranscriptWords,
           conversationState,
-          hasLoadedSummary: !!loadedSummary,
-          hasLoadedTimeline: timeline.length > 0
+          hasCachedSummary,
+          hasCachedTimeline
         });
-        
+
         // Set flag to prevent repeated execution
         hasTriggeredForcedGeneration.current = true;
-        
+
         // Stagger the force calls to prevent simultaneous API requests
-        // Only force if we don't already have fresh data
-        if (loadedSummary && (!summary || summary.tldr === 'Not enough conversation content to generate a meaningful summary yet.')) {
+        if (!hasCachedSummary && (!summary || summary.tldr === 'Not enough conversation content to generate a meaningful summary yet.')) {
           setTimeout(() => {
             console.log('🔄 Force-refreshing summary for resumed session');
             latestRefreshSummary.current();
           }, 1500);
         }
-        
-        if (timeline.length === 0) {
+
+        if (!hasCachedTimeline && timeline.length === 0) {
           setTimeout(() => {
             console.log('🔄 Force-refreshing timeline for resumed session');
             latestRefreshTimeline.current();
@@ -2173,7 +2180,16 @@ export default function App() {
     };
 
     forceGenerationOnLoad();
-  }, [transcript.length, conversationState, conversationId, session, authLoading, loadedSummary, summary, timeline.length]);
+  }, [
+    transcript.length,
+    conversationState,
+    conversationId,
+    session,
+    authLoading,
+    loadedSummary,
+    summary,
+    timeline.length
+  ]);
 
   // Reset the forced generation flag when conversation changes or when starting a new recording
   useEffect(() => {
