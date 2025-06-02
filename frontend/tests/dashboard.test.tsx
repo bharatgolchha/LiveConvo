@@ -34,7 +34,7 @@ describe('Dashboard Page', () => {
     render(<DashboardPage />);
     
     expect(screen.getByText('Welcome back, John Doe!')).toBeInTheDocument();
-    expect(screen.getByText('LiveConvo')).toBeInTheDocument();
+    expect(screen.getByText('liveprompt.ai')).toBeInTheDocument();
   });
 
   test('displays session cards with correct information', () => {

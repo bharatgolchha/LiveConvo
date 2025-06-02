@@ -7,6 +7,10 @@ const openrouterApiKey = process.env.OPENROUTER_API_KEY;
 interface FinalSummaryRequest {
   conversationType?: string;
   conversationTitle?: string;
+  textContext?: string;
+  uploadedFiles?: Array<{ name: string; type: string; size: number }>;
+  selectedPreviousConversations?: string[];
+  personalContext?: string;
 }
 
 export async function POST(
@@ -15,7 +19,7 @@ export async function POST(
 ) {
   try {
     const sessionId = params.id;
-    const { textContext, conversationType, conversationTitle } = await request.json();
+    const { textContext, conversationType, conversationTitle, uploadedFiles, selectedPreviousConversations, personalContext } = await request.json();
 
     if (!openrouterApiKey) {
       return NextResponse.json(
@@ -88,9 +92,10 @@ export async function POST(
       conversationTitle
     });
 
-    // Generate summary and finalization
-    const summary = await generateFinalSummary(transcriptText, conversationType);
-    const finalData = await generateFinalizationData(transcriptText, textContext, conversationType, summary);
+    // Generate summary and finalization with full context
+    const fullContext = buildFullContext(textContext, personalContext, uploadedFiles, selectedPreviousConversations);
+    const summary = await generateFinalSummary(transcriptText, conversationType, fullContext);
+    const finalData = await generateFinalizationData(transcriptText, fullContext, conversationType, summary);
 
     console.log('🤖 AI Summary generated:', {
       hasTldr: !!summary.tldr,
@@ -192,7 +197,38 @@ export async function POST(
   }
 }
 
-async function generateFinalSummary(transcript: string, conversationType?: string) {
+// Helper function to build full context
+function buildFullContext(textContext?: string, personalContext?: string, uploadedFiles?: Array<{ name: string; type: string; size: number }>, selectedPreviousConversations?: string[]): string {
+  let fullContext = '';
+  
+  // Add personal context from user settings
+  if (personalContext && personalContext.trim()) {
+    fullContext += `USER'S PERSONAL CONTEXT:\n${personalContext}\n\n`;
+  }
+  
+  // Add setup context
+  if (textContext && textContext.trim()) {
+    fullContext += `SESSION CONTEXT AND NOTES:\n${textContext}\n\n`;
+  }
+  
+  // Add uploaded files info
+  if (uploadedFiles && uploadedFiles.length > 0) {
+    fullContext += `UPLOADED CONTEXT FILES:\n`;
+    uploadedFiles.forEach(file => {
+      fullContext += `- ${file.name} (${file.type})\n`;
+    });
+    fullContext += `\n`;
+  }
+  
+  // Note about previous conversations
+  if (selectedPreviousConversations && selectedPreviousConversations.length > 0) {
+    fullContext += `NOTE: This conversation has ${selectedPreviousConversations.length} previous related conversations that provide additional context.\n\n`;
+  }
+  
+  return fullContext || 'No additional context provided.';
+}
+
+async function generateFinalSummary(transcript: string, conversationType?: string, fullContext?: string) {
   const typeSpecificPrompts = {
     sales: `Pay special attention to:
 - Customer pain points and needs identified
@@ -313,7 +349,7 @@ Return a JSON object with this EXACT structure:
       'Authorization': `Bearer ${openrouterApiKey}`,
       'Content-Type': 'application/json',
       'HTTP-Referer': 'https://liveconvo.app',
-      'X-Title': 'LiveConvo Session Summary',
+      'X-Title': 'liveprompt.ai Session Summary',
     },
     body: JSON.stringify({
       model: 'google/gemini-2.5-flash-preview-05-20',
@@ -324,11 +360,19 @@ Return a JSON object with this EXACT structure:
         },
         {
           role: 'user',
-          content: `Analyze this ${conversationType || 'business'} conversation and provide specific, actionable insights:
+          content: `Analyze this ${conversationType || 'business'} conversation and provide specific, actionable insights.
 
+CONTEXT AND BACKGROUND:
+${fullContext || 'No additional context provided.'}
+
+CONVERSATION TRANSCRIPT:
 ${transcript}
 
-Remember: Be specific, reference actual content, and provide value beyond generic observations.`
+Remember: 
+- Be specific, reference actual content, and provide value beyond generic observations
+- Use the provided context to understand the background and continuity
+- If previous conversations are mentioned, consider follow-up on past action items or decisions
+- Take into account any personal context or notes provided`
         }
       ],
       temperature: 0.3,
@@ -424,7 +468,7 @@ Return a JSON object with this structure:
       'Authorization': `Bearer ${openrouterApiKey}`,
       'Content-Type': 'application/json',
       'HTTP-Referer': 'https://liveconvo.app',
-      'X-Title': 'LiveConvo Conversation Analysis',
+      'X-Title': 'liveprompt.ai Conversation Analysis',
     },
     body: JSON.stringify({
       model: 'google/gemini-2.5-flash-preview-05-20',

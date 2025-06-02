@@ -1,11 +1,11 @@
 /**
- * Configuration settings for LiveConvo
+ * Configuration settings for liveprompt.ai
  */
 
 export const config = {
   // App Configuration
   app: {
-    name: 'LiveConvo',
+    name: 'liveprompt.ai',
     version: '1.0.0',
     environment: process.env.NODE_ENV || 'development',
     apiUrl: process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'

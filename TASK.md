@@ -1,4 +1,4 @@
-# LiveConvo - Task Tracker
+# liveprompt.ai - Task Tracker
 
 ## 📋 Current Sprint Tasks
 
@@ -33,7 +33,7 @@
   - **Feature**: Configure Model Context Protocol to allow AI tools (Cursor, Claude, etc.) to interact directly with Supabase database
   - **Benefits**: 
     - Eliminate manual database context feeding to AI assistants
-    - Enable automatic access to LiveConvo database schema and data
+    - Enable automatic access to liveprompt.ai database schema and data
     - Streamline development workflow with AI-powered database queries
     - Allow AI tools to understand database structure and relationships
   - **Implementation Requirements**:
@@ -46,7 +46,7 @@
   - **Technical Details**:
     - ✅ Use `@supabase/mcp-server-supabase@latest` NPM package
     - ✅ Configure authentication with PAT for secure access
-    - ✅ Enable AI tools to query LiveConvo database schema, sessions, transcripts, usage tracking, etc.
+    - ✅ Enable AI tools to query liveprompt.ai database schema, sessions, transcripts, usage tracking, etc.
     - ✅ Maintain security best practices for database access (gitignore, token management)
     - ✅ Support multiple AI tools (Cursor, VS Code, Claude Desktop)
   - **Files Created**:

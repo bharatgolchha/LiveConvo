@@ -22,6 +22,7 @@ import {
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { ThemeToggle } from '@/components/ui/ThemeToggle';
+import { useTheme } from '@/contexts/ThemeContext';
 import ProtectedRoute from '@/components/auth/ProtectedRoute';
 import { OnboardingModal } from '@/components/auth/OnboardingModal';
 import { useAuth } from '@/contexts/AuthContext';
@@ -55,6 +56,7 @@ const DashboardHeader: React.FC<{ user: User; onSearch: (query: string) => void 
   const [searchQuery, setSearchQuery] = useState('');
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const { signOut } = useAuth();
+  const { theme } = useTheme();
 
   const handleLogout = async () => {
     const { error } = await signOut();
@@ -89,10 +91,14 @@ const DashboardHeader: React.FC<{ user: User; onSearch: (query: string) => void 
         {/* Logo and Title */}
         <div className="flex items-center space-x-4">
           <div className="flex items-center space-x-2">
-            <div className="w-8 h-8 bg-gradient-to-r from-app-primary to-app-primary-dark rounded-lg flex items-center justify-center">
-              <MicrophoneIcon className="w-5 h-5 text-white" />
-            </div>
-            <h1 className="text-xl font-bold text-foreground">LiveConvo</h1>
+            <img 
+              src={theme === 'dark' 
+                ? "https://ucvfgfbjcrxbzppwjpuu.supabase.co/storage/v1/object/public/images//dark.png"
+                : "https://ucvfgfbjcrxbzppwjpuu.supabase.co/storage/v1/object/public/images//light.png"
+              }
+              alt="liveprompt.ai"
+              className="w-8 h-8 object-contain"
+            />
           </div>
         </div>
 
@@ -1226,6 +1232,7 @@ const ContextUploadWidget: React.FC<{
 // Main Dashboard Component
 const DashboardPage: React.FC = () => {
   const { user } = useAuth();
+  const { theme } = useTheme();
   const router = useRouter();
   const [activePath, setActivePath] = useState('conversations');
   const [showNewConversationModal, setShowNewConversationModal] = useState(false);

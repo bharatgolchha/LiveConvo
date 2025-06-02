@@ -68,7 +68,7 @@ export async function POST(request: NextRequest) {
         'Authorization': `Bearer ${apiKey}`,
         'Content-Type': 'application/json',
         'HTTP-Referer': 'https://liveconvo.app',
-        'X-Title': 'LiveConvo Topic Summary'
+        'X-Title': 'liveprompt.ai Topic Summary'
       },
       body: JSON.stringify({
         model: 'google/gemini-2.5-flash-preview-05-20',

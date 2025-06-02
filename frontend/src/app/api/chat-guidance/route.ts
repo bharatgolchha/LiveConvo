@@ -87,7 +87,7 @@ export async function POST(request: NextRequest) {
         'Authorization': `Bearer ${apiKey}`,
         'Content-Type': 'application/json',
         'HTTP-Referer': 'https://liveconvo.app', // Optional: for app identification
-        'X-Title': 'LiveConvo AI Coach', // Optional: for app identification
+        'X-Title': 'liveprompt.ai AI Coach', // Optional: for app identification
       },
       body: JSON.stringify({
         model: 'google/gemini-2.5-flash-preview-05-20',
@@ -221,7 +221,15 @@ CONTEXT AWARENESS:
 - Reference specific conversation events from timeline when relevant
 - Use conversation summary to understand current state
 - Consider uploaded files and previous conversations
-- Tailor advice to the specific conversation type and situation`;
+- Tailor advice to the specific conversation type and situation
+
+PREVIOUS CONVERSATION CONTEXT:
+- When previous conversations are provided, actively reference them
+- Look for patterns across conversations (recurring themes, unresolved issues)
+- Follow up on action items from previous sessions
+- Address any unanswered questions from past conversations
+- Build on decisions and agreements made in earlier discussions
+- Provide continuity by acknowledging past interactions and progress`;
 }
 
 function buildChatPrompt(message: string, transcript: string, chatHistory: ChatMessage[], conversationType?: string, conversationTitle?: string, textContext?: string, summary?: any, timeline?: any[], uploadedFiles?: Array<{ name: string; type: string; size: number }>, selectedPreviousConversations?: string[], personalContext?: string): string {
@@ -257,7 +265,13 @@ function buildChatPrompt(message: string, transcript: string, chatHistory: ChatM
   
   // Previous conversations context
   if (selectedPreviousConversations && selectedPreviousConversations.length > 0) {
-    prompt += `RELATED PREVIOUS CONVERSATIONS: ${selectedPreviousConversations.length} conversations selected for context\n\n`;
+    prompt += `RELATED PREVIOUS CONVERSATIONS: ${selectedPreviousConversations.length} conversations selected for context\n`;
+    prompt += `Note: These previous conversations contain important context including:\n`;
+    prompt += `- Key decisions that were made\n`;
+    prompt += `- Action items that may need follow-up\n`;
+    prompt += `- Unresolved questions to address\n`;
+    prompt += `- Important highlights and insights\n`;
+    prompt += `Use this historical context to provide continuity in your guidance.\n\n`;
   }
   
   // Current conversation summary

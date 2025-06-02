@@ -31,7 +31,7 @@ INSERT INTO plans (
 (
     'individual_free',
     'Starter',
-    'Perfect for trying out LiveConvo',
+    'Perfect for trying out liveprompt.ai',
     'individual',
     0,
     0,

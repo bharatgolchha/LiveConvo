@@ -166,7 +166,7 @@ export const AudioCapture: React.FC<AudioCaptureProps> = ({
         <MicOff className="w-8 h-8 text-red-500 mx-auto mb-2" />
         <h3 className="font-medium text-red-800 mb-1">Microphone Access Required</h3>
         <p className="text-sm text-red-600">
-          Please allow microphone access to use LiveConvo
+          Please allow microphone access to use liveprompt.ai
         </p>
       </div>
     );

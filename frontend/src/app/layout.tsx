@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Geist, Geist_Mono, Poppins } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { ThemeProvider } from "@/contexts/ThemeContext";
@@ -16,8 +16,14 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+const poppins = Poppins({
+  variable: "--font-poppins",
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
+});
+
 export const metadata: Metadata = {
-  title: "LiveConvo - Real-time Conversation Intelligence",
+  title: "liveprompt.ai - Real-time Conversation Intelligence",
   description: "Transform your conversations with AI-powered real-time guidance and intelligent summaries",
 };
 
@@ -29,9 +35,9 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+        className={`${geistSans.variable} ${geistMono.variable} ${poppins.variable} antialiased`}
       >
-        <ThemeProvider defaultTheme="system" storageKey="liveconvo-theme">
+        <ThemeProvider defaultTheme="system" storageKey="liveprompt-theme">
           <AuthProvider>
             {children}
             <Toaster 

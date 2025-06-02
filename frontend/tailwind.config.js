@@ -49,7 +49,7 @@ module.exports = {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
         },
-        // LiveConvo Application Colors
+        // liveprompt.ai Application Colors
         app: {
           primary: "hsl(var(--app-primary))",
           'primary-dark': "hsl(var(--app-primary-dark))",

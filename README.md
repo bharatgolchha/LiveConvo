@@ -1,6 +1,6 @@
-# LiveConvo - AI-Powered Real-Time Conversation Coach
+# liveprompt.ai - AI-Powered Real-Time Conversation Coach
 
-LiveConvo is an advanced AI conversation coaching platform that provides real-time guidance during live conversations. Whether you're in a sales call, interview, support session, or meeting, LiveConvo helps you communicate more effectively with AI-powered suggestions and analysis.
+liveprompt.ai is an advanced AI conversation coaching platform that provides real-time guidance during live conversations. Whether you're in a sales call, interview, support session, or meeting, liveprompt.ai helps you communicate more effectively with AI-powered suggestions and analysis.
 
 ## 🚀 Features
 
@@ -35,7 +35,7 @@ LiveConvo is an advanced AI conversation coaching platform that provides real-ti
 
 ```bash
 git clone <repository-url>
-cd LiveConvo/frontend
+cd liveprompt.ai/frontend
 npm install
 ```
 
@@ -78,13 +78,13 @@ SUPABASE_SERVICE_ROLE_KEY=your_supabase_service_role_key
 npm run dev
 ```
 
-Visit `http://localhost:3000` to start using LiveConvo!
+Visit `http://localhost:3000` to start using liveprompt.ai!
 
 ## 🔧 Configuration Options
 
 ### AI Models
 
-LiveConvo uses OpenRouter API with the following models:
+liveprompt.ai uses OpenRouter API with the following models:
 - **Chat Guidance**: `google/gemini-2.5-flash-preview-05-20` (interactive coaching)
 - **Auto Guidance**: `google/gemini-2.5-flash-preview-05-20` (real-time analysis)
 - **Summaries**: `google/gemini-2.5-flash-preview-05-20` (conversation summaries)
@@ -151,11 +151,11 @@ npm run format
 
 ## 🤖 AI Development with MCP
 
-LiveConvo supports the Model Context Protocol (MCP) for connecting AI tools directly to your Supabase database. This enables:
+liveprompt.ai supports the Model Context Protocol (MCP) for connecting AI tools directly to your Supabase database. This enables:
 
 - **Automatic Database Context**: AI assistants can query your schema and data directly
 - **Enhanced Development**: Get intelligent suggestions based on your actual database structure
-- **Smart Analytics**: Generate insights from your LiveConvo data without manual queries
+- **Smart Analytics**: Generate insights from your liveprompt.ai data without manual queries
 
 ### Quick MCP Setup
 
@@ -169,7 +169,7 @@ LiveConvo supports the Model Context Protocol (MCP) for connecting AI tools dire
    - **Claude**: Copy `claude-mcp-config.json` to Claude settings
 
 3. **Test Connection**
-   - Ask your AI: *"What tables do I have in my LiveConvo database?"*
+   - Ask your AI: *"What tables do I have in my liveprompt.ai database?"*
    - Follow the test guide in `test-mcp-connection.md`
 
 For detailed setup instructions, see **[SUPABASE_MCP_SETUP.md](SUPABASE_MCP_SETUP.md)**.

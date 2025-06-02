@@ -39,7 +39,7 @@ export async function POST(request: NextRequest) {
         'Authorization': `Bearer ${process.env.OPENROUTER_API_KEY}`,
         'Content-Type': 'application/json',
         'HTTP-Referer': process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000',
-        'X-Title': 'LiveConvo AI Checklist Generator'
+        'X-Title': 'liveprompt.ai AI Checklist Generator'
       },
       body: JSON.stringify({
         model: 'google/gemini-2.5-flash-preview-05-20',

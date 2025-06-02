@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/Card"
 import { Alert } from "@/components/ui/alert"
 import { useAuth } from '@/contexts/AuthContext'
+import { useTheme } from '@/contexts/ThemeContext'
 import { Eye, EyeOff, Mail, Lock, Chrome, Mic, Loader2 } from 'lucide-react'
 import { motion } from 'framer-motion'
 
@@ -19,6 +20,7 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const { signIn, signInWithGoogle, user } = useAuth()
+  const { theme } = useTheme()
   const router = useRouter()
 
   // Redirect if already logged in
@@ -76,12 +78,12 @@ export default function LoginPage() {
           >
             {/* Logo */}
             <div className="flex items-center justify-center gap-3 mb-4">
-              <div className="w-12 h-12 rounded-xl flex items-center justify-center shadow-lg" style={{ background: 'linear-gradient(to bottom right, #3b82f6, #8b5cf6)' }}>
-                <Mic className="w-7 h-7" style={{ color: '#ffffff' }} />
-              </div>
-              <h1 className="text-4xl font-bold" style={{ color: '#ffffff' }}>
-                Live<span style={{ color: '#60a5fa' }}>Convo</span>
-              </h1>
+              <img 
+                src="https://ucvfgfbjcrxbzppwjpuu.supabase.co/storage/v1/object/public/images//dark.png"
+                alt="liveprompt.ai logo"
+                className="w-12 h-12 object-contain"
+              />
+              <h1 className="text-4xl font-bold" style={{ fontFamily: 'var(--font-poppins)', color: '#ffffff' }}>liveprompt.ai</h1>
             </div>
             <p className="text-lg" style={{ color: '#9ca3af' }}>Welcome back to your AI conversation coach</p>
           </motion.div>
