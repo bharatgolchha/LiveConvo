@@ -123,7 +123,7 @@ Focus on extracting concrete, actionable information. Return only valid JSON.`;
         'Authorization': `Bearer ${apiKey}`,
         'Content-Type': 'application/json',
         'HTTP-Referer': 'https://liveconvo.app', // Optional: for app identification
-        'X-Title': 'LiveConvo Summary', // Optional: for app identification
+        'X-Title': 'liveprompt.ai Summary', // Optional: for app identification
       },
       body: JSON.stringify({
         model: 'google/gemini-2.5-flash-preview-05-20',

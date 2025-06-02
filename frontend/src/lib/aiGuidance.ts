@@ -1,7 +1,7 @@
 import { config } from './config';
 
 /**
- * AI Guidance Engine for LiveConvo
+ * AI Guidance Engine for liveprompt.ai
  * 
  * Analyzes live conversation transcripts and provides real-time guidance
  * suggestions based on uploaded context and conversation flow.

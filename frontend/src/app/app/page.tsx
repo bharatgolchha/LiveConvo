@@ -566,6 +566,7 @@ export default function App() {
   const [previousConversationSearch, setPreviousConversationSearch] = useState('');
   const [aiCoachWidth, setAiCoachWidth] = useState(400); // Default AI Coach sidebar width
   const [showTranscriptModal, setShowTranscriptModal] = useState(false);
+  const [previousConversationsContext, setPreviousConversationsContext] = useState<string>('');
 
   const transcriptEndRef = useRef<null | HTMLDivElement>(null);
 
@@ -741,8 +742,8 @@ export default function App() {
     transcript: fullTranscriptText,
     conversationType,
     sessionId: conversationId || undefined,
-    // Enhanced context
-    textContext,
+    // Enhanced context - combine user's setup context with previous conversation summaries
+    textContext: textContext + (previousConversationsContext ? '\n\n=== PREVIOUS CONVERSATIONS CONTEXT ===\n' + previousConversationsContext : ''),
     conversationTitle,
     summary: effectiveSummary || undefined,
     timeline: effectiveTimeline || undefined,
@@ -1238,6 +1239,8 @@ export default function App() {
           .slice(0, 3);
         
         // Clear previous conversation context first
+        let combinedPreviousContext = '';
+        
         selectedSessions.forEach(sessionItem => {
           addContext({
             id: `previous_${sessionItem.id}`,
@@ -1272,26 +1275,16 @@ export default function App() {
                   contextContent += `TL;DR: ${latestSummary.tldr}\n\n`;
                 }
                 
-                if (latestSummary.key_points && Array.isArray(latestSummary.key_points) && latestSummary.key_points.length > 0) {
-                  contextContent += `KEY POINTS:\n`;
-                  latestSummary.key_points.forEach((point: string, idx: number) => {
-                    contextContent += `${idx + 1}. ${point}\n`;
-                  });
-                  contextContent += `\n`;
-                }
-                
-                if (latestSummary.topics && Array.isArray(latestSummary.topics) && latestSummary.topics.length > 0) {
-                  contextContent += `TOPICS DISCUSSED: ${latestSummary.topics.join(', ')}\n\n`;
-                }
-                
-                if (latestSummary.decisions && Array.isArray(latestSummary.decisions) && latestSummary.decisions.length > 0) {
-                  contextContent += `DECISIONS MADE:\n`;
-                  latestSummary.decisions.forEach((decision: string, idx: number) => {
+                // Key decisions from the conversation
+                if (latestSummary.key_decisions && Array.isArray(latestSummary.key_decisions) && latestSummary.key_decisions.length > 0) {
+                  contextContent += `KEY DECISIONS MADE:\n`;
+                  latestSummary.key_decisions.forEach((decision: string, idx: number) => {
                     contextContent += `${idx + 1}. ${decision}\n`;
                   });
                   contextContent += `\n`;
                 }
                 
+                // Action items that need to be completed
                 if (latestSummary.action_items && Array.isArray(latestSummary.action_items) && latestSummary.action_items.length > 0) {
                   contextContent += `ACTION ITEMS:\n`;
                   latestSummary.action_items.forEach((item: string, idx: number) => {
@@ -1300,29 +1293,39 @@ export default function App() {
                   contextContent += `\n`;
                 }
                 
-                if (latestSummary.next_steps && Array.isArray(latestSummary.next_steps) && latestSummary.next_steps.length > 0) {
-                  contextContent += `NEXT STEPS:\n`;
-                  latestSummary.next_steps.forEach((step: string, idx: number) => {
-                    contextContent += `${idx + 1}. ${step}\n`;
+                // Follow-up questions that should be addressed
+                if (latestSummary.follow_up_questions && Array.isArray(latestSummary.follow_up_questions) && latestSummary.follow_up_questions.length > 0) {
+                  contextContent += `FOLLOW-UP QUESTIONS TO ADDRESS:\n`;
+                  latestSummary.follow_up_questions.forEach((question: string, idx: number) => {
+                    contextContent += `${idx + 1}. ${question}\n`;
                   });
                   contextContent += `\n`;
                 }
                 
-                if (latestSummary.sentiment) {
-                  contextContent += `SENTIMENT: ${latestSummary.sentiment}\n`;
+                // Conversation highlights - key moments or insights
+                if (latestSummary.conversation_highlights && Array.isArray(latestSummary.conversation_highlights) && latestSummary.conversation_highlights.length > 0) {
+                  contextContent += `CONVERSATION HIGHLIGHTS:\n`;
+                  latestSummary.conversation_highlights.forEach((highlight: string, idx: number) => {
+                    contextContent += `${idx + 1}. ${highlight}\n`;
+                  });
+                  contextContent += `\n`;
                 }
                 
-                if (latestSummary.progress_status) {
-                  contextContent += `PROGRESS STATUS: ${latestSummary.progress_status}\n`;
+                // Structured notes if available
+                if (latestSummary.structured_notes) {
+                  contextContent += `STRUCTURED NOTES:\n${latestSummary.structured_notes}\n\n`;
                 }
                 
-                contextContent += `\n=== END SUMMARY ===\n\n`;
+                contextContent += `=== END SUMMARY ===\n\n`;
               } else if (detailedSession.transcripts && detailedSession.transcripts.length > 0) {
                 contextContent += `Transcript available but no summary generated yet.\n`;
                 contextContent += `Total transcript lines: ${detailedSession.transcripts.length}\n\n`;
               }
               
               contextContent += `This previous conversation context helps provide continuity and relevant background for the current conversation.`;
+
+              // Add to combined context for chat guidance
+              combinedPreviousContext += contextContent + '\n\n';
 
               // Update the context with detailed summary information
               addContext({
@@ -1347,6 +1350,12 @@ export default function App() {
             });
           }
         }
+        
+        // Update the state with combined previous conversation context
+        setPreviousConversationsContext(combinedPreviousContext);
+      } else if (selectedPreviousConversations.length === 0) {
+        // Clear the context when no conversations are selected
+        setPreviousConversationsContext('');
       }
     };
 
@@ -1844,9 +1853,12 @@ export default function App() {
           const response = await authenticatedFetch(`/api/sessions/${conversationId}/finalize`, session, {
             method: 'POST',
             body: JSON.stringify({
-              textContext,
+              textContext: textContext + (previousConversationsContext ? '\n\n=== PREVIOUS CONVERSATIONS CONTEXT ===\n' + previousConversationsContext : ''),
               conversationType,
-              conversationTitle
+              conversationTitle,
+              uploadedFiles: uploadedFiles.map(f => ({ name: f.name, type: f.type, size: f.size })),
+              selectedPreviousConversations,
+              personalContext
             })
           });
 
@@ -2344,7 +2356,8 @@ export default function App() {
               selectedPreviousConversations,
               previousConversationTitles: sessions
                 .filter(session => selectedPreviousConversations.includes(session.id))
-                .map(session => session.title || 'Untitled')
+                .map(session => session.title || 'Untitled'),
+              personalContext
             }}
             transcriptLength={transcript.length}
             conversationState={conversationState}

@@ -2,13 +2,13 @@
 
 ## Overview
 
-This guide shows you how to connect your LiveConvo Supabase database to AI tools like Cursor IDE using the Model Context Protocol (MCP). With MCP configured, your AI assistant can automatically access and query your database without manual context feeding.
+This guide shows you how to connect your liveprompt.ai Supabase database to AI tools like Cursor IDE using the Model Context Protocol (MCP). With MCP configured, your AI assistant can automatically access and query your database without manual context feeding.
 
 ## What is MCP?
 
 The Model Context Protocol (MCP) is a standard for connecting Large Language Models (LLMs) to external data sources like databases. Think of it as a "universal adapter" that allows AI tools to securely access your Supabase database and understand your schema, tables, and data.
 
-### Benefits for LiveConvo:
+### Benefits for liveprompt.ai:
 - 🔄 **Automatic Context**: AI can access sessions, transcripts, users, and usage data automatically
 - 🚀 **Enhanced Development**: Get intelligent suggestions based on your actual database schema
 - 📊 **Smart Queries**: AI can write complex SQL queries for analytics and insights
@@ -18,12 +18,12 @@ The Model Context Protocol (MCP) is a standard for connecting Large Language Mod
 
 1. **Go to Supabase Dashboard**
    - Visit [supabase.com/dashboard](https://supabase.com/dashboard)
-   - Select your LiveConvo project (`ucvfgfbjcrxbzppwjpuu`)
+   - Select your liveprompt.ai project (`ucvfgfbjcrxbzppwjpuu`)
 
 2. **Create Personal Access Token**
    - Navigate to **Settings** → **Access Tokens**
    - Click **Generate new token**
-   - Name: `LiveConvo-MCP-Server`
+   - Name: `liveprompt-ai-MCP-Server`
    - Scopes: Select **All** or at minimum:
      - `projects:read`
      - `schemas:read`

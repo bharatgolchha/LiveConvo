@@ -42,7 +42,7 @@ export async function POST(request: NextRequest) {
         'Authorization': `Bearer ${apiKey}`,
         'Content-Type': 'application/json',
         'HTTP-Referer': 'https://liveconvo.app', // Optional: for app identification
-        'X-Title': 'LiveConvo AI Guidance', // Optional: for app identification
+        'X-Title': 'liveprompt.ai AI Guidance', // Optional: for app identification
       },
       body: JSON.stringify({
         model: 'google/gemini-2.5-flash-preview-05-20',

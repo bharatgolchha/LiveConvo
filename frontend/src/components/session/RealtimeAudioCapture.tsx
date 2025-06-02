@@ -495,7 +495,7 @@ const requestAllPermissions = async () => {
         </div>
         <h3 className="font-medium text-blue-800 mb-2">Grant All Audio Permissions</h3>
         <p className="text-sm text-blue-700 mb-4">
-          LiveConvo needs access to <strong>both</strong> your screen audio and microphone to capture complete conversations.
+          liveprompt.ai needs access to <strong>both</strong> your screen audio and microphone to capture complete conversations.
         </p>
         <div className="space-y-2 text-xs text-blue-600 mb-4">
           <div className="flex items-center justify-center gap-2">

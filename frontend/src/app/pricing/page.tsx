@@ -8,6 +8,7 @@ import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/badge';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '@/contexts/AuthContext';
+import { useTheme } from '@/contexts/ThemeContext';
 import { ThemeToggle } from '@/components/ui/ThemeToggle';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
@@ -67,6 +68,7 @@ export default function PricingPage() {
   const [currentUserPlan, setCurrentUserPlan] = useState<string | null>(null);
   const router = useRouter();
   const { user, signOut } = useAuth();
+  const { theme } = useTheme();
 
   useEffect(() => {
     fetchPricingPlans();
@@ -175,10 +177,14 @@ export default function PricingPage() {
           <div className="flex h-16 items-center justify-between px-4 sm:px-6 lg:px-8">
             {/* Logo and Title */}
             <Link href="/dashboard" className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-primary to-primary/80 flex items-center justify-center shadow-md">
-                <Mic className="w-5 h-5 text-primary-foreground" />
-              </div>
-              <span className="text-xl font-bold text-foreground">LiveConvo</span>
+              <img 
+                src={theme === 'dark' 
+                  ? "https://ucvfgfbjcrxbzppwjpuu.supabase.co/storage/v1/object/public/images//dark.png"
+                  : "https://ucvfgfbjcrxbzppwjpuu.supabase.co/storage/v1/object/public/images//light.png"
+                }
+                alt="liveprompt.ai"
+                className="w-8 h-8 object-contain"
+              />
             </Link>
             
             {/* Right side actions */}
@@ -574,7 +580,7 @@ export default function PricingPage() {
               Ready to transform your conversations?
             </h2>
             <p className="text-xl text-muted-foreground mb-8">
-              Join thousands of professionals using LiveConvo to have better conversations.
+              Join thousands of professionals using liveprompt.ai to have better conversations.
             </p>
             <Button
               onClick={() => router.push('/auth/signup')}

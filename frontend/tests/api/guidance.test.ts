@@ -54,7 +54,7 @@ describe('OpenRouter Guidance API Logic', () => {
           'Authorization': 'Bearer sk-or-test-key-for-testing',
           'Content-Type': 'application/json',
           'HTTP-Referer': 'https://liveconvo.app',
-          'X-Title': 'LiveConvo AI Guidance',
+          'X-Title': 'liveprompt.ai AI Guidance',
         },
         body: JSON.stringify({
           model: 'google/gemini-2.5-flash-preview-05-20',
@@ -88,7 +88,7 @@ describe('OpenRouter Guidance API Logic', () => {
             'Authorization': 'Bearer sk-or-test-key-for-testing',
             'Content-Type': 'application/json',
             'HTTP-Referer': 'https://liveconvo.app',
-            'X-Title': 'LiveConvo AI Guidance',
+            'X-Title': 'liveprompt.ai AI Guidance',
           }),
         })
       )
@@ -108,7 +108,7 @@ describe('OpenRouter Guidance API Logic', () => {
           'Authorization': 'Bearer sk-or-test-key-for-testing',
           'Content-Type': 'application/json',
           'HTTP-Referer': 'https://liveconvo.app',
-          'X-Title': 'LiveConvo AI Guidance',
+          'X-Title': 'liveprompt.ai AI Guidance',
         },
         body: JSON.stringify({
           model: 'google/gemini-2.5-flash-preview-05-20',
@@ -141,7 +141,7 @@ describe('OpenRouter Guidance API Logic', () => {
           'Authorization': 'Bearer sk-or-test-key-for-testing',
           'Content-Type': 'application/json',
           'HTTP-Referer': 'https://liveconvo.app',
-          'X-Title': 'LiveConvo AI Guidance',
+          'X-Title': 'liveprompt.ai AI Guidance',
         },
         body: JSON.stringify({
           model: 'google/gemini-2.5-flash-preview-05-20',

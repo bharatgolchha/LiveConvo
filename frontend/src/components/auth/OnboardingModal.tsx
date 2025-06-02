@@ -86,7 +86,7 @@ export function OnboardingModal({ isOpen, onClose, onComplete }: OnboardingModal
                 </div>
                 
                 <h1 className="text-2xl font-bold text-foreground mb-2">
-                  Welcome to LiveConvo!
+                  Welcome to liveprompt.ai!
                 </h1>
                 <p className="text-muted-foreground">
                   Let's set up your workspace to get you started with AI-powered conversations.

@@ -4,6 +4,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useTheme } from '@/contexts/ThemeContext';
 import { 
   Mic, 
   MessageSquare, 
@@ -141,12 +142,14 @@ export default function LandingPage() {
       <header className="fixed top-0 left-0 right-0 z-50 backdrop-blur-md border-b" style={{ backgroundColor: 'rgba(3, 7, 18, 0.8)', borderColor: '#374151' }}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: 'linear-gradient(to bottom right, #3b82f6, #8b5cf6)' }}>
-                <Mic className="w-5 h-5" style={{ color: '#ffffff' }} />
-              </div>
-              <span className="text-xl font-bold" style={{ color: '#ffffff' }}>LiveConvo</span>
-            </div>
+            <Link href="/" className="flex items-center gap-2">
+              <img 
+                src="https://ucvfgfbjcrxbzppwjpuu.supabase.co/storage/v1/object/public/images//dark.png"
+                alt="liveprompt.ai logo"
+                className="w-8 h-8 object-contain"
+              />
+              <span className="text-xl font-bold" style={{ fontFamily: 'var(--font-poppins)', color: '#ffffff' }}>liveprompt.ai</span>
+            </Link>
             
             <div className="flex items-center gap-4">
               <Link
@@ -283,10 +286,12 @@ export default function LandingPage() {
           >
             <div className="aspect-video rounded-lg flex items-center justify-center mb-4" style={{ backgroundColor: 'rgba(17, 24, 39, 0.5)' }}>
               <div className="text-center">
-                <div className="w-16 h-16 rounded-2xl mx-auto mb-4 flex items-center justify-center" style={{ background: 'linear-gradient(to bottom right, #3b82f6, #8b5cf6)' }}>
-                  <Mic className="w-8 h-8" style={{ color: '#ffffff' }} />
-                </div>
-                <p className="text-lg font-medium" style={{ color: '#9ca3af' }}>LiveConvo Beta Dashboard</p>
+                <img 
+                  src="https://ucvfgfbjcrxbzppwjpuu.supabase.co/storage/v1/object/public/images//1.png"
+                  alt="liveprompt.ai logo"
+                  className="w-16 h-16 object-contain mx-auto mb-4"
+                />
+                <p className="text-lg font-medium" style={{ color: '#9ca3af' }}>liveprompt.ai Beta Dashboard</p>
                 <p className="text-sm" style={{ color: '#6b7280' }}>Real-time cues as you speak</p>
               </div>
             </div>
@@ -353,6 +358,159 @@ export default function LandingPage() {
                 </button>
               </motion.div>
             ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Who is this for? Section */}
+      <section className="py-20">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-12">
+            <h2 className="text-3xl sm:text-4xl font-bold mb-4" style={{ color: '#ffffff' }}>Who is liveprompt.ai for?</h2>
+            <p className="text-lg" style={{ color: '#d1d5db' }}>Built for professionals who lead high-stakes conversations</p>
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            {/* Sales Professionals */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              className="rounded-xl p-6"
+              style={{ backgroundColor: 'rgba(31, 41, 55, 0.5)', border: '1px solid #374151' }}
+            >
+              <div className="flex items-start gap-4">
+                <div className="rounded-lg p-3" style={{ backgroundColor: 'rgba(59, 130, 246, 0.1)' }}>
+                  <Briefcase className="w-6 h-6" style={{ color: '#60a5fa' }} />
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-xl font-semibold mb-2" style={{ color: '#ffffff' }}>Sales Professionals</h3>
+                  <p className="text-sm mb-3" style={{ color: '#9ca3af' }}>SaaS sales, enterprise deals, discovery calls</p>
+                  <ul className="space-y-2">
+                    <li className="flex items-start gap-2">
+                      <CheckCircle2 className="w-4 h-4 mt-0.5 flex-shrink-0" style={{ color: '#4ade80' }} />
+                      <span className="text-sm" style={{ color: '#d1d5db' }}>Real-time objection handling prompts</span>
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <CheckCircle2 className="w-4 h-4 mt-0.5 flex-shrink-0" style={{ color: '#4ade80' }} />
+                      <span className="text-sm" style={{ color: '#d1d5db' }}>Next-best-question suggestions</span>
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <CheckCircle2 className="w-4 h-4 mt-0.5 flex-shrink-0" style={{ color: '#4ade80' }} />
+                      <span className="text-sm" style={{ color: '#d1d5db' }}>CRM-ready call summaries</span>
+                    </li>
+                  </ul>
+                </div>
+              </div>
+            </motion.div>
+
+            {/* Consultants & Coaches */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.1 }}
+              viewport={{ once: true }}
+              className="rounded-xl p-6"
+              style={{ backgroundColor: 'rgba(31, 41, 55, 0.5)', border: '1px solid #374151' }}
+            >
+              <div className="flex items-start gap-4">
+                <div className="rounded-lg p-3" style={{ backgroundColor: 'rgba(168, 85, 247, 0.1)' }}>
+                  <Users className="w-6 h-6" style={{ color: '#a78bfa' }} />
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-xl font-semibold mb-2" style={{ color: '#ffffff' }}>Consultants & Coaches</h3>
+                  <p className="text-sm mb-3" style={{ color: '#9ca3af' }}>Strategy sessions, client meetings, workshops</p>
+                  <ul className="space-y-2">
+                    <li className="flex items-start gap-2">
+                      <CheckCircle2 className="w-4 h-4 mt-0.5 flex-shrink-0" style={{ color: '#4ade80' }} />
+                      <span className="text-sm" style={{ color: '#d1d5db' }}>Focus on insights, not note-taking</span>
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <CheckCircle2 className="w-4 h-4 mt-0.5 flex-shrink-0" style={{ color: '#4ade80' }} />
+                      <span className="text-sm" style={{ color: '#d1d5db' }}>Automated action item tracking</span>
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <CheckCircle2 className="w-4 h-4 mt-0.5 flex-shrink-0" style={{ color: '#4ade80' }} />
+                      <span className="text-sm" style={{ color: '#d1d5db' }}>Professional meeting summaries</span>
+                    </li>
+                  </ul>
+                </div>
+              </div>
+            </motion.div>
+
+            {/* Hiring Managers */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.2 }}
+              viewport={{ once: true }}
+              className="rounded-xl p-6"
+              style={{ backgroundColor: 'rgba(31, 41, 55, 0.5)', border: '1px solid #374151' }}
+            >
+              <div className="flex items-start gap-4">
+                <div className="rounded-lg p-3" style={{ backgroundColor: 'rgba(236, 72, 153, 0.1)' }}>
+                  <UserCheck className="w-6 h-6" style={{ color: '#f472b6' }} />
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-xl font-semibold mb-2" style={{ color: '#ffffff' }}>Hiring Managers</h3>
+                  <p className="text-sm mb-3" style={{ color: '#9ca3af' }}>Interviews, candidate assessments, team building</p>
+                  <ul className="space-y-2">
+                    <li className="flex items-start gap-2">
+                      <CheckCircle2 className="w-4 h-4 mt-0.5 flex-shrink-0" style={{ color: '#4ade80' }} />
+                      <span className="text-sm" style={{ color: '#d1d5db' }}>Spot red flags in real-time</span>
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <CheckCircle2 className="w-4 h-4 mt-0.5 flex-shrink-0" style={{ color: '#4ade80' }} />
+                      <span className="text-sm" style={{ color: '#d1d5db' }}>Follow-up question prompts</span>
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <CheckCircle2 className="w-4 h-4 mt-0.5 flex-shrink-0" style={{ color: '#4ade80' }} />
+                      <span className="text-sm" style={{ color: '#d1d5db' }}>Objective candidate comparisons</span>
+                    </li>
+                  </ul>
+                </div>
+              </div>
+            </motion.div>
+
+            {/* Customer Success */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.3 }}
+              viewport={{ once: true }}
+              className="rounded-xl p-6"
+              style={{ backgroundColor: 'rgba(31, 41, 55, 0.5)', border: '1px solid #374151' }}
+            >
+              <div className="flex items-start gap-4">
+                <div className="rounded-lg p-3" style={{ backgroundColor: 'rgba(34, 197, 94, 0.1)' }}>
+                  <PhoneCall className="w-6 h-6" style={{ color: '#4ade80' }} />
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-xl font-semibold mb-2" style={{ color: '#ffffff' }}>Customer Success Teams</h3>
+                  <p className="text-sm mb-3" style={{ color: '#9ca3af' }}>Support calls, QBRs, onboarding sessions</p>
+                  <ul className="space-y-2">
+                    <li className="flex items-start gap-2">
+                      <CheckCircle2 className="w-4 h-4 mt-0.5 flex-shrink-0" style={{ color: '#4ade80' }} />
+                      <span className="text-sm" style={{ color: '#d1d5db' }}>Never miss customer commitments</span>
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <CheckCircle2 className="w-4 h-4 mt-0.5 flex-shrink-0" style={{ color: '#4ade80' }} />
+                      <span className="text-sm" style={{ color: '#d1d5db' }}>Proactive issue detection</span>
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <CheckCircle2 className="w-4 h-4 mt-0.5 flex-shrink-0" style={{ color: '#4ade80' }} />
+                      <span className="text-sm" style={{ color: '#d1d5db' }}>Detailed follow-up documentation</span>
+                    </li>
+                  </ul>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+
+          <div className="text-center mt-12">
+            <p className="text-lg" style={{ color: '#9ca3af' }}>
+              If you lead conversations where every word matters, liveprompt.ai is built for you.
+            </p>
           </div>
         </div>
       </section>
@@ -680,10 +838,12 @@ export default function LandingPage() {
           <div className="flex flex-col md:flex-row justify-between items-center gap-8">
             <div>
               <div className="flex items-center gap-2 mb-2">
-                <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: 'linear-gradient(to bottom right, #3b82f6, #8b5cf6)' }}>
-                  <Mic className="w-5 h-5" style={{ color: '#ffffff' }} />
-                </div>
-                <span className="text-xl font-bold" style={{ color: '#ffffff' }}>LiveConvo</span>
+                <img 
+                  src="https://ucvfgfbjcrxbzppwjpuu.supabase.co/storage/v1/object/public/images//dark.png"
+                  alt="liveprompt.ai logo"
+                  className="w-8 h-8 object-contain"
+                />
+                <span className="text-xl font-bold" style={{ fontFamily: 'var(--font-poppins)', color: '#ffffff' }}>liveprompt.ai</span>
               </div>
               <p className="text-sm" style={{ color: '#9ca3af' }}>Your AI conversation co-pilot for better outcomes</p>
             </div>

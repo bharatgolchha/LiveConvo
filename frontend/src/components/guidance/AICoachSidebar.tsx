@@ -30,6 +30,7 @@ interface ContextSummary {
   uploadedFiles: File[];
   selectedPreviousConversations: string[];
   previousConversationTitles: string[];
+  personalContext?: string;
 }
 
 interface GuidanceChip {
@@ -162,10 +163,17 @@ Conversation type: ${contextSummary?.conversationType || 'general'}
 Return the chips as suggestedActions array with exactly 6 items. Each item should be a JSON object with "text" (emoji + 2-4 words) and "prompt" (the full question to ask).
 Example format for each chip: {"text": "🔥 Build rapport", "prompt": "How can I build better rapport with them?"}`,
           conversationType: contextSummary?.conversationType || 'general',
-          textContext: conversationContext,
+          textContext: contextSummary?.textContext || conversationContext,
+          conversationTitle: contextSummary?.conversationTitle,
           summary: '',
           timeline: [],
-          files: []
+          uploadedFiles: contextSummary?.uploadedFiles ? contextSummary.uploadedFiles.map(f => ({ 
+            name: f.name, 
+            type: f.type, 
+            size: f.size 
+          })) : [],
+          selectedPreviousConversations: contextSummary?.selectedPreviousConversations || [],
+          personalContext: contextSummary?.personalContext
         }),
       });
 

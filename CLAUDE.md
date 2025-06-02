@@ -1,8 +1,8 @@
-# CLAUDE.md - AI Assistant Guide for LiveConvo
+# CLAUDE.md - AI Assistant Guide for liveprompt.ai
 
 ## Project Overview
 
-LiveConvo is a real-time conversation coaching application that provides AI-powered guidance during live conversations. The application features real-time transcription, contextual AI suggestions, conversation summaries, and timeline generation.
+liveprompt.ai is a real-time conversation coaching application that provides AI-powered guidance during live conversations. The application features real-time transcription, contextual AI suggestions, conversation summaries, and timeline generation.
 
 ### Key Capabilities
 - Real-time speech-to-text transcription using Deepgram
@@ -285,4 +285,4 @@ This is useful for development and testing without external services.
 
 ---
 
-**Note**: This guide is designed to help AI assistants understand and work with the LiveConvo codebase effectively. Always refer to the actual code for the most up-to-date implementation details.
+**Note**: This guide is designed to help AI assistants understand and work with the liveprompt.ai codebase effectively. Always refer to the actual code for the most up-to-date implementation details.

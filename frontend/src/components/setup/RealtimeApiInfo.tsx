@@ -48,7 +48,7 @@ export const RealtimeApiInfo: React.FC<RealtimeApiInfoProps> = ({
                 <div className="flex-1">
                   <h5 className="font-medium text-blue-900 mb-1">Demo Mode (Recommended)</h5>
                   <p className="text-sm text-blue-700 mb-3">
-                    Experience the full LiveConvo interface with simulated real-time transcription. 
+                    Experience the full liveprompt.ai interface with simulated real-time transcription. 
                     Perfect for testing the UI and understanding the workflow.
                   </p>
                   <Button
