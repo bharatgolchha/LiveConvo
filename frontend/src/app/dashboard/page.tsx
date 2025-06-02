@@ -206,7 +206,6 @@ const DashboardSidebar: React.FC<{
 
   const navItems = [
     { path: 'conversations', label: 'Conversations', icon: MicrophoneIcon, count: activeCount },
-    { path: 'templates', label: 'Templates', icon: DocumentTextIcon },
     { path: 'archive', label: 'Archive', icon: ArchiveBoxIcon, count: archivedCount },
     { path: 'analytics', label: 'Analytics', icon: ChartBarIcon },
     { path: 'settings', label: 'Settings', icon: Cog6ToothIcon }

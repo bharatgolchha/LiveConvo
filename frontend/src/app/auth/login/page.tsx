@@ -58,11 +58,11 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="dark min-h-screen bg-gradient-to-br from-gray-950 via-gray-900 to-gray-950 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
+    <div className="min-h-screen flex flex-col justify-center py-12 sm:px-6 lg:px-8" style={{ background: 'linear-gradient(to bottom right, #030712, #111827, #030712)' }}>
       {/* Background Effects */}
       <div className="absolute inset-0 overflow-hidden">
-        <div className="absolute top-1/4 left-1/4 w-72 h-72 bg-blue-500/10 rounded-full blur-3xl"></div>
-        <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-purple-500/10 rounded-full blur-3xl"></div>
+        <div className="absolute top-1/4 left-1/4 w-72 h-72 rounded-full blur-3xl" style={{ backgroundColor: 'rgba(59, 130, 246, 0.1)' }}></div>
+        <div className="absolute bottom-1/4 right-1/4 w-96 h-96 rounded-full blur-3xl" style={{ backgroundColor: 'rgba(139, 92, 246, 0.1)' }}></div>
       </div>
 
       <div className="relative z-10">
@@ -76,14 +76,14 @@ export default function LoginPage() {
           >
             {/* Logo */}
             <div className="flex items-center justify-center gap-3 mb-4">
-              <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-500 rounded-xl flex items-center justify-center shadow-lg">
-                <Mic className="w-7 h-7 text-white" />
+              <div className="w-12 h-12 rounded-xl flex items-center justify-center shadow-lg" style={{ background: 'linear-gradient(to bottom right, #3b82f6, #8b5cf6)' }}>
+                <Mic className="w-7 h-7" style={{ color: '#ffffff' }} />
               </div>
-              <h1 className="text-4xl font-bold text-white">
-                Live<span className="text-blue-400">Convo</span>
+              <h1 className="text-4xl font-bold" style={{ color: '#ffffff' }}>
+                Live<span style={{ color: '#60a5fa' }}>Convo</span>
               </h1>
             </div>
-            <p className="text-gray-400 text-lg">Welcome back to your AI conversation coach</p>
+            <p className="text-lg" style={{ color: '#9ca3af' }}>Welcome back to your AI conversation coach</p>
           </motion.div>
         </div>
 
@@ -94,19 +94,19 @@ export default function LoginPage() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.2 }}
           >
-            <Card className="bg-gray-800/50 border-gray-700 shadow-2xl backdrop-blur-sm">
+            <Card className="shadow-2xl backdrop-blur-sm" style={{ backgroundColor: 'rgba(31, 41, 55, 0.5)', borderColor: '#374151' }}>
               <CardHeader className="text-center pb-6">
-                <CardTitle className="text-2xl font-semibold text-white">
+                <CardTitle className="text-2xl font-semibold" style={{ color: '#ffffff' }}>
                   Sign in to your account
                 </CardTitle>
-                <CardDescription className="text-gray-400">
+                <CardDescription style={{ color: '#9ca3af' }}>
                   Continue your conversation intelligence journey
                 </CardDescription>
               </CardHeader>
               
               <CardContent className="space-y-6">
                 {error && (
-                  <Alert className="border-red-500/50 bg-red-500/10 text-red-400">
+                  <Alert className="text-sm" style={{ border: '1px solid rgba(239, 68, 68, 0.5)', backgroundColor: 'rgba(239, 68, 68, 0.1)', color: '#f87171' }}>
                     <div className="text-sm">{error}</div>
                   </Alert>
                 )}
@@ -115,62 +115,92 @@ export default function LoginPage() {
                 <Button
                   type="button"
                   variant="outline"
-                  className="w-full h-12 border-gray-600 bg-gray-800/50 hover:bg-gray-700/50 text-white hover:border-gray-500 transition-all duration-200"
+                  className="w-full h-12 transition-all duration-200"
+                  style={{ 
+                    border: '1px solid #4b5563', 
+                    backgroundColor: 'rgba(31, 41, 55, 0.5)', 
+                    color: '#ffffff' 
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.backgroundColor = 'rgba(55, 65, 81, 0.5)';
+                    e.currentTarget.style.borderColor = '#6b7280';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.backgroundColor = 'rgba(31, 41, 55, 0.5)';
+                    e.currentTarget.style.borderColor = '#4b5563';
+                  }}
                   onClick={handleGoogleLogin}
                   disabled={loading}
                 >
-                  <Chrome className="w-5 h-5 mr-3 text-blue-400" />
+                  <Chrome className="w-5 h-5 mr-3" style={{ color: '#60a5fa' }} />
                   <span className="font-medium">Continue with Google</span>
                 </Button>
 
                 {/* Divider */}
                 <div className="relative">
                   <div className="absolute inset-0 flex items-center">
-                    <div className="w-full border-t border-gray-600" />
+                    <div className="w-full border-t" style={{ borderColor: '#4b5563' }} />
                   </div>
                   <div className="relative flex justify-center text-sm">
-                    <span className="px-4 bg-gray-800/50 text-gray-400">Or continue with email</span>
+                    <span className="px-4" style={{ backgroundColor: 'rgba(31, 41, 55, 0.5)', color: '#9ca3af' }}>Or continue with email</span>
                   </div>
                 </div>
 
                 {/* Email Login Form */}
                 <form onSubmit={handleEmailLogin} className="space-y-5">
                   <div>
-                    <Label htmlFor="email" className="text-gray-300 font-medium">
+                    <Label htmlFor="email" className="font-medium" style={{ color: '#d1d5db' }}>
                       Email address
                     </Label>
                     <div className="mt-2 relative">
-                      <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+                      <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5" style={{ color: '#9ca3af' }} />
                       <Input
                         id="email"
                         type="email"
                         value={email}
                         onChange={(e) => setEmail(e.target.value)}
                         required
-                        className="pl-11 h-12 bg-gray-900/50 border-gray-600 text-white placeholder:text-gray-500 focus:border-blue-500 focus:ring-blue-500/20"
+                        className="pl-11 h-12 focus:ring-blue-500/20"
+                        style={{ 
+                          backgroundColor: 'rgba(17, 24, 39, 0.5)', 
+                          border: '1px solid #4b5563', 
+                          color: '#ffffff'
+                        }}
+                        onFocus={(e) => e.target.style.borderColor = '#3b82f6'}
+                        onBlur={(e) => e.target.style.borderColor = '#4b5563'}
                         placeholder="Enter your email"
                       />
                     </div>
                   </div>
 
                   <div>
-                    <Label htmlFor="password" className="text-gray-300 font-medium">
+                    <Label htmlFor="password" className="font-medium" style={{ color: '#d1d5db' }}>
                       Password
                     </Label>
                     <div className="mt-2 relative">
-                      <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+                      <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5" style={{ color: '#9ca3af' }} />
                       <Input
                         id="password"
                         type={showPassword ? 'text' : 'password'}
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
                         required
-                        className="pl-11 pr-11 h-12 bg-gray-900/50 border-gray-600 text-white placeholder:text-gray-500 focus:border-blue-500 focus:ring-blue-500/20"
+                        className="pl-11 pr-11 h-12 focus:ring-blue-500/20"
+                        style={{ 
+                          backgroundColor: 'rgba(17, 24, 39, 0.5)', 
+                          border: '1px solid #4b5563', 
+                          color: '#ffffff'
+                        }}
+                        onFocus={(e) => e.target.style.borderColor = '#3b82f6'}
+                        onBlur={(e) => e.target.style.borderColor = '#4b5563'}
                         placeholder="Enter your password"
                       />
                       <button
                         type="button"
-                        className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-300 transition-colors"
+                        className="absolute right-3 top-1/2 transform -translate-y-1/2 transition-colors"
+                        style={{ color: '#9ca3af' }}
+                        onMouseEnter={(e) => e.currentTarget.style.color = '#d1d5db'}
+                        onMouseLeave={(e) => e.currentTarget.style.color = '#9ca3af'}
                         onClick={() => setShowPassword(!showPassword)}
                       >
                         {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
@@ -184,9 +214,14 @@ export default function LoginPage() {
                         id="remember-me"
                         name="remember-me"
                         type="checkbox"
-                        className="h-4 w-4 text-blue-500 focus:ring-blue-500 bg-gray-900 border-gray-600 rounded"
+                        className="h-4 w-4 rounded"
+                        style={{ 
+                          color: '#3b82f6', 
+                          backgroundColor: '#111827', 
+                          borderColor: '#4b5563'
+                        }}
                       />
-                      <label htmlFor="remember-me" className="ml-2 text-sm text-gray-400">
+                      <label htmlFor="remember-me" className="ml-2 text-sm" style={{ color: '#9ca3af' }}>
                         Remember me
                       </label>
                     </div>
@@ -194,7 +229,10 @@ export default function LoginPage() {
                     <div className="text-sm">
                       <Link
                         href="/auth/forgot-password"
-                        className="text-blue-400 hover:text-blue-300 font-medium transition-colors"
+                        className="font-medium transition-colors"
+                        style={{ color: '#60a5fa' }}
+                        onMouseEnter={(e) => e.currentTarget.style.color = '#93c5fd'}
+                        onMouseLeave={(e) => e.currentTarget.style.color = '#60a5fa'}
                       >
                         Forgot password?
                       </Link>
@@ -203,7 +241,10 @@ export default function LoginPage() {
 
                   <Button
                     type="submit"
-                    className="w-full h-12 bg-blue-600 hover:bg-blue-700 text-white font-semibold shadow-lg hover:shadow-xl transition-all duration-200"
+                    className="w-full h-12 font-semibold shadow-lg hover:shadow-xl transition-all duration-200"
+                    style={{ backgroundColor: '#2563eb', color: '#ffffff' }}
+                    onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#1d4ed8'}
+                    onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#2563eb'}
                     disabled={loading}
                   >
                     {loading ? (
@@ -219,11 +260,14 @@ export default function LoginPage() {
 
                 {/* Sign up link */}
                 <div className="text-center">
-                  <p className="text-sm text-gray-400">
+                  <p className="text-sm" style={{ color: '#9ca3af' }}>
                     Don't have an account?{' '}
                     <Link
                       href="/auth/signup"
-                      className="text-blue-400 hover:text-blue-300 font-medium transition-colors"
+                      className="font-medium transition-colors"
+                      style={{ color: '#60a5fa' }}
+                      onMouseEnter={(e) => e.currentTarget.style.color = '#93c5fd'}
+                      onMouseLeave={(e) => e.currentTarget.style.color = '#60a5fa'}
                     >
                       Sign up now
                     </Link>
@@ -241,13 +285,25 @@ export default function LoginPage() {
           transition={{ duration: 0.6, delay: 0.4 }}
           className="mt-8 text-center"
         >
-          <p className="text-sm text-gray-500">
+          <p className="text-sm" style={{ color: '#6b7280' }}>
             By signing in, you agree to our{' '}
-            <Link href="/terms" className="text-blue-400 hover:text-blue-300 transition-colors">
+            <Link 
+              href="/terms" 
+              className="transition-colors"
+              style={{ color: '#60a5fa' }}
+              onMouseEnter={(e) => e.currentTarget.style.color = '#93c5fd'}
+              onMouseLeave={(e) => e.currentTarget.style.color = '#60a5fa'}
+            >
               Terms of Service
             </Link>{' '}
             and{' '}
-            <Link href="/privacy" className="text-blue-400 hover:text-blue-300 transition-colors">
+            <Link 
+              href="/privacy" 
+              className="transition-colors"
+              style={{ color: '#60a5fa' }}
+              onMouseEnter={(e) => e.currentTarget.style.color = '#93c5fd'}
+              onMouseLeave={(e) => e.currentTarget.style.color = '#60a5fa'}
+            >
               Privacy Policy
             </Link>
           </p>
