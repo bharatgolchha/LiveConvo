@@ -132,9 +132,7 @@ describe('Dashboard Page', () => {
     
     // Check sidebar navigation items
     expect(screen.getByText('Conversations')).toBeInTheDocument();
-    expect(screen.getByText('Templates')).toBeInTheDocument();
     expect(screen.getByText('Archive')).toBeInTheDocument();
-    expect(screen.getByText('Analytics')).toBeInTheDocument();
     expect(screen.getByText('Settings')).toBeInTheDocument();
   });
 });

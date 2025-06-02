@@ -61,6 +61,40 @@
 
 ### 🔧 Bug Fixes & Issues
 
+- [x] **🔧 Fix Completed Session Status Reverting to Draft** (2025-01-30) 🚨 **JUST FIXED**
+  - **Issue**: When clicking on a finalized conversation with "Done" status from dashboard, the conversation state changes back to "draft" from "completed" when the /app page loads
+  - **Root Cause**: App page's session status update effect was automatically changing completed sessions back to 'draft' status in the database when viewing them
+  - **Solution**: Modified session status update logic to only update database when actual recording state changes occur, not when just viewing completed sessions
+  - **Technical Fix**: 
+    - Added `hasLoadedFromStorage.current` check to prevent updates during initial load
+    - Added `shouldUpdateStatus` logic to only update on 'recording' or actual 'completed' transitions
+    - Removed automatic 'draft' status assignment for viewing sessions
+  - **Result**: ✅ Completed sessions now maintain their "Done" status when accessed from dashboard
+
+- [x] **🗑️ Remove Analytics Button from Dashboard** (2025-01-30) 🧹 **COMPLETED**
+  - **Request**: User requested removal of Analytics button from dashboard navigation
+  - **Solution**: Removed 'analytics' navigation item from dashboard sidebar
+  - **Location**: `frontend/src/app/dashboard/page.tsx` - removed from navItems array
+  - **Impact**: Analytics feature temporarily hidden from navigation until fully implemented
+
+- [x] **🎨 Improve AI Advisor Separator Design** (2025-01-30) 🎨 **COMPLETED**
+  - **Issue**: User finds the current separator line between main content and AI advisor too plain/boring
+  - **Solution Implemented**: 
+    - ✅ **Enhanced Visual Design**: Replaced plain border with beautiful gradient design (gray → purple/blue)
+    - ✅ **Improved Interactivity**: Added smooth hover animations with scaling and glow effects
+    - ✅ **Better UX Indicators**: Added draggable dots to clearly show it's resizable
+    - ✅ **Active State Feedback**: Dynamic colors and shadows when actively resizing
+    - ✅ **Accessibility**: Extended hover area for easier grabbing (larger target area)
+    - ✅ **Responsive Design**: Works in both light and dark modes with appropriate color schemes
+    - ✅ **Performance Fix**: Fixed "Maximum update depth exceeded" error by moving constants outside component
+  - **Technical Details**:
+    - Increased width from 4px to 6px with rounded corners (3px border-radius)
+    - Added layered design: gradient background + pattern overlay + indicator dots + shimmer effect
+    - Smooth transitions with `duration-300` for all hover states
+    - Blue/purple gradient theme matching the AI advisor branding
+    - Shadow effects for depth and visual polish
+    - Moved MIN_WIDTH, MAX_WIDTH, COLLAPSED_WIDTH constants outside component to prevent useCallback recreation
+
 - [x] **✅ Fix Tab Switching Recording Loss Issue** (2025-01-27) 🚨 **JUST FIXED**
   - **Issue**: When switching tabs and coming back, the browser refreshes and recording stops, making it impossible to record anything effectively
   - **Root Cause**: 

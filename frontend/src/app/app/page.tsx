@@ -227,6 +227,7 @@ export default function App() {
   const [textContext, setTextContext] = useState('');
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
   const [systemAudioStream, setSystemAudioStream] = useState<MediaStream | null>(null);
+  const [personalContext, setPersonalContext] = useState<string>('');
 
   // Database-loaded data (overrides AI-generated data when available)
   const [loadedSummary, setLoadedSummary] = useState<ConversationSummary | null>(null);
@@ -520,6 +521,35 @@ export default function App() {
     });
   }, [session, authLoading, conversationId]);
 
+  // Load personal context when user is authenticated
+  useEffect(() => {
+    const loadPersonalContext = async () => {
+      if (!session?.access_token) return;
+      
+      try {
+        const headers: HeadersInit = { 'Content-Type': 'application/json' };
+        headers['Authorization'] = `Bearer ${session.access_token}`;
+
+        const response = await fetch('/api/users/personal-context', {
+          method: 'GET',
+          headers,
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          if (data.personal_context) {
+            setPersonalContext(data.personal_context);
+            console.log('✅ Personal context loaded');
+          }
+        }
+      } catch (error) {
+        console.error('Failed to load personal context:', error);
+      }
+    };
+
+    loadPersonalContext();
+  }, [session]);
+
   // Refs to keep latest state values for interval callbacks
   const latestTranscript = useRef<TranscriptLine[]>([]);
   const latestTextContext = useRef('');
@@ -717,7 +747,8 @@ export default function App() {
     summary: effectiveSummary || undefined,
     timeline: effectiveTimeline || undefined,
     uploadedFiles,
-    selectedPreviousConversations
+    selectedPreviousConversations,
+    personalContext
   });
 
 
@@ -835,13 +866,21 @@ export default function App() {
   }, [effectiveTimeline, conversationId, conversationState, session]);
 
   // Update session status in database when recording starts/stops
+  // Only update status for state changes that should modify the database (not for viewing completed sessions)
   useEffect(() => {
-    if (conversationId && conversationState && session && !authLoading) {
+    if (conversationId && conversationState && session && !authLoading && hasLoadedFromStorage.current) {
+      // Don't update database status if we're just viewing a completed session
+      const shouldUpdateStatus = conversationState === 'recording' || 
+                                (conversationState === 'completed' && sessionDuration > 0);
+      
+      if (!shouldUpdateStatus) {
+        return;
+      }
+
       const updateSessionStatus = async () => {
         try {
           const sessionData: any = {
-            status: conversationState === 'recording' ? 'active' : 
-                   conversationState === 'completed' ? 'completed' : 'draft'
+            status: conversationState === 'recording' ? 'active' : 'completed'
           };
 
           // Add recording timestamps and duration
@@ -953,6 +992,11 @@ export default function App() {
           
           const mappedType = typeMapping[config.type] || 'sales';
           setConversationType(mappedType);
+          
+          // Load selected previous conversations if provided
+          if (config.selectedPreviousConversations && config.selectedPreviousConversations.length > 0) {
+            setSelectedPreviousConversations(config.selectedPreviousConversations);
+          }
           
           if (config.context) {
             if (config.context.text) {
@@ -1184,13 +1228,14 @@ export default function App() {
     }
   }, [context, textContext, addUserContext]);
 
-  // Integrate selected previous conversations into AI context
+  // Integrate selected previous conversations into AI context - Optimized version
   useEffect(() => {
     const fetchAndIntegrateConversationSummaries = async () => {
       if (selectedPreviousConversations.length > 0 && sessions.length > 0 && session && !authLoading) {
-        const selectedSessions = sessions.filter(sessionItem => 
-          selectedPreviousConversations.includes(sessionItem.id)
-        );
+        // Limit to max 3 previous conversations to avoid context overload
+        const selectedSessions = sessions
+          .filter(sessionItem => selectedPreviousConversations.includes(sessionItem.id))
+          .slice(0, 3);
         
         // Clear previous conversation context first
         selectedSessions.forEach(sessionItem => {

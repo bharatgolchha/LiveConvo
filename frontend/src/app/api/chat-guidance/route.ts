@@ -25,6 +25,7 @@ interface ChatRequest {
   timeline?: any[];
   uploadedFiles?: Array<{ name: string; type: string; size: number }>;
   selectedPreviousConversations?: string[];
+  personalContext?: string;
 }
 
 // Add interface for parsed context
@@ -47,7 +48,8 @@ export async function POST(request: NextRequest) {
       summary,
       timeline,
       uploadedFiles,
-      selectedPreviousConversations
+      selectedPreviousConversations,
+      personalContext
     }: ChatRequest = await request.json();
 
     const apiKey = process.env.OPENROUTER_API_KEY;
@@ -75,7 +77,8 @@ export async function POST(request: NextRequest) {
       summary,
       timeline,
       uploadedFiles,
-      selectedPreviousConversations
+      selectedPreviousConversations,
+      personalContext
     );
 
     const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
@@ -221,7 +224,7 @@ CONTEXT AWARENESS:
 - Tailor advice to the specific conversation type and situation`;
 }
 
-function buildChatPrompt(message: string, transcript: string, chatHistory: ChatMessage[], conversationType?: string, conversationTitle?: string, textContext?: string, summary?: any, timeline?: any[], uploadedFiles?: Array<{ name: string; type: string; size: number }>, selectedPreviousConversations?: string[]): string {
+function buildChatPrompt(message: string, transcript: string, chatHistory: ChatMessage[], conversationType?: string, conversationTitle?: string, textContext?: string, summary?: any, timeline?: any[], uploadedFiles?: Array<{ name: string; type: string; size: number }>, selectedPreviousConversations?: string[], personalContext?: string): string {
   // Detect if user is in live conversation or preparation mode
   const hasActiveTranscript = transcript && transcript.trim().length > 0;
   const isLiveConversation = hasActiveTranscript || message.toLowerCase().includes('they') || message.toLowerCase().includes('currently') || message.toLowerCase().includes('right now');
@@ -232,6 +235,11 @@ function buildChatPrompt(message: string, transcript: string, chatHistory: ChatM
   prompt += `Title: ${conversationTitle || 'Untitled Conversation'}\n`;
   prompt += `Type: ${conversationType || 'general'}\n`;
   prompt += `Mode: ${isLiveConversation ? 'Live conversation in progress' : 'Preparation phase'}\n\n`;
+  
+  // Personal context from user settings
+  if (personalContext && personalContext.trim()) {
+    prompt += `USER'S PERSONAL CONTEXT (from settings):\n${personalContext}\n\n`;
+  }
   
   // Background context from setup
   if (textContext && textContext.trim()) {

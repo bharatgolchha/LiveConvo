@@ -1,330 +1,704 @@
 'use client';
 
-import React from 'react';
-import { motion } from 'framer-motion';
+import { useState } from 'react';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { motion, AnimatePresence } from 'framer-motion';
 import { 
-  Brain, 
-  FileText, 
+  Mic, 
   MessageSquare, 
-  User, 
-  ArrowRight,
-  CheckCircle,
+  FileText, 
+  CheckCircle2, 
+  ArrowRight, 
+  Play,
+  Clock,
   Zap,
+  ChevronDown,
+  Check,
+  Copy,
+  Users,
   Shield,
-  Mic,
-  LogIn,
-  UserPlus
+  Briefcase,
+  PhoneCall,
+  Star,
+  UserCheck,
+  Mail
 } from 'lucide-react';
 
-import { Button } from '@/components/ui/Button';
-import { Card } from '@/components/ui/Card';
-import Link from 'next/link';
+export default function LandingPage() {
+  const router = useRouter();
+  const [expandedFaq, setExpandedFaq] = useState<number | null>(null);
+  const [formData, setFormData] = useState({
+    name: '',
+    email: '',
+    company: '',
+    useCase: 'sales'
+  });
+  const [isSubmitted, setIsSubmitted] = useState(false);
 
-export default function Home() {
+  const handleWaitlistSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    try {
+      const response = await fetch('/api/waitlist', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(formData),
+      });
+
+      const result = await response.json();
+
+      if (response.ok) {
+        setIsSubmitted(true);
+      } else {
+        // Show detailed error message if available
+        const errorMessage = result.details 
+          ? `${result.error}\n\n${result.details}`
+          : result.error || 'Failed to join waitlist';
+        alert(errorMessage);
+      }
+    } catch (error) {
+      console.error('Error submitting waitlist:', error);
+      alert('Failed to join waitlist. Please try again.');
+    }
+  };
+
+  const testimonials = [
+    {
+      quote: "Invaluable feedback during alpha testing. This will change how we do discovery.",
+      name: "Sarah Chen",
+      role: "Beta Tester",
+      company: "TechCorp",
+      badge: "Alpha Tester"
+    },
+    {
+      quote: "Direct line to founders made this feel like a true partnership.",
+      name: "Mike Rodriguez", 
+      role: "Early Access",
+      company: "CloudSoft",
+      badge: "Beta Tester"
+    },
+    {
+      quote: "Excited to help shape the future of AI-powered conversations.",
+      name: "Lisa Wang",
+      role: "Product Advisor", 
+      company: "Strategic Partners",
+      badge: "Founding User"
+    }
+  ];
+
+  const faqs = [
+    {
+      question: 'How do I get selected for early access?',
+      answer: 'We review applications weekly and prioritize users who can provide detailed feedback. Sales professionals, consultants, and hiring managers get priority.'
+    },
+    {
+      question: 'Will my prospect hear anything?',
+      answer: 'Completely silent to others. Only you see the cues on your screen.'
+    },
+    {
+      question: 'What languages do you support?',
+      answer: 'English, Spanish, French, German, and Portuguese with 95%+ accuracy.'
+    },
+    {
+      question: 'How secure is my data?',
+      answer: 'Bank-level encryption, SOC 2 compliant, zero data retention after processing.'
+    },
+    {
+      question: 'What happens after the beta period?',
+      answer: 'Beta testers get grandfather pricing and continued priority support when we launch publicly.'
+    }
+  ];
+
+  const perks = [
+    {
+      icon: <Star className="w-6 h-6" />,
+      title: 'Free Beta Access',
+      description: 'Full platform access during testing period'
+    },
+    {
+      icon: <UserCheck className="w-6 h-6" />,
+      title: 'Direct Founder Access',
+      description: 'Weekly feedback sessions and feature requests'
+    },
+    {
+      icon: <Zap className="w-6 h-6" />,
+      title: 'Priority Features',
+      description: 'Your use cases drive our development roadmap'
+    },
+    {
+      icon: <Shield className="w-6 h-6" />,
+      title: 'Grandfather Pricing',
+      description: 'Lock in special rates before public launch'
+    }
+  ];
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
+    <div className="min-h-screen" style={{ background: 'linear-gradient(to bottom, #030712, #111827)' }}>
       {/* Header */}
-      <header className="border-b border-gray-200 bg-white/80 backdrop-blur-sm sticky top-0 z-40">
+      <header className="fixed top-0 left-0 right-0 z-50 backdrop-blur-md border-b" style={{ backgroundColor: 'rgba(3, 7, 18, 0.8)', borderColor: '#374151' }}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center gap-2">
-              <Brain className="w-8 h-8 text-blue-600" />
-              <span className="text-xl font-bold text-gray-900">LiveConvo</span>
+              <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: 'linear-gradient(to bottom right, #3b82f6, #8b5cf6)' }}>
+                <Mic className="w-5 h-5" style={{ color: '#ffffff' }} />
+              </div>
+              <span className="text-xl font-bold" style={{ color: '#ffffff' }}>LiveConvo</span>
             </div>
             
             <div className="flex items-center gap-4">
-              <Link href="/app-demo">
-                <Button variant="outline">
-                  <MessageSquare className="w-4 h-4 mr-2" />
-                  Try Demo
-                </Button>
+              <Link
+                href="/pricing"
+                className="hidden sm:flex px-4 py-2 rounded-lg transition-colors"
+                style={{ color: '#d1d5db' }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.color = '#ffffff';
+                  e.currentTarget.style.backgroundColor = '#374151';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.color = '#d1d5db';
+                  e.currentTarget.style.backgroundColor = 'transparent';
+                }}
+              >
+                Pricing
               </Link>
-              <Link href="/auth/login">
-                <Button variant="ghost">
-                  <LogIn className="w-4 h-4 mr-2" />
-                  Sign In
-                </Button>
-              </Link>
-              <Link href="/auth/signup">
-                <Button variant="primary">
-                  <UserPlus className="w-4 h-4 mr-2" />
-                  Sign Up
-                </Button>
-              </Link>
+              <button
+                onClick={() => router.push('/auth/login')}
+                className="hidden sm:flex px-4 py-2 rounded-lg transition-colors"
+                style={{ color: '#d1d5db' }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.color = '#ffffff';
+                  e.currentTarget.style.backgroundColor = '#374151';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.color = '#d1d5db';
+                  e.currentTarget.style.backgroundColor = 'transparent';
+                }}
+              >
+                Beta Login
+              </button>
+              <button
+                onClick={() => document.getElementById('waitlist')?.scrollIntoView({ behavior: 'smooth' })}
+                className="px-6 py-2 rounded-lg font-medium transition-colors"
+                style={{ backgroundColor: '#3b82f6', color: '#ffffff' }}
+                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#2563eb'}
+                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#3b82f6'}
+              >
+                Request Access
+              </button>
             </div>
           </div>
         </div>
       </header>
 
-      {/* Hero Section */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
-        <div className="text-center space-y-8">
+      {/* 1. Above-the-Fold Hero */}
+      <section className="relative pt-24 pb-20">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <motion.div
-            initial={{ opacity: 0, y: 20 }}
+            initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6 }}
-            className="space-y-4"
+            className="inline-flex items-center gap-2 rounded-full px-4 py-2 mb-6"
+            style={{ backgroundColor: 'rgba(59, 130, 246, 0.1)', border: '1px solid rgba(59, 130, 246, 0.2)' }}
           >
-            <h1 className="text-5xl md:text-6xl font-bold text-gray-900 leading-tight">
-              AI-Powered
-              <span className="text-blue-600 block">Conversation Intelligence</span>
-            </h1>
-            <p className="text-xl text-gray-600 max-w-3xl mx-auto leading-relaxed">
-              Get real-time AI guidance during your conversations. Perfect for sales calls, 
-              customer support, meetings, and interviews. Improve your communication with 
-              intelligent suggestions and insights.
-            </p>
+            <div className="w-2 h-2 rounded-full animate-pulse" style={{ backgroundColor: '#60a5fa' }} />
+            <span className="text-sm font-medium" style={{ color: '#93c5fd' }}>Limited Beta • Invitation Only</span>
           </motion.div>
-
-          <motion.div
+          
+          <motion.h1 
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: 0.2 }}
+            className="text-5xl sm:text-6xl font-bold leading-tight mb-6"
+            style={{ color: '#ffffff' }}
+          >
+            Never wing another important conversation again
+          </motion.h1>
+          
+          <motion.p 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.1 }}
+            className="text-xl mb-8"
+            style={{ color: '#d1d5db' }}
+          >
+            Real-time AI cues, instant summaries—get exclusive early access to the future of conversation intelligence.
+          </motion.p>
+          
+          <motion.div 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2 }}
             className="flex flex-col sm:flex-row gap-4 justify-center"
           >
-            <Link href="/auth/signup">
-              <Button size="lg" className="px-8 py-4 text-lg">
-                <UserPlus className="w-5 h-5 mr-2" />
-                Get Started Free
-                <ArrowRight className="w-5 h-5 ml-2" />
-              </Button>
-            </Link>
-            <Link href="/app-demo">
-              <Button size="lg" variant="outline" className="px-8 py-4 text-lg">
-                <MessageSquare className="w-5 h-5 mr-2" />
-                Try Demo
-              </Button>
-            </Link>
+            <button
+              onClick={() => document.getElementById('waitlist')?.scrollIntoView({ behavior: 'smooth' })}
+              className="px-8 py-4 text-lg rounded-lg font-medium inline-flex items-center justify-center transition-colors"
+              style={{ backgroundColor: '#3b82f6', color: '#ffffff' }}
+              onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#2563eb'}
+              onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#3b82f6'}
+            >
+              Request Early Access
+              <ArrowRight className="ml-2 w-5 h-5" />
+            </button>
+            <button
+              onClick={() => router.push('/demo')}
+              className="px-8 py-4 text-lg rounded-lg font-medium inline-flex items-center justify-center transition-colors"
+              style={{ border: '1px solid #4b5563', color: '#d1d5db' }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor = '#374151';
+                e.currentTarget.style.color = '#ffffff';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = 'transparent';
+                e.currentTarget.style.color = '#d1d5db';
+              }}
+            >
+              <Play className="mr-2 w-5 h-5" />
+              Watch 90-sec Demo
+            </button>
           </motion.div>
-
+          
           <motion.p
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            transition={{ duration: 0.6, delay: 0.4 }}
-            className="text-sm text-gray-500"
+            transition={{ delay: 0.4 }}
+            className="mt-6 text-sm"
+            style={{ color: '#9ca3af' }}
           >
-            No credit card required • Free trial • 5 minutes to setup
+            🔥 <span className="font-medium" style={{ color: '#fb923c' }}>47 spots filled</span> of 100 beta testers
           </motion.p>
         </div>
+      </section>
 
-        {/* Features Grid */}
-        <motion.div
-          initial={{ opacity: 0, y: 30 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.4 }}
-          className="mt-20 grid grid-cols-1 md:grid-cols-3 gap-8"
-        >
-          <Card className="p-8 text-center hover:shadow-lg transition-shadow">
-            <div className="inline-flex items-center justify-center w-16 h-16 bg-blue-100 text-blue-600 rounded-full mb-6">
-              <MessageSquare className="w-8 h-8" />
-            </div>
-            <h3 className="text-xl font-semibold text-gray-900 mb-4">
-              Real-Time Transcription
-            </h3>
-            <p className="text-gray-600 leading-relaxed">
-              Accurate speech-to-text with speaker identification. 
-              See what's being said as it happens.
-            </p>
-          </Card>
-
-          <Card className="p-8 text-center hover:shadow-lg transition-shadow">
-            <div className="inline-flex items-center justify-center w-16 h-16 bg-purple-100 text-purple-600 rounded-full mb-6">
-              <Brain className="w-8 h-8" />
-            </div>
-            <h3 className="text-xl font-semibold text-gray-900 mb-4">
-              AI Guidance
-            </h3>
-            <p className="text-gray-600 leading-relaxed">
-              Get intelligent suggestions on what to ask, clarify, or avoid 
-              based on conversation context.
-            </p>
-          </Card>
-
-          <Card className="p-8 text-center hover:shadow-lg transition-shadow">
-            <div className="inline-flex items-center justify-center w-16 h-16 bg-green-100 text-green-600 rounded-full mb-6">
-              <FileText className="w-8 h-8" />
-            </div>
-            <h3 className="text-xl font-semibold text-gray-900 mb-4">
-              Smart Summaries
-            </h3>
-            <p className="text-gray-600 leading-relaxed">
-              Get comprehensive summaries with action items, 
-              key points, and next steps automatically generated.
-            </p>
-          </Card>
-        </motion.div>
-
-        {/* Use Cases */}
-        <motion.div
-          initial={{ opacity: 0, y: 30 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.6 }}
-          className="mt-20"
-        >
-          <div className="text-center mb-12">
-            <h2 className="text-3xl font-bold text-gray-900 mb-4">
-              Perfect for Every Conversation
-            </h2>
-            <p className="text-xl text-gray-600 max-w-2xl mx-auto">
-              LiveConvo adapts to your conversation type and provides 
-              contextually relevant guidance.
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            {[
-              { title: 'Sales Calls', icon: '💼', desc: 'Discovery, objection handling, closing' },
-              { title: 'Customer Support', icon: '🎧', desc: 'Help customers, solve problems efficiently' },
-              { title: 'Team Meetings', icon: '👥', desc: 'Collaborate better, track decisions' },
-              { title: 'Interviews', icon: '🎯', desc: 'Structured conversations, better hiring' }
-            ].map((useCase, index) => (
-              <Card key={index} className="p-6 text-center hover:shadow-md transition-shadow">
-                <div className="text-3xl mb-4">{useCase.icon}</div>
-                <h4 className="font-semibold text-gray-900 mb-2">{useCase.title}</h4>
-                <p className="text-sm text-gray-600">{useCase.desc}</p>
-              </Card>
-            ))}
-          </div>
-        </motion.div>
-
-        {/* Benefits */}
-        <motion.div
-          initial={{ opacity: 0, y: 30 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.8 }}
-          className="mt-20 bg-gray-50 rounded-2xl p-12"
-        >
-          <div className="text-center mb-12">
-            <h2 className="text-3xl font-bold text-gray-900 mb-4">
-              Why Choose LiveConvo?
-            </h2>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-            {[
-              { icon: Zap, title: 'Real-Time Processing', desc: 'Get guidance as the conversation unfolds' },
-              { icon: Shield, title: 'Privacy Focused', desc: 'Your conversations stay secure and private' },
-              { icon: Brain, title: 'AI Powered', desc: 'Advanced AI understands context and nuance' },
-              { icon: CheckCircle, title: 'Easy to Use', desc: 'Simple interface, powerful features' }
-            ].map((benefit, index) => (
-              <div key={index} className="flex items-start gap-4">
-                <div className="flex-shrink-0 w-12 h-12 bg-blue-100 text-blue-600 rounded-lg flex items-center justify-center">
-                  <benefit.icon className="w-6 h-6" />
+      {/* Screenshot Placeholder */}
+      <section className="py-16" style={{ backgroundColor: 'rgba(17, 24, 39, 0.5)' }}>
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            className="rounded-2xl p-8 text-center"
+            style={{ backgroundColor: 'rgba(31, 41, 55, 0.5)', border: '1px solid #374151' }}
+          >
+            <div className="aspect-video rounded-lg flex items-center justify-center mb-4" style={{ backgroundColor: 'rgba(17, 24, 39, 0.5)' }}>
+              <div className="text-center">
+                <div className="w-16 h-16 rounded-2xl mx-auto mb-4 flex items-center justify-center" style={{ background: 'linear-gradient(to bottom right, #3b82f6, #8b5cf6)' }}>
+                  <Mic className="w-8 h-8" style={{ color: '#ffffff' }} />
                 </div>
-                <div>
-                  <h4 className="font-semibold text-gray-900 mb-2">{benefit.title}</h4>
-                  <p className="text-gray-600">{benefit.desc}</p>
-                </div>
+                <p className="text-lg font-medium" style={{ color: '#9ca3af' }}>LiveConvo Beta Dashboard</p>
+                <p className="text-sm" style={{ color: '#6b7280' }}>Real-time cues as you speak</p>
               </div>
-            ))}
-          </div>
-        </motion.div>
-
-        {/* Social Proof / Stats */}
-        <motion.div
-          initial={{ opacity: 0, y: 30 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 1.0 }}
-          className="mt-20"
-        >
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 text-center">
-            <div>
-              <div className="text-4xl font-bold text-blue-600 mb-2">95%</div>
-              <div className="text-gray-600">Conversation Quality Improvement</div>
             </div>
-            <div>
-              <div className="text-4xl font-bold text-blue-600 mb-2">10k+</div>
-              <div className="text-gray-600">Conversations Analyzed</div>
-            </div>
-            <div>
-              <div className="text-4xl font-bold text-blue-600 mb-2">50%</div>
-              <div className="text-gray-600">Faster Onboarding</div>
-            </div>
-          </div>
-        </motion.div>
+          </motion.div>
+        </div>
+      </section>
 
-        {/* CTA Section */}
-        <motion.div
-          initial={{ opacity: 0, y: 30 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 1.2 }}
-          className="mt-20 text-center bg-gradient-to-r from-blue-600 to-purple-600 rounded-2xl p-12 text-white"
-        >
-          <h2 className="text-3xl font-bold mb-4">
-            Ready to Transform Your Conversations?
-          </h2>
-          <p className="text-xl opacity-90 mb-8 max-w-2xl mx-auto">
-            Join thousands of professionals using AI to improve their communication. 
-            Start your free trial today.
-          </p>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Link href="/auth/signup">
-              <Button size="lg" variant="secondary" className="px-8 py-4 text-lg">
-                <UserPlus className="w-5 h-5 mr-2" />
-                Get Started Free
-                <ArrowRight className="w-5 h-5 ml-2" />
-              </Button>
-            </Link>
-            <Link href="/app-demo">
-              <Button size="lg" variant="outline" className="px-8 py-4 text-lg border-white text-white hover:bg-white hover:text-blue-600">
-                <MessageSquare className="w-5 h-5 mr-2" />
-                Watch Demo
-              </Button>
-            </Link>
-          </div>
-          <p className="text-sm opacity-80 mt-4">
-            No credit card required • Setup in 5 minutes
-          </p>
-        </motion.div>
-      </main>
-
-      {/* Footer */}
-      <footer className="bg-gray-900 text-white py-12 mt-20">
+      {/* 2. Beta Tester Credibility */}
+      <section className="py-8" style={{ backgroundColor: 'rgba(17, 24, 39, 0.5)', borderTop: '1px solid #374151', borderBottom: '1px solid #374151' }}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
-            <div>
-              <div className="flex items-center gap-2 mb-4">
-                <Brain className="w-6 h-6 text-blue-400" />
-                <span className="text-lg font-bold">LiveConvo</span>
-              </div>
-              <p className="text-gray-400 text-sm">
-                AI-powered conversation intelligence for professionals.
-              </p>
-            </div>
-            
-            <div>
-              <h4 className="font-semibold mb-4">Product</h4>
-              <ul className="space-y-2 text-sm text-gray-400">
-                <li><Link href="/app-demo" className="hover:text-white">Demo</Link></li>
-                <li><Link href="/auth/signup" className="hover:text-white">Get Started</Link></li>
-                <li><a href="#" className="hover:text-white">Pricing</a></li>
-                <li><a href="#" className="hover:text-white">Features</a></li>
-              </ul>
-            </div>
-            
-            <div>
-              <h4 className="font-semibold mb-4">Company</h4>
-              <ul className="space-y-2 text-sm text-gray-400">
-                <li><a href="#" className="hover:text-white">About</a></li>
-                <li><a href="#" className="hover:text-white">Blog</a></li>
-                <li><a href="#" className="hover:text-white">Careers</a></li>
-                <li><a href="#" className="hover:text-white">Contact</a></li>
-              </ul>
-            </div>
-            
-            <div>
-              <h4 className="font-semibold mb-4">Support</h4>
-              <ul className="space-y-2 text-sm text-gray-400">
-                <li><a href="#" className="hover:text-white">Help Center</a></li>
-                <li><a href="#" className="hover:text-white">Documentation</a></li>
-                <li><a href="#" className="hover:text-white">Privacy Policy</a></li>
-                <li><a href="#" className="hover:text-white">Terms of Service</a></li>
-              </ul>
+          <div className="text-center">
+            <p className="text-sm mb-4" style={{ color: '#9ca3af' }}>Trusted by beta testers from</p>
+            <div className="flex justify-center items-center gap-8" style={{ opacity: 0.6 }}>
+              {['TechCorp', 'CloudSoft', 'DataFlow', 'ScaleUp'].map((company) => (
+                <div key={company} className="font-medium" style={{ color: '#6b7280' }}>
+                  {company}
+                </div>
+              ))}
             </div>
           </div>
-          
-          <div className="border-t border-gray-800 mt-8 pt-8 text-center text-sm text-gray-400">
-            © 2024 LiveConvo. All rights reserved.
+        </div>
+      </section>
+
+      {/* 3. Core Value Trio */}
+      <section className="py-20">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            {[
+              {
+                title: 'Real-Time Cues',
+                description: 'Objection handling & next-best-question prompts under 2s.',
+                icon: <Zap className="w-8 h-8" />
+              },
+              {
+                title: 'Smart Summaries', 
+                description: 'Action items & CRM-ready bullet points in your inbox 30 sec after hang-up.',
+                icon: <FileText className="w-8 h-8" />
+              },
+              {
+                title: 'Plug-&-Play',
+                description: 'Works in any browser tab; no Zoom plug-in hell.',
+                icon: <CheckCircle2 className="w-8 h-8" />
+              }
+            ].map((item, index) => (
+              <motion.div
+                key={index}
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                transition={{ delay: index * 0.1 }}
+                viewport={{ once: true }}
+                className="rounded-xl p-6 text-center"
+                style={{ backgroundColor: 'rgba(31, 41, 55, 0.5)', border: '1px solid #374151' }}
+              >
+                <div className="mb-4" style={{ color: '#60a5fa' }}>{item.icon}</div>
+                <h3 className="text-lg font-semibold mb-2" style={{ color: '#ffffff' }}>{item.title}</h3>
+                <p className="text-sm" style={{ color: '#d1d5db' }}>{item.description}</p>
+                <button 
+                  className="text-sm mt-3 transition-colors"
+                  style={{ color: '#60a5fa' }}
+                  onMouseEnter={(e) => e.currentTarget.style.color = '#93c5fd'}
+                  onMouseLeave={(e) => e.currentTarget.style.color = '#60a5fa'}
+                >
+                  Learn how →
+                </button>
+              </motion.div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* 4. Demo Stripe */}
+      <section className="py-16" style={{ backgroundColor: 'rgba(17, 24, 39, 0.5)' }}>
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+          <div className="rounded-2xl p-8" style={{ backgroundColor: 'rgba(31, 41, 55, 0.5)', border: '1px solid #374151' }}>
+            <div className="relative">
+              {/* Demo Video Placeholder */}
+              <div className="rounded-lg aspect-video flex items-center justify-center mb-4" style={{ backgroundColor: 'rgba(17, 24, 39, 0.5)' }}>
+                <div className="text-center">
+                  <Play className="w-16 h-16 mx-auto mb-4" style={{ color: '#60a5fa' }} />
+                  <p style={{ color: '#d1d5db' }}>Live Demo: Cue appears while prospect talks</p>
+                </div>
+              </div>
+              
+              {/* Copy Summary Demo */}
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                className="inline-flex items-center gap-2 rounded-lg px-4 py-2"
+                style={{ backgroundColor: 'rgba(20, 83, 45, 0.3)', border: '1px solid rgba(34, 197, 94, 0.5)' }}
+              >
+                <Copy className="w-4 h-4" style={{ color: '#4ade80' }} />
+                <span className="text-sm" style={{ color: '#86efac' }}>Summary copied to clipboard</span>
+                <Check className="w-4 h-4" style={{ color: '#4ade80' }} />
+              </motion.div>
+            </div>
+            <p className="mt-4" style={{ color: '#9ca3af' }}>
+              Nothing to install. Just hit 'Start' before your call.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      {/* 5. Use-Case Blocks */}
+      <section className="py-20">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="space-y-20">
+            {[
+              {
+                title: 'Stop winging discovery calls.',
+                subtitle: 'SaaS Sales',
+                description: 'Get real-time prompts for qualifying questions, objection handling, and next steps.',
+                icon: <Briefcase className="w-12 h-12" />,
+                reverse: false
+              },
+              {
+                title: 'Bill for insights, not note-taking.',
+                subtitle: 'Consulting & Coaching', 
+                description: 'Focus on your client while AI captures action items and key decisions.',
+                icon: <Users className="w-12 h-12" />,
+                reverse: true
+              },
+              {
+                title: 'Spot red flags live—not after.',
+                subtitle: 'Interviews & Hiring',
+                description: 'Get prompted for follow-up questions when candidates give incomplete answers.',
+                icon: <PhoneCall className="w-12 h-12" />,
+                reverse: false
+              }
+            ].map((useCase, index) => (
+              <motion.div
+                key={index}
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                className={`grid grid-cols-1 lg:grid-cols-2 gap-12 items-center ${useCase.reverse ? 'lg:grid-flow-col-dense' : ''}`}
+              >
+                <div className={useCase.reverse ? 'lg:col-start-2' : ''}>
+                  <div className="mb-4" style={{ color: '#60a5fa' }}>{useCase.icon}</div>
+                  <h3 className="text-3xl font-bold mb-2" style={{ color: '#ffffff' }}>{useCase.title}</h3>
+                  <p className="font-medium mb-4" style={{ color: '#60a5fa' }}>{useCase.subtitle}</p>
+                  <p className="text-lg" style={{ color: '#d1d5db' }}>{useCase.description}</p>
+                </div>
+                <div className={`rounded-xl p-8 ${useCase.reverse ? 'lg:col-start-1' : ''}`} style={{ backgroundColor: 'rgba(31, 41, 55, 0.5)', border: '1px solid #374151' }}>
+                  <div className="h-48 rounded-lg flex items-center justify-center" style={{ background: 'linear-gradient(to bottom right, #374151, #1f2937)' }}>
+                    <span style={{ color: '#9ca3af' }}>Demo Screenshot</span>
+                  </div>
+                </div>
+              </motion.div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* 6. Social Proof */}
+      <section className="py-20" style={{ backgroundColor: 'rgba(17, 24, 39, 0.5)' }}>
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            {testimonials.map((testimonial, index) => (
+              <motion.div
+                key={index}
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                transition={{ delay: index * 0.1 }}
+                viewport={{ once: true }}
+                className="rounded-xl p-6 relative"
+                style={{ backgroundColor: 'rgba(31, 41, 55, 0.5)', border: '1px solid #374151' }}
+              >
+                <div className="absolute top-4 right-4">
+                  <span className="px-2 py-1 rounded-full text-xs font-medium" style={{ backgroundColor: 'rgba(59, 130, 246, 0.2)', color: '#93c5fd' }}>
+                    {testimonial.badge}
+                  </span>
+                </div>
+                <p className="font-medium mb-4 pr-20" style={{ color: '#ffffff' }}>"{testimonial.quote}"</p>
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full" style={{ backgroundColor: '#4b5563' }} />
+                  <div>
+                    <p className="text-sm font-medium" style={{ color: '#ffffff' }}>{testimonial.name}</p>
+                    <p className="text-xs" style={{ color: '#9ca3af' }}>{testimonial.role}, {testimonial.company}</p>
+                  </div>
+                </div>
+              </motion.div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+
+
+      {/* 8. FAQ Accordion */}
+      <section className="py-20" style={{ backgroundColor: 'rgba(17, 24, 39, 0.5)' }}>
+        <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-12">
+            <h2 className="text-3xl font-bold" style={{ color: '#ffffff' }}>FAQ</h2>
+          </div>
+
+          <div className="space-y-4">
+            {faqs.map((faq, index) => (
+              <motion.div
+                key={index}
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                transition={{ delay: index * 0.1 }}
+                viewport={{ once: true }}
+                className="rounded-lg"
+                style={{ backgroundColor: 'rgba(31, 41, 55, 0.5)', border: '1px solid #374151' }}
+              >
+                <button
+                  onClick={() => setExpandedFaq(expandedFaq === index ? null : index)}
+                  className="w-full px-6 py-4 text-left flex items-center justify-between"
+                >
+                  <span className="font-medium" style={{ color: '#ffffff' }}>{faq.question}</span>
+                  <ChevronDown 
+                    className={`w-5 h-5 transition-transform ${
+                      expandedFaq === index ? 'rotate-180' : ''
+                    }`}
+                    style={{ color: '#9ca3af' }}
+                  />
+                </button>
+                <AnimatePresence>
+                  {expandedFaq === index && (
+                    <motion.div
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: 'auto', opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      className="px-6 pb-4"
+                    >
+                      <p style={{ color: '#d1d5db' }}>{faq.answer}</p>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </motion.div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Early Access Program */}
+      <section id="waitlist" className="py-20" style={{ background: 'linear-gradient(to right, rgba(30, 58, 138, 0.2), rgba(88, 28, 135, 0.2))' }}>
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-12">
+            <h2 className="text-4xl font-bold mb-4" style={{ color: '#ffffff' }}>Join the Early Access Program</h2>
+            <p className="text-xl" style={{ color: '#d1d5db' }}>Limited spots available for beta testers who will shape our product</p>
+          </div>
+
+          {!isSubmitted ? (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              className="max-w-lg mx-auto"
+            >
+              {/* Application Form */}
+              <div>
+                <div className="rounded-xl p-6" style={{ backgroundColor: 'rgba(31, 41, 55, 0.5)', border: '1px solid #374151' }}>
+                  <form onSubmit={handleWaitlistSubmit} className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium mb-2" style={{ color: '#d1d5db' }}>
+                        Full Name
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        value={formData.name}
+                        onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                        className="w-full px-3 py-2 rounded-lg focus:outline-none"
+                        style={{ 
+                          backgroundColor: '#374151', 
+                          border: '1px solid #4b5563', 
+                          color: '#ffffff'
+                        }}
+                        placeholder="Your name"
+                        onFocus={(e) => e.target.style.borderColor = '#3b82f6'}
+                        onBlur={(e) => e.target.style.borderColor = '#4b5563'}
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-gray-300 mb-2">
+                        Work Email
+                      </label>
+                      <input
+                        type="email"
+                        required
+                        value={formData.email}
+                        onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                        className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-blue-500"
+                        placeholder="you@company.com"
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-gray-300 mb-2">
+                        Company
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        value={formData.company}
+                        onChange={(e) => setFormData({ ...formData, company: e.target.value })}
+                        className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-blue-500"
+                        placeholder="Company name"
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-gray-300 mb-2">
+                        Primary Use Case
+                      </label>
+                      <select
+                        value={formData.useCase}
+                        onChange={(e) => setFormData({ ...formData, useCase: e.target.value })}
+                        className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:border-blue-500"
+                      >
+                        <option value="sales">Sales Calls</option>
+                        <option value="consulting">Client Consulting</option>
+                        <option value="hiring">Interviews & Hiring</option>
+                        <option value="support">Customer Support</option>
+                        <option value="other">Other</option>
+                      </select>
+                    </div>
+                    
+                    <button
+                      type="submit"
+                      className="w-full py-3 rounded-lg font-medium transition-colors"
+                      style={{ backgroundColor: '#3b82f6', color: '#ffffff' }}
+                      onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#2563eb'}
+                      onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#3b82f6'}
+                    >
+                      Request Early Access
+                    </button>
+                  </form>
+                  
+                  <p className="text-xs mt-4 text-center" style={{ color: '#9ca3af' }}>
+                    We review applications weekly. Selected testers get immediate access.
+                  </p>
+                </div>
+              </div>
+            </motion.div>
+          ) : (
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              className="text-center rounded-2xl p-12"
+              style={{ backgroundColor: 'rgba(20, 83, 45, 0.2)', border: '1px solid rgba(34, 197, 94, 0.5)' }}
+            >
+              <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-6" style={{ backgroundColor: '#22c55e' }}>
+                <Check className="w-8 h-8" style={{ color: '#ffffff' }} />
+              </div>
+              <h3 className="text-2xl font-bold mb-4" style={{ color: '#ffffff' }}>Application Submitted!</h3>
+              <p className="mb-6" style={{ color: '#d1d5db' }}>
+                Thanks for your interest! We'll review your application and get back to you within 3-5 business days.
+              </p>
+              <div className="inline-flex items-center gap-2 text-sm" style={{ color: '#4ade80' }}>
+                <Mail className="w-4 h-4" />
+                <span>Keep an eye on {formData.email}</span>
+              </div>
+            </motion.div>
+          )}
+        </div>
+      </section>
+
+      {/* 9. Final CTA */}
+      <section className="py-20" style={{ background: 'linear-gradient(to right, #1e3a8a, #581c87)' }}>
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+          <h2 className="text-4xl font-bold mb-6" style={{ color: '#ffffff' }}>
+            Ready to transform your conversations?
+          </h2>
+          <p className="text-xl mb-8" style={{ color: '#bfdbfe' }}>
+            Join the exclusive group shaping the future of AI-powered conversations.
+          </p>
+          <button
+            onClick={() => document.getElementById('waitlist')?.scrollIntoView({ behavior: 'smooth' })}
+            className="px-8 py-4 text-lg font-semibold rounded-lg inline-flex items-center transition-colors"
+            style={{ backgroundColor: '#ffffff', color: '#1e3a8a' }}
+            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f3f4f6'}
+            onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#ffffff'}
+          >
+            Apply for Early Access
+            <ArrowRight className="ml-2 w-5 h-5" />
+          </button>
+          <p className="mt-4" style={{ color: '#bfdbfe' }}>
+            Limited spots • Rolling invitations • Free during beta
+          </p>
+        </div>
+      </section>
+
+      {/* 10. Footer */}
+      <footer className="py-12" style={{ backgroundColor: '#030712', color: '#9ca3af' }}>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex flex-col md:flex-row justify-between items-center gap-8">
+            <div>
+              <div className="flex items-center gap-2 mb-2">
+                <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: 'linear-gradient(to bottom right, #3b82f6, #8b5cf6)' }}>
+                  <Mic className="w-5 h-5" style={{ color: '#ffffff' }} />
+                </div>
+                <span className="text-xl font-bold" style={{ color: '#ffffff' }}>LiveConvo</span>
+              </div>
+              <p className="text-sm" style={{ color: '#9ca3af' }}>Your AI conversation co-pilot for better outcomes</p>
+            </div>
+            
+            <div className="flex items-center gap-8">
+              <Link href="/privacy" className="text-sm transition-colors" style={{ color: '#9ca3af' }} onMouseEnter={(e) => e.currentTarget.style.color = '#ffffff'} onMouseLeave={(e) => e.currentTarget.style.color = '#9ca3af'}>Privacy</Link>
+              <Link href="/terms" className="text-sm transition-colors" style={{ color: '#9ca3af' }} onMouseEnter={(e) => e.currentTarget.style.color = '#ffffff'} onMouseLeave={(e) => e.currentTarget.style.color = '#9ca3af'}>Terms</Link>
+              <Link href="/security" className="text-sm transition-colors" style={{ color: '#9ca3af' }} onMouseEnter={(e) => e.currentTarget.style.color = '#ffffff'} onMouseLeave={(e) => e.currentTarget.style.color = '#9ca3af'}>Security</Link>
+              <Link href="/status" className="text-sm transition-colors" style={{ color: '#9ca3af' }} onMouseEnter={(e) => e.currentTarget.style.color = '#ffffff'} onMouseLeave={(e) => e.currentTarget.style.color = '#9ca3af'}>Status</Link>
+            </div>
+            
+            <div className="flex items-center gap-4">
+              <Shield className="w-5 h-5" style={{ color: '#6b7280' }} />
+              <span className="text-sm" style={{ color: '#6b7280' }}>SOC 2 Compliant</span>
+            </div>
           </div>
         </div>
       </footer>
