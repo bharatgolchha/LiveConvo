@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   MagnifyingGlassIcon, 
@@ -15,7 +16,8 @@ import {
   ArchiveBoxIcon,
   ArrowRightOnRectangleIcon,
   ChevronDownIcon,
-  TrashIcon
+  TrashIcon,
+  XCircleIcon
 } from '@heroicons/react/24/outline';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
@@ -207,7 +209,6 @@ const DashboardSidebar: React.FC<{
   const navItems = [
     { path: 'conversations', label: 'Conversations', icon: MicrophoneIcon, count: activeCount },
     { path: 'archive', label: 'Archive', icon: ArchiveBoxIcon, count: archivedCount },
-    { path: 'analytics', label: 'Analytics', icon: ChartBarIcon },
     { path: 'settings', label: 'Settings', icon: Cog6ToothIcon }
   ];
 
@@ -570,13 +571,17 @@ const NewConversationModal: React.FC<{
   isOpen: boolean;
   onClose: () => void;
   onStart: (config: any) => void;
-}> = ({ isOpen, onClose, onStart }) => {
+  sessions?: Session[];
+}> = ({ isOpen, onClose, onStart, sessions = [] }) => {
   const [step, setStep] = useState(1);
   const [conversationType, setConversationType] = useState('');
   const [title, setTitle] = useState('');
   const [contextText, setContextText] = useState('');
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
   const [dragOver, setDragOver] = useState(false);
+  const [selectedPreviousConversations, setSelectedPreviousConversations] = useState<string[]>([]);
+  const [showPreviousConversations, setShowPreviousConversations] = useState(false);
+  const [previousConversationSearch, setPreviousConversationSearch] = useState('');
 
   // Feature flag to hide document upload temporarily
   const ENABLE_DOCUMENT_UPLOAD = false;
@@ -635,7 +640,8 @@ const NewConversationModal: React.FC<{
       context: {
         text: contextText,
         files: uploadedFiles
-      }
+      },
+      selectedPreviousConversations
     });
     onClose();
     setStep(1);
@@ -643,6 +649,8 @@ const NewConversationModal: React.FC<{
     setTitle('');
     setContextText('');
     setUploadedFiles([]);
+    setSelectedPreviousConversations([]);
+    setPreviousConversationSearch('');
   };
 
   return (
@@ -755,6 +763,126 @@ const NewConversationModal: React.FC<{
                         rows={4}
                         className="w-full px-4 py-3 border border-input rounded-lg focus:ring-2 focus:ring-app-primary focus:border-transparent bg-background text-foreground resize-none"
                       />
+                    </div>
+
+                    {/* Previous Conversations Selection */}
+                    <div className="mb-6">
+                      <label className="block text-sm font-medium text-foreground mb-2">
+                        Previous Conversations for Context
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => setShowPreviousConversations(!showPreviousConversations)}
+                        className="w-full px-4 py-3 border border-input rounded-lg text-left flex items-center justify-between hover:bg-muted/50 transition-colors"
+                      >
+                        <span className="text-sm text-foreground">
+                          {selectedPreviousConversations.length > 0 
+                            ? `${selectedPreviousConversations.length} conversation${selectedPreviousConversations.length > 1 ? 's' : ''} selected`
+                            : 'Select previous conversations for context'
+                          }
+                        </span>
+                        <ChevronDownIcon className={`w-4 h-4 text-muted-foreground transition-transform ${showPreviousConversations ? 'rotate-180' : ''}`} />
+                      </button>
+                      
+                      {showPreviousConversations && (
+                        <div className="mt-2 border border-input rounded-lg">
+                          {/* Search Input */}
+                          <div className="p-3 border-b border-input">
+                            <div className="relative">
+                              <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                              <input
+                                type="text"
+                                placeholder="Search conversations..."
+                                value={previousConversationSearch}
+                                onChange={(e) => setPreviousConversationSearch(e.target.value)}
+                                className="w-full pl-9 pr-3 py-2 text-sm border border-input rounded-md focus:outline-none focus:ring-1 focus:ring-app-primary bg-background"
+                              />
+                              {previousConversationSearch && (
+                                <button
+                                  type="button"
+                                  onClick={() => setPreviousConversationSearch('')}
+                                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                                >
+                                  <XCircleIcon className="w-4 h-4" />
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                          
+                          {/* Conversations List */}
+                          <div className="max-h-48 overflow-y-auto">
+                            {(() => {
+                              const filteredSessions = sessions
+                                .filter(s => s.status === 'completed')
+                                .filter(s => {
+                                  if (!previousConversationSearch) return true;
+                                  const searchLower = previousConversationSearch.toLowerCase();
+                                  return (
+                                    s.title?.toLowerCase().includes(searchLower) ||
+                                    s.conversation_type?.toLowerCase().includes(searchLower)
+                                  );
+                                })
+                                .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+                                .slice(0, 20); // Show up to 20 matching conversations
+
+                              if (filteredSessions.length === 0) {
+                                return (
+                                  <p className="text-sm text-muted-foreground p-4 text-center">
+                                    {previousConversationSearch 
+                                      ? 'No matching conversations found'
+                                      : 'No completed conversations available'
+                                    }
+                                  </p>
+                                );
+                              }
+
+                              return (
+                                <div>
+                                  {previousConversationSearch && (
+                                    <div className="px-3 py-2 text-xs text-muted-foreground border-b border-input">
+                                      Found {filteredSessions.length} conversation{filteredSessions.length !== 1 ? 's' : ''}
+                                    </div>
+                                  )}
+                                  <div className="p-2 space-y-1">
+                                    {filteredSessions.map(session => (
+                                  <label
+                                    key={session.id}
+                                    className="flex items-start p-2 hover:bg-muted/50 rounded cursor-pointer"
+                                  >
+                                    <input
+                                      type="checkbox"
+                                      checked={selectedPreviousConversations.includes(session.id)}
+                                      onChange={(e) => {
+                                        if (e.target.checked) {
+                                          setSelectedPreviousConversations(prev => [...prev, session.id]);
+                                        } else {
+                                          setSelectedPreviousConversations(prev => prev.filter(id => id !== session.id));
+                                        }
+                                      }}
+                                      className="mt-1 rounded border-input text-app-primary focus:ring-app-primary"
+                                    />
+                                    <div className="ml-3 flex-1">
+                                      <p className="text-sm font-medium text-foreground">
+                                        {session.title || 'Untitled'}
+                                      </p>
+                                      <p className="text-xs text-muted-foreground">
+                                        {session.conversation_type} • {new Date(session.created_at).toLocaleDateString()}
+                                      </p>
+                                    </div>
+                                  </label>
+                                    ))}
+                                  </div>
+                                </div>
+                              );
+                            })()}
+                          </div>
+                        </div>
+                      )}
+                      {selectedPreviousConversations.length > 0 && (
+                        <p className="text-xs text-muted-foreground mt-2">
+                          Selected conversations will provide context to the AI coach
+                        </p>
+                      )}
                     </div>
 
                     {/* File Upload Area - Temporarily Hidden */}
@@ -1098,6 +1226,7 @@ const ContextUploadWidget: React.FC<{
 // Main Dashboard Component
 const DashboardPage: React.FC = () => {
   const { user } = useAuth();
+  const router = useRouter();
   const [activePath, setActivePath] = useState('conversations');
   const [showNewConversationModal, setShowNewConversationModal] = useState(false);
   const [showOnboardingModal, setShowOnboardingModal] = useState(false);
@@ -1203,6 +1332,7 @@ const DashboardPage: React.FC = () => {
           title: config.title,
           type: config.conversationType,
           context: config.context || { text: '', files: [] },
+          selectedPreviousConversations: config.selectedPreviousConversations || [],
           createdAt: new Date().toISOString()
         };
         
@@ -1423,7 +1553,13 @@ const DashboardPage: React.FC = () => {
         <DashboardSidebar 
           usageStats={userStats || defaultStats}
           activePath={activePath}
-          onNavigate={setActivePath}
+          onNavigate={(path) => {
+            if (path === 'settings') {
+              router.push('/settings');
+            } else {
+              setActivePath(path);
+            }
+          }}
           currentUser={currentUser}
           sessions={sessions}
         />
@@ -1600,6 +1736,7 @@ const DashboardPage: React.FC = () => {
         isOpen={showNewConversationModal}
         onClose={() => setShowNewConversationModal(false)}
         onStart={handleStartConversation}
+        sessions={sessions}
       />
 
       {/* Onboarding Modal */}

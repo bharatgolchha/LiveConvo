@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { supabase } from '@/lib/supabase';
 
 export async function POST(request: NextRequest) {
   try {
@@ -12,8 +13,28 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Fetch user's personal context
+    let personalContext = '';
+    const { data: { user } } = await supabase.auth.getUser();
+    
+    if (user) {
+      const { data: userData } = await supabase
+        .from('users')
+        .select('personal_context')
+        .eq('id', user.id)
+        .single();
+      
+      personalContext = userData?.personal_context || '';
+    }
+
     const systemPrompt = getSystemPrompt(conversationType, participantRole);
-    const prompt = buildGuidancePrompt({ transcript, context, userContext, conversationType, participantRole });
+    const prompt = buildGuidancePrompt({ 
+      transcript, 
+      context, 
+      userContext: userContext || personalContext, 
+      conversationType, 
+      participantRole 
+    });
 
     const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
       method: 'POST',

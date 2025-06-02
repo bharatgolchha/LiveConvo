@@ -47,6 +47,7 @@ interface UseChatGuidanceProps {
   timeline?: any[]; // TimelineEvent[] type
   uploadedFiles?: File[];
   selectedPreviousConversations?: string[];
+  personalContext?: string;
 }
 
 export function useChatGuidance({
@@ -58,7 +59,8 @@ export function useChatGuidance({
   summary,
   timeline,
   uploadedFiles,
-  selectedPreviousConversations
+  selectedPreviousConversations,
+  personalContext
 }: UseChatGuidanceProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -146,7 +148,8 @@ export function useChatGuidance({
             type: f.type, 
             size: f.size 
           })) : [],
-          selectedPreviousConversations
+          selectedPreviousConversations,
+          personalContext
         })
       });
 

@@ -7,6 +7,7 @@ export interface UserStats {
   monthlyAudioLimit: number;
   monthlyMinutesUsed?: number;
   monthlyMinutesLimit?: number;
+  monthlySecondsUsed?: number;
   minutesRemaining?: number;
   totalSessions: number;
   completedSessions: number;
@@ -17,6 +18,10 @@ export interface UserStats {
   sessionsLast7Days: number;
   sessionsLast30Days: number;
   usagePercentage: number;
+  currentMonthUsage?: {
+    audioSeconds: number;
+    sessionCount: number;
+  };
 }
 
 export interface UserStatsHookReturn {
