@@ -218,7 +218,9 @@ const saveSummaryToDatabase = async (sessionId: string, summary: ConversationSum
       hasSummary: !!summary,
       tldrLength: summary?.tldr?.length,
       keyPointsCount: summary?.keyPoints?.length,
-      decisionsCount: summary?.decisions?.length
+      decisionsCount: summary?.decisions?.length,
+      hasPerformanceMetrics: !!(summary as any).performanceMetrics,
+      hasConversationDynamics: !!(summary as any).conversationDynamics
     });
 
     const response = await authenticatedFetch(`/api/sessions/${sessionId}`, session, {
@@ -1748,7 +1750,22 @@ export default function App() {
           tldr: finalSummary.tldr?.substring(0, 50) + '...'
         });
         try {
+          // Save to realtime cache first
           await saveSummaryToDatabase(conversationId, finalSummary, session);
+          
+          // Also create a proper summary in the summaries table
+          console.log('💾 Creating final summary in summaries table...');
+          const completeResponse = await authenticatedFetch(`/api/sessions/${conversationId}/complete`, session, {
+            method: 'POST',
+            body: JSON.stringify({ summary: finalSummary })
+          });
+          
+          if (completeResponse.ok) {
+            const { summaryId } = await completeResponse.json();
+            console.log('✅ Final summary created with ID:', summaryId);
+          } else {
+            console.error('⚠️ Failed to create final summary:', await completeResponse.text());
+          }
         } catch (error) {
           console.error('⚠️ Failed to save summary, but continuing with stop:', error);
           // Don't block the stop action if summary save fails

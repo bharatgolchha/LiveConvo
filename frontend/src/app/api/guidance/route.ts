@@ -1,185 +1,219 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createAuthenticatedServerClient } from '@/lib/supabase-server';
+import { GoogleGenerativeAI } from '@google/generative-ai';
+
+const getContextPrompt = (conversationType: string): string => {
+  switch (conversationType) {
+    case 'sales':
+      return `You are a sales coach helping close deals. Focus on:
+- Identifying customer pain points and needs
+- Handling objections effectively
+- Moving the conversation toward a decision
+- Building rapport and trust
+- Asking qualifying questions`;
+    
+    case 'interview':
+      return `You are an interview coach. Focus on:
+- Behavioral question techniques (STAR method)
+- Showcasing relevant experience
+- Asking insightful questions about the role
+- Demonstrating cultural fit
+- Handling difficult questions`;
+    
+    case 'meeting':
+      return `You are a meeting facilitator. Focus on:
+- Keeping discussions on track
+- Ensuring all voices are heard
+- Driving toward decisions
+- Clarifying action items
+- Managing time effectively`;
+    
+    default:
+      return `You are a conversation coach helping improve communication. Focus on:
+- Active listening techniques
+- Clear and concise communication
+- Building understanding
+- Asking clarifying questions
+- Summarizing key points`;
+  }
+};
 
 export async function POST(request: NextRequest) {
   try {
-    const { transcript, context, userContext, conversationType, participantRole } = await request.json();
-
-    const apiKey = process.env.OPENROUTER_API_KEY;
+    const { transcript, conversationType, textContext, sessionId } = await request.json();
+    
+    // Check for Gemini API key
+    const apiKey = process.env.GOOGLE_GEMINI_API_KEY || process.env.GEMINI_API_KEY;
     if (!apiKey) {
+      console.error('❌ Gemini API key not found');
       return NextResponse.json(
-        { error: 'OpenRouter API key not configured. Please set OPENROUTER_API_KEY in your environment variables.' },
+        { error: 'Gemini API key not configured' },
         { status: 500 }
       );
     }
 
-    // Fetch user's personal context
-    let personalContext = '';
-    const authHeader = request.headers.get('authorization');
-    const token = authHeader?.split(' ')[1];
-    const supabase = await createAuthenticatedServerClient(token);
-    const { data: { user } } = await supabase.auth.getUser();
-    
-    if (user) {
-      const { data: userData } = await supabase
-        .from('users')
-        .select('personal_context')
-        .eq('id', user.id)
-        .single();
-      
-      personalContext = userData?.personal_context || '';
-    }
-
-    const systemPrompt = getSystemPrompt(conversationType, participantRole);
-    const prompt = buildGuidancePrompt({ 
-      transcript, 
-      context, 
-      userContext: userContext || personalContext, 
-      conversationType, 
-      participantRole 
-    });
-
-    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-        'HTTP-Referer': 'https://liveconvo.app', // Optional: for app identification
-        'X-Title': 'liveprompt.ai AI Guidance', // Optional: for app identification
-      },
-      body: JSON.stringify({
-        model: 'google/gemini-2.5-flash-preview-05-20',
-        messages: [
-          {
-            role: 'system',
-            content: systemPrompt
-          },
-          {
-            role: 'user',
-            content: prompt
-          }
+    if (!transcript || transcript.trim().length === 0) {
+      return NextResponse.json({
+        suggestions: [
+          { text: "Start by introducing yourself and the purpose of this conversation", type: "statement", relevance: 90 },
+          { text: "What brings you here today?", type: "question", relevance: 85 },
+          { text: "Let's begin with your main objectives", type: "statement", relevance: 80 }
         ],
-        temperature: 0.3,
-        max_tokens: 1000,
-        response_format: { type: 'json_object' }
-      })
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('OpenRouter API error:', response.status, errorText);
-      return NextResponse.json(
-        { error: `OpenRouter API error: ${response.status}` },
-        { status: response.status }
-      );
+        analysis: {
+          sentiment: "neutral",
+          nextBestAction: "Begin the conversation with a clear introduction"
+        }
+      });
     }
 
-    const data = await response.json();
-    const guidanceData = JSON.parse(data.choices[0].message.content);
+    // Initialize Gemini
+    const genAI = new GoogleGenerativeAI(apiKey);
+    const model = genAI.getGenerativeModel({
+      model: 'gemini-2.5-flash-preview-05-20',
+      generationConfig: {
+        responseMimeType: 'application/json',
+        responseSchema: {
+          type: 'object',
+          properties: {
+            suggestions: {
+              type: 'array',
+              items: {
+                type: 'object',
+                properties: {
+                  text: {
+                    type: 'string'
+                  },
+                  type: {
+                    type: 'string',
+                    enum: ['question', 'statement', 'clarification', 'summary', 'action']
+                  },
+                  relevance: {
+                    type: 'number'
+                  }
+                },
+                required: ['text', 'type', 'relevance']
+              }
+            },
+            analysis: {
+              type: 'object',
+              properties: {
+                sentiment: {
+                  type: 'string',
+                  enum: ['positive', 'negative', 'neutral']
+                },
+                nextBestAction: {
+                  type: 'string'
+                }
+              },
+              required: ['sentiment', 'nextBestAction']
+            }
+          },
+          required: ['suggestions', 'analysis']
+        },
+        temperature: 0.7, // Higher for more creative suggestions
+        maxOutputTokens: 500
+      }
+    });
+
+    // Create the prompt
+    const contextInfo = textContext ? `\nContext: ${textContext}\n` : '';
     
-    return NextResponse.json({ suggestions: guidanceData.suggestions || [] });
+    const prompt = `${getContextPrompt(conversationType || 'general')}
+
+${contextInfo}
+
+Based on this conversation transcript, provide 3-5 highly relevant suggestions for what to say next. Consider:
+- The current flow and momentum of the conversation
+- Any unanswered questions or concerns
+- Opportunities to deepen understanding
+- Ways to move toward the conversation goals
+
+Provide actionable, specific suggestions that would naturally fit the conversation flow.
+
+Transcript:
+${transcript}`;
+
+    // Generate content
+    console.log('🤖 Generating guidance with Gemini...');
+    const result = await model.generateContent(prompt);
+    const response = await result.response;
+    const text = response.text();
+
+    // Parse the response
+    let guidanceData;
+    try {
+      // Clean the response - remove any markdown or extra text
+      let cleanedText = text.trim();
+      
+      // If the response contains markdown code blocks, extract the JSON
+      if (cleanedText.includes('```json')) {
+        const jsonMatch = cleanedText.match(/```json\s*([\s\S]*?)\s*```/);
+        if (jsonMatch) {
+          cleanedText = jsonMatch[1];
+        }
+      } else if (cleanedText.includes('```')) {
+        const jsonMatch = cleanedText.match(/```\s*([\s\S]*?)\s*```/);
+        if (jsonMatch) {
+          cleanedText = jsonMatch[1];
+        }
+      }
+      
+      // Extract JSON object if there's text before or after
+      const jsonObjectMatch = cleanedText.match(/\{[\s\S]*\}/);
+      if (jsonObjectMatch) {
+        cleanedText = jsonObjectMatch[0];
+      }
+      
+      guidanceData = JSON.parse(cleanedText);
+      console.log('✅ Successfully generated guidance:', {
+        suggestionsCount: guidanceData.suggestions?.length || 0,
+        sentiment: guidanceData.analysis?.sentiment
+      });
+    } catch (parseError) {
+      console.error('❌ Failed to parse guidance response:', parseError);
+      console.error('Raw response:', text);
+      
+      // Fallback guidance
+      guidanceData = {
+        suggestions: [
+          { text: "Could you elaborate on that point?", type: "question", relevance: 75 },
+          { text: "Let me summarize what I understand so far...", type: "summary", relevance: 70 },
+          { text: "What are your thoughts on the next steps?", type: "question", relevance: 65 }
+        ],
+        analysis: {
+          sentiment: "neutral",
+          nextBestAction: "Continue exploring the topic"
+        }
+      };
+    }
+
+    // Ensure data is valid
+    if (!guidanceData.suggestions || guidanceData.suggestions.length === 0) {
+      guidanceData.suggestions = [
+        { text: "Tell me more about that", type: "question", relevance: 70 }
+      ];
+    }
+
+    // Sort by relevance and limit to 5
+    guidanceData.suggestions = guidanceData.suggestions
+      .sort((a: any, b: any) => (b.relevance || 0) - (a.relevance || 0))
+      .slice(0, 5);
+
+    return NextResponse.json(guidanceData);
 
   } catch (error) {
-    console.error('Guidance API error:', error);
-    return NextResponse.json(
-      { error: 'Failed to generate guidance' },
-      { status: 500 }
-    );
+    console.error('❌ Guidance API error:', error);
+    
+    // Return helpful fallback suggestions
+    return NextResponse.json({
+      suggestions: [
+        { text: "Could you tell me more about that?", type: "question", relevance: 70 },
+        { text: "What are your main concerns?", type: "question", relevance: 65 },
+        { text: "Let's explore that further", type: "statement", relevance: 60 }
+      ],
+      analysis: {
+        sentiment: "neutral",
+        nextBestAction: "Continue the conversation"
+      }
+    });
   }
 }
-
-function getSystemPrompt(conversationType?: string, participantRole?: string): string {
-  const basePrompt = `You are an expert conversation coach providing real-time guidance during live conversations. 
-
-Your role is to analyze the conversation transcript and provide helpful, actionable suggestions to improve the conversation flow and outcomes.
-
-GUIDANCE TYPES:
-- "ask": Suggest questions to ask
-- "clarify": Recommend clarification on unclear points  
-- "avoid": Warn about topics or approaches to avoid
-- "suggest": Recommend actions or talking points
-- "warn": Alert about potential issues or risks
-
-RESPONSE FORMAT:
-Return a JSON object with this exact structure:
-{
-  "suggestions": [
-    {
-      "type": "ask|clarify|avoid|suggest|warn",
-      "message": "Clear, actionable guidance message",
-      "confidence": 85,
-      "reasoning": "Brief explanation of why this guidance is relevant",
-      "priority": "low|medium|high"
-    }
-  ]
-}
-
-GUIDELINES:
-- Provide 1-3 suggestions maximum
-- Keep messages concise and actionable (under 100 characters)
-- Focus on immediate next steps
-- Consider conversation context and uploaded documents
-- Prioritize high-impact suggestions
-- Be specific and practical`;
-
-  const roleSpecificPrompts = {
-    sales: `
-SALES CONVERSATION FOCUS:
-- Discovery questions to understand pain points
-- Qualifying budget, authority, need, timeline
-- Building rapport and trust
-- Avoiding premature pitching
-- Identifying decision-making process`,
-    
-    support: `
-SUPPORT CONVERSATION FOCUS:
-- Understanding the customer's issue clearly
-- Gathering relevant technical details
-- Providing clear, step-by-step solutions
-- Managing customer emotions and expectations
-- Following up on resolution`,
-    
-    meeting: `
-MEETING CONVERSATION FOCUS:
-- Keeping discussion on agenda
-- Ensuring all voices are heard
-- Capturing action items and decisions
-- Managing time effectively
-- Clarifying next steps`,
-    
-    interview: `
-INTERVIEW CONVERSATION FOCUS:
-- Asking behavioral and situational questions
-- Probing for specific examples
-- Assessing cultural fit
-- Covering all required competencies
-- Maintaining professional tone`
-  };
-
-  return basePrompt + (roleSpecificPrompts[conversationType as keyof typeof roleSpecificPrompts] || '');
-}
-
-function buildGuidancePrompt(request: {
-  transcript: string;
-  context: string;
-  userContext?: string;
-  conversationType?: string;
-  participantRole?: string;
-}): string {
-  return `
-CONVERSATION ANALYSIS REQUEST:
-
-CONTEXT DOCUMENTS:
-${request.context || 'No context documents provided'}
-
-USER CONTEXT:
-${request.userContext || 'No additional user context provided'}
-
-CURRENT CONVERSATION TRANSCRIPT:
-${request.transcript}
-
-CONVERSATION TYPE: ${request.conversationType || 'general'}
-PARTICIPANT ROLE: ${request.participantRole || 'participant'}
-
-Please analyze this conversation and provide 1-3 actionable guidance suggestions to help improve the conversation flow and achieve better outcomes. Focus on the most recent parts of the transcript and consider the provided context.`;
-} 

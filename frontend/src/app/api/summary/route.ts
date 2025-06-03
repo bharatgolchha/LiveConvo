@@ -1,42 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { GoogleGenerativeAI } from '@google/generative-ai';
 
-const getContextSpecificGuidelines = (conversationType: string) => {
+const getContextSpecificPrompt = (conversationType: string) => {
   switch (conversationType) {
     case 'sales':
-      return `
-SALES-SPECIFIC SUGGESTIONS:
-- Follow-up calls and demos
-- Proposal and contract preparation
-- Client research and needs analysis
-- Pricing and negotiation preparation
-- CRM updates and pipeline management`;
-    
+      return 'Pay special attention to: pricing discussions, customer needs, objections, deal status, and next steps in the sales process.';
     case 'meeting':
-      return `
-MEETING-SPECIFIC SUGGESTIONS:
-- Action item assignments
-- Follow-up meetings and check-ins
-- Document sharing and preparation
-- Decision implementation steps
-- Meeting notes distribution`;
-    
+      return 'Focus on: agenda items, decisions made, action items with owners, deadlines, and follow-up requirements.';
     case 'interview':
-      return `
-INTERVIEW-SPECIFIC SUGGESTIONS:
-- Thank you note sending
-- Reference checks and follow-ups
-- Skills assessment and preparation
-- Company research and culture fit
-- Next round preparation`;
-    
+      return 'Analyze: candidate qualifications, relevant experience, culture fit, strengths/weaknesses, and hiring recommendations.';
     default:
-      return `
-GENERAL SUGGESTIONS:
-- Task follow-ups and assignments
-- Information gathering and research
-- Decision points and deadlines
-- Communication and coordination
-- Documentation and record keeping`;
+      return 'Extract the main topics, key decisions, action items, and next steps from the conversation.';
   }
 };
 
@@ -44,10 +18,12 @@ export async function POST(request: NextRequest) {
   try {
     const { transcript, sessionId, conversationType } = await request.json();
 
-    const apiKey = process.env.OPENROUTER_API_KEY;
+    // Check for Gemini API key
+    const apiKey = process.env.GOOGLE_GEMINI_API_KEY || process.env.GEMINI_API_KEY;
     if (!apiKey) {
+      console.error('❌ Gemini API key not found');
       return NextResponse.json(
-        { error: 'OpenRouter API key not configured. Please set OPENROUTER_API_KEY in your environment variables.' },
+        { error: 'Gemini API key not configured. Please set GOOGLE_GEMINI_API_KEY in your environment variables.' },
         { status: 500 }
       );
     }
@@ -63,177 +39,254 @@ export async function POST(request: NextRequest) {
       ? transcript.map(t => `${t.speaker}: ${t.text}`).join('\n')
       : transcript;
 
-    const systemPrompt = `You are an expert conversation analyst. Analyze the conversation transcript and provide a comprehensive summary.
+    // Count basic metrics
+    const lines = transcriptText.split('\n').filter(line => line.trim());
+    const words = transcriptText.split(/\s+/).filter(Boolean);
 
-CRITICAL: You MUST respond with valid JSON using this EXACT structure. Do not include any text before or after the JSON.
-
-{
-  "tldr": "Brief 1-2 sentence summary of the conversation",
-  "keyPoints": ["Specific point 1", "Specific point 2", "Specific point 3"],
-  "decisions": ["Decision 1", "Decision 2"],
-  "actionItems": ["Actionable item 1", "Actionable item 2"],
-  "nextSteps": ["Next step 1", "Next step 2"],
-  "topics": ["Topic 1", "Topic 2", "Topic 3"],
-  "sentiment": "positive|negative|neutral",
-  "progressStatus": "just_started|building_momentum|making_progress|wrapping_up",
-  "suggestedChecklistItems": [
-    {
-      "text": "Checklist item text",
-      "priority": "high|medium|low",
-      "type": "preparation|followup|research|decision|action",
-      "relevance": 85
-    }
-  ]
-}
-
-FIELD REQUIREMENTS:
-- tldr: Always include a meaningful summary, even for short conversations
-- keyPoints: Extract 3-5 concrete points mentioned in the conversation
-- decisions: Only include actual decisions made (can be empty array)
-- actionItems: Specific tasks or follow-ups identified (can be empty array)
-- nextSteps: Clear next actions to be taken (can be empty array)
-- topics: Main subjects discussed (always include at least 1-2)
-- sentiment: Choose the most appropriate overall tone
-- progressStatus: Assess where the conversation stands
-
-CHECKLIST RECOMMENDATIONS GUIDELINES:
-- Generate 2-5 contextual checklist items based on conversation content
-- Focus on actionable items that emerge naturally from the discussion
-- Include both preparation items (for ongoing conversations) and follow-up items
-- Prioritize items that are specific, achievable, and time-relevant
-- Use relevance scores (0-100) to rank suggestions by importance
-- Types: preparation, followup, research, decision, action
-- Only suggest items that add value - avoid generic suggestions
-- Consider conversation type (${conversationType}) for context-appropriate suggestions
-
-EXAMPLES BY TYPE:
-- preparation: "Review quarterly sales numbers before next meeting"
-- followup: "Send meeting notes to all attendees" 
-- research: "Research competitor pricing for Project X"
-- decision: "Decide on final budget allocation by Friday"
-- action: "Schedule follow-up call with client"
-
-${getContextSpecificGuidelines(conversationType || 'general')}
-
-Focus on extracting concrete, actionable information. Return only valid JSON.`;
-
-    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-        'HTTP-Referer': 'https://liveconvo.app', // Optional: for app identification
-        'X-Title': 'liveprompt.ai Summary', // Optional: for app identification
-      },
-      body: JSON.stringify({
-        model: 'google/gemini-2.5-flash-preview-05-20',
-        messages: [
-          {
-            role: 'system',
-            content: systemPrompt
-          },
-          {
-            role: 'user',
-            content: `Please analyze this conversation transcript and provide a summary:\n\n${transcriptText}`
-          }
-        ],
-        temperature: 0.3,
-        max_tokens: 1000,
-        response_format: { type: 'json_object' }
-      })
+    console.log('📤 Gemini Summary Request:', {
+      apiKeyLength: apiKey.length,
+      transcriptLines: lines.length,
+      transcriptWords: words.length,
+      conversationType
     });
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('OpenRouter API error:', response.status, errorText);
-      return NextResponse.json(
-        { error: `OpenRouter API error: ${response.status}` },
-        { status: response.status }
-      );
-    }
+    // Initialize Gemini
+    const genAI = new GoogleGenerativeAI(apiKey);
+    const model = genAI.getGenerativeModel({
+      model: 'gemini-2.5-flash-preview-05-20',
+      generationConfig: {
+        responseMimeType: 'application/json',
+        responseSchema: {
+          type: 'object',
+          properties: {
+            tldr: {
+              type: 'string'
+            },
+            keyPoints: {
+              type: 'array',
+              items: {
+                type: 'string'
+              }
+            },
+            decisions: {
+              type: 'array',
+              items: {
+                type: 'string'
+              }
+            },
+            actionItems: {
+              type: 'array',
+              items: {
+                type: 'string'
+              }
+            },
+            nextSteps: {
+              type: 'array',
+              items: {
+                type: 'string'
+              }
+            },
+            topics: {
+              type: 'array',
+              items: {
+                type: 'string'
+              }
+            },
+            sentiment: {
+              type: 'string',
+              enum: ['positive', 'negative', 'neutral']
+            },
+            progressStatus: {
+              type: 'string',
+              enum: ['just_started', 'building_momentum', 'making_progress', 'wrapping_up']
+            }
+          },
+          required: ['tldr', 'keyPoints', 'topics', 'sentiment', 'progressStatus']
+        },
+        temperature: 0.3,
+        maxOutputTokens: 1000
+      }
+    });
 
-    const data = await response.json();
-    console.log('🤖 Raw Summary Response:', data.choices[0].message.content);
-    
+    // Create the prompt
+    const prompt = `You are analyzing a ${conversationType || 'business'} conversation. 
+${getContextSpecificPrompt(conversationType || 'general')}
+
+Analyze this conversation and provide a comprehensive summary with specific details from the transcript.
+
+Be specific and reference actual content from the conversation. Extract concrete information like names, numbers, dates, decisions. Identify real action items and next steps mentioned.
+
+Conversation transcript:
+${transcriptText}`;
+
+    // Generate content
+    console.log('🤖 Calling Gemini API...');
+    const result = await model.generateContent(prompt);
+    const response = await result.response;
+    const text = response.text();
+
+    console.log('📝 Gemini Response received:', {
+      responseLength: text.length,
+      responsePreview: text.substring(0, 200) + '...'
+    });
+
+    // Parse the JSON response
     let summaryData;
     try {
-      let content = data.choices[0].message.content;
+      // Clean the response - remove any markdown or extra text
+      let cleanedText = text.trim();
       
-      // Try to extract JSON from the content (sometimes AI adds text before/after)
-      const jsonMatch = content.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        content = jsonMatch[0];
+      // If the response contains markdown code blocks, extract the JSON
+      if (cleanedText.includes('```json')) {
+        const jsonMatch = cleanedText.match(/```json\s*([\s\S]*?)\s*```/);
+        if (jsonMatch) {
+          cleanedText = jsonMatch[1];
+        }
+      } else if (cleanedText.includes('```')) {
+        const jsonMatch = cleanedText.match(/```\s*([\s\S]*?)\s*```/);
+        if (jsonMatch) {
+          cleanedText = jsonMatch[1];
+        }
       }
       
-      summaryData = JSON.parse(content);
-      console.log('📊 Parsed Summary Data:', {
+      // Extract JSON object if there's text before or after
+      const jsonObjectMatch = cleanedText.match(/\{[\s\S]*\}/);
+      if (jsonObjectMatch) {
+        cleanedText = jsonObjectMatch[0];
+      }
+      
+      summaryData = JSON.parse(cleanedText);
+      console.log('✅ Successfully parsed Gemini response:', {
         hasTldr: !!summaryData.tldr,
         keyPointsCount: summaryData.keyPoints?.length || 0,
         decisionsCount: summaryData.decisions?.length || 0,
-        actionItemsCount: summaryData.actionItems?.length || 0,
-        sentiment: summaryData.sentiment,
-        progressStatus: summaryData.progressStatus
+        actionItemsCount: summaryData.actionItems?.length || 0
       });
     } catch (parseError) {
-      console.error('💥 JSON Parse Error for Summary:', parseError);
-      console.error('Raw content that failed to parse:', data.choices[0].message.content);
+      console.error('❌ Failed to parse Gemini response:', parseError);
+      console.error('Raw response:', text);
+      console.error('Text length:', text.length);
+      console.error('First 100 chars:', text.substring(0, 100));
       
-      // Try to extract meaningful content even if JSON parsing fails
-      const rawContent = data.choices[0].message.content;
-      
-      // Attempt to extract tldr from the raw content
-      const tldrMatch = rawContent.match(/"tldr"\s*:\s*"([^"]+)"/);
-      const tldr = tldrMatch ? tldrMatch[1] : 'Summary generation in progress. Content analysis ongoing.';
-      
-      // Fallback to a more informative summary structure
-      summaryData = {
-        tldr: tldr,
-        keyPoints: ['Real-time analysis is processing the conversation'],
-        decisions: [],
-        actionItems: [],
-        nextSteps: [],
-        topics: transcriptText.length > 100 ? ['Active conversation'] : ['Conversation starting'],
-        sentiment: 'neutral',
-        progressStatus: transcriptText.length > 500 ? 'making_progress' : 'building_momentum',
-        suggestedChecklistItems: []
-      };
+      // Try a more aggressive parsing approach
+      try {
+        // Look for JSON-like patterns in the text
+        const tldrMatch = text.match(/"tldr"\s*:\s*"([^"]+)"/);
+        const keyPointsMatch = text.match(/"keyPoints"\s*:\s*\[(.*?)\]/s);
+        
+        summaryData = {
+          tldr: tldrMatch ? tldrMatch[1] : `Conversation with ${lines.length} exchanges discussing various topics.`,
+          keyPoints: keyPointsMatch ? 
+            keyPointsMatch[1].match(/"([^"]+)"/g)?.map(s => s.replace(/"/g, '')) || ['Conversation in progress'] :
+            ['Conversation in progress', 'Multiple topics discussed'],
+          decisions: [],
+          actionItems: [],
+          nextSteps: [],
+          topics: ['General discussion'],
+          sentiment: 'neutral',
+          progressStatus: words.length > 300 ? 'making_progress' : 'building_momentum'
+        };
+      } catch (fallbackError) {
+        // Ultimate fallback
+        summaryData = {
+          tldr: `Conversation with ${lines.length} exchanges discussing various topics.`,
+          keyPoints: ['Conversation in progress', 'Multiple topics discussed'],
+          decisions: [],
+          actionItems: [],
+          nextSteps: [],
+          topics: ['General discussion'],
+          sentiment: 'neutral',
+          progressStatus: words.length > 300 ? 'making_progress' : 'building_momentum'
+        };
+      }
     }
-    
-    // Validate and ensure all required fields exist
-    const validatedSummary = {
-      tldr: summaryData.tldr || 'No summary available',
-      keyPoints: Array.isArray(summaryData.keyPoints) ? summaryData.keyPoints : [],
-      decisions: Array.isArray(summaryData.decisions) ? summaryData.decisions : [],
-      actionItems: Array.isArray(summaryData.actionItems) ? summaryData.actionItems : [],
-      nextSteps: Array.isArray(summaryData.nextSteps) ? summaryData.nextSteps : [],
-      topics: Array.isArray(summaryData.topics) ? summaryData.topics : ['General'],
-      sentiment: ['positive', 'negative', 'neutral'].includes(summaryData.sentiment) ? summaryData.sentiment : 'neutral',
-      progressStatus: ['just_started', 'building_momentum', 'making_progress', 'wrapping_up'].includes(summaryData.progressStatus) ? summaryData.progressStatus : 'building_momentum',
-      suggestedChecklistItems: Array.isArray(summaryData.suggestedChecklistItems) ? summaryData.suggestedChecklistItems.filter((item: any) => 
-        item && 
-        typeof item.text === 'string' && 
-        ['high', 'medium', 'low'].includes(item.priority) &&
-        ['preparation', 'followup', 'research', 'decision', 'action'].includes(item.type) &&
-        typeof item.relevance === 'number' && 
-        item.relevance >= 0 && 
-        item.relevance <= 100
-      ) : []
+
+    // Ensure all arrays exist
+    summaryData.decisions = summaryData.decisions || [];
+    summaryData.actionItems = summaryData.actionItems || [];
+    summaryData.nextSteps = summaryData.nextSteps || [];
+
+    // Generate checklist items based on the summary
+    const suggestedChecklistItems = generateChecklistItems(summaryData, conversationType);
+
+    const finalSummary = {
+      ...summaryData,
+      suggestedChecklistItems
     };
-    
-    // Return in the expected format for useRealtimeSummary hook
-    const responseData = {
-      summary: validatedSummary,
+
+    console.log('✅ Final summary prepared:', {
+      tldr: finalSummary.tldr?.substring(0, 50) + '...',
+      keyPointsCount: finalSummary.keyPoints.length,
+      hasDecisions: finalSummary.decisions.length > 0,
+      hasActionItems: finalSummary.actionItems.length > 0
+    });
+
+    return NextResponse.json({
+      summary: finalSummary,
       generatedAt: new Date().toISOString(),
       sessionId
-    };
-    
-    return NextResponse.json(responseData);
+    });
 
   } catch (error) {
-    console.error('Summary API error:', error);
+    console.error('❌ Summary API error:', error);
+    
+    // Provide more detailed error information
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    const isApiKeyError = errorMessage.includes('API_KEY') || errorMessage.includes('401');
+    
     return NextResponse.json(
-      { error: 'Failed to generate summary' },
-      { status: 500 }
+      { 
+        error: isApiKeyError ? 'Invalid or missing Gemini API key' : 'Failed to generate summary',
+        details: process.env.NODE_ENV === 'development' ? errorMessage : undefined
+      },
+      { status: isApiKeyError ? 401 : 500 }
     );
   }
-} 
+}
+
+function generateChecklistItems(summary: any, conversationType?: string) {
+  const items = [];
+
+  // Add items based on action items
+  if (summary.actionItems && summary.actionItems.length > 0) {
+    summary.actionItems.slice(0, 2).forEach((item: string, index: number) => {
+      items.push({
+        text: item,
+        priority: index === 0 ? 'high' : 'medium',
+        type: 'action' as const,
+        relevance: 90 - (index * 5)
+      });
+    });
+  }
+
+  // Add items based on next steps
+  if (summary.nextSteps && summary.nextSteps.length > 0) {
+    items.push({
+      text: summary.nextSteps[0],
+      priority: 'medium' as const,
+      type: 'followup' as const,
+      relevance: 85
+    });
+  }
+
+  // Add context-specific items
+  if (conversationType === 'sales' && summary.decisions && summary.decisions.length > 0) {
+    items.push({
+      text: 'Send follow-up email with proposal details',
+      priority: 'high' as const,
+      type: 'followup' as const,
+      relevance: 80
+    });
+  }
+
+  if (conversationType === 'meeting' && summary.decisions && summary.decisions.length > 0) {
+    items.push({
+      text: 'Document and share meeting decisions with team',
+      priority: 'medium' as const,
+      type: 'action' as const,
+      relevance: 75
+    });
+  }
+
+  return items.slice(0, 5); // Return max 5 items
+}

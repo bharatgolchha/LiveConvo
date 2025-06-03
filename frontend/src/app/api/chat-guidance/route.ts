@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { GoogleGenerativeAI } from '@google/generative-ai';
 
 interface ChatMessage {
   id: string;
@@ -36,6 +37,8 @@ interface ParsedContext {
 }
 
 export async function POST(request: NextRequest) {
+  console.log('🚀 Chat guidance API called');
+  
   try {
     const { 
       message, 
@@ -51,28 +54,44 @@ export async function POST(request: NextRequest) {
       selectedPreviousConversations,
       personalContext
     }: ChatRequest = await request.json();
+    
+    console.log('📝 Chat guidance request:', {
+      message: message?.substring(0, 50),
+      hasTranscript: !!transcript,
+      chatHistoryLength: chatHistory?.length || 0,
+      conversationType,
+      sessionId
+    });
 
-    const apiKey = process.env.OPENROUTER_API_KEY;
+    // Check for Gemini API key
+    const apiKey = process.env.GOOGLE_GEMINI_API_KEY || process.env.GEMINI_API_KEY;
     if (!apiKey) {
+      console.error('❌ Gemini API key not found');
       return NextResponse.json(
-        { error: 'OpenRouter API key not configured. Please set OPENROUTER_API_KEY in your environment variables.' },
+        { error: 'Gemini API key not configured' },
         { status: 500 }
       );
     }
 
-    // Parse context from message if it exists
-    const parsedContext = parseContextFromMessage(message);
+    // Parse message for auto-context extraction
+    const parsedContext = parseUserMessage(message);
     const effectiveConversationType = parsedContext.conversationType || conversationType;
-    const effectiveConversationTitle = parsedContext.conversationTitle || conversationTitle;
+    const effectiveTitle = parsedContext.conversationTitle || conversationTitle;
 
-    const systemPrompt = getChatGuidanceSystemPrompt(effectiveConversationType);
+    // Check if this is an initial guidance chip request
+    const isChipRequest = message.match(/🎯|💡|🔥|📊|🛡️|🤝/);
+    
+    if (isChipRequest) {
+      return generateChipGuidance(message, transcript, effectiveConversationType, apiKey, textContext, personalContext);
+    }
+
+    // Build comprehensive prompt
     const prompt = buildChatPrompt(
-      parsedContext.userMessage,
-      transcript,
-      chatHistory,
+      parsedContext.userMessage, 
+      transcript, 
+      chatHistory, 
       effectiveConversationType,
-      parsedContext.conversationTitle || conversationTitle,
-      // Enhanced context
+      effectiveTitle,
       textContext,
       summary,
       timeline,
@@ -81,130 +100,272 @@ export async function POST(request: NextRequest) {
       personalContext
     );
 
-    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-        'HTTP-Referer': 'https://liveconvo.app', // Optional: for app identification
-        'X-Title': 'liveprompt.ai AI Coach', // Optional: for app identification
-      },
-      body: JSON.stringify({
-        model: 'google/gemini-2.5-flash-preview-05-20',
-        messages: [
-          {
-            role: 'system',
-            content: systemPrompt
+    console.log('🤖 Generating chat guidance with context:', {
+      hasTranscript: transcript && transcript.trim().length > 0,
+      hasTextContext: !!textContext,
+      hasPersonalContext: !!personalContext,
+      hasSummary: !!summary,
+      hasTimeline: timeline && timeline.length > 0,
+      hasUploadedFiles: uploadedFiles && uploadedFiles.length > 0,
+      hasPreviousConversations: selectedPreviousConversations && selectedPreviousConversations.length > 0,
+      conversationType: effectiveConversationType,
+      messageLength: message.length
+    });
+
+    // Initialize Gemini
+    const genAI = new GoogleGenerativeAI(apiKey);
+    const model = genAI.getGenerativeModel({
+      model: 'gemini-2.5-flash-preview-05-20',
+      generationConfig: {
+        responseMimeType: 'application/json',
+        responseSchema: {
+          type: 'object',
+          properties: {
+            response: {
+              type: 'string'
+            },
+            suggestedActions: {
+              type: 'array',
+              items: {
+                type: 'string'
+              }
+            },
+            confidence: {
+              type: 'number'
+            }
           },
-          {
-            role: 'user',
-            content: prompt
-          }
-        ],
-        temperature: 0.4,
-        max_tokens: 1500,
-        response_format: { type: 'json_object' }
-      })
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('OpenRouter API error:', response.status, errorText);
-      return NextResponse.json(
-        { error: `OpenRouter API error: ${response.status}` },
-        { status: response.status }
-      );
-    }
-
-    const data = await response.json();
-    
-    // Add logging for debugging
-    console.log('OpenRouter response data:', data);
-    console.log('Raw content to parse:', data.choices[0]?.message?.content);
-    
-    let chatResponse;
-    try {
-      const rawContent = data.choices[0].message.content;
-      
-      // Check if the JSON response appears to be truncated
-      if (!rawContent.trim().endsWith('}')) {
-        console.warn('Response appears to be truncated:', rawContent);
-        
-        // Try to complete the JSON structure
-        let completedJson = rawContent;
-        if (!completedJson.includes('"suggestedActions"')) {
-          completedJson += ', "suggestedActions": ["Try rephrasing your question"], "confidence": 85}';
-        } else if (!completedJson.endsWith('}')) {
-          completedJson += '}';
-        }
-        
-        try {
-          chatResponse = JSON.parse(completedJson);
-          console.log('Successfully parsed completed JSON');
-        } catch (completionError) {
-          console.error('Failed to complete truncated JSON:', completionError);
-          throw new Error('Response was truncated and could not be completed');
-        }
-      } else {
-        chatResponse = JSON.parse(rawContent);
+          required: ['response']
+        },
+        temperature: 0.7,
+        maxOutputTokens: 800
       }
-    } catch (parseError) {
-      console.error('JSON parsing error:', parseError);
-      console.error('Content that failed to parse:', data.choices[0]?.message?.content);
-      
-      // Fallback response if JSON parsing fails
-      return NextResponse.json({ 
-        response: data.choices[0]?.message?.content || "I'm having trouble processing your request right now.",
-        suggestedActions: ["Try rephrasing your question", "Check your connection"],
-        confidence: 50,
-        generatedAt: new Date().toISOString(),
-        sessionId,
-        note: "Response parsed as plain text due to JSON parsing error"
-      });
-    }
-    
-    return NextResponse.json({ 
-      response: chatResponse.response,
-      suggestedActions: chatResponse.suggestedActions || [],
-      confidence: chatResponse.confidence || 90,
-      generatedAt: new Date().toISOString(),
-      sessionId 
     });
+
+    console.log('🤖 Calling Gemini for chat response...');
+    const result = await model.generateContent(prompt);
+    const response = await result.response;
+    const text = response.text();
+    
+    console.log('✅ Gemini response received:', {
+      textLength: text.length,
+      textPreview: text.substring(0, 100)
+    });
+
+    // Parse the response
+    let guidanceData;
+    try {
+      guidanceData = JSON.parse(text);
+    } catch (parseError) {
+      console.error('❌ Failed to parse guidance response:', parseError);
+      guidanceData = {
+        response: "I understand you're looking for guidance. Based on the conversation context, I recommend focusing on the key points discussed and moving toward actionable next steps. What specific aspect would you like help with?",
+        confidence: 75
+      };
+    }
+
+    // Ensure response exists
+    if (!guidanceData.response) {
+      guidanceData.response = "I'm here to help guide your conversation. What specific aspect would you like assistance with?";
+    }
+
+    // Add default confidence if not provided
+    if (!guidanceData.confidence) {
+      guidanceData.confidence = 85;
+    }
+
+    // Format the response
+    const formattedResponse = {
+      id: `chat-${Date.now()}`,
+      type: 'ai' as const,
+      content: guidanceData.response,
+      timestamp: new Date(),
+      metadata: {
+        confidence: guidanceData.confidence,
+        guidanceType: 'contextual',
+        isResponse: true
+      },
+      suggestedActions: guidanceData.suggestedActions || []
+    };
+
+    return NextResponse.json(formattedResponse);
 
   } catch (error) {
     console.error('Chat guidance API error:', error);
-    return NextResponse.json(
-      { error: 'Failed to generate chat response' },
-      { status: 500 }
-    );
+    
+    return NextResponse.json({
+      id: `error-${Date.now()}`,
+      type: 'ai',
+      content: "I'm having trouble processing your request. Could you please rephrase your question?",
+      timestamp: new Date(),
+      metadata: {
+        confidence: 0,
+        guidanceType: 'error',
+        isResponse: true
+      }
+    });
   }
 }
 
-function getChatGuidanceSystemPrompt(conversationType?: string): string {
-  return `You are an expert AI conversation coach with deep knowledge of ${conversationType || 'general'} conversations. Your job is to provide highly contextual, actionable guidance based on the user's specific situation.
+// Parse user message for context extraction
+function parseUserMessage(message: string): ParsedContext {
+  const lines = message.split('\n');
+  let conversationType: string | undefined;
+  let conversationTitle: string | undefined;
+  let userMessage = message;
 
-RESPONSE FORMAT:
-Return a JSON object:
-{
-  "response": "Specific, actionable guidance using all available context (use markdown for clarity). Keep responses focused and concise - aim for 2-3 key points maximum.",
-  "suggestedActions": ["Action 1", "Action 2", "Action 3"],
-  "confidence": 85
+  // Look for auto-added context (added by conversation setup)
+  const typeMatch = message.match(/\[Type: (\w+)\]/);
+  const titleMatch = message.match(/\[Title: ([^\]]+)\]/);
+
+  if (typeMatch) {
+    conversationType = typeMatch[1];
+    userMessage = userMessage.replace(typeMatch[0], '').trim();
+  }
+
+  if (titleMatch) {
+    conversationTitle = titleMatch[1];
+    userMessage = userMessage.replace(titleMatch[0], '').trim();
+  }
+
+  return {
+    conversationType,
+    conversationTitle,
+    userMessage
+  };
 }
 
-SPECIAL INSTRUCTIONS FOR CHIP GENERATION:
-If the user asks for "guidance chips" or mentions "6 contextual guidance chips", the suggestedActions array should contain exactly 6 items in this format:
-{
-  "response": "Here are 6 contextual guidance chips for your conversation:",
-  "suggestedActions": [
-    {"text": "🎯 Key objective", "prompt": "What's the key objective for this conversation?"},
-    {"text": "💡 Discovery questions", "prompt": "What discovery questions should I ask?"},
-    {"text": "🔥 Build rapport", "prompt": "How can I build rapport effectively?"},
-    {"text": "📊 Present value", "prompt": "How should I present our value proposition?"},
-    {"text": "🛡️ Handle objections", "prompt": "How do I handle potential objections?"},
-    {"text": "🤝 Next steps", "prompt": "What should be the next steps?"}
-  ],
-  "confidence": 90
+// Generate initial chip guidance
+async function generateChipGuidance(
+  message: string, 
+  transcript: string, 
+  conversationType: string | undefined,
+  apiKey: string,
+  textContext?: string,
+  personalContext?: string
+): Promise<NextResponse> {
+  const chipPrompts: Record<string, string> = {
+    '🎯 Key objective': 'What is the key objective for this conversation and how can I achieve it?',
+    '💡 Discovery questions': 'What discovery questions should I ask to better understand their needs?',
+    '🔥 Build rapport': 'How can I build rapport effectively in this conversation?',
+    '📊 Present value': 'How should I present our value proposition effectively?',
+    '🛡️ Handle objections': 'How do I handle potential objections that might come up?',
+    '🤝 Next steps': 'What should be the next steps in this conversation?'
+  };
+
+  const chipText = Object.keys(chipPrompts).find(key => message.includes(key.split(' ')[0]));
+  const chipPrompt = chipText ? chipPrompts[chipText] : message;
+
+  // Initialize Gemini for chip guidance
+  const genAI = new GoogleGenerativeAI(apiKey);
+  const model = genAI.getGenerativeModel({
+    model: 'gemini-2.5-flash-preview-05-20',
+    generationConfig: {
+      responseMimeType: 'application/json',
+      responseSchema: {
+        type: 'object',
+        properties: {
+          response: {
+            type: 'string'
+          },
+          suggestedActions: {
+            type: 'array',
+            items: {
+              type: 'object',
+              properties: {
+                text: {
+                  type: 'string'
+                },
+                prompt: {
+                  type: 'string'
+                }
+              },
+              required: ['text', 'prompt']
+            }
+          },
+          confidence: {
+            type: 'number'
+          }
+        },
+        required: ['response', 'suggestedActions']
+      },
+      temperature: 0.7,
+      maxOutputTokens: 600
+    }
+  });
+
+  let contextSection = '';
+  if (personalContext) {
+    contextSection += `USER'S CONTEXT: ${personalContext}\n\n`;
+  }
+  if (textContext) {
+    contextSection += `CONVERSATION CONTEXT: ${textContext}\n\n`;
+  }
+
+  const prompt = `You are an AI conversation coach providing guidance for a ${conversationType || 'business'} conversation.
+
+${contextSection}
+
+${transcript ? `CURRENT TRANSCRIPT:\n${transcript}\n\n` : 'This is the preparation phase before the conversation starts.\n\n'}
+
+USER QUESTION: ${chipPrompt}
+
+Provide specific, actionable guidance. Include 5-6 quick action chips for follow-up questions. Return in JSON format.`;
+
+  const result = await model.generateContent(prompt);
+  const response = await result.response;
+  const text = response.text();
+
+  let guidanceData;
+  try {
+    guidanceData = JSON.parse(text);
+  } catch (parseError) {
+    console.error('❌ Failed to parse chip guidance:', parseError);
+    guidanceData = {
+      response: "Here are some key strategies for your conversation. Click on any chip below for more specific guidance.",
+      suggestedActions: [
+        { text: "🎯 Key objective", prompt: "What's the key objective for this conversation?" },
+        { text: "💡 Discovery questions", prompt: "What discovery questions should I ask?" },
+        { text: "🔥 Build rapport", prompt: "How can I build rapport effectively?" },
+        { text: "📊 Present value", prompt: "How should I present our value proposition?" },
+        { text: "🛡️ Handle objections", prompt: "How do I handle potential objections?" },
+        { text: "🤝 Next steps", prompt: "What should be the next steps?" }
+      ],
+      confidence: 90
+    };
+  }
+
+  return NextResponse.json({
+    id: `chip-${Date.now()}`,
+    type: 'ai' as const,
+    content: guidanceData.response,
+    timestamp: new Date(),
+    metadata: {
+      confidence: guidanceData.confidence || 90,
+      guidanceType: 'chip-response',
+      isResponse: true
+    },
+    suggestedActions: guidanceData.suggestedActions
+  });
 }
+
+function getChatSystemPrompt(): string {
+  return `You are an expert AI conversation coach helping users navigate important conversations in real-time. 
+
+Your responses should be:
+- Specific and actionable based on the context provided
+- Concise (under 400 words) to ensure completeness
+- Practical advice they can use immediately
+- Aware of all context including background notes, conversation type, and progress
+
+When generating follow-up action chips, provide exactly 6 chips using this format:
+[
+  {"text": "🎯 Key objective", "prompt": "What's the key objective for this conversation?"},
+  {"text": "💡 Discovery questions", "prompt": "What discovery questions should I ask?"},
+  {"text": "🔥 Build rapport", "prompt": "How can I build rapport effectively?"},
+  {"text": "📊 Present value", "prompt": "How should I present our value proposition?"},
+  {"text": "🛡️ Handle objections", "prompt": "How do I handle potential objections?"},
+  {"text": "🤝 Next steps", "prompt": "What should be the next steps?"}
+]
 
 GUIDANCE PRINCIPLES:
 - Use ALL provided context (background notes, conversation type, summary, timeline, files, etc.)
@@ -298,73 +459,37 @@ function buildChatPrompt(message: string, transcript: string, chatHistory: ChatM
     prompt += `\n`;
   }
   
-  // Live transcript
-  if (transcript && transcript.trim()) {
-    const transcriptLines = transcript.split('\n').slice(-10); // Last 10 lines for context
-    prompt += `RECENT CONVERSATION TRANSCRIPT:\n${transcriptLines.join('\n')}\n\n`;
-  } else {
-    prompt += `No live transcript available yet.\n\n`;
+  // Chat history (last 3 exchanges for context)
+  if (chatHistory && chatHistory.length > 0) {
+    prompt += `RECENT CHAT HISTORY:\n`;
+    const recentHistory = chatHistory.slice(-6); // Last 3 exchanges
+    recentHistory.forEach(msg => {
+      if (msg.type === 'user' || msg.type === 'ai') {
+        prompt += `${msg.type.toUpperCase()}: ${msg.content}\n`;
+      }
+    });
+    prompt += `\n`;
   }
   
-  prompt += `USER QUESTION: ${message}\n\n`;
-  prompt += `Please provide specific, actionable guidance based on the conversation context above. If this is about sales and the user asks "What am I selling?", use the background notes and context to explain their specific product/service. Be contextual and helpful.`;
+  // Current transcript (if in live conversation)
+  if (transcript && transcript.trim().length > 0 && isLiveConversation) {
+    const transcriptLength = transcript.length;
+    if (transcriptLength > 3000) {
+      // For long transcripts, use last portion
+      prompt += `RECENT CONVERSATION TRANSCRIPT (last portion):\n`;
+      prompt += transcript.substring(transcriptLength - 3000) + '\n\n';
+    } else {
+      prompt += `CONVERSATION TRANSCRIPT:\n`;
+      prompt += transcript + '\n\n';
+    }
+  }
+  
+  // Add system prompt
+  prompt += getChatSystemPrompt() + '\n\n';
+  
+  // User's current question
+  prompt += `USER'S CURRENT QUESTION: ${message}\n\n`;
+  prompt += `Please provide specific, actionable guidance based on all the context provided above. Focus on their immediate needs while being aware of the broader conversation context.`;
   
   return prompt;
 }
-
-function getConversationSpecificGuidance(conversationType?: string, isLiveConversation: boolean = false): string {
-  const prefix = isLiveConversation ? 'LIVE GUIDANCE:' : 'PREPARATION GUIDANCE:';
-  
-  switch (conversationType) {
-    case 'sales':
-      return `${prefix} ${isLiveConversation 
-        ? 'Focus on active listening, building rapport, understanding pain points, and moving toward next steps. Help with objection handling and closing techniques based on current conversation state.'
-        : 'Help prepare value propositions, anticipate objections, practice pitch delivery, and plan conversation flow. Focus on research, messaging, and strategic preparation.'
-      }`;
-    
-    case 'interview':
-      return `${prefix} ${isLiveConversation 
-        ? 'Help with clear communication, showcasing relevant experience, asking thoughtful questions, and demonstrating cultural fit. Provide real-time coaching for responses.'
-        : 'Help prepare STAR method responses, research the company, practice common questions, and develop thoughtful questions to ask. Focus on preparation strategy.'
-      }`;
-    
-    case 'support':
-      return `${prefix} ${isLiveConversation 
-        ? 'Focus on empathy, active problem-solving, clear explanations, and efficient resolution. Help de-escalate tension and ensure customer satisfaction.'
-        : 'Help prepare troubleshooting approaches, empathy phrases, escalation procedures, and knowledge base usage. Focus on service preparation.'
-      }`;
-    
-    case 'meeting':
-      return `${prefix} ${isLiveConversation 
-        ? 'Help keep discussions on track, facilitate participation, summarize key points, and ensure action items are captured. Provide real-time facilitation guidance.'
-        : 'Help prepare agendas, anticipate discussion topics, plan facilitation techniques, and organize materials. Focus on meeting preparation and structure.'
-      }`;
-    
-    default:
-      return `${prefix} ${isLiveConversation 
-        ? 'Provide contextual guidance based on the current conversation state, help with communication effectiveness, and suggest next steps.'
-        : 'Help with conversation planning, key points preparation, and strategic thinking for the upcoming discussion.'
-      }`;
-  }
-}
-
-// New function to parse context from user messages
-function parseContextFromMessage(message: string): ParsedContext {
-  // Look for context pattern: [Context: type - title] actual message
-  const contextPattern = /^\[Context:\s*(\w+)\s*-\s*([^\]]+)\]\s*(.+)$/;
-  const match = message.match(contextPattern);
-  
-  if (match) {
-    const [, conversationType, conversationTitle, userMessage] = match;
-    return {
-      conversationType: conversationType.toLowerCase(),
-      conversationTitle: conversationTitle.trim(),
-      userMessage: userMessage.trim()
-    };
-  }
-  
-  // No context found, return original message
-  return {
-    userMessage: message
-  };
-} 

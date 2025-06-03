@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { GoogleGenerativeAI } from '@google/generative-ai';
 
 // Health check endpoint
 export async function GET() {
@@ -45,7 +46,7 @@ export async function POST(request: NextRequest) {
     }
 
     console.log('📍 Topic summary API - Checking API key');
-    const apiKey = process.env.OPENROUTER_API_KEY;
+    const apiKey = process.env.GOOGLE_GEMINI_API_KEY || process.env.GEMINI_API_KEY;
     console.log('🔑 API Key check:', { 
       hasApiKey: !!apiKey, 
       keyLength: apiKey?.length || 0,
@@ -53,29 +54,26 @@ export async function POST(request: NextRequest) {
     });
     
     if (!apiKey) {
-      console.error('❌ Missing OPENROUTER_API_KEY environment variable');
+      console.error('❌ Missing Gemini API key environment variable');
       return NextResponse.json(
-        { error: 'OpenRouter API key not configured. Please set OPENROUTER_API_KEY in your environment variables.' },
+        { error: 'Gemini API key not configured. Please set GOOGLE_GEMINI_API_KEY in your environment variables.' },
         { status: 500 }
       );
     }
 
-    console.log('🚀 Calling OpenRouter API...');
-    // Use OpenRouter to generate topic-specific summary
-    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-        'HTTP-Referer': 'https://liveconvo.app',
-        'X-Title': 'liveprompt.ai Topic Summary'
-      },
-      body: JSON.stringify({
-        model: 'google/gemini-2.5-flash-preview-05-20',
-        messages: [
-          {
-            role: 'system',
-            content: `You are an AI assistant that analyzes conversation transcripts and provides detailed summaries about specific topics. When given a topic and transcript, you should:
+    console.log('🚀 Calling Gemini API...');
+    
+    // Initialize Gemini
+    const genAI = new GoogleGenerativeAI(apiKey);
+    const model = genAI.getGenerativeModel({
+      model: 'gemini-2.5-flash-preview-05-20',
+      generationConfig: {
+        temperature: 0.7,
+        maxOutputTokens: 500
+      }
+    });
+
+    const prompt = `You are an AI assistant that analyzes conversation transcripts and provides detailed summaries about specific topics. When given a topic and transcript, you should:
 
 1. Identify all parts of the conversation related to the topic
 2. Summarize what was discussed about that topic
@@ -83,45 +81,23 @@ export async function POST(request: NextRequest) {
 4. Keep the summary focused and concise but comprehensive
 5. Use a conversational, easy-to-read tone
 
-Format your response as a well-structured summary that flows naturally.`
-          },
-          {
-            role: 'user',
-            content: `Please analyze this conversation transcript and provide a detailed summary of everything that was discussed about the topic: "${topic}"
+Format your response as a well-structured summary that flows naturally.
+
+Please analyze this conversation transcript and provide a detailed summary of everything that was discussed about the topic: "${topic}"
 
 Transcript:
 ${transcript}
 
-Focus specifically on what was said about "${topic}" and provide a comprehensive but concise summary of that discussion.`
-          }
-        ],
-        max_tokens: 500,
-        temperature: 0.7
-      })
-    });
+Focus specifically on what was said about "${topic}" and provide a comprehensive but concise summary of that discussion.`;
 
-    console.log('📡 OpenRouter response status:', response.status);
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('❌ OpenRouter API error:', response.status, errorText);
-      return NextResponse.json(
-        { error: `OpenRouter API error: ${response.status} - ${errorText}` },
-        { status: 500 }
-      );
-    }
+    const result = await model.generateContent(prompt);
+    const response = await result.response;
+    const summary = response.text();
 
-    const data = await response.json();
-    console.log('✅ OpenRouter response received:', { 
-      hasChoices: !!data.choices, 
-      choicesLength: data.choices?.length,
-      responseKeys: Object.keys(data || {}),
-      firstChoiceKeys: data.choices?.[0] ? Object.keys(data.choices[0]) : []
-    });
-    
-    const summary = data.choices[0]?.message?.content;
+    console.log('✅ Gemini response received, summary length:', summary.length);
 
     if (!summary) {
-      console.error('❌ No summary in OpenRouter response:', data);
+      console.error('❌ No summary in Gemini response');
       return NextResponse.json(
         { error: 'No summary generated' },
         { status: 500 }
@@ -146,4 +122,4 @@ Focus specifically on what was said about "${topic}" and provide a comprehensive
       { status: 500 }
     );
   }
-} 
+}

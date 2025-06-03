@@ -160,20 +160,32 @@ export default function SummaryPage() {
         }
       }
       
-      // If no realtime cache, check for finalized summaries
-      if (!finalSummary && sessionDataResponse.summaries && sessionDataResponse.summaries.length > 0) {
+      // Check for finalized summaries in the summaries table (preferred over cache)
+      if (sessionDataResponse.summaries && sessionDataResponse.summaries.length > 0) {
         // Use the most recent summary
-        finalSummary = sessionDataResponse.summaries[sessionDataResponse.summaries.length - 1];
+        const dbSummary = sessionDataResponse.summaries[sessionDataResponse.summaries.length - 1];
+        console.log('📊 Found summary in summaries table:', {
+          id: dbSummary.id,
+          hasTitle: !!dbSummary.title,
+          hasTldr: !!dbSummary.tldr,
+          keyDecisionsCount: dbSummary.key_decisions?.length || 0,
+          actionItemsCount: dbSummary.action_items?.length || 0
+        });
+        
+        finalSummary = dbSummary;
         
         // Parse structured notes if available
-        if (finalSummary.structured_notes) {
+        if (dbSummary.structured_notes) {
           try {
-            enhancedData = JSON.parse(finalSummary.structured_notes);
-            console.log('✅ Loaded enhanced summary data:', enhancedData);
+            enhancedData = JSON.parse(dbSummary.structured_notes);
+            console.log('✅ Loaded enhanced summary data from summaries table');
           } catch (e) {
             console.error('Failed to parse structured notes:', e);
           }
         }
+      } else if (!finalSummary && sessionDataResponse.realtime_summary_cache) {
+        // Fall back to realtime cache only if no summary in summaries table
+        console.log('⚠️ No summary in summaries table, falling back to realtime cache');
       }
 
       // Create comprehensive summary data
@@ -183,16 +195,16 @@ export default function SummaryPage() {
         participants: ['You', 'Guest'],
         summary: finalSummary ? {
           overview: finalSummary.tldr || `This was a ${sessionDataResponse.conversation_type || 'general'} conversation.`,
-          keyPoints: finalSummary.conversation_highlights || [],
-          decisions: finalSummary.key_decisions || [],
-          actionItems: finalSummary.action_items || [],
+          keyPoints: finalSummary.conversation_highlights || finalSummary.keyPoints || [],
+          decisions: finalSummary.key_decisions || finalSummary.decisions || [],
+          actionItems: finalSummary.action_items || finalSummary.actionItems || [],
           tldr: finalSummary.tldr,
-          sentiment: enhancedData?.conversation_dynamics?.tone || 'neutral',
-          topics: [sessionDataResponse.conversation_type || 'general'],
+          sentiment: enhancedData?.sentiment || enhancedData?.conversation_dynamics?.tone || finalSummary.sentiment || 'neutral',
+          topics: enhancedData?.topics || finalSummary.topics || [sessionDataResponse.conversation_type || 'general'],
           insights: enhancedData?.insights || [],
           missedOpportunities: enhancedData?.missed_opportunities || [],
           successfulMoments: enhancedData?.successful_moments || [],
-          followUpQuestions: finalSummary.follow_up_questions || [],
+          followUpQuestions: finalSummary.follow_up_questions || finalSummary.nextSteps || [],
           conversationDynamics: enhancedData?.conversation_dynamics || {},
           effectivenessMetrics: enhancedData?.effectiveness_metrics || {},
           coachingRecommendations: enhancedData?.coaching_recommendations || [],

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { GoogleGenerativeAI } from '@google/generative-ai';
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
   let sessionId: string | undefined;
@@ -10,9 +11,9 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     ({ transcript, sessionId, conversationType } = body);
 
     // Check for API key
-    const apiKey = process.env.OPENROUTER_API_KEY;
+    const apiKey = process.env.GOOGLE_GEMINI_API_KEY || process.env.GEMINI_API_KEY;
     if (!apiKey) {
-      console.error('❌ OPENROUTER_API_KEY not found in environment');
+      console.error('❌ Gemini API key not found in environment');
       throw new Error('API key not configured');
     }
 
@@ -36,33 +37,57 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     console.log('📝 Transcript length:', transcriptText.length);
     console.log('📝 First 200 chars of transcript:', transcriptText.substring(0, 200));
 
-    // Call OpenRouter API
-    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'google/gemini-2.5-flash-preview-05-20',
-        messages: [
-          {
-            role: 'system',
-            content: `You are an expert conversation analyst. Analyze the conversation transcript and provide a comprehensive summary.
+    // Initialize Gemini
+    const genAI = new GoogleGenerativeAI(apiKey);
+    const model = genAI.getGenerativeModel({
+      model: 'gemini-2.5-flash-preview-05-20',
+      generationConfig: {
+        responseMimeType: 'application/json',
+        responseSchema: {
+          type: 'object',
+          properties: {
+            tldr: { type: 'string' },
+            keyPoints: {
+              type: 'array',
+              items: { type: 'string' }
+            },
+            decisions: {
+              type: 'array',
+              items: { type: 'string' }
+            },
+            actionItems: {
+              type: 'array',
+              items: { type: 'string' }
+            },
+            nextSteps: {
+              type: 'array',
+              items: { type: 'string' }
+            },
+            topics: {
+              type: 'array',
+              items: { type: 'string' }
+            },
+            sentiment: {
+              type: 'string',
+              enum: ['positive', 'negative', 'neutral']
+            },
+            progressStatus: {
+              type: 'string',
+              enum: ['just_started', 'building_momentum', 'making_progress', 'wrapping_up']
+            },
+            suggestedChecklistItems: {
+              type: 'array',
+              items: { type: 'string' }
+            }
+          },
+          required: ['tldr', 'keyPoints', 'decisions', 'actionItems', 'nextSteps', 'topics', 'sentiment', 'progressStatus']
+        },
+        temperature: 0.3,
+        maxOutputTokens: 1000
+      }
+    });
 
-CRITICAL: You MUST respond with valid JSON using this EXACT structure. Do not include any text before or after the JSON.
-
-{
-  "tldr": "Brief 1-2 sentence summary of the conversation",
-  "keyPoints": ["Specific point 1", "Specific point 2", "Specific point 3"],
-  "decisions": ["Decision 1", "Decision 2"],
-  "actionItems": ["Actionable item 1", "Actionable item 2"],
-  "nextSteps": ["Next step 1", "Next step 2"],
-  "topics": ["Topic 1", "Topic 2"],
-  "sentiment": "positive|negative|neutral",
-  "progressStatus": "just_started|building_momentum|making_progress|wrapping_up",
-  "suggestedChecklistItems": []
-}
+    const prompt = `You are an expert conversation analyst. Analyze the conversation transcript and provide a comprehensive summary.
 
 FIELD REQUIREMENTS:
 - tldr: Always include a meaningful summary, even for short conversations
@@ -74,44 +99,22 @@ FIELD REQUIREMENTS:
 - sentiment: Choose the most appropriate overall tone
 - progressStatus: Assess where the conversation stands
 
-Focus on extracting concrete, actionable information. Return only valid JSON.`
-          },
-          {
-            role: 'user',
-            content: `Please analyze this conversation transcript and provide a summary:\n\n${transcriptText}`
-          }
-        ],
-        temperature: 0.3,
-        max_tokens: 1000,
-        response_format: { type: 'json_object' }
-      })
-    });
+Focus on extracting concrete, actionable information.
 
-    if (!response.ok) {
-      console.error('❌ OpenRouter API error:', response.status);
-      const errorText = await response.text();
-      throw new Error(`OpenRouter API error: ${response.status} - ${errorText}`);
-    }
+Please analyze this conversation transcript and provide a summary:
 
-    const data = await response.json();
-    console.log('🔍 OpenRouter API Response:', JSON.stringify(data, null, 2));
+${transcriptText}`;
+
+    const result = await model.generateContent(prompt);
+    const response = await result.response;
+    const responseText = response.text();
+
+    console.log('🔍 Gemini API Response received');
     
-    // Validate API response structure
-    if (!data?.choices?.[0]?.message?.content) {
-      console.error('❌ Invalid OpenRouter response structure:', JSON.stringify(data, null, 2));
-      throw new Error('Invalid API response structure');
-    }
-
     let summaryData;
     
     try {
-      // Extract JSON from response
-      let content = data.choices[0].message.content;
-      const jsonMatch = content.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        content = jsonMatch[0];
-      }
-      summaryData = JSON.parse(content);
+      summaryData = JSON.parse(responseText);
       
       // Validate required fields
       if (!summaryData.tldr) {
@@ -138,7 +141,7 @@ Focus on extracting concrete, actionable information. Return only valid JSON.`
       
     } catch (e) {
       console.error('❌ Failed to parse AI response:', e);
-      const rawContent = data.choices[0].message.content;
+      const rawContent = responseText;
       console.error('❌ Raw AI response:', rawContent);
       
       // Try to extract meaningful content even if JSON parsing fails

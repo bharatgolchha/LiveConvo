@@ -155,7 +155,7 @@ export function useRealtimeSummary({
         hasTranscript: !!transcript
       });
 
-      const response = await fetch('/api/summary-v2', {
+      const response = await fetch('/api/summary', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -208,8 +208,20 @@ export function useRealtimeSummary({
         decisionsCount: data.summary?.decisions?.length || 0,
         actionItemsCount: data.summary?.actionItems?.length || 0,
         generatedAt: data.generatedAt,
-        fullResponse: data
+        fullResponse: JSON.stringify(data, null, 2)
       });
+      
+      if (data.summary) {
+        console.log('📈 Summary Details:', {
+          tldr: data.summary.tldr,
+          keyPoints: data.summary.keyPoints,
+          decisions: data.summary.decisions,
+          actionItems: data.summary.actionItems,
+          topics: data.summary.topics,
+          sentiment: data.summary.sentiment,
+          progressStatus: data.summary.progressStatus
+        });
+      }
       
       // Validate the response structure
       if (!data.summary) {

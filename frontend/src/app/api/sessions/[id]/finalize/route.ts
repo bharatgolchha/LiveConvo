@@ -15,10 +15,10 @@ interface FinalSummaryRequest {
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: { id: string } }
 ) {
   try {
-    const sessionId = params.id;
+    const sessionId = context.params.id;
     const { textContext, conversationType, conversationTitle, uploadedFiles, selectedPreviousConversations, personalContext } = await request.json();
 
     if (!openrouterApiKey) {
@@ -93,9 +93,28 @@ export async function POST(
       conversationTitle
     });
 
+    // First check if we already have a realtime summary cache
+    let existingSummary = null;
+    const { data: sessionWithCache, error: cacheError } = await supabase
+      .from('sessions')
+      .select('realtime_summary_cache')
+      .eq('id', sessionId)
+      .single();
+
+    if (sessionWithCache?.realtime_summary_cache) {
+      try {
+        existingSummary = typeof sessionWithCache.realtime_summary_cache === 'string' 
+          ? JSON.parse(sessionWithCache.realtime_summary_cache)
+          : sessionWithCache.realtime_summary_cache;
+        console.log('📦 Found existing realtime summary cache');
+      } catch (e) {
+        console.error('Failed to parse realtime_summary_cache:', e);
+      }
+    }
+
     // Generate summary and finalization with full context
     const fullContext = buildFullContext(textContext, personalContext, uploadedFiles, selectedPreviousConversations);
-    const summary = await generateFinalSummary(transcriptText, conversationType, fullContext);
+    const summary = await generateFinalSummary(transcriptText, conversationType, fullContext, existingSummary);
     const finalData = await generateFinalizationData(transcriptText, fullContext, conversationType, summary);
 
     console.log('🤖 AI Summary generated:', {
@@ -103,7 +122,9 @@ export async function POST(
       hasKeyPoints: !!summary.key_points,
       hasOutcomes: !!summary.outcomes,
       hasActionItems: !!summary.action_items,
-      hasNextSteps: !!summary.next_steps
+      hasNextSteps: !!summary.next_steps,
+      hasInsights: !!summary.insights,
+      hasEffectivenessMetrics: !!summary.effectiveness_metrics
     });
 
     // Save final summary to database with proper field mapping
@@ -140,6 +161,28 @@ export async function POST(
       model_used: 'google/gemini-2.5-flash-preview-05-20'
     };
 
+    // Check if summary already exists for this session
+    const { data: existingSummaryRecord, error: checkError } = await supabase
+      .from('summaries')
+      .select('id')
+      .eq('session_id', sessionId)
+      .single();
+
+    if (existingSummaryRecord && !checkError) {
+      console.log('⚠️ Summary already exists for session, skipping insert:', existingSummaryRecord.id);
+      return NextResponse.json({
+        sessionId,
+        summary,
+        finalization: finalData,
+        transcript: transcriptText,
+        conversationType,
+        conversationTitle,
+        finalizedAt: new Date().toISOString(),
+        summaryId: existingSummaryRecord.id,
+        note: 'Summary already exists'
+      });
+    }
+
     console.log('💾 Attempting to save summary to database:', {
       session_id: summaryInsertData.session_id,
       user_id: summaryInsertData.user_id,
@@ -150,6 +193,17 @@ export async function POST(
       action_items_count: Array.isArray(summaryInsertData.action_items) ? summaryInsertData.action_items.length : 0
     });
 
+    // Validate data before insert
+    console.log('🔍 Validating summary data before insert:', {
+      hasSessionId: !!summaryInsertData.session_id,
+      hasUserId: !!summaryInsertData.user_id,
+      hasOrgId: !!summaryInsertData.organization_id,
+      keyDecisionsType: typeof summaryInsertData.key_decisions,
+      actionItemsType: typeof summaryInsertData.action_items,
+      keyDecisionsIsArray: Array.isArray(summaryInsertData.key_decisions),
+      actionItemsIsArray: Array.isArray(summaryInsertData.action_items)
+    });
+
     const { data: summaryData, error: summaryError } = await supabase
       .from('summaries')
       .insert(summaryInsertData)
@@ -158,8 +212,22 @@ export async function POST(
 
     if (summaryError) {
       console.error('❌ Database error saving summary:', summaryError);
-      console.error('❌ Full summary insert data:', summaryInsertData);
-      // Continue even if summary save fails but log the error details
+      console.error('❌ Full summary insert data:', JSON.stringify(summaryInsertData, null, 2));
+      console.error('❌ Error details:', {
+        code: summaryError.code,
+        message: summaryError.message,
+        details: summaryError.details,
+        hint: summaryError.hint
+      });
+      // Return error response instead of continuing
+      return NextResponse.json(
+        { 
+          error: 'Failed to save summary', 
+          details: summaryError.message,
+          summaryData: summaryInsertData 
+        },
+        { status: 500 }
+      );
     } else {
       console.log('✅ Summary successfully saved to database with ID:', summaryData?.id);
     }
@@ -169,7 +237,7 @@ export async function POST(
       .from('sessions')
       .update({ 
         status: 'completed',
-        finalized_at: new Date().toISOString()
+        updated_at: new Date().toISOString()
       })
       .eq('id', sessionId);
 
@@ -190,9 +258,21 @@ export async function POST(
     });
 
   } catch (error) {
-    console.error('Session finalization error:', error);
+    console.error('Session finalization error:', {
+      error: error instanceof Error ? error.message : error,
+      stack: error instanceof Error ? error.stack : undefined,
+      sessionId,
+      conversationType,
+      hasTranscript: !!transcriptText
+    });
+    
+    // Return more detailed error for debugging
     return NextResponse.json(
-      { error: 'Failed to finalize session' },
+      { 
+        error: 'Failed to finalize session',
+        details: error instanceof Error ? error.message : 'Unknown error',
+        sessionId
+      },
       { status: 500 }
     );
   }
@@ -229,7 +309,7 @@ function buildFullContext(textContext?: string, personalContext?: string, upload
   return fullContext || 'No additional context provided.';
 }
 
-async function generateFinalSummary(transcript: string, conversationType?: string, fullContext?: string) {
+async function generateFinalSummary(transcript: string, conversationType?: string, fullContext?: string, existingSummary?: any) {
   const typeSpecificPrompts = {
     sales: `Pay special attention to:
 - Customer pain points and needs identified
@@ -366,6 +446,17 @@ Return a JSON object with this EXACT structure:
 CONTEXT AND BACKGROUND:
 ${fullContext || 'No additional context provided.'}
 
+${existingSummary ? `PREVIOUS REAL-TIME SUMMARY ANALYSIS:
+This conversation was analyzed in real-time with the following preliminary findings:
+- TL;DR: ${existingSummary.tldr || 'Not available'}
+- Key Points: ${existingSummary.keyPoints?.join(', ') || 'None identified'}
+- Decisions: ${existingSummary.decisions?.join(', ') || 'None made'}
+- Action Items: ${existingSummary.actionItems?.join(', ') || 'None identified'}
+- Topics: ${existingSummary.topics?.join(', ') || 'General discussion'}
+
+Please build upon and enhance this preliminary analysis with deeper insights.
+
+` : ''}
 CONVERSATION TRANSCRIPT:
 ${transcript}
 
@@ -373,7 +464,8 @@ Remember:
 - Be specific, reference actual content, and provide value beyond generic observations
 - Use the provided context to understand the background and continuity
 - If previous conversations are mentioned, consider follow-up on past action items or decisions
-- Take into account any personal context or notes provided`
+- Take into account any personal context or notes provided
+- Ensure all required fields are populated with meaningful content`
         }
       ],
       temperature: 0.3,
@@ -390,14 +482,18 @@ Remember:
   const summary = JSON.parse(data.choices[0].message.content);
   
   // Map the new structure to the expected database fields
-  return {
-    tldr: summary.tldr,
-    key_points: summary.key_points || [],
+  // Ensure all arrays have meaningful content
+  const mappedSummary = {
+    tldr: summary.tldr || 'No summary available',
+    key_points: summary.key_points && summary.key_points.length > 0 ? summary.key_points : ['Conversation analyzed'],
     action_items: summary.action_items?.map((item: any) => 
       typeof item === 'string' ? item : `${item.task} (${item.owner}) - ${item.timeline}`
     ) || [],
-    outcomes: summary.decisions_made?.map((d: any) => d.decision) || [],
-    next_steps: summary.follow_up_questions || [],
+    outcomes: summary.decisions_made?.map((d: any) => 
+      typeof d === 'string' ? d : d.decision
+    ) || [],
+    next_steps: summary.follow_up_questions && summary.follow_up_questions.length > 0 ? 
+      summary.follow_up_questions : [],
     insights: summary.insights || [],
     missed_opportunities: summary.missed_opportunities || [],
     successful_moments: summary.successful_moments || [],
@@ -405,6 +501,16 @@ Remember:
     effectiveness_metrics: summary.effectiveness_metrics || {},
     coaching_recommendations: summary.coaching_recommendations || []
   };
+  
+  console.log('📦 Mapped summary structure:', {
+    tldr: mappedSummary.tldr.substring(0, 50) + '...',
+    keyPointsCount: mappedSummary.key_points.length,
+    actionItemsCount: mappedSummary.action_items.length,
+    outcomesCount: mappedSummary.outcomes.length,
+    nextStepsCount: mappedSummary.next_steps.length
+  });
+  
+  return mappedSummary;
 }
 
 async function generateFinalizationData(transcript: string, context: string, conversationType?: string, summary?: any) {

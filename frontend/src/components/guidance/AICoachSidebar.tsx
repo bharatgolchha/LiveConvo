@@ -58,7 +58,9 @@ interface AICoachSidebarProps {
 }
 
 // Helper function to parse context from user messages and extract just the message
-function parseMessageForDisplay(message: string): string {
+function parseMessageForDisplay(message: string | undefined): string {
+  if (!message) return '';
+  
   // Look for context pattern: [Context: type - title] actual message
   const contextPattern = /^\[Context:\s*\w+\s*-\s*[^\]]+\]\s*(.+)$/;
   const match = message.match(contextPattern);

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAuthenticatedServerClient } from '@/lib/supabase-server'
+import { GoogleGenerativeAI } from '@google/generative-ai'
 
 export async function POST(request: NextRequest) {
   try {
@@ -22,94 +23,74 @@ export async function POST(request: NextRequest) {
     }
 
     // Check for API key
-    if (!process.env.OPENROUTER_API_KEY) {
-      console.error('OPENROUTER_API_KEY environment variable is not set')
+    const apiKey = process.env.GOOGLE_GEMINI_API_KEY || process.env.GEMINI_API_KEY
+    if (!apiKey) {
+      console.error('Gemini API key not found')
       return NextResponse.json({ error: 'AI service not configured' }, { status: 500 })
     }
 
-    let openRouterResponse;
     try {
-      openRouterResponse = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${process.env.OPENROUTER_API_KEY}`,
-        'Content-Type': 'application/json',
-        'HTTP-Referer': process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000',
-        'X-Title': 'liveprompt.ai AI Checklist Generator'
-      },
-      body: JSON.stringify({
-        model: 'google/gemini-2.5-flash-preview-05-20',
-        messages: [
-          {
-            role: 'system',
-            content: `You are an AI assistant that extracts actionable checklist items from conversation guidance.
-            
-            Your task is to analyze the given message and create 1-5 specific, actionable checklist items.
-            
-            Guidelines:
-            - Extract clear, actionable tasks that can be checked off
-            - Each item should be concise (max 100 characters)
-            - Focus on specific actions, not vague suggestions
-            - Include relevant details (e.g., names, timeframes) when mentioned
-            - Prioritize items based on importance and urgency
-            - For each item, assign a type: preparation, followup, research, decision, or action
-            - For each item, assign a priority: high, medium, or low
-            
-            ${conversationType ? `Context: This is from a ${conversationType} conversation.` : ''}
-            
-            Return your response as valid JSON with this exact structure:
-            {
-              "items": [
-                {
-                  "text": "Specific actionable task",
-                  "priority": "high|medium|low",
-                  "type": "preparation|followup|research|decision|action"
-                }
-              ]
-            }
-            
-            Important: Return ONLY the JSON object, no additional text or formatting.`
+      // Initialize Gemini
+      const genAI = new GoogleGenerativeAI(apiKey)
+      const model = genAI.getGenerativeModel({
+        model: 'gemini-2.5-flash-preview-05-20',
+        generationConfig: {
+          responseMimeType: 'application/json',
+          responseSchema: {
+            type: 'object',
+            properties: {
+              items: {
+                type: 'array',
+                items: {
+                  type: 'object',
+                  properties: {
+                    text: {
+                      type: 'string'
+                    },
+                    priority: {
+                      type: 'string',
+                      enum: ['high', 'medium', 'low']
+                    },
+                    type: {
+                      type: 'string',
+                      enum: ['preparation', 'followup', 'research', 'decision', 'action']
+                    }
+                  },
+                  required: ['text', 'priority', 'type']
+                },
+                maxItems: 5
+              }
+            },
+            required: ['items']
           },
-          {
-            role: 'user',
-            content: message
-          }
-        ],
-        temperature: 0.3,
-        max_tokens: 500
-        // Removed response_format as it may not be supported by all models
+          temperature: 0.3,
+          maxOutputTokens: 500
+        }
       })
-    })
-    } catch (fetchError) {
-      console.error('Failed to fetch from OpenRouter:', fetchError)
-      return NextResponse.json({ 
-        error: 'Failed to connect to AI service',
-        details: fetchError instanceof Error ? fetchError.message : 'Unknown error'
-      }, { status: 500 })
-    }
 
-    if (!openRouterResponse.ok) {
-      const errorData = await openRouterResponse.json()
-      console.error('OpenRouter API error:', {
-        status: openRouterResponse.status,
-        statusText: openRouterResponse.statusText,
-        error: errorData
-      })
-      return NextResponse.json({ 
-        error: 'Failed to generate checklist items',
-        details: errorData.error || errorData.message || 'Unknown error'
-      }, { status: 500 })
-    }
+      const prompt = `You are an AI assistant that extracts actionable checklist items from conversation guidance.
+            
+Your task is to analyze the given message and create 1-5 specific, actionable checklist items.
 
-    const aiResponse = await openRouterResponse.json()
-    const content = aiResponse.choices[0]?.message?.content
+Guidelines:
+- Extract clear, actionable tasks that can be checked off
+- Each item should be concise (max 100 characters)
+- Focus on specific actions, not vague suggestions
+- Include relevant details (e.g., names, timeframes) when mentioned
+- Prioritize items based on importance and urgency
+- For each item, assign a type: preparation, followup, research, decision, or action
+- For each item, assign a priority: high, medium, or low
 
-    if (!content) {
-      return NextResponse.json({ error: 'No response from AI' }, { status: 500 })
-    }
+${conversationType ? `Context: This is from a ${conversationType} conversation.` : ''}
 
-    try {
-      const parsedContent = JSON.parse(content)
+Analyze this message and extract actionable checklist items:
+${message}`
+
+      const result = await model.generateContent(prompt)
+      const response = await result.response
+      const responseText = response.text()
+
+      const parsedContent = JSON.parse(responseText)
       const checklistItems = parsedContent.items || []
       
       // Validate and clean the items
@@ -123,9 +104,12 @@ export async function POST(request: NextRequest) {
         }))
 
       return NextResponse.json({ items: validItems })
-    } catch (parseError) {
-      console.error('Failed to parse AI response:', parseError)
-      return NextResponse.json({ error: 'Invalid AI response format' }, { status: 500 })
+    } catch (error) {
+      console.error('Failed to generate checklist items:', error)
+      return NextResponse.json({ 
+        error: 'Failed to generate checklist items',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      }, { status: 500 })
     }
 
   } catch (error) {

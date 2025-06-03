@@ -29,7 +29,7 @@ liveprompt.ai is a real-time conversation coaching application that provides AI-
 ### Backend & Services
 - **Database**: Supabase (PostgreSQL with RLS)
 - **Auth**: Supabase Auth (email/password + Google OAuth)
-- **AI**: OpenRouter API (Google Gemini 2.5 Flash model: `google/gemini-2.5-flash-preview-05-20`)
+- **AI**: Google Gemini API (Model: `gemini-2.5-flash-preview-05-20` with structured outputs)
 - **Speech**: Deepgram SDK for transcription
 - **Real-time**: WebRTC for audio capture
 
@@ -154,7 +154,7 @@ Required environment variables in `.env.local`:
 NEXT_PUBLIC_SUPABASE_URL=
 NEXT_PUBLIC_SUPABASE_ANON_KEY=
 SUPABASE_SERVICE_ROLE_KEY=
-OPENROUTER_API_KEY=
+GOOGLE_GEMINI_API_KEY=      # Get from https://aistudio.google.com/app/apikey
 DEEPGRAM_API_KEY=
 ```
 
