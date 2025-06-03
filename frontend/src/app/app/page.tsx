@@ -1570,7 +1570,7 @@ export default function App() {
       
       const guidanceRequest: GuidanceRequest = {
         transcript: recentTranscript,
-        context: textContext,
+        textContext: textContext,
         conversationType: conversationType,
       };
 
