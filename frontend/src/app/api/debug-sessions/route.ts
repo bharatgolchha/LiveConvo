@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
+import { createAuthenticatedServerClient } from '@/lib/supabase-server';
 
 export async function GET(request: NextRequest) {
   try {
     // Get all sessions without any filters
+    const supabase = await createAuthenticatedServerClient();
+
     const { data: allSessions, error: allSessionsError } = await supabase
       .from('sessions')
       .select('*');

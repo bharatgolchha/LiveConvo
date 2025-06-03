@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
+import { createAuthenticatedServerClient } from '@/lib/supabase-server';
 import { z } from 'zod';
 
 // Zod schema for a single transcript line
@@ -43,7 +43,8 @@ export async function GET(
     // Get current user from Supabase auth
     const authHeader = request.headers.get('authorization');
     const token = authHeader?.split(' ')[1];
-    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+    const supabase = await createAuthenticatedServerClient(token);
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
     
     if (authError || !user) {
       return NextResponse.json(
@@ -152,6 +153,19 @@ export async function POST(
       return NextResponse.json(
         { message: 'No transcript lines to insert' },
         { status: 200 }
+      );
+    }
+
+    // Get current user from Supabase auth
+    const authHeader = request.headers.get('authorization');
+    const token = authHeader?.split(' ')[1];
+    const supabase = await createAuthenticatedServerClient(token);
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    
+    if (authError || !user) {
+      return NextResponse.json(
+        { error: 'Unauthorized', message: 'Please sign in to save transcript' },
+        { status: 401 }
       );
     }
 

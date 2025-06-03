@@ -1,5 +1,11 @@
 # CLAUDE.md - AI Assistant Guide for liveprompt.ai
 
+## IMPORTANT INSTRUCTIONS
+
+⚠️ **DO NOT CHANGE THE AI MODEL**: The project uses `google/gemini-2.5-flash-preview-05-20` for all AI operations. Do not change this model without explicitly asking the user first.
+
+⚠️ **ALWAYS USE MCP TOOLS**: When working with Supabase database operations, always use the Supabase MCP tools (prefixed with `mcp__supabase__`) instead of writing SQL files or using other methods.
+
 ## Project Overview
 
 liveprompt.ai is a real-time conversation coaching application that provides AI-powered guidance during live conversations. The application features real-time transcription, contextual AI suggestions, conversation summaries, and timeline generation.
@@ -23,7 +29,7 @@ liveprompt.ai is a real-time conversation coaching application that provides AI-
 ### Backend & Services
 - **Database**: Supabase (PostgreSQL with RLS)
 - **Auth**: Supabase Auth (email/password + Google OAuth)
-- **AI**: OpenRouter API (Google Gemini 2.5 Flash models)
+- **AI**: OpenRouter API (Google Gemini 2.5 Flash model: `google/gemini-2.5-flash-preview-05-20`)
 - **Speech**: Deepgram SDK for transcription
 - **Real-time**: WebRTC for audio capture
 

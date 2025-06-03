@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
+import { createAuthenticatedServerClient } from '@/lib/supabase-server';
 
 /**
  * POST /api/sessions/[id]/context - Save context data for a session
@@ -16,7 +16,8 @@ export async function POST(
     // Get current user from Supabase auth
     const authHeader = request.headers.get('authorization');
     const token = authHeader?.split(' ')[1];
-    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+    const supabase = await createAuthenticatedServerClient(token);
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
     
     if (authError || !user) {
       return NextResponse.json(
@@ -134,7 +135,8 @@ export async function GET(
     // Get current user from Supabase auth
     const authHeader = request.headers.get('authorization');
     const token = authHeader?.split(' ')[1];
-    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+    const supabase = await createAuthenticatedServerClient(token);
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
     
     if (authError || !user) {
       return NextResponse.json(

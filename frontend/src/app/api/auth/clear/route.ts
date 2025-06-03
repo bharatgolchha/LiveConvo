@@ -1,8 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
+import { createAuthenticatedServerClient } from '@/lib/supabase-server';
 
 export async function GET(request: NextRequest) {
   try {
+    const authHeader = request.headers.get('authorization');
+    const token = authHeader?.split(' ')[1];
+    const supabase = await createAuthenticatedServerClient(token);
+    
     // Clear the session
     await supabase.auth.signOut();
     

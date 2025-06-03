@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
+import { createAuthenticatedServerClient } from '@/lib/supabase-server';
 
 export async function POST(request: NextRequest) {
   try {

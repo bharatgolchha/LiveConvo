@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
+import { createAuthenticatedServerClient } from '@/lib/supabase-server';
 import { z } from 'zod';
 
 // Zod schema for a single timeline event (matching TimelineEvent interface and DB table)
@@ -53,6 +53,19 @@ export async function POST(
       );
     }
 
+    // Get current user from Supabase auth
+    const authHeader = request.headers.get('authorization');
+    const token = authHeader?.split(' ')[1];
+    const supabase = await createAuthenticatedServerClient(token);
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    
+    if (authError || !user) {
+      return NextResponse.json(
+        { error: 'Unauthorized', message: 'Please sign in to save timeline' },
+        { status: 401 }
+      );
+    }
+
     const { data, error } = await supabase
       .from('session_timeline_events')
       .insert(timelineEventsToInsert)
@@ -94,7 +107,8 @@ export async function GET(
     // Get current user from Supabase auth using the access token
     const authHeader = request.headers.get('authorization');
     const token = authHeader?.split(' ')[1];
-    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+    const supabase = await createAuthenticatedServerClient(token);
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
     
     if (authError || !user) {
       return NextResponse.json(

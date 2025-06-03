@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
-import { supabase } from '@/lib/supabase';
+import { createAuthenticatedServerClient } from '@/lib/supabase-server';
 
 const openrouterApiKey = process.env.OPENROUTER_API_KEY;
 
@@ -31,7 +31,8 @@ export async function POST(
     // Get current user from Supabase auth using the access token
     const authHeader = request.headers.get('authorization');
     const token = authHeader?.split(' ')[1];
-    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+    const supabase = await createAuthenticatedServerClient(token);
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
     
     if (authError || !user) {
       return NextResponse.json(

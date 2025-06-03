@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
+import { createAuthenticatedServerClient } from '@/lib/supabase-server';
 
 export async function GET(request: NextRequest) {
   try {
     // Test 1: Check plans table
+    const supabase = await createAuthenticatedServerClient();
+
     const { data: plans, error: plansError } = await supabase
       .from('plans')
       .select('*');

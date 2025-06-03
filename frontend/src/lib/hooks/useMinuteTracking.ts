@@ -30,9 +30,9 @@ export function useMinuteTracking({
     currentSessionMinutes: 0,
     currentSessionSeconds: 0,
     monthlyMinutesUsed: 0,
-    monthlyMinutesLimit: 0,
+    monthlyMinutesLimit: 180, // Default to 180 minutes (3 hours) until loaded
     isApproachingLimit: false,
-    minutesRemaining: 0,
+    minutesRemaining: 180,
     canRecord: true,
     usagePercentage: 0
   });
@@ -86,7 +86,7 @@ export function useMinuteTracking({
       }
 
       const data = await response.json();
-      console.log('✅ Usage limit data:', data);
+      // console.log('✅ Usage limit data:', data);
       
       setState(prev => ({
         ...prev,
@@ -153,6 +153,13 @@ export function useMinuteTracking({
 
       const data = await response.json();
       
+      // Log for debugging
+      console.log('📊 Track minute response:', {
+        total_minutes_used: data.total_minutes_used,
+        current_limit: state.monthlyMinutesLimit,
+        would_trigger_limit: data.total_minutes_used >= state.monthlyMinutesLimit
+      });
+      
       // Update state with new usage data
       setState(prev => ({
         ...prev,
@@ -162,8 +169,12 @@ export function useMinuteTracking({
         isApproachingLimit: prev.monthlyMinutesLimit - data.total_minutes_used <= 10
       }));
 
-      // Check if limit reached
-      if (data.total_minutes_used >= state.monthlyMinutesLimit && onLimitReached) {
+      // Check if limit reached (only if we have a valid limit)
+      if (state.monthlyMinutesLimit > 0 && data.total_minutes_used >= state.monthlyMinutesLimit && onLimitReached) {
+        console.log('🚨 Limit reached! Triggering callback', {
+          minutes_used: data.total_minutes_used,
+          limit: state.monthlyMinutesLimit
+        });
         onLimitReached();
       }
 
@@ -276,11 +287,14 @@ export function useMinuteTracking({
     }
   }, [authSession]);
 
-  // Initialize and check limits on mount
+  // Initialize and check limits on mount and when auth changes
   useEffect(() => {
-    checkUsageLimit();
-    getCurrentMonthUsage();
-  }, []); // Only run on mount
+    if (authSession?.access_token) {
+      checkUsageLimit();
+      getCurrentMonthUsage();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authSession?.access_token]); // Only re-run when auth token changes
 
   // Handle recording state changes
   useEffect(() => {

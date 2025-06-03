@@ -51,7 +51,7 @@ export function useRealtimeSummary({
   conversationType = 'general',
   isRecording,
   isPaused = false,
-  refreshIntervalMs = 45000
+  refreshIntervalMs = 30000 // Reduced from 45s to 30s for more responsive updates
 }: UseRealtimeSummaryProps) {
   const [summary, setSummary] = useState<ConversationSummary | null>(null);
   const [accumulatedTimeline, setAccumulatedTimeline] = useState<TimelineEvent[]>([]);
@@ -96,10 +96,10 @@ export function useRealtimeSummary({
       return;
     }
     
-    // Don't generate too frequently (minimum 30 seconds between calls unless forced)
+    // Don't generate too frequently (minimum 20 seconds between calls unless forced)
     const now = Date.now();
-    if (!force && lastRefreshTime.current > 0 && (now - lastRefreshTime.current) < 30000) {
-      console.log('❌ Summary: Skipping - too frequent (30s limit)');
+    if (!force && lastRefreshTime.current > 0 && (now - lastRefreshTime.current) < 20000) {
+      console.log('❌ Summary: Skipping - too frequent (20s limit)');
       return;
     }
     
@@ -119,11 +119,11 @@ export function useRealtimeSummary({
       return;
     }
 
-    // Check if we have enough new content (15 new lines OR significant word increase OR force)
+    // Check if we have enough new content (10 new lines OR 20 new words OR force)
     const newLinesSinceLastUpdate = transcriptLines.length - lastTranscriptLineCount.current;
     const newWordsSinceLastUpdate = transcriptWords - lastTranscriptLength.current;
-    if (!force && newLinesSinceLastUpdate < 15 && newWordsSinceLastUpdate < 30) {
-      console.log(`❌ Summary: Not enough new content (${newLinesSinceLastUpdate} new lines, ${newWordsSinceLastUpdate} new words, need 15 lines or 30 words)`);
+    if (!force && newLinesSinceLastUpdate < 10 && newWordsSinceLastUpdate < 20) {
+      console.log(`❌ Summary: Not enough new content (${newLinesSinceLastUpdate} new lines, ${newWordsSinceLastUpdate} new words, need 10 lines or 20 words)`);
       return;
     }
 
@@ -141,16 +141,26 @@ export function useRealtimeSummary({
         return;
       }
 
-      const response = await fetch('/api/summary', {
+      const requestBody = {
+        transcript,
+        sessionId,
+        conversationType
+      };
+      
+      console.log('📤 Sending summary request:', {
+        requestId,
+        transcriptLength: transcript.length,
+        sessionId,
+        conversationType,
+        hasTranscript: !!transcript
+      });
+
+      const response = await fetch('/api/summary-v2', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          transcript,
-          sessionId,
-          conversationType
-        })
+        body: JSON.stringify(requestBody)
       });
 
       console.log('🌐 Summary API Response:', {
@@ -167,12 +177,29 @@ export function useRealtimeSummary({
       }
 
       if (!response.ok) {
-        const errorData = await response.json();
-        console.error('❌ Summary API Error:', errorData);
-        throw new Error(errorData.error || 'Failed to generate summary');
+        let errorData;
+        try {
+          errorData = await response.json();
+        } catch (e) {
+          errorData = { error: `HTTP ${response.status}: ${response.statusText}` };
+        }
+        console.error('❌ Summary API Error:', {
+          status: response.status,
+          statusText: response.statusText,
+          errorData,
+          url: response.url
+        });
+        throw new Error(errorData?.error || `HTTP ${response.status}: Failed to generate summary`);
       }
 
-      const data: SummaryResponse = await response.json();
+      let data: SummaryResponse;
+      try {
+        data = await response.json();
+      } catch (e) {
+        console.error('❌ Failed to parse JSON response:', e);
+        throw new Error('Invalid JSON response from summary API');
+      }
+      
       console.log('📊 Summary API Success:', {
         requestId,
         hasSummary: !!data.summary,
@@ -180,8 +207,15 @@ export function useRealtimeSummary({
         keyPointsCount: data.summary?.keyPoints?.length || 0,
         decisionsCount: data.summary?.decisions?.length || 0,
         actionItemsCount: data.summary?.actionItems?.length || 0,
-        generatedAt: data.generatedAt
+        generatedAt: data.generatedAt,
+        fullResponse: data
       });
+      
+      // Validate the response structure
+      if (!data.summary) {
+        console.error('❌ Missing summary in API response:', data);
+        throw new Error('Invalid response: missing summary data');
+      }
       
       // Final check before updating state
       if (requestId !== lastGenerationRequestId.current) {
@@ -276,8 +310,8 @@ export function useRealtimeSummary({
         const newLinesSinceLastUpdate = transcriptLines.length - lastTranscriptLineCount.current;
         const newWordsSinceLastUpdate = transcriptWords - lastTranscriptLength.current;
         
-        // Trigger if we have 15+ new lines OR 30+ new words
-        if (newLinesSinceLastUpdate >= 15 || newWordsSinceLastUpdate >= 30) {
+        // Trigger if we have 10+ new lines OR 20+ new words
+        if (newLinesSinceLastUpdate >= 10 || newWordsSinceLastUpdate >= 20) {
           console.log(`🚀 Auto-triggering summary update: ${newLinesSinceLastUpdate} new lines, ${newWordsSinceLastUpdate} new words`);
           generateSummary();
         }

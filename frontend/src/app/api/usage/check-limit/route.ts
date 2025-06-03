@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
+import { createAuthenticatedServerClient } from '@/lib/supabase-server';
 
 /**
  * GET /api/usage/check-limit - Check if user can continue recording based on plan limits
@@ -16,7 +16,8 @@ export async function GET(request: NextRequest) {
     // Get current user from Supabase auth
     const authHeader = request.headers.get('authorization');
     const token = authHeader?.split(' ')[1];
-    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+    const supabase = await createAuthenticatedServerClient(token);
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
     
     if (authError || !user) {
       return NextResponse.json(

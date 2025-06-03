@@ -1,5 +1,4 @@
 {
-  "_comment": "Copy this configuration to Claude Desktop Settings > Developer > Edit Config",
   "mcpServers": {
     "supabase": {
       "command": "npx",
@@ -7,8 +6,8 @@
         "-y",
         "@supabase/mcp-server-supabase@latest",
         "--access-token",
-        "<SUPABASE_PERSONAL_ACCESS_TOKEN>"
+        "sbp_f8add63cb4621e0d0ab3e61c6db3dc566a7c5af0"
       ]
     }
   }
-} 
+}

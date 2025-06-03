@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
+import { createAuthenticatedServerClient } from '@/lib/supabase-server'
 
 export async function POST(request: NextRequest) {
   try {
@@ -9,12 +9,8 @@ export async function POST(request: NextRequest) {
     }
 
     const token = authHeader.substring(7)
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-    )
-    
-    const { data: { user }, error: authError } = await supabase.auth.getUser(token)
+    const supabase = await createAuthenticatedServerClient(token);
+    const { data: { user }, error: authError } = await supabase.auth.getUser()
     if (authError || !user) {
       return NextResponse.json({ error: 'Invalid token' }, { status: 401 })
     }

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
+import { createAuthenticatedServerClient, createServerSupabaseClient } from '@/lib/supabase-server';
 
 /**
  * POST /api/auth/onboard - Handle user onboarding
@@ -27,7 +27,9 @@ export async function POST(request: NextRequest) {
     const token = authHeader?.split(' ')[1];
     console.log('🔑 Token (first 20 chars):', token?.substring(0, 20));
     
-    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+    // Create authenticated client for user verification
+    const authClient = await createAuthenticatedServerClient(token);
+    const { data: { user }, error: authError } = await authClient.auth.getUser();
     console.log('👤 User from token:', user?.id, user?.email);
     console.log('❌ Auth error:', authError);
     
@@ -37,6 +39,9 @@ export async function POST(request: NextRequest) {
         { status: 401 }
       );
     }
+
+    // Use authenticated client for all operations
+    const supabase = authClient;
 
     // Check if user exists in users table, create if not
     let { data: existingUser } = await supabase

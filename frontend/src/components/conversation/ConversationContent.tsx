@@ -126,10 +126,10 @@ const SuggestedChecklistItem: React.FC<{
         </p>
         <div className="flex items-center gap-4 mt-2">
           <span className="text-xs opacity-75">
-            {item.type.charAt(0).toUpperCase() + item.type.slice(1)}
+            {item.type ? item.type.charAt(0).toUpperCase() + item.type.slice(1) : 'Action'}
           </span>
           <span className="text-xs opacity-75">
-            {item.priority.charAt(0).toUpperCase() + item.priority.slice(1)} priority
+            {item.priority ? item.priority.charAt(0).toUpperCase() + item.priority.slice(1) : 'Medium'} priority
           </span>
           {item.relevance && (
             <span className="text-xs opacity-75">

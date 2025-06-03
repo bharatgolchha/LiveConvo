@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
+import { createAuthenticatedServerClient } from '@/lib/supabase-server';
 
 interface TimelineEvent {
   id: string;
@@ -228,6 +228,11 @@ export async function POST(request: NextRequest) {
           type: event.type,
           importance: event.importance
         }));
+
+        const authHeader = request.headers.get('authorization');
+        const token = authHeader?.split(' ')[1];
+        const supabase = await createAuthenticatedServerClient(token);
+
 
         const { error: saveError } = await supabase
           .from('session_timeline_events')

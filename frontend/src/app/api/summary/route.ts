@@ -157,7 +157,15 @@ Focus on extracting concrete, actionable information. Return only valid JSON.`;
     
     let summaryData;
     try {
-      summaryData = JSON.parse(data.choices[0].message.content);
+      let content = data.choices[0].message.content;
+      
+      // Try to extract JSON from the content (sometimes AI adds text before/after)
+      const jsonMatch = content.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        content = jsonMatch[0];
+      }
+      
+      summaryData = JSON.parse(content);
       console.log('📊 Parsed Summary Data:', {
         hasTldr: !!summaryData.tldr,
         keyPointsCount: summaryData.keyPoints?.length || 0,
@@ -168,16 +176,26 @@ Focus on extracting concrete, actionable information. Return only valid JSON.`;
       });
     } catch (parseError) {
       console.error('💥 JSON Parse Error for Summary:', parseError);
-      // Fallback to a basic summary structure
+      console.error('Raw content that failed to parse:', data.choices[0].message.content);
+      
+      // Try to extract meaningful content even if JSON parsing fails
+      const rawContent = data.choices[0].message.content;
+      
+      // Attempt to extract tldr from the raw content
+      const tldrMatch = rawContent.match(/"tldr"\s*:\s*"([^"]+)"/);
+      const tldr = tldrMatch ? tldrMatch[1] : 'Summary generation in progress. Content analysis ongoing.';
+      
+      // Fallback to a more informative summary structure
       summaryData = {
-        tldr: 'Summary generation encountered a formatting issue. Please try again.',
-        keyPoints: ['Conversation analysis in progress'],
+        tldr: tldr,
+        keyPoints: ['Real-time analysis is processing the conversation'],
         decisions: [],
         actionItems: [],
         nextSteps: [],
-        topics: ['General conversation'],
+        topics: transcriptText.length > 100 ? ['Active conversation'] : ['Conversation starting'],
         sentiment: 'neutral',
-        progressStatus: 'building_momentum'
+        progressStatus: transcriptText.length > 500 ? 'making_progress' : 'building_momentum',
+        suggestedChecklistItems: []
       };
     }
     
@@ -191,7 +209,7 @@ Focus on extracting concrete, actionable information. Return only valid JSON.`;
       topics: Array.isArray(summaryData.topics) ? summaryData.topics : ['General'],
       sentiment: ['positive', 'negative', 'neutral'].includes(summaryData.sentiment) ? summaryData.sentiment : 'neutral',
       progressStatus: ['just_started', 'building_momentum', 'making_progress', 'wrapping_up'].includes(summaryData.progressStatus) ? summaryData.progressStatus : 'building_momentum',
-      suggestedChecklistItems: Array.isArray(summaryData.suggestedChecklistItems) ? summaryData.suggestedChecklistItems.filter(item => 
+      suggestedChecklistItems: Array.isArray(summaryData.suggestedChecklistItems) ? summaryData.suggestedChecklistItems.filter((item: any) => 
         item && 
         typeof item.text === 'string' && 
         ['high', 'medium', 'low'].includes(item.priority) &&

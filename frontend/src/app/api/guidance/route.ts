@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
+import { createAuthenticatedServerClient } from '@/lib/supabase-server';
 
 export async function POST(request: NextRequest) {
   try {
@@ -15,6 +15,9 @@ export async function POST(request: NextRequest) {
 
     // Fetch user's personal context
     let personalContext = '';
+    const authHeader = request.headers.get('authorization');
+    const token = authHeader?.split(' ')[1];
+    const supabase = await createAuthenticatedServerClient(token);
     const { data: { user } } = await supabase.auth.getUser();
     
     if (user) {
