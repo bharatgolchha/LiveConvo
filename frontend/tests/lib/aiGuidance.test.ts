@@ -45,7 +45,7 @@ describe('AI Guidance Engine', () => {
 
       const request: GuidanceRequest = {
         transcript: 'Customer: I am interested in your product but need to understand pricing.',
-        context: 'Sales call with enterprise client',
+        textContext: 'Sales call with enterprise client',
         userContext: 'High-value prospect, budget conscious',
         conversationType: 'sales',
         participantRole: 'host'
@@ -70,7 +70,7 @@ describe('AI Guidance Engine', () => {
         },
         body: JSON.stringify({
           transcript: request.transcript,
-          context: 'No context documents provided',
+          textContext: 'No context documents provided',
           userContext: request.userContext,
           conversationType: request.conversationType,
           participantRole: request.participantRole
@@ -88,7 +88,7 @@ describe('AI Guidance Engine', () => {
 
       const request: GuidanceRequest = {
         transcript: 'Test transcript',
-        context: 'Test context',
+        textContext: 'Test context',
       }
 
       const result = await guidanceEngine.generateGuidance(request)
@@ -104,7 +104,7 @@ describe('AI Guidance Engine', () => {
 
       const request: GuidanceRequest = {
         transcript: 'Test transcript',
-        context: 'Test context',
+        textContext: 'Test context',
       }
 
       const result = await guidanceEngine.generateGuidance(request)
@@ -122,7 +122,7 @@ describe('AI Guidance Engine', () => {
 
       const request: GuidanceRequest = {
         transcript: 'Customer is asking about features',
-        context: '', // Empty context
+        textContext: '', // Empty context
       }
 
       const result = await guidanceEngine.generateGuidance(request)
@@ -135,7 +135,7 @@ describe('AI Guidance Engine', () => {
         },
         body: JSON.stringify({
           transcript: request.transcript,
-          context: 'No context documents provided',
+          textContext: 'No context documents provided',
           userContext: request.userContext,
           conversationType: request.conversationType,
           participantRole: request.participantRole
@@ -161,7 +161,7 @@ describe('AI Guidance Engine', () => {
 
       const request: GuidanceRequest = {
         transcript: 'Customer: My login is not working',
-        context: 'Support ticket',
+        textContext: 'Support ticket',
         conversationType: 'support',
         participantRole: 'host' // Fixed: use valid role
       }
@@ -189,7 +189,7 @@ describe('AI Guidance Engine', () => {
 
       const request: GuidanceRequest = {
         transcript: 'Test transcript',
-        context: 'Test context',
+        textContext: 'Test context',
       }
 
       const result = await guidanceEngine.generateGuidance(request)
@@ -208,7 +208,7 @@ describe('AI Guidance Engine', () => {
 
       const request: GuidanceRequest = {
         transcript: 'Test transcript',
-        context: 'Test context',
+        textContext: 'Test context',
       }
 
       const result = await guidanceEngine.generateGuidance(request)
@@ -224,7 +224,7 @@ describe('AI Guidance Engine', () => {
 
       const request: GuidanceRequest = {
         transcript: 'Full conversation transcript',
-        context: 'Meeting context',
+        textContext: 'Meeting context',
         userContext: 'User-provided context',
         conversationType: 'meeting',
         participantRole: 'host' // Fixed: use valid role
@@ -239,7 +239,7 @@ describe('AI Guidance Engine', () => {
         },
         body: JSON.stringify({
           transcript: 'Full conversation transcript',
-          context: 'No context documents provided',
+          textContext: 'No context documents provided',
           userContext: 'User-provided context',
           conversationType: 'meeting',
           participantRole: 'host'

@@ -291,7 +291,7 @@ export default function App() {
     const request: GuidanceRequest = {
       conversationType: config.conversationType,
       transcript: transcript.map(line => line.text).join('\n'),
-      context: contextDocuments,
+      textContext: contextDocuments,
       previousGuidance: currentGuidance || []
     };
 

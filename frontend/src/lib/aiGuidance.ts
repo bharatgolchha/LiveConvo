@@ -9,7 +9,7 @@ import { config } from './config';
 
 export interface GuidanceRequest {
   transcript: string;
-  context: string;
+  textContext: string;
   userContext?: string;
   conversationType?: 'sales' | 'support' | 'meeting' | 'interview';
   participantRole?: 'host' | 'participant' | 'interviewer' | 'interviewee';
@@ -95,7 +95,7 @@ export class AIGuidanceEngine {
         },
         body: JSON.stringify({
           transcript: request.transcript,
-          context: contextSummary,
+          textContext: contextSummary,
           userContext: request.userContext,
           conversationType: request.conversationType,
           participantRole: request.participantRole

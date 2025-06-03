@@ -41,7 +41,7 @@ describe('OpenRouter Guidance API Logic', () => {
 
       const requestData = {
         transcript: 'Hello, I am interested in your product.',
-        context: 'Sales call with potential customer',
+        textContext: 'Sales call with potential customer',
         userContext: 'First-time buyer, budget conscious',
         conversationType: 'sales',
         participantRole: 'host'
