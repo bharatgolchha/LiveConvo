@@ -270,7 +270,7 @@ PREVIOUS CONVERSATION CONTEXT:
 - Provide continuity by acknowledging past interactions and progress`;
 }
 
-function buildChatPrompt(message: string, transcript: string, chatHistory: ChatMessage[], conversationType?: string, conversationTitle?: string, textContext?: string, summary?: any, timeline?: any[], uploadedFiles?: Array<{ name: string; type: string; size: number }>, selectedPreviousConversations?: string[], personalContext?: string): string {
+export function buildChatPrompt(message: string, transcript: string, chatHistory: ChatMessage[], conversationType?: string, conversationTitle?: string, textContext?: string, summary?: any, timeline?: any[], uploadedFiles?: Array<{ name: string; type: string; size: number }>, selectedPreviousConversations?: string[], personalContext?: string): string {
   // Detect if user is in live conversation or preparation mode
   const hasActiveTranscript = transcript && transcript.trim().length > 0;
   const isLiveConversation = hasActiveTranscript || message.toLowerCase().includes('they') || message.toLowerCase().includes('currently') || message.toLowerCase().includes('right now');
@@ -343,7 +343,16 @@ function buildChatPrompt(message: string, transcript: string, chatHistory: ChatM
   } else {
     prompt += `No live transcript available yet.\n\n`;
   }
-  
+
+  // Recent chat history
+  if (chatHistory && chatHistory.length > 0) {
+    const history = chatHistory
+      .slice(-6)
+      .map(m => `${m.type === 'user' ? 'User' : 'AI'}: ${m.content}`)
+      .join('\n');
+    prompt += `CHAT HISTORY:\n${history}\n\n`;
+  }
+
   prompt += `USER QUESTION: ${message}\n\n`;
   prompt += `Please provide specific, actionable guidance based on the conversation context above. If this is about sales and the user asks "What am I selling?", use the background notes and context to explain their specific product/service. Be contextual and helpful.`;
   

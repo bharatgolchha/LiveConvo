@@ -1,5 +1,6 @@
 import { renderHook, act } from '@testing-library/react';
 import { useChatGuidance } from '@/lib/useChatGuidance';
+import { buildChatPrompt } from '@/app/api/chat-guidance/route';
 
 // Mock fetch for API calls
 global.fetch = jest.fn();
@@ -149,5 +150,27 @@ describe('useChatGuidance', () => {
         conversationTitle: 'Demo'
       })
     }));
+  });
+
+  it('buildChatPrompt should include recent chat history', () => {
+    const history = Array.from({ length: 7 }).map((_, i) => ({
+      id: `id${i}`,
+      type: i % 2 === 0 ? 'user' as const : 'ai' as const,
+      content: `message ${i}`,
+      timestamp: new Date()
+    }));
+
+    const prompt = buildChatPrompt(
+      'final question',
+      '',
+      history,
+      'sales',
+      'Demo Chat'
+    );
+
+    expect(prompt).toContain('CHAT HISTORY');
+    expect(prompt).toContain('User: message 1');
+    expect(prompt).toContain('AI: message 6');
+    expect(prompt).not.toContain('message 0');
   });
 });
