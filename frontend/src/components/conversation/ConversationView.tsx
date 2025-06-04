@@ -5,7 +5,6 @@ import { motion } from 'framer-motion';
 import { ConversationContentEnhanced } from '@/components/conversation/ConversationContentEnhanced';
 import { TranscriptSidebar } from '@/components/conversation/TranscriptSidebar';
 import { useTranscriptManager } from '@/lib/hooks/useTranscriptManager';
-import { useTranscription } from '@/lib/useTranscription';
 import { Card } from '@/components/ui/Card';
 import { cn } from '@/lib/utils';
 
@@ -41,11 +40,15 @@ export function ConversationView({
   });
 
   // Set up transcription handler
-  const onTranscriptionUpdate = (text: string, isFinal: boolean) => {
+  const onTranscriptionUpdate = (text: string, isFinal: boolean, speaker?: string) => {
     if (text.trim()) {
+      const normalized = speaker?.toLowerCase().includes('1') ? 'me'
+        : speaker?.toLowerCase().includes('2') ? 'them'
+        : 'user';
+
       addTranscript({
         content: text,
-        speaker: 'user', // TODO: Detect speaker
+        speaker: normalized,
         confidence_score: isFinal ? 1.0 : 0.8,
         start_time_seconds: recordingDuration,
         is_final: isFinal
@@ -59,7 +62,7 @@ export function ConversationView({
       id: t.id,
       text: t.content,
       timestamp: new Date(Date.now() - (recordingDuration - t.start_time_seconds) * 1000),
-      speaker: t.speaker === 'user' ? 'ME' : 'THEM',
+      speaker: ['user', 'me'].includes(t.speaker.toLowerCase()) ? 'ME' : 'THEM',
       confidence: t.confidence_score
     }));
     
