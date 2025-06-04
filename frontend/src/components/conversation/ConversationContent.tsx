@@ -77,6 +77,10 @@ interface ConversationContentProps {
   // Session data (for checklist)
   sessionId?: string;
   authToken?: string;
+
+  // Refresh timing helpers
+  getSummaryTimeUntilNextRefresh: () => number;
+  getTimelineTimeUntilNextRefresh: () => number;
 }
 
 export const ConversationContent: React.FC<ConversationContentProps> = ({
@@ -100,13 +104,17 @@ export const ConversationContent: React.FC<ConversationContentProps> = ({
   handleStartRecording,
   handleExportSession,
   sessionId,
-  authToken
+  authToken,
+  getSummaryTimeUntilNextRefresh,
+  getTimelineTimeUntilNextRefresh
 }) => {
   const transcriptEndRef = useRef<null | HTMLDivElement>(null);
   const [isRefreshing, setIsRefreshing] = React.useState(false);
   const [selectedTopic, setSelectedTopic] = React.useState<string | null>(null);
   const [topicSummary, setTopicSummary] = React.useState<string | null>(null);
   const [isLoadingTopicSummary, setIsLoadingTopicSummary] = React.useState(false);
+  const [summaryRefreshMs, setSummaryRefreshMs] = React.useState(0);
+  const [timelineRefreshMs, setTimelineRefreshMs] = React.useState(0);
 
   const handleTopicClick = async (topic: string) => {
     setSelectedTopic(topic);
@@ -169,6 +177,17 @@ export const ConversationContent: React.FC<ConversationContentProps> = ({
     }
   };
 
+  // Periodically check time until next auto-refresh
+  React.useEffect(() => {
+    const updateTimes = () => {
+      setSummaryRefreshMs(getSummaryTimeUntilNextRefresh());
+      setTimelineRefreshMs(getTimelineTimeUntilNextRefresh());
+    };
+    updateTimes();
+    const interval = setInterval(updateTimes, 1000);
+    return () => clearInterval(interval);
+  }, [getSummaryTimeUntilNextRefresh, getTimelineTimeUntilNextRefresh]);
+
   // Debug logging for summary
   React.useEffect(() => {
     console.log('🔍 ConversationContent Summary Debug:', {
@@ -193,6 +212,10 @@ export const ConversationContent: React.FC<ConversationContentProps> = ({
       }
     });
   }, [activeTab, summary, isSummaryLoading, summaryError, isSummarizing]);
+
+  const nextRefreshSeconds = Math.ceil(
+    Math.min(summaryRefreshMs, timelineRefreshMs) / 1000
+  );
 
   return (
     <div className="h-full max-h-full flex flex-col overflow-hidden bg-gradient-to-br from-background via-background to-muted/20">
@@ -295,10 +318,15 @@ export const ConversationContent: React.FC<ConversationContentProps> = ({
                 <RefreshCw className={cn("w-3 h-3 mr-1.5", isRefreshing && "animate-spin")} />
                 {isRefreshing ? 'Refreshing...' : 'Refresh'}
               </Button>
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                onClick={handleExportSession} 
+              {nextRefreshSeconds > 0 && (
+                <span className="ml-2 text-xs text-muted-foreground">
+                  {nextRefreshSeconds}s
+                </span>
+              )}
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleExportSession}
                 className="h-9 w-9 p-0 hover:bg-muted/80 transition-all duration-200"
                 title="Export Session"
               >
