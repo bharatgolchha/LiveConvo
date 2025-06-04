@@ -2372,6 +2372,8 @@ export default function App() {
                   handleExportSession={handleExportSession}
                   sessionId={conversationId || undefined}
                   authToken={session?.access_token}
+                  getSummaryTimeUntilNextRefresh={getTimeUntilNextRefresh}
+                  getTimelineTimeUntilNextRefresh={getTimelineTimeUntilNextRefresh}
                 />
               </div>
             )}
