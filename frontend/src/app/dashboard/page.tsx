@@ -29,6 +29,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useSessions, type Session } from '@/lib/hooks/useSessions';
 import { useUserStats, defaultStats } from '@/lib/hooks/useUserStats';
 import { useSessionData } from '@/lib/hooks/useSessionData';
+import { DeleteConfirmationModal } from '@/components/ui/DeleteConfirmationModal';
 
 // Types (using Session from useSessions hook)
 
@@ -1402,52 +1403,60 @@ const DashboardPage: React.FC = () => {
     }
   };
 
+  const [deleteModal, setDeleteModal] = useState<{
+    isOpen: boolean;
+    sessionId: string | null;
+    sessionTitle: string | null;
+    isLoading: boolean;
+  }>({
+    isOpen: false,
+    sessionId: null,
+    sessionTitle: null,
+    isLoading: false
+  });
+
   const handleDeleteSession = async (sessionId: string) => {
-    // Show enhanced confirmation dialog with options
-    const result = window.confirm(
-      'How would you like to delete this conversation?\n\n' +
-      'Click "OK" for soft delete (can be recovered)\n' +
-      'Click "Cancel" to choose permanent delete\n\n' +
-      'Soft delete: The conversation will be hidden but can be recovered later.\n' +
-      'Permanent delete: The conversation will be completely removed and cannot be recovered.'
-    );
+    const session = sessions.find(s => s.id === sessionId);
+    setDeleteModal({
+      isOpen: true,
+      sessionId,
+      sessionTitle: session?.title || 'Untitled Conversation',
+      isLoading: false
+    });
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!deleteModal.sessionId) return;
+
+    setDeleteModal(prev => ({ ...prev, isLoading: true }));
     
-    if (result) {
-      // User chose soft delete
-      await deleteSession(sessionId);
-    } else {
-      // Ask for permanent delete confirmation
-      const permanentConfirm = window.confirm(
-        'Are you absolutely sure you want to PERMANENTLY delete this conversation?\n\n' +
-        'This action CANNOT be undone! The conversation and all its data will be lost forever.'
-      );
-      
-      if (permanentConfirm) {
-        // Use the hook's deleteSession with hard delete option
-        // We need to modify the hook to support hard delete
-        try {
-          const response = await fetch(`/api/sessions/${sessionId}?hard=true`, {
-            method: 'DELETE',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${authSession?.access_token}`
-            }
-          });
-          
-          if (response.ok) {
-            // We need to update the sessions list - let's just refresh it
-            await fetchSessions();
-          } else {
-            const error = await response.json();
-            console.error('Failed to permanently delete session:', error);
-            alert('Failed to delete conversation: ' + error.message);
-          }
-        } catch (error) {
-          console.error('Error permanently deleting session:', error);
-          alert('Failed to delete conversation. Please try again.');
-        }
+    try {
+      const success = await deleteSession(deleteModal.sessionId);
+      if (success) {
+        setDeleteModal({
+          isOpen: false,
+          sessionId: null,
+          sessionTitle: null,
+          isLoading: false
+        });
+      } else {
+        // Error handling is done in the hook
+        setDeleteModal(prev => ({ ...prev, isLoading: false }));
       }
+    } catch (error) {
+      console.error('Error deleting session:', error);
+      setDeleteModal(prev => ({ ...prev, isLoading: false }));
     }
+  };
+
+  const handleCloseDeleteModal = () => {
+    if (deleteModal.isLoading) return;
+    setDeleteModal({
+      isOpen: false,
+      sessionId: null,
+      sessionTitle: null,
+      isLoading: false
+    });
   };
 
   const handleSessionSelect = (sessionId: string) => {
@@ -1486,15 +1495,52 @@ const DashboardPage: React.FC = () => {
     setSelectedSessions(new Set());
   };
 
+  const [bulkDeleteModal, setBulkDeleteModal] = useState<{
+    isOpen: boolean;
+    count: number;
+    isLoading: boolean;
+  }>({
+    isOpen: false,
+    count: 0,
+    isLoading: false
+  });
+
   const handleBulkDelete = async () => {
-    if (window.confirm(`Are you sure you want to delete ${selectedSessions.size} conversation${selectedSessions.size === 1 ? '' : 's'}? This action cannot be undone.`)) {
+    setBulkDeleteModal({
+      isOpen: true,
+      count: selectedSessions.size,
+      isLoading: false
+    });
+  };
+
+  const handleConfirmBulkDelete = async () => {
+    setBulkDeleteModal(prev => ({ ...prev, isLoading: true }));
+    
+    try {
       // Delete all selected sessions
       const deletePromises = Array.from(selectedSessions).map(sessionId => 
         deleteSession(sessionId)
       );
       await Promise.all(deletePromises);
       setSelectedSessions(new Set());
+      setBulkDeleteModal({
+        isOpen: false,
+        count: 0,
+        isLoading: false
+      });
+    } catch (error) {
+      console.error('Error deleting sessions:', error);
+      setBulkDeleteModal(prev => ({ ...prev, isLoading: false }));
     }
+  };
+
+  const handleCloseBulkDeleteModal = () => {
+    if (bulkDeleteModal.isLoading) return;
+    setBulkDeleteModal({
+      isOpen: false,
+      count: 0,
+      isLoading: false
+    });
   };
 
   const handleOnboardingComplete = () => {
@@ -1754,6 +1800,27 @@ const DashboardPage: React.FC = () => {
         isOpen={showOnboardingModal}
         onClose={() => setShowOnboardingModal(false)}
         onComplete={handleOnboardingComplete}
+      />
+
+      {/* Delete Confirmation Modal */}
+      <DeleteConfirmationModal
+        isOpen={deleteModal.isOpen}
+        onClose={handleCloseDeleteModal}
+        onConfirm={handleConfirmDelete}
+        title="Delete Conversation"
+        description="Are you sure you want to delete this conversation?"
+        itemName={deleteModal.sessionTitle || undefined}
+        isLoading={deleteModal.isLoading}
+      />
+
+      {/* Bulk Delete Confirmation Modal */}
+      <DeleteConfirmationModal
+        isOpen={bulkDeleteModal.isOpen}
+        onClose={handleCloseBulkDeleteModal}
+        onConfirm={handleConfirmBulkDelete}
+        title="Delete Multiple Conversations"
+        description={`Are you sure you want to delete ${bulkDeleteModal.count} conversation${bulkDeleteModal.count === 1 ? '' : 's'}?`}
+        isLoading={bulkDeleteModal.isLoading}
       />
     </div>
   );

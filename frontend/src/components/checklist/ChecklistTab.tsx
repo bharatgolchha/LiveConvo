@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { CheckSquare, RefreshCw, Trash2 } from 'lucide-react';
+import { CheckSquare, RefreshCw, Trash2, Sparkles } from 'lucide-react';
 import { ChecklistItemComponent, ChecklistItem } from './ChecklistItem';
 import { AddItemInput } from './AddItemInput';
 import { Button } from '@/components/ui/Button';
@@ -11,15 +11,27 @@ import { cn } from '@/lib/utils';
 interface ChecklistTabProps {
   sessionId: string;
   authToken?: string;
+  conversationType?: string;
+  title?: string;
+  contextText?: string;
+  previousConversationIds?: string[];
+  transcript?: string;
 }
 
 export const ChecklistTab: React.FC<ChecklistTabProps> = ({
   sessionId,
-  authToken
+  authToken,
+  conversationType,
+  title,
+  contextText,
+  previousConversationIds,
+  transcript
 }) => {
   const [items, setItems] = useState<ChecklistItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [hasGenerated, setHasGenerated] = useState(false);
 
   // Check if user is authenticated
   if (!authToken) {
@@ -47,15 +59,22 @@ export const ChecklistTab: React.FC<ChecklistTabProps> = ({
     try {
       setError(null);
       
+      console.log('🔄 Fetching checklist items for session:', sessionId);
+      
       const response = await fetch(`/api/checklist?session=${sessionId}`, {
         headers: authToken ? { 'Authorization': `Bearer ${authToken}` } : {}
       });
 
+      console.log('📥 Fetch response status:', response.status);
+
       if (!response.ok) {
+        const errorText = await response.text();
+        console.error('❌ Fetch error:', errorText);
         throw new Error('Failed to fetch checklist items');
       }
 
       const data = await response.json();
+      console.log('📋 Fetched checklist items:', data);
       setItems(data);
     } catch (err) {
       console.error('Error fetching checklist items:', err);
@@ -171,6 +190,67 @@ export const ChecklistTab: React.FC<ChecklistTabProps> = ({
     }
   };
 
+  // Auto-generate checklist items
+  const autoGenerateItems = async () => {
+    console.log('🔄 Auto-generate clicked with data:', {
+      conversationType,
+      title,
+      contextText,
+      transcript: transcript ? `${transcript.length} chars` : 'none',
+      sessionId,
+      authToken: authToken ? 'present' : 'missing'
+    });
+
+    if (!conversationType || !title) {
+      console.warn('Missing conversation data for auto-generation');
+      return;
+    }
+
+    try {
+      setIsGenerating(true);
+      setError(null);
+
+      const response = await fetch('/api/checklist/generate-from-context', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(authToken ? { 'Authorization': `Bearer ${authToken}` } : {})
+        },
+        body: JSON.stringify({
+          sessionId,
+          conversationType,
+          title,
+          contextText,
+          previousConversationIds,
+          transcript
+        })
+      });
+
+      console.log('🔄 API Response status:', response.status);
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error('❌ API Error:', errorData);
+        throw new Error(errorData.error || 'Failed to generate checklist items');
+      }
+
+      const { items: generatedItems, message } = await response.json();
+      console.log('✅ Generated items:', generatedItems);
+      
+      // The API already saves the items, so we just need to refresh
+      await fetchItems();
+      setHasGenerated(true);
+
+      // Show success feedback (could be a toast in the future)
+      console.log(message);
+    } catch (err) {
+      console.error('Error generating checklist items:', err);
+      setError(err instanceof Error ? err.message : 'Failed to generate checklist');
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
   // Load items on mount
   useEffect(() => {
     fetchItems();
@@ -180,6 +260,17 @@ export const ChecklistTab: React.FC<ChecklistTabProps> = ({
   const totalItems = items.length;
   const completedItems = items.filter(item => item.status === 'done').length;
   const hasCompletedItems = completedItems > 0;
+
+  // Debug button visibility
+  const shouldShowButton = !hasGenerated && conversationType && title && (items.length === 0 || transcript);
+  console.log('🔍 Auto-generate button visibility:', {
+    hasGenerated,
+    conversationType,
+    title,
+    itemsLength: items.length,
+    hasTranscript: !!transcript,
+    shouldShowButton
+  });
 
   if (loading) {
     return (
@@ -219,6 +310,18 @@ export const ChecklistTab: React.FC<ChecklistTabProps> = ({
             </h3>
           </div>
           <div className="flex items-center gap-2">
+            {shouldShowButton && (
+              <Button
+                onClick={autoGenerateItems}
+                variant="outline"
+                size="sm"
+                disabled={isGenerating}
+                className="text-primary hover:bg-primary/10"
+              >
+                <Sparkles className={cn("h-4 w-4 mr-1", isGenerating && "animate-pulse")} />
+                {isGenerating ? 'Generating...' : 'Auto Generate'}
+              </Button>
+            )}
             {hasCompletedItems && (
               <Button
                 onClick={clearCompleted}
@@ -258,7 +361,28 @@ export const ChecklistTab: React.FC<ChecklistTabProps> = ({
           <div className="text-center text-muted-foreground py-8">
             <CheckSquare className="h-12 w-12 mx-auto mb-4 opacity-50" />
             <p className="text-lg font-medium mb-2">No checklist items yet</p>
-            <p className="text-sm">Add your first task below to get started</p>
+            {conversationType && title && (!hasGenerated || transcript) ? (
+              <div>
+                <p className="text-sm mb-4">
+                  {transcript 
+                    ? 'Generate tasks based on your conversation so far' 
+                    : 'Get started with AI-generated tasks for your conversation'}
+                </p>
+                <Button
+                  onClick={autoGenerateItems}
+                  variant="primary"
+                  size="md"
+                  disabled={isGenerating}
+                  className="mx-auto"
+                >
+                  <Sparkles className={cn("h-4 w-4 mr-2", isGenerating && "animate-pulse")} />
+                  {isGenerating ? 'Generating Checklist...' : 
+                   transcript && items.length > 0 ? 'Update Checklist from Conversation' : 'Auto-Generate Checklist'}
+                </Button>
+              </div>
+            ) : (
+              <p className="text-sm">Add your first task below to get started</p>
+            )}
           </div>
         ) : (
           <ul className="space-y-1">

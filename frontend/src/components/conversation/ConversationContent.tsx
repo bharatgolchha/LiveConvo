@@ -77,6 +77,10 @@ interface ConversationContentProps {
   // Session data (for checklist)
   sessionId?: string;
   authToken?: string;
+  conversationType?: string;
+  conversationTitle?: string;
+  textContext?: string;
+  selectedPreviousConversations?: string[];
 
   // Refresh timing helpers
   getSummaryTimeUntilNextRefresh: () => number;
@@ -105,6 +109,10 @@ export const ConversationContent: React.FC<ConversationContentProps> = ({
   handleExportSession,
   sessionId,
   authToken,
+  conversationType,
+  conversationTitle,
+  textContext,
+  selectedPreviousConversations,
   getSummaryTimeUntilNextRefresh,
   getTimelineTimeUntilNextRefresh
 }) => {
@@ -625,6 +633,11 @@ export const ConversationContent: React.FC<ConversationContentProps> = ({
             <ChecklistTab
               sessionId={sessionId}
               authToken={authToken}
+              conversationType={conversationType}
+              title={conversationTitle}
+              contextText={textContext}
+              previousConversationIds={selectedPreviousConversations}
+              transcript={transcript.map(line => `${line.speaker}: ${line.text}`).join('\n')}
             />
           </div>
         )}

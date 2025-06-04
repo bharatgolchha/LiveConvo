@@ -184,32 +184,37 @@ export function useMinuteTracking({
 
     // Update every second
     intervalRef.current = setInterval(() => {
-      setState(prev => ({
-        ...prev,
-        currentSessionSeconds: prev.currentSessionSeconds + 1
-      }));
-
-      secondsInCurrentMinute.current += 1;
-
-      // Check if we've completed a minute
-      if (secondsInCurrentMinute.current >= 60) {
-        const currentMinute = Math.floor(state.currentSessionSeconds / 60) + 1;
+      setState(prev => {
+        const newSessionSeconds = prev.currentSessionSeconds + 1;
         
-        // Only track if this is a new minute
-        if (currentMinute > lastMinuteSaved.current) {
-          lastMinuteSaved.current = currentMinute;
-          trackMinute(60); // Full minute
+        secondsInCurrentMinute.current += 1;
+
+        // Check if we've completed a minute
+        if (secondsInCurrentMinute.current >= 60) {
+          const currentMinute = Math.floor(newSessionSeconds / 60) + 1;
           
-          setState(prev => ({
-            ...prev,
-            currentSessionMinutes: currentMinute
-          }));
+          // Only track if this is a new minute
+          if (currentMinute > lastMinuteSaved.current) {
+            lastMinuteSaved.current = currentMinute;
+            trackMinute(60); // Full minute
+            
+            return {
+              ...prev,
+              currentSessionSeconds: newSessionSeconds,
+              currentSessionMinutes: currentMinute
+            };
+          }
+          
+          secondsInCurrentMinute.current = 0;
         }
         
-        secondsInCurrentMinute.current = 0;
-      }
+        return {
+          ...prev,
+          currentSessionSeconds: newSessionSeconds
+        };
+      });
     }, 1000);
-  }, [isRecording, state.currentSessionSeconds, trackMinute]);
+  }, [isRecording, trackMinute]);
 
   // Stop recording timer
   const stopTracking = useCallback(() => {

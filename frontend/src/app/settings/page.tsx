@@ -181,28 +181,59 @@ export default function SettingsPage() {
 
           {/* Personal Context Tab */}
           <TabsContent value="personal" className="space-y-4">
-            <Card className="p-6">
-              <h2 className="text-xl font-semibold mb-4">Personal Context</h2>
-              <p className="text-sm text-muted-foreground mb-4">
-                This information will be used to personalize AI guidance across all your conversations
-              </p>
-              <textarea
-                value={personalContext}
-                onChange={(e) => setPersonalContext(e.target.value)}
-                placeholder="Example: I'm a product manager at a B2B SaaS company. I tend to speak too quickly when nervous and want to improve my active listening skills."
-                className="w-full min-h-[150px] p-3 border rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-primary"
-              />
-              <div className="flex items-center justify-between mt-4">
-                <Button onClick={handleSaveContext} disabled={saving}>
-                  {saving ? 'Saving...' : 'Save Context'}
-                </Button>
-                {message && (
-                  <span className={`text-sm ${message.includes('success') ? 'text-green-600' : 'text-red-600'}`}>
-                    {message}
-                  </span>
-                )}
+            <div className="rounded-lg transition-all duration-200 bg-card text-card-foreground shadow-md border border-border p-6">
+              <div className="flex items-start gap-4 mb-6">
+                <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0 mt-1">
+                  <DocumentTextIcon className="w-5 h-5 text-primary" />
+                </div>
+                <div className="flex-1">
+                  <h2 className="text-xl font-semibold mb-2 text-card-foreground">Personal Context</h2>
+                  <p className="text-sm text-muted-foreground leading-relaxed">
+                    This information will be used to personalize AI guidance across all your conversations. 
+                    The more specific you are, the better we can tailor advice to your unique situation.
+                  </p>
+                </div>
               </div>
-            </Card>
+              
+              <div className="space-y-4">
+                <div className="relative">
+                  <textarea
+                    value={personalContext}
+                    onChange={(e) => setPersonalContext(e.target.value)}
+                    placeholder="Example: I'm a product manager at a B2B SaaS company. I tend to speak too quickly when nervous and want to improve my active listening skills. I prefer direct feedback and actionable suggestions."
+                    className="w-full min-h-[180px] p-4 border border-border rounded-lg resize-none bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all duration-200"
+                    maxLength={2000}
+                  />
+                  <div className="absolute bottom-3 right-3 text-xs text-muted-foreground">
+                    {personalContext.length}/2000
+                  </div>
+                </div>
+                
+                <div className="flex items-center justify-between pt-2">
+                  <div className="text-xs text-muted-foreground">
+                    💡 Include your role, communication style, and specific goals
+                  </div>
+                  <div className="flex items-center gap-3">
+                    {message && (
+                      <span className={`text-sm font-medium transition-opacity duration-300 ${
+                        message.includes('success') 
+                          ? 'text-green-600 dark:text-green-400' 
+                          : 'text-red-600 dark:text-red-400'
+                      }`}>
+                        {message}
+                      </span>
+                    )}
+                    <Button 
+                      onClick={handleSaveContext} 
+                      disabled={saving}
+                      className="min-w-[100px]"
+                    >
+                      {saving ? 'Saving...' : 'Save Context'}
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            </div>
           </TabsContent>
 
           {/* Account Tab */}

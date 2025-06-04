@@ -189,9 +189,20 @@ export async function POST(
     });
 
   } catch (error) {
-    console.error('Session finalization error:', error);
+    console.error('💥 Session finalization error:', error);
+    console.error('💥 Error details:', {
+      name: error instanceof Error ? error.name : 'Unknown',
+      message: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : 'No stack trace'
+    });
+    
+    // Return a more detailed error response
     return NextResponse.json(
-      { error: 'Failed to finalize session' },
+      { 
+        error: 'Failed to finalize session',
+        details: error instanceof Error ? error.message : 'Unknown error',
+        type: error instanceof Error ? error.constructor.name : 'UnknownError'
+      },
       { status: 500 }
     );
   }
@@ -382,11 +393,54 @@ Remember:
   });
 
   if (!response.ok) {
+    console.error('❌ OpenRouter API error:', response.status, response.statusText);
     throw new Error(`OpenRouter API error: ${response.status}`);
   }
 
   const data = await response.json();
-  const summary = JSON.parse(data.choices[0].message.content);
+  console.log('🤖 OpenRouter response received:', {
+    hasChoices: !!data.choices,
+    choicesLength: data.choices?.length,
+    messageContent: data.choices?.[0]?.message?.content?.substring(0, 200) + '...'
+  });
+
+  let summary;
+  try {
+    const rawContent = data.choices[0].message.content;
+    console.log('📄 Raw AI response (first 500 chars):', rawContent?.substring(0, 500));
+    
+    summary = JSON.parse(rawContent);
+    console.log('✅ Successfully parsed AI summary JSON');
+  } catch (parseError) {
+    console.error('❌ Failed to parse AI summary JSON:', parseError);
+    console.error('🔍 Raw content that failed to parse:', data.choices[0].message.content);
+    
+    // Return a fallback summary structure
+    summary = {
+      tldr: 'Summary generation encountered a formatting issue. The conversation was analyzed but the detailed breakdown is not available.',
+      key_points: ['Conversation analysis completed with technical limitations'],
+      decisions_made: [],
+      action_items: [],
+      insights: [],
+      missed_opportunities: [],
+      successful_moments: [],
+      follow_up_questions: [],
+      conversation_dynamics: {
+        rapport_level: 'neutral',
+        engagement_quality: 'medium',
+        dominant_speaker: 'balanced',
+        pace: 'moderate',
+        tone: 'mixed'
+      },
+      effectiveness_metrics: {
+        objective_achievement: 70,
+        communication_clarity: 70,
+        participant_satisfaction: 70,
+        overall_success: 70
+      },
+      coaching_recommendations: ['Technical issue prevented detailed analysis']
+    };
+  }
   
   // Map the new structure to the expected database fields
   return {
@@ -496,11 +550,59 @@ Provide specific, evidence-based analysis with actionable recommendations.`
   });
 
   if (!response.ok) {
+    console.error('❌ OpenRouter API error (finalization):', response.status, response.statusText);
     throw new Error(`OpenRouter API error: ${response.status}`);
   }
 
   const data = await response.json();
-  return JSON.parse(data.choices[0].message.content);
+  console.log('🤖 Finalization response received:', {
+    hasChoices: !!data.choices,
+    choicesLength: data.choices?.length,
+    messageContent: data.choices?.[0]?.message?.content?.substring(0, 200) + '...'
+  });
+
+  try {
+    const rawContent = data.choices[0].message.content;
+    console.log('📄 Raw finalization response (first 500 chars):', rawContent?.substring(0, 500));
+    
+    const result = JSON.parse(rawContent);
+    console.log('✅ Successfully parsed finalization JSON');
+    return result;
+  } catch (parseError) {
+    console.error('❌ Failed to parse finalization JSON:', parseError);
+    console.error('🔍 Raw finalization content that failed to parse:', data.choices[0].message.content);
+    
+    // Return a fallback finalization structure
+    return {
+      performance_analysis: {
+        strengths: ['Conversation completed successfully'],
+        areas_for_improvement: ['Detailed analysis not available due to technical issue'],
+        communication_effectiveness: 70,
+        goal_achievement: 70,
+        listening_quality: 70,
+        question_effectiveness: 70
+      },
+      conversation_patterns: {
+        opening_effectiveness: 'Analysis pending',
+        flow_management: 'Analysis pending',
+        closing_quality: 'Analysis pending',
+        energy_levels: 'Medium'
+      },
+      key_techniques_used: [],
+      recommendations: [{
+        area: 'Technical Analysis',
+        suggestion: 'Review completed conversation for insights',
+        practice_tip: 'Manual review recommended'
+      }],
+      follow_up_strategy: {
+        immediate_actions: ['Review conversation notes'],
+        short_term: ['Follow up on key points'],
+        long_term: ['Continue relationship building']
+      },
+      success_indicators: ['Conversation completed'],
+      risk_factors: ['Technical analysis limitation']
+    };
+  }
 }
 
 function getConversationTypeGuidelines(conversationType?: string): string {
