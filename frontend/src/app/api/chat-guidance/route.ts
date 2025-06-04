@@ -167,6 +167,7 @@ export async function POST(request: NextRequest) {
       response: chatResponse.response,
       suggestedActions: chatResponse.suggestedActions || [],
       confidence: chatResponse.confidence || 90,
+      smartSuggestion: chatResponse.smartSuggestion,
       generatedAt: new Date().toISOString(),
       sessionId 
     });
@@ -188,7 +189,13 @@ Return a JSON object:
 {
   "response": "Specific, actionable guidance using all available context (use markdown for clarity). Keep responses focused and concise - aim for 2-3 key points maximum.",
   "suggestedActions": ["Action 1", "Action 2", "Action 3"],
-  "confidence": 85
+  "confidence": 85,
+  "smartSuggestion": {
+    "type": "response|action|question|followup|objection|timing",
+    "content": "The suggestion content",
+    "priority": "high|medium|low",
+    "timing": "immediate|soon|later"
+  }
 }
 
 SPECIAL INSTRUCTIONS FOR CHIP GENERATION:
@@ -215,6 +222,37 @@ GUIDANCE PRINCIPLES:
 - Reference conversation history and events when relevant
 - Be concise but comprehensive - focus on the most important 2-3 points
 - Keep total response under 400 words to ensure completeness
+
+AUTO-GUIDANCE FORMAT (for questions like "What's the next best action"):
+{
+  "response": "**Quick guidance (under 80 words)**",
+  "suggestedActions": ["Action 1", "Action 2", "Action 3"],
+  "confidence": 90,
+  "smartSuggestion": {
+    "type": "response",
+    "content": "Can you tell me more about your budget for this project?",
+    "priority": "high",
+    "timing": "immediate"
+  }
+}
+
+SMART SUGGESTION TYPES & EXAMPLES:
+- **response**: "Can you tell me more about your budget for this project?"
+- **action**: "Take notes on their pain points and nod to show understanding"
+- **question**: "What's your timeline for making this decision?"
+- **followup**: "Send them the case study we discussed within 24 hours"
+- **objection**: "I understand the price concern. Let me show you the ROI breakdown."
+- **timing**: "Wait for them to finish explaining before presenting the solution"
+
+PRIORITY LEVELS:
+- **high**: Critical for conversation success
+- **medium**: Helpful but not essential
+- **low**: Nice to have, consider if appropriate
+
+TIMING:
+- **immediate**: Say/do this right now
+- **soon**: Within the next few minutes
+- **later**: After this conversation or meeting
 
 CONTEXT AWARENESS:
 - Always prioritize user's background notes and setup context
