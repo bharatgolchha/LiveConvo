@@ -86,6 +86,19 @@
     - Follows existing modal patterns from `SetupModal` and `OnboardingModal`
   - **Status**: ✅ COMPLETED - Delete functionality now uses beautiful modals with soft deletes only
 
+- [x] **🤖 Fix Chat Guidance System Message for All Conversation Types** (2025-01-30) 🎯 **JUST COMPLETED**
+  - **Issue**: System message always showed "💼 I'm your sales coach..." regardless of conversation type
+  - **Root Cause**: Chat guidance was only initialized on app load, not when conversation type changed
+  - **Solution Implemented**:
+    - ✅ **Dynamic Re-initialization**: Added useEffect to clear and re-initialize chat when conversationType changes
+    - ✅ **Proper Message Mapping**: Confirmed greetings object has correct messages for all types:
+      - 💼 Sales: "I'm your sales coach. Ask me anything - what to say next, handling objections, or closing the deal!"
+      - 🤝 Support: "I'm your support coach. Ask me anything about resolving customer issues and providing great service!"
+      - 📋 Meeting: "I'm your meeting coach. Ask me anything about running effective meetings and keeping everyone on track!"
+      - 🎤 Interview: "I'm your interview coach. Ask me anything about preparing for and conducting successful interviews!"
+    - ✅ **Database Type Mapping**: Session type mapping from database format to app format works correctly
+    - ✅ **Fallback Handling**: Default greeting "🎯 I'm your AI coach. Ask me anything!" for edge cases
+
 ### 🔧 Bug Fixes & Issues
 
 - [x] **🔧 Fix Track Minute API 400 Error** (2025-01-30) 🚨 **JUST FIXED**
