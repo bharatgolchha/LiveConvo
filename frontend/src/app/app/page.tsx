@@ -2641,6 +2641,7 @@ export default function App() {
             conversationState={conversationState}
             sessionId={conversationId || undefined}
             authToken={session?.access_token}
+            isChatLoading={isChatLoading}
             onAddToChecklist={async (text: string) => {
               // Add to checklist
               if (!conversationId) {

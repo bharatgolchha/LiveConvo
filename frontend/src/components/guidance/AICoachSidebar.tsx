@@ -55,6 +55,7 @@ interface AICoachSidebarProps {
   sessionId?: string;
   onAddToChecklist?: (text: string) => Promise<void>;
   authToken?: string;
+  isChatLoading?: boolean;
 }
 
 // Helper function to parse context from user messages and extract just the message
@@ -115,7 +116,8 @@ export default function AICoachSidebar({
   conversationState,
   sessionId,
   onAddToChecklist,
-  authToken
+  authToken,
+  isChatLoading = false
 }: AICoachSidebarProps) {
   // Detect if we're viewing a finalized/completed conversation
   const isViewingFinalized = conversationState === 'completed';
@@ -129,6 +131,11 @@ export default function AICoachSidebar({
   const [addingToChecklistId, setAddingToChecklistId] = useState<string | null>(null);
   const [isAutoGuidanceActive, setIsAutoGuidanceActive] = useState(false);
   const [isAIThinking, setIsAIThinking] = useState(false);
+  
+  // Sync isAIThinking with isChatLoading prop
+  useEffect(() => {
+    setIsAIThinking(isChatLoading);
+  }, [isChatLoading]);
   
   const sidebarRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -473,8 +480,7 @@ Example format for each chip: {"text": "🔥 Build rapport", "prompt": "How can 
         ? `[Context: ${contextSummary.conversationType} - ${contextSummary.conversationTitle}] ${messageContent}`
         : messageContent;
       
-      // Set AI thinking state
-      setIsAIThinking(true);
+      // Note: isAIThinking is now controlled by isChatLoading prop, no need to set manually
       
       onSendMessage(messageToSend);
       setNewMessage('');
@@ -556,8 +562,7 @@ Example format for each chip: {"text": "🔥 Build rapport", "prompt": "How can 
     
     // Directly send the message without setting it in the input
     if (onSendMessage) {
-      // Set AI thinking state for auto-guidance
-      setIsAIThinking(true);
+      // Note: isAIThinking is now controlled by isChatLoading prop
       onSendMessage(autoPrompt);
       
       // Clear the input field

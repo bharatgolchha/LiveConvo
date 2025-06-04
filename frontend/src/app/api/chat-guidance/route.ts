@@ -137,26 +137,64 @@ export async function POST(request: NextRequest) {
           required: ['response']
         },
         temperature: 0.7,
-        maxOutputTokens: 800
+        maxOutputTokens: 4000
       }
     });
 
-    console.log('🤖 Calling Gemini for chat response...');
-    const result = await model.generateContent(prompt);
-    const response = await result.response;
-    const text = response.text();
+          console.log('🤖 Calling Gemini for chat response...');
+      console.log('📝 Prompt being sent to Gemini:', {
+        promptLength: prompt.length,
+        promptPreview: prompt.substring(0, 200) + '...'
+      });
+      
+      const result = await model.generateContent(prompt);
+      const response = await result.response;
+      
+      console.log('📊 Gemini raw response details:', {
+        candidates: response.candidates?.map(c => ({
+          finishReason: c.finishReason,
+          safetyRatings: c.safetyRatings
+        })),
+        promptFeedback: response.promptFeedback
+      });
+      
+      // Check if response was blocked or had issues
+      if (response.candidates && response.candidates[0]?.finishReason !== 'STOP') {
+        console.error('❌ Gemini response was blocked or incomplete:', response.candidates[0]?.finishReason);
+        console.error('❌ Safety ratings:', response.candidates[0]?.safetyRatings);
+        console.error('❌ Prompt feedback:', response.promptFeedback);
+        throw new Error(`Gemini response blocked: ${response.candidates[0]?.finishReason}`);
+      }
+      
+      const text = response.text();
     
     console.log('✅ Gemini response received:', {
       textLength: text.length,
-      textPreview: text.substring(0, 100)
+      textPreview: text.substring(0, 100),
+      fullText: text // Add full text for debugging
     });
 
     // Parse the response
     let guidanceData;
     try {
-      guidanceData = JSON.parse(text);
+      // Clean the response text before parsing
+      const cleanedText = text.trim();
+      if (!cleanedText) {
+        throw new Error('Empty response from Gemini');
+      }
+      
+      guidanceData = JSON.parse(cleanedText);
+      console.log('✅ Successfully parsed guidance response:', {
+        hasResponse: !!guidanceData.response,
+        responseLength: guidanceData.response?.length || 0,
+        hasSuggestedActions: !!guidanceData.suggestedActions,
+        confidence: guidanceData.confidence
+      });
     } catch (parseError) {
       console.error('❌ Failed to parse guidance response:', parseError);
+      console.error('❌ Raw response text:', text);
+      console.error('❌ Response length:', text.length);
+      
       guidanceData = {
         response: "I understand you're looking for guidance. Based on the conversation context, I recommend focusing on the key points discussed and moving toward actionable next steps. What specific aspect would you like help with?",
         confidence: 75
@@ -173,37 +211,47 @@ export async function POST(request: NextRequest) {
       guidanceData.confidence = 85;
     }
 
-    // Format the response
+    // Format the response in the expected ChatResponse format
     const formattedResponse = {
-      id: `chat-${Date.now()}`,
-      type: 'ai' as const,
-      content: guidanceData.response,
-      timestamp: new Date(),
-      metadata: {
-        confidence: guidanceData.confidence,
-        guidanceType: 'contextual',
-        isResponse: true
-      },
-      suggestedActions: guidanceData.suggestedActions || []
+      response: guidanceData.response,
+      suggestedActions: guidanceData.suggestedActions || [],
+      confidence: guidanceData.confidence,
+      generatedAt: new Date().toISOString(),
+      sessionId: sessionId
     };
+
+    console.log('✅ Sending formatted response:', {
+      responseLength: formattedResponse.response.length,
+      actionsCount: formattedResponse.suggestedActions.length,
+      confidence: formattedResponse.confidence
+    });
 
     return NextResponse.json(formattedResponse);
 
-  } catch (error) {
-    console.error('Chat guidance API error:', error);
-    
-    return NextResponse.json({
-      id: `error-${Date.now()}`,
-      type: 'ai',
-      content: "I'm having trouble processing your request. Could you please rephrase your question?",
-      timestamp: new Date(),
-      metadata: {
+      } catch (error) {
+      console.error('❌ Chat guidance API error:', error);
+      console.error('❌ Error details:', {
+        name: (error as any)?.name,
+        message: (error as any)?.message,
+        stack: (error as any)?.stack,
+        cause: (error as any)?.cause
+      });
+      
+      // Return more specific error information
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      
+      return NextResponse.json({
+        response: `I encountered an issue: ${errorMessage}. Could you please try rephrasing your question?`,
+        suggestedActions: [],
         confidence: 0,
-        guidanceType: 'error',
-        isResponse: true
-      }
-    });
-  }
+        generatedAt: new Date().toISOString(),
+        sessionId: undefined,
+        debug: {
+          errorType: (error as any)?.name || 'UnknownError',
+          errorMessage: errorMessage
+        }
+      });
+    }
 }
 
 // Parse user message for context extraction
@@ -289,7 +337,7 @@ async function generateChipGuidance(
         required: ['response', 'suggestedActions']
       },
       temperature: 0.7,
-      maxOutputTokens: 600
+      maxOutputTokens: 4000
     }
   });
 
@@ -317,9 +365,22 @@ Provide specific, actionable guidance. Include 5-6 quick action chips for follow
 
   let guidanceData;
   try {
-    guidanceData = JSON.parse(text);
+    const cleanedText = text.trim();
+    if (!cleanedText) {
+      throw new Error('Empty response from Gemini');
+    }
+    
+    guidanceData = JSON.parse(cleanedText);
+    console.log('✅ Successfully parsed chip guidance:', {
+      hasResponse: !!guidanceData.response,
+      responseLength: guidanceData.response?.length || 0,
+      actionsCount: guidanceData.suggestedActions?.length || 0
+    });
   } catch (parseError) {
     console.error('❌ Failed to parse chip guidance:', parseError);
+    console.error('❌ Raw chip response text:', text);
+    console.error('❌ Chip response length:', text.length);
+    
     guidanceData = {
       response: "Here are some key strategies for your conversation. Click on any chip below for more specific guidance.",
       suggestedActions: [
@@ -349,15 +410,25 @@ Provide specific, actionable guidance. Include 5-6 quick action chips for follow
 }
 
 function getChatSystemPrompt(): string {
-  return `You are an expert AI conversation coach helping users navigate important conversations in real-time. 
+  return `You are an expert AI conversation coach providing real-time guidance.
 
-Your responses should be:
-- Specific and actionable based on the context provided
-- Concise (under 400 words) to ensure completeness
-- Practical advice they can use immediately
-- Aware of all context including background notes, conversation type, and progress
+**RESPONSE FORMAT:**
+- **Use markdown formatting** (headers, bullets, bold, etc.)
+- **Keep responses under 200 words**
+- **Focus on 1-2 key actionable points maximum**
+- **Use bullet points and clear structure**
 
-When generating follow-up action chips, provide exactly 6 chips using this format:
+**RESPONSE STRUCTURE:**
+\`\`\`
+## 🎯 Quick Guidance
+- **Key point 1**
+- **Key point 2**
+
+## 💡 Next Action
+What to do right now...
+\`\`\`
+
+When generating follow-up action chips, provide exactly 6 chips:
 [
   {"text": "🎯 Key objective", "prompt": "What's the key objective for this conversation?"},
   {"text": "💡 Discovery questions", "prompt": "What discovery questions should I ask?"},
@@ -367,30 +438,29 @@ When generating follow-up action chips, provide exactly 6 chips using this forma
   {"text": "🤝 Next steps", "prompt": "What should be the next steps?"}
 ]
 
-GUIDANCE PRINCIPLES:
-- Use ALL provided context (background notes, conversation type, summary, timeline, files, etc.)
-- Be specific rather than generic - reference their actual situation
-- Provide actionable next steps based on their conversation state
-- If they ask a question, use their background notes to answer specifically
-- Adapt tone and advice to preparation vs live conversation modes
-- Reference conversation history and events when relevant
-- Be concise but comprehensive - focus on the most important 2-3 points
-- Keep total response under 400 words to ensure completeness
+**GUIDANCE PRINCIPLES:**
+- **Ultra-concise**: Maximum 200 words, focus on essentials
+- **Markdown formatted**: Use headers, bullets, bold text
+- **Immediately actionable**: What to do/say right now
+- **Context-aware**: Reference their specific situation
+- **Visual structure**: Clear sections with emojis/headers`;
+}
 
-CONTEXT AWARENESS:
-- Always prioritize user's background notes and setup context
-- Reference specific conversation events from timeline when relevant
-- Use conversation summary to understand current state
-- Consider uploaded files and previous conversations
-- Tailor advice to the specific conversation type and situation
-
-PREVIOUS CONVERSATION CONTEXT:
-- When previous conversations are provided, actively reference them
-- Look for patterns across conversations (recurring themes, unresolved issues)
-- Follow up on action items from previous sessions
-- Address any unanswered questions from past conversations
-- Build on decisions and agreements made in earlier discussions
-- Provide continuity by acknowledging past interactions and progress`;
+function trimTranscriptForContext(transcript: string, maxLength: number = 2000): string {
+  if (!transcript || transcript.length <= maxLength) {
+    return transcript;
+  }
+  
+  // Take the last portion of the transcript to stay within limits
+  const trimmed = transcript.substring(transcript.length - maxLength);
+  
+  // Try to start from a complete line
+  const firstNewline = trimmed.indexOf('\n');
+  if (firstNewline > 0 && firstNewline < 200) {
+    return '...' + trimmed.substring(firstNewline);
+  }
+  
+  return '...' + trimmed;
 }
 
 function buildChatPrompt(message: string, transcript: string, chatHistory: ChatMessage[], conversationType?: string, conversationTitle?: string, textContext?: string, summary?: any, timeline?: any[], uploadedFiles?: Array<{ name: string; type: string; size: number }>, selectedPreviousConversations?: string[], personalContext?: string): string {
@@ -471,17 +541,11 @@ function buildChatPrompt(message: string, transcript: string, chatHistory: ChatM
     prompt += `\n`;
   }
   
-  // Current transcript (if in live conversation)
+  // Current transcript (if in live conversation) - intelligently trimmed
   if (transcript && transcript.trim().length > 0 && isLiveConversation) {
-    const transcriptLength = transcript.length;
-    if (transcriptLength > 3000) {
-      // For long transcripts, use last portion
-      prompt += `RECENT CONVERSATION TRANSCRIPT (last portion):\n`;
-      prompt += transcript.substring(transcriptLength - 3000) + '\n\n';
-    } else {
-      prompt += `CONVERSATION TRANSCRIPT:\n`;
-      prompt += transcript + '\n\n';
-    }
+    const trimmedTranscript = trimTranscriptForContext(transcript, 2000);
+    prompt += `CONVERSATION TRANSCRIPT${trimmedTranscript.startsWith('...') ? ' (recent portion)' : ''}:\n`;
+    prompt += trimmedTranscript + '\n\n';
   }
   
   // Add system prompt

@@ -107,8 +107,15 @@ export function useChatGuidance({
 
   // Send user message and get AI response
   const sendMessage = useCallback(async (message?: string) => {
+    console.log('🚀 sendMessage called with:', { message, inputValue });
+    
     const messageToSend = message || inputValue.trim();
-    if (!messageToSend) return;
+    if (!messageToSend) {
+      console.log('❌ No message to send, returning early');
+      return;
+    }
+
+    console.log('📝 Preparing to send message:', messageToSend);
 
     // Parse context from message if it exists - only display the actual user message
     const parsedMessage = parseMessageForDisplay(messageToSend);
@@ -127,6 +134,7 @@ export function useChatGuidance({
     setIsLoading(true);
 
     try {
+      console.log('🌐 Making API call to /api/chat-guidance...');
       const response = await fetch('/api/chat-guidance', {
         method: 'POST',
         headers: {
@@ -153,13 +161,52 @@ export function useChatGuidance({
         })
       });
 
+      console.log('📊 API Response received:', { status: response.status, ok: response.ok });
+
       if (!response.ok) {
         const errorData = await response.json();
+        console.error('❌ API Error:', errorData);
         throw new Error(errorData.error || 'Failed to get response');
       }
 
-      const data: ChatResponse = await response.json();
+      const responseText = await response.text();
+      console.log('📄 Raw API Response:', responseText);
       
+      let data: ChatResponse;
+      try {
+        data = JSON.parse(responseText);
+        console.log('✅ API Response data parsed successfully:', { 
+          responseLength: data.response?.length, 
+          actionsCount: data.suggestedActions?.length,
+          confidence: data.confidence 
+        });
+      } catch (parseError) {
+        console.error('❌ JSON Parse Error:', parseError);
+        console.error('❌ Failed to parse response:', responseText);
+        throw new Error('Invalid JSON response from server');
+      }
+      
+      // Parse suggested actions if they're stringified
+      let parsedSuggestedActions = data.suggestedActions || [];
+      if (Array.isArray(parsedSuggestedActions) && parsedSuggestedActions.length > 0) {
+        parsedSuggestedActions = parsedSuggestedActions.map(action => {
+          if (typeof action === 'string') {
+            try {
+              return JSON.parse(action);
+            } catch {
+              return { text: action, prompt: action };
+            }
+          }
+          return action;
+        });
+      }
+
+      console.log('✅ Adding AI message to chat:', {
+        contentLength: data.response.length,
+        confidence: data.confidence,
+        suggestedActionsCount: parsedSuggestedActions.length
+      });
+
       // Add AI response
       addMessage({
         type: 'ai',
@@ -167,14 +214,14 @@ export function useChatGuidance({
         metadata: {
           confidence: data.confidence,
           isResponse: true,
-          suggestedActions: data.suggestedActions
+          suggestedActions: parsedSuggestedActions
         }
       });
 
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Unknown error occurred';
       setError(errorMessage);
-      console.error('Error sending chat message:', err);
+      console.error('❌ Error sending chat message:', err);
       
       // Add error message
       addMessage({
@@ -183,6 +230,7 @@ export function useChatGuidance({
       });
     } finally {
       setIsLoading(false);
+      console.log('✅ Chat request completed, isLoading set to false');
     }
   }, [inputValue, addMessage, transcript, messages, conversationType, sessionId, textContext, conversationTitle, summary, timeline, uploadedFiles, selectedPreviousConversations]);
 
