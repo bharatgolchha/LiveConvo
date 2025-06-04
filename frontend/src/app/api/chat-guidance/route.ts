@@ -167,13 +167,18 @@ export async function POST(request: NextRequest) {
       });
     }
     
-    return NextResponse.json({ 
+    return NextResponse.json({
       response: chatResponse.response,
       suggestedActions: chatResponse.suggestedActions || [],
       confidence: chatResponse.confidence || 90,
-      smartSuggestion: chatResponse.smartSuggestion,
+      smartSuggestion:
+        chatResponse.smartSuggestion &&
+        chatResponse.smartSuggestion.priority?.toLowerCase() === 'high' &&
+        chatResponse.smartSuggestion.content?.trim()
+          ? chatResponse.smartSuggestion
+          : null,
       generatedAt: new Date().toISOString(),
-      sessionId 
+      sessionId
     });
 
   } catch (error) {
