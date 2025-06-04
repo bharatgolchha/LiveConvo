@@ -63,7 +63,6 @@ export async function POST(request: NextRequest) {
     // Parse context from message if it exists
     const parsedContext = parseContextFromMessage(message);
     const effectiveConversationType = parsedContext.conversationType || conversationType;
-    const effectiveConversationTitle = parsedContext.conversationTitle || conversationTitle;
 
     const systemPrompt = getChatGuidanceSystemPrompt(effectiveConversationType);
     const prompt = buildChatPrompt(
@@ -194,7 +193,7 @@ Return a JSON object:
   "response": "Specific, actionable guidance using all available context (use markdown for clarity). Keep responses focused and concise - aim for 2-3 key points maximum.",
   "suggestedActions": ["Action 1", "Action 2", "Action 3"],
   "confidence": 85,
-  "smartSuggestion": {
+  "smartSuggestion": null or {
     "type": "response|action|question|followup|objection|timing",
     "content": "The suggestion content",
     "priority": "high|medium|low",
@@ -202,7 +201,16 @@ Return a JSON object:
   }
 }
 
-Only include the smartSuggestion object when you have a high-priority or particularly meaningful suggestion. If there isn't one, omit this field or set it to null.
+CRITICAL SMART SUGGESTION RULES:
+- Set smartSuggestion to null in 90% of responses
+- ONLY include smartSuggestion when:
+  1. User explicitly asks "what should I say?" or similar
+  2. There's a CRITICAL moment (objection, closing opportunity, major concern)
+  3. The conversation is at a turning point requiring immediate action
+  4. User seems stuck or confused based on transcript
+  5. There's a high-stakes decision moment
+- Smart suggestions should be RARE and IMPACTFUL, not routine
+- Default to null unless absolutely necessary
 
 SPECIAL INSTRUCTIONS FOR CHIP GENERATION:
 If the user asks for "guidance chips" or mentions "6 contextual guidance chips", the suggestedActions array should contain exactly 6 items in this format:
@@ -234,31 +242,32 @@ AUTO-GUIDANCE FORMAT (for questions like "What's the next best action"):
   "response": "**Quick guidance (under 80 words)**",
   "suggestedActions": ["Action 1", "Action 2", "Action 3"],
   "confidence": 90,
-  "smartSuggestion": {
-    "type": "response",
-    "content": "Can you tell me more about your budget for this project?",
-    "priority": "high",
-    "timing": "immediate"
-  }
+  "smartSuggestion": null
 }
+Note: Even for auto-guidance, only include smartSuggestion if it's truly critical
 
-SMART SUGGESTION TYPES & EXAMPLES:
-- **response**: "Can you tell me more about your budget for this project?"
-- **action**: "Take notes on their pain points and nod to show understanding"
-- **question**: "What's your timeline for making this decision?"
-- **followup**: "Send them the case study we discussed within 24 hours"
-- **objection**: "I understand the price concern. Let me show you the ROI breakdown."
-- **timing**: "Wait for them to finish explaining before presenting the solution"
+SMART SUGGESTION TYPES & WHEN TO USE:
+- **response**: ONLY when user asks "what should I say?" or faces a critical objection
+  Example: "I understand the price concern. Let me show you the ROI breakdown."
+- **action**: ONLY for urgent, non-obvious actions that could save the conversation
+  Example: "Take a pause and acknowledge their frustration before responding"
+- **question**: ONLY when a critical discovery question is being missed
+  Example: "What's your decision-making process for this type of investment?"
+- **followup**: ONLY for make-or-break follow-up actions
+  Example: "Send the security audit they requested within 2 hours or risk losing the deal"
+- **objection**: ONLY when facing a major objection that needs immediate handling
+  Example: "Let's address your security concerns with our SOC2 certification"
+- **timing**: ONLY when timing is absolutely critical
+  Example: "Stop talking now - they're ready to make a decision"
 
-PRIORITY LEVELS:
-- **high**: Critical for conversation success
-- **medium**: Helpful but not essential
-- **low**: Nice to have, consider if appropriate
+REMEMBER: Smart suggestions should feel like emergency assistance, not constant hand-holding. Most responses should have smartSuggestion: null
 
-TIMING:
-- **immediate**: Say/do this right now
-- **soon**: Within the next few minutes
-- **later**: After this conversation or meeting
+EXAMPLES OF WHEN NOT TO INCLUDE SMART SUGGESTIONS:
+- General advice or tips: "Focus on building rapport" → smartSuggestion: null
+- Regular conversation flow: "Good job asking about their needs" → smartSuggestion: null
+- Standard responses: "Here's how to handle that question" → smartSuggestion: null
+- Normal guidance: "Remember to take notes" → smartSuggestion: null
+- Routine suggestions: "Ask about their timeline when ready" → smartSuggestion: null
 
 CONTEXT AWARENESS:
 - Always prioritize user's background notes and setup context
@@ -395,41 +404,6 @@ export function buildChatPrompt(message: string, transcript: string, chatHistory
   return prompt;
 }
 
-function getConversationSpecificGuidance(conversationType?: string, isLiveConversation: boolean = false): string {
-  const prefix = isLiveConversation ? 'LIVE GUIDANCE:' : 'PREPARATION GUIDANCE:';
-  
-  switch (conversationType) {
-    case 'sales':
-      return `${prefix} ${isLiveConversation 
-        ? 'Focus on active listening, building rapport, understanding pain points, and moving toward next steps. Help with objection handling and closing techniques based on current conversation state.'
-        : 'Help prepare value propositions, anticipate objections, practice pitch delivery, and plan conversation flow. Focus on research, messaging, and strategic preparation.'
-      }`;
-    
-    case 'interview':
-      return `${prefix} ${isLiveConversation 
-        ? 'Help with clear communication, showcasing relevant experience, asking thoughtful questions, and demonstrating cultural fit. Provide real-time coaching for responses.'
-        : 'Help prepare STAR method responses, research the company, practice common questions, and develop thoughtful questions to ask. Focus on preparation strategy.'
-      }`;
-    
-    case 'support':
-      return `${prefix} ${isLiveConversation 
-        ? 'Focus on empathy, active problem-solving, clear explanations, and efficient resolution. Help de-escalate tension and ensure customer satisfaction.'
-        : 'Help prepare troubleshooting approaches, empathy phrases, escalation procedures, and knowledge base usage. Focus on service preparation.'
-      }`;
-    
-    case 'meeting':
-      return `${prefix} ${isLiveConversation 
-        ? 'Help keep discussions on track, facilitate participation, summarize key points, and ensure action items are captured. Provide real-time facilitation guidance.'
-        : 'Help prepare agendas, anticipate discussion topics, plan facilitation techniques, and organize materials. Focus on meeting preparation and structure.'
-      }`;
-    
-    default:
-      return `${prefix} ${isLiveConversation 
-        ? 'Provide contextual guidance based on the current conversation state, help with communication effectiveness, and suggest next steps.'
-        : 'Help with conversation planning, key points preparation, and strategic thinking for the upcoming discussion.'
-      }`;
-  }
-}
 
 // New function to parse context from user messages
 function parseContextFromMessage(message: string): ParsedContext {
@@ -452,5 +426,3 @@ function parseContextFromMessage(message: string): ParsedContext {
   };
 }
 
-// Export internal helpers for testing
-export { buildChatPrompt };
