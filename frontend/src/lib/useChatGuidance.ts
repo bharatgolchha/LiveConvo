@@ -224,12 +224,21 @@ export function useChatGuidance({
   // Add system welcome message when chat starts
   const initializeChat = useCallback(() => {
     if (messages.length === 0) {
+      const greetings: Record<string, string> = {
+        sales: "💼 I'm your sales coach. Ask me anything - what to say next, handling objections, or closing the deal!",
+        support: "🤝 I'm your support coach. Ask me anything about resolving customer issues and providing great service!",
+        meeting: "📋 I'm your meeting coach. Ask me anything about running effective meetings and keeping everyone on track!",
+        interview: "🎤 I'm your interview coach. Ask me anything about preparing for and conducting successful interviews!"
+      };
+      const defaultGreeting = "🎯 I'm your AI coach. Ask me anything!";
+      const greeting = greetings[conversationType] || defaultGreeting;
+
       addMessage({
         type: 'system',
-        content: "🎯 I'm your AI coach. Ask me anything - what to say next, handling objections, or closing the deal!"
+        content: greeting
       });
     }
-  }, [messages.length, addMessage]);
+  }, [messages.length, addMessage, conversationType]);
 
   // Mark messages as read
   const markMessagesAsRead = useCallback(() => {
