@@ -133,8 +133,11 @@ export async function POST(request: NextRequest) {
         // Try to complete the JSON structure
         let completedJson = rawContent;
         if (!completedJson.includes('"suggestedActions"')) {
-          completedJson += ', "suggestedActions": ["Try rephrasing your question"], "confidence": 85}';
+          completedJson += ', "suggestedActions": [], "smartSuggestion": null, "confidence": 85}';
         } else if (!completedJson.endsWith('}')) {
+          if (!completedJson.includes('"smartSuggestion"')) {
+            completedJson += ', "smartSuggestion": null';
+          }
           completedJson += '}';
         }
         
@@ -153,9 +156,10 @@ export async function POST(request: NextRequest) {
       console.error('Content that failed to parse:', data.choices[0]?.message?.content);
       
       // Fallback response if JSON parsing fails
-      return NextResponse.json({ 
+      return NextResponse.json({
         response: data.choices[0]?.message?.content || "I'm having trouble processing your request right now.",
-        suggestedActions: ["Try rephrasing your question", "Check your connection"],
+        suggestedActions: [],
+        smartSuggestion: null,
         confidence: 50,
         generatedAt: new Date().toISOString(),
         sessionId,
@@ -197,6 +201,8 @@ Return a JSON object:
     "timing": "immediate|soon|later"
   }
 }
+
+Only include the smartSuggestion object when you have a high-priority or particularly meaningful suggestion. If there isn't one, omit this field or set it to null.
 
 SPECIAL INSTRUCTIONS FOR CHIP GENERATION:
 If the user asks for "guidance chips" or mentions "6 contextual guidance chips", the suggestedActions array should contain exactly 6 items in this format:
