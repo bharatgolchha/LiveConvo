@@ -782,6 +782,7 @@ export default function App() {
     sendMessage: sendChatMessage,
     sendQuickAction,
     addAutoGuidance,
+    clearChat,
     initializeChat,
     markMessagesAsRead,
     messagesEndRef
@@ -806,6 +807,16 @@ export default function App() {
       initializeChat();
     }
   }, [chatMessages.length, initializeChat, isLoadingFromSession]);
+
+  // Re-initialize chat when conversation type changes (to update the system message)
+  useEffect(() => {
+    if (chatMessages.length > 0 && conversationType) {
+      // Clear the chat and re-initialize with the new conversation type
+      console.log('🔄 Conversation type changed, re-initializing chat guidance:', conversationType);
+      clearChat();
+      // The next useEffect will catch the empty messages and re-initialize
+    }
+  }, [conversationType, clearChat]); // Only depend on conversationType and clearChat, not chatMessages to avoid loops
 
   // Enhanced auto-save transcript to database - Only save new lines
   useEffect(() => {
