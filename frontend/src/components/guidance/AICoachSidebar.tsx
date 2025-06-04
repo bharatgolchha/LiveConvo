@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { Brain, MessageCircle, ChevronRight, ChevronLeft, Maximize2, Minimize2, RefreshCw, Plus, Loader2, Sparkles, CheckCircle, UserCheck } from 'lucide-react';
+import { Brain, MessageCircle, ChevronRight, ChevronLeft, Maximize2, Minimize2, RefreshCw, Plus, Loader2, Sparkles, CheckCircle, UserCheck, Send, HelpCircle, Target, ArrowRight, Clock, Shield, Calendar } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
@@ -568,6 +568,132 @@ Example format for each chip: {"text": "🔥 Build rapport", "prompt": "How can 
     }, 2000);
   };
 
+  // Get suggestion type configuration
+  // Helper function to convert Tailwind gradient classes to CSS gradient
+  const getGradientColors = (gradientClasses: string) => {
+    // Extract color names from Tailwind classes like "from-green-500 to-emerald-500"
+    const fromMatch = gradientClasses.match(/from-(\w+)-(\d+)/);
+    const toMatch = gradientClasses.match(/to-(\w+)-(\d+)/);
+    
+    if (fromMatch && toMatch) {
+      const fromColor = getTailwindColor(fromMatch[1], fromMatch[2]);
+      const toColor = getTailwindColor(toMatch[1], toMatch[2]);
+      return `${fromColor}, ${toColor}`;
+    }
+    
+    // Fallback to a default gradient
+    return '#10b981, #059669';
+  };
+  
+  // Helper to get Tailwind color values
+  const getTailwindColor = (colorName: string, shade: string) => {
+    const colorMap: Record<string, Record<string, string>> = {
+      amber: { '500': '#f59e0b', '600': '#d97706' },
+      orange: { '500': '#f97316', '600': '#ea580c' },
+      blue: { '500': '#3b82f6', '600': '#2563eb' },
+      indigo: { '500': '#6366f1', '600': '#4f46e5' },
+      green: { '500': '#10b981', '600': '#059669' },
+      emerald: { '500': '#10b981', '600': '#059669' },
+      purple: { '500': '#8b5cf6', '600': '#7c3aed' },
+      violet: { '500': '#8b5cf6', '600': '#7c3aed' },
+      red: { '500': '#ef4444', '600': '#dc2626' },
+      rose: { '500': '#f43f5e', '600': '#e11d48' },
+      slate: { '500': '#64748b', '600': '#475569' },
+      gray: { '500': '#6b7280', '600': '#4b5563' }
+    };
+    
+    return colorMap[colorName]?.[shade] || '#6b7280';
+  };
+
+  const getSuggestionConfig = (type: string) => {
+    switch (type) {
+      case 'response':
+        return {
+          icon: <MessageCircle className="h-3 w-3" />,
+          label: 'Suggested Response',
+          description: 'Say this',
+          color: 'amber',
+          bgGradient: 'from-amber-50 via-orange-50 to-yellow-50 dark:from-amber-950/30 dark:via-orange-950/30 dark:to-yellow-950/30',
+          border: 'border-amber-200 dark:border-amber-700',
+          buttonGradient: 'from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 dark:from-amber-600 dark:to-orange-600 dark:hover:from-amber-700 dark:hover:to-orange-700'
+        };
+      case 'action':
+        return {
+          icon: <Target className="h-3 w-3" />,
+          label: 'Suggested Action',
+          description: 'Do this',
+          color: 'blue',
+          bgGradient: 'from-blue-50 via-indigo-50 to-purple-50 dark:from-blue-950/30 dark:via-indigo-950/30 dark:to-purple-950/30',
+          border: 'border-blue-200 dark:border-blue-700',
+          buttonGradient: 'from-blue-500 to-indigo-500 hover:from-blue-600 hover:to-indigo-600 dark:from-blue-600 dark:to-indigo-600 dark:hover:from-blue-700 dark:hover:to-indigo-700'
+        };
+      case 'question':
+        return {
+          icon: <HelpCircle className="h-3 w-3" />,
+          label: 'Suggested Question',
+          description: 'Ask this',
+          color: 'green',
+          bgGradient: 'from-green-50 via-emerald-50 to-teal-50 dark:from-green-950/30 dark:via-emerald-950/30 dark:to-teal-950/30',
+          border: 'border-green-200 dark:border-green-700',
+          buttonGradient: 'from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 dark:from-green-600 dark:to-emerald-600 dark:hover:from-green-700 dark:hover:to-emerald-700'
+        };
+      case 'followup':
+        return {
+          icon: <Calendar className="h-3 w-3" />,
+          label: 'Follow-up Action',
+          description: 'Next step',
+          color: 'purple',
+          bgGradient: 'from-purple-50 via-violet-50 to-pink-50 dark:from-purple-950/30 dark:via-violet-950/30 dark:to-pink-950/30',
+          border: 'border-purple-200 dark:border-purple-700',
+          buttonGradient: 'from-purple-500 to-violet-500 hover:from-purple-600 hover:to-violet-600 dark:from-purple-600 dark:to-violet-600 dark:hover:from-purple-700 dark:hover:to-violet-700'
+        };
+      case 'objection':
+        return {
+          icon: <Shield className="h-3 w-3" />,
+          label: 'Objection Handler',
+          description: 'Handle this',
+          color: 'red',
+          bgGradient: 'from-red-50 via-rose-50 to-pink-50 dark:from-red-950/30 dark:via-rose-950/30 dark:to-pink-950/30',
+          border: 'border-red-200 dark:border-red-700',
+          buttonGradient: 'from-red-500 to-rose-500 hover:from-red-600 hover:to-rose-600 dark:from-red-600 dark:to-rose-600 dark:hover:from-red-700 dark:hover:to-rose-700'
+        };
+      case 'timing':
+        return {
+          icon: <Clock className="h-3 w-3" />,
+          label: 'Timing Suggestion',
+          description: 'When to act',
+          color: 'slate',
+          bgGradient: 'from-slate-50 via-gray-50 to-zinc-50 dark:from-slate-950/30 dark:via-gray-950/30 dark:to-zinc-950/30',
+          border: 'border-slate-200 dark:border-slate-700',
+          buttonGradient: 'from-slate-500 to-gray-500 hover:from-slate-600 hover:to-gray-600 dark:from-slate-600 dark:to-gray-600 dark:hover:from-slate-700 dark:hover:to-gray-700'
+        };
+      default:
+        return {
+          icon: <Sparkles className="h-3 w-3" />,
+          label: 'Suggestion',
+          description: 'Try this',
+          color: 'blue',
+          bgGradient: 'from-blue-50 via-indigo-50 to-purple-50 dark:from-blue-950/30 dark:via-indigo-950/30 dark:to-purple-950/30',
+          border: 'border-blue-200 dark:border-blue-700',
+          buttonGradient: 'from-blue-500 to-indigo-500 hover:from-blue-600 hover:to-indigo-600 dark:from-blue-600 dark:to-indigo-600 dark:hover:from-blue-700 dark:hover:to-indigo-700'
+        };
+    }
+  };
+
+  // Get priority indicator
+  const getPriorityIndicator = (priority: string) => {
+    switch (priority) {
+      case 'high':
+        return { color: 'bg-red-500', text: 'High Priority' };
+      case 'medium':
+        return { color: 'bg-yellow-500', text: 'Medium Priority' };
+      case 'low':
+        return { color: 'bg-green-500', text: 'Low Priority' };
+      default:
+        return { color: 'bg-blue-500', text: 'Priority' };
+    }
+  };
+
   // Extract actionable content from AI messages
   const extractActionableContent = (content: string): string => {
     // Remove markdown formatting
@@ -768,6 +894,76 @@ Example format for each chip: {"text": "🔥 Build rapport", "prompt": "How can 
               {isUser ? parseMessageForDisplay(message.content) : message.content}
             </ReactMarkdown>
           </div>
+          {/* Smart Suggestion - dynamic based on type */}
+          {message.metadata?.smartSuggestion && (isAutoGuidance || message.metadata?.isResponse) && (() => {
+            const suggestion = message.metadata.smartSuggestion;
+            const config = getSuggestionConfig(suggestion.type);
+            const priority = getPriorityIndicator(suggestion.priority);
+            
+            return (
+              <div className={`mt-4 p-4 bg-gradient-to-br ${config.bgGradient} border-2 ${config.border} rounded-xl shadow-lg hover:shadow-xl transition-all duration-300`}>
+                <div className="flex items-center justify-between gap-2 mb-3 min-w-0">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <div className={`flex items-center justify-center w-6 h-6 bg-gradient-to-r ${config.buttonGradient} rounded-full shadow-sm flex-shrink-0`}>
+                      <div className="text-gray-800 dark:text-white">{config.icon}</div>
+                    </div>
+                    <span className={`text-sm font-bold text-${config.color}-800 dark:text-${config.color}-200 uppercase tracking-wide truncate`}>
+                      {config.label}
+                    </span>
+                  </div>
+                  
+                  {/* Priority indicator */}
+                  <div className="flex items-center gap-1 px-2 py-1 bg-white/80 dark:bg-gray-900/80 rounded-full flex-shrink-0">
+                    <div className={`w-1.5 h-1.5 ${priority.color} rounded-full animate-pulse`}></div>
+                    <span className="text-xs font-medium">{priority.text}</span>
+                  </div>
+                </div>
+                
+                {/* The suggestion content */}
+                <div className={`p-3 bg-white dark:bg-gray-900 border ${config.border} rounded-lg mb-3 shadow-inner`}>
+                  <p className="text-sm font-medium text-gray-800 dark:text-gray-200 leading-relaxed">
+                    {suggestion.type === 'response' ? `"${suggestion.content}"` : suggestion.content}
+                  </p>
+                </div>
+                
+                {/* Action buttons */}
+                <div className="flex gap-2">
+                  <Button
+                    variant="default"
+                    size="sm"
+                    className={`flex-1 text-sm font-semibold text-white border-0 shadow-md hover:shadow-lg transition-all duration-200`}
+                    style={{
+                      background: `linear-gradient(to right, ${getGradientColors(config.buttonGradient)})`,
+                    }}
+                    onClick={() => {
+                      if (suggestion.type === 'response') {
+                        navigator.clipboard.writeText(suggestion.content);
+                        toast.success('Copied to clipboard!', { duration: 2000 });
+                      } else {
+                        navigator.clipboard.writeText(suggestion.content);
+                        toast.success('Action copied to clipboard!', { duration: 2000 });
+                      }
+                    }}
+                    title={suggestion.type === 'response' ? 'Copy this text to your clipboard' : 'Copy this action to your clipboard'}
+                  >
+                    <CheckCircle className="h-3 w-3 mr-2" />
+                    {suggestion.type === 'response' ? 'Copy Text' : 'Copy Action'}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className={`px-4 border-${config.color}-200 hover:bg-${config.color}-50 dark:border-${config.color}-700 dark:hover:bg-${config.color}-950/20 text-${config.color}-700 dark:text-${config.color}-300`}
+                    onClick={() => setNewMessage(`Help me modify this ${suggestion.type}: "${suggestion.content}"`)}
+                    title={`Ask the AI to help modify this ${suggestion.type}`}
+                  >
+                    <RefreshCw className="h-3 w-3 mr-1" />
+                    Modify
+                  </Button>
+                </div>
+              </div>
+            );
+          })()}
+          
           {message.metadata?.suggestions && message.metadata.suggestions.length > 0 && (
             <div className="mt-2 space-y-1">
               {message.metadata.suggestions.map((suggestion, idx) => (

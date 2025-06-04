@@ -25,13 +25,22 @@ export interface ChatMessage {
     guidanceType?: string;
     isResponse?: boolean;
     suggestedActions?: string[];
+    smartSuggestion?: SmartSuggestion;
   };
+}
+
+interface SmartSuggestion {
+  type: 'response' | 'action' | 'question' | 'followup' | 'objection' | 'timing';
+  content: string;
+  priority: 'high' | 'medium' | 'low';
+  timing: 'immediate' | 'soon' | 'later';
 }
 
 interface ChatResponse {
   response: string;
   suggestedActions: string[];
   confidence: number;
+  smartSuggestion?: SmartSuggestion;
   generatedAt: string;
   sessionId?: string;
 }
@@ -167,7 +176,8 @@ export function useChatGuidance({
         metadata: {
           confidence: data.confidence,
           isResponse: true,
-          suggestedActions: data.suggestedActions
+          suggestedActions: data.suggestedActions,
+          smartSuggestion: data.smartSuggestion
         }
       });
 
