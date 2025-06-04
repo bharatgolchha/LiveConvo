@@ -226,7 +226,7 @@ export function useChatGuidance({
     if (messages.length === 0) {
       addMessage({
         type: 'system',
-        content: "👋 Hi! I'm your AI conversation coach. I'll provide live guidance and answer any questions you have during your conversation. Just ask me anything!"
+        content: "🎯 I'm your AI coach. Ask me anything - what to say next, handling objections, or closing the deal!"
       });
     }
   }, [messages.length, addMessage]);

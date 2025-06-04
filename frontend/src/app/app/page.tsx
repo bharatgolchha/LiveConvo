@@ -236,6 +236,9 @@ export default function App() {
 
   // Add a ref to track whether we've loaded from localStorage
   const hasLoadedFromStorage = useRef(false);
+  
+  // Track if we're loading session data from the database
+  const [isLoadingFromSession, setIsLoadingFromSession] = useState(false);
 
   // Minute tracking for usage limits
   const limitReachedRef = useRef(false);
@@ -386,6 +389,7 @@ export default function App() {
   const loadSessionDetails = async (sessionId: string) => {
     if (!session || authLoading) return;
     
+    setIsLoadingFromSession(true);
     try {
       const response = await authenticatedFetch(`/api/sessions/${sessionId}`, session);
       if (response.ok) {
@@ -393,7 +397,21 @@ export default function App() {
         
         // Set the conversation details - backend data takes precedence
         setConversationTitle(sessionData.title || 'Untitled Conversation');
-        setConversationType(sessionData.conversation_type || 'general');
+        
+        // Map conversation type from database format to app format
+        const dbTypeMapping: Record<string, 'sales' | 'support' | 'meeting' | 'interview'> = {
+          'sales_call': 'sales',
+          'support_call': 'support',
+          'meeting': 'meeting',
+          'interview': 'interview',
+          'consultation': 'meeting'
+        };
+        const mappedType = dbTypeMapping[sessionData.conversation_type] || 'sales';
+        console.log('🔍 Session Type Mapping:', {
+          dbType: sessionData.conversation_type,
+          mappedType: mappedType
+        });
+        setConversationType(mappedType);
         
         // Set state based on session status - this is the authoritative source
         if (sessionData.status === 'completed') {
@@ -427,6 +445,8 @@ export default function App() {
       console.error('Error loading session details:', error);
       setConversationState('ready');
       hasLoadedFromStorage.current = true;
+    } finally {
+      setIsLoadingFromSession(false);
     }
   };
 
@@ -782,10 +802,10 @@ export default function App() {
 
   // Initialize chat guidance when app loads, not just when recording starts
   useEffect(() => {
-    if (chatMessages.length === 0) {
+    if (chatMessages.length === 0 && !isLoadingFromSession) {
       initializeChat();
     }
-  }, [chatMessages.length, initializeChat]);
+  }, [chatMessages.length, initializeChat, isLoadingFromSession]);
 
   // Enhanced auto-save transcript to database - Only save new lines
   useEffect(() => {
@@ -1106,6 +1126,7 @@ export default function App() {
 
         try {
           console.log('🔄 Loading session data from database...', conversationId);
+          setIsLoadingFromSession(true);
           
           // Fetch session details
           const sessionResponse = await authenticatedFetch(`/api/sessions/${conversationId}`, session);
@@ -1137,8 +1158,8 @@ export default function App() {
               'Consultation': 'meeting',
               'Business Review': 'meeting'
             };
-            const mappedType = typeMapping[sessionData.conversation_type] || sessionData.conversation_type || 'sales';
-            setConversationType(mappedType);
+            const mappedType = typeMapping[sessionData.conversation_type] || 'sales';
+            setConversationType(mappedType as 'sales' | 'support' | 'meeting' | 'interview');
           }
           
           // CRITICAL FIX: Update conversation state based on DB, overriding localStorage if necessary for loaded sessions.
@@ -1246,6 +1267,8 @@ export default function App() {
         } catch (error) {
           console.error('❌ Failed to load session from database:', error);
           // Don't set error state as user can still use the app
+        } finally {
+          setIsLoadingFromSession(false);
         }
       }
     };
@@ -1861,6 +1884,17 @@ export default function App() {
   };
 
   const handleEndConversationAndFinalize = async () => {
+    console.log('🔄 Starting End and Finalize process...', {
+      conversationId,
+      hasSession: !!session,
+      sessionToken: session?.access_token ? 'present' : 'missing',
+      sessionTokenLength: session?.access_token?.length || 0,
+      userId: session?.user?.id || 'unknown',
+      transcriptLength: transcript.length,
+      conversationType,
+      conversationTitle
+    });
+
     // First stop the recording
     handleStopRecording();
     
@@ -1887,30 +1921,75 @@ export default function App() {
       // Generate and save final summary to database
       if (conversationId && session) {
         try {
-          console.log('🔄 Calling finalize API...');
+          console.log('🔄 Calling finalize API...', {
+            url: `/api/sessions/${conversationId}/finalize`,
+            method: 'POST',
+            hasAuthToken: !!session.access_token,
+            tokenPreview: session.access_token?.substring(0, 20) + '...'
+          });
+
+          const requestBody = {
+            textContext: textContext + (previousConversationsContext ? '\n\n=== PREVIOUS CONVERSATIONS CONTEXT ===\n' + previousConversationsContext : ''),
+            conversationType,
+            conversationTitle,
+            uploadedFiles: uploadedFiles.map(f => ({ name: f.name, type: f.type, size: f.size })),
+            selectedPreviousConversations,
+            personalContext
+          };
+
+          console.log('📤 Finalize request body:', {
+            hasTextContext: !!requestBody.textContext,
+            conversationType: requestBody.conversationType,
+            conversationTitle: requestBody.conversationTitle,
+            uploadedFilesCount: requestBody.uploadedFiles.length,
+            selectedPreviousConversationsCount: requestBody.selectedPreviousConversations?.length || 0,
+            hasPersonalContext: !!requestBody.personalContext
+          });
+
           const response = await authenticatedFetch(`/api/sessions/${conversationId}/finalize`, session, {
             method: 'POST',
-            body: JSON.stringify({
-              textContext: textContext + (previousConversationsContext ? '\n\n=== PREVIOUS CONVERSATIONS CONTEXT ===\n' + previousConversationsContext : ''),
-              conversationType,
-              conversationTitle,
-              uploadedFiles: uploadedFiles.map(f => ({ name: f.name, type: f.type, size: f.size })),
-              selectedPreviousConversations,
-              personalContext
-            })
+            body: JSON.stringify(requestBody)
+          });
+
+          console.log('📥 Finalize API response:', {
+            status: response.status,
+            statusText: response.statusText,
+            ok: response.ok,
+            headers: Object.fromEntries(response.headers.entries())
           });
 
           if (response.ok) {
-            const { summary: finalSummary } = await response.json();
-            console.log('✅ Final summary generated and saved:', finalSummary);
+            const responseData = await response.json();
+            console.log('✅ Final summary generated and saved:', {
+              hasSummary: !!responseData.summary,
+              hasFinalization: !!responseData.finalization,
+              sessionId: responseData.sessionId,
+              finalizedAt: responseData.finalizedAt
+            });
           } else {
             const errorText = await response.text();
-            console.error('❌ Failed to generate final summary:', errorText);
+            console.error('❌ Failed to generate final summary:', {
+              status: response.status,
+              statusText: response.statusText,
+              errorText,
+              isAuthError: response.status === 401
+            });
+            
+            // If it's an auth error, try to refresh the session
+            if (response.status === 401) {
+              console.log('🔄 Authentication failed, attempting to refresh session...');
+              // Don't throw here, let the process continue
+            }
           }
         } catch (finalSummaryError) {
           console.error('❌ Error generating final summary:', finalSummaryError);
           // Continue with process even if final summary fails
         }
+      } else {
+        console.warn('⚠️ Skipping finalize API call - missing conversationId or session:', {
+          hasConversationId: !!conversationId,
+          hasSession: !!session
+        });
       }
       
       // Wait for the processing animation to complete (matches the animation duration)
@@ -1919,12 +1998,14 @@ export default function App() {
       
       // Set to completed state
       setConversationState('completed');
-      setIsSummarizing(false); // End the summarizing animation
+      setIsSummarizing(false);
       
       // Redirect to the summary page to show the final report
       if (conversationId) {
+        console.log('🔄 Redirecting to summary page:', `/summary/${conversationId}`);
         router.push(`/summary/${conversationId}`);
       } else {
+        console.log('⚠️ No conversationId for redirect, showing completed state in place');
         // Fallback: show completed state in current page
         setTimeout(() => {
           const summaryElement = document.querySelector('[data-summary-content]');
@@ -1935,7 +2016,7 @@ export default function App() {
       }
       
     } catch (error) {
-      console.error('Error generating final report:', error);
+      console.error('❌ Error in End and Finalize process:', error);
       setErrorMessage('Failed to generate final report. The recording has been stopped.');
       setConversationState('completed'); // Still show as completed even if summary fails
       setIsSummarizing(false); // End the summarizing animation even on error
@@ -2372,6 +2453,10 @@ export default function App() {
                   handleExportSession={handleExportSession}
                   sessionId={conversationId || undefined}
                   authToken={session?.access_token}
+                  conversationType={conversationType}
+                  conversationTitle={conversationTitle}
+                  textContext={textContext}
+                  selectedPreviousConversations={selectedPreviousConversations}
                   getSummaryTimeUntilNextRefresh={getTimeUntilNextRefresh}
                   getTimelineTimeUntilNextRefresh={getTimelineTimeUntilNextRefresh}
                 />

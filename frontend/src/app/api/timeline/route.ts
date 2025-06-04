@@ -59,7 +59,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const systemPrompt = getTimelineSystemPrompt(conversationType);
+    const systemPrompt = getTimelineSystemPrompt();
     const prompt = buildTimelinePrompt(transcript, conversationType, existingTimeline);
 
     const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
@@ -174,10 +174,10 @@ export async function POST(request: NextRequest) {
         timestamp: event.timestamp || new Date().toISOString(),
         title: event.title || 'Timeline Event',
         description: event.description || 'Event description not available',
-        type: ['milestone', 'decision', 'topic_shift', 'action_item', 'question', 'agreement'].includes(event.type) 
-              ? event.type : 'milestone',
-        importance: ['low', 'medium', 'high'].includes(event.importance) 
-                   ? event.importance : 'medium',
+        type: ['milestone', 'decision', 'topic_shift', 'action_item', 'question', 'agreement'].includes(event.type as string) 
+              ? (event.type as 'milestone' | 'decision' | 'topic_shift' | 'action_item' | 'question' | 'agreement') : 'milestone',
+        importance: ['low', 'medium', 'high'].includes(event.importance as string) 
+                   ? (event.importance as 'low' | 'medium' | 'high') : 'medium',
         speaker: event.speaker || null
       };
       return validatedEvent;
@@ -211,7 +211,7 @@ export async function POST(request: NextRequest) {
         console.log('💾 Saving timeline events to database...');
         
         // Format events for database
-        const eventsToSave = uniqueNewEvents.map(event => ({
+        const eventsToSave = uniqueNewEvents.map((event: TimelineEvent) => ({
           session_id: sessionId,
           event_timestamp: new Date(event.timestamp),
           title: event.title,

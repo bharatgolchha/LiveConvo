@@ -59,7 +59,44 @@
     - Updated `README.md` with MCP documentation
   - **Status**: ✅ COMPLETED
 
+- [x] **🗑️ Make Delete Conversation Modal Beautiful & Use Soft Deletes** (2025-01-30) 🎨 **JUST COMPLETED**
+  - **Request**: Convert the delete conversation popup into a nice modal and implement soft deletes only
+  - **Solution Implemented**:
+    - ✅ **Beautiful Delete Modal**: Created new `DeleteConfirmationModal` component with modern design
+      - Animated with framer-motion following existing modal patterns
+      - Red gradient header with warning icon and proper spacing
+      - Shows conversation name and clear warning message about removal
+      - Loading states with spinner and disabled actions during deletion
+      - Consistent styling with app's design system
+    - ✅ **Soft Delete Only**: Simplified delete logic to only use soft deletes (sets `deleted_at` timestamp)
+      - Removed confusing hard/soft delete choice from user interface
+      - API already supports soft deletes by default (existing implementation)
+      - User messaging indicates conversations can be recovered by contacting support
+    - ✅ **Enhanced UX**: 
+      - Single delete modal shows conversation title and clear messaging
+      - Bulk delete modal for multiple conversation selection
+      - Proper error handling and loading states
+      - Clean separation between cancel and delete actions
+    - ✅ **Consistent Implementation**: Applied modal to both individual and bulk delete operations
+  - **Technical Details**:
+    - Created reusable `DeleteConfirmationModal` component in `/components/ui/`
+    - Updated dashboard page to use new modal instead of `window.confirm()`
+    - Maintains existing soft delete API behavior (sets `deleted_at` field)
+    - Added state management for modal visibility and loading states
+    - Follows existing modal patterns from `SetupModal` and `OnboardingModal`
+  - **Status**: ✅ COMPLETED - Delete functionality now uses beautiful modals with soft deletes only
+
 ### 🔧 Bug Fixes & Issues
+
+- [x] **🔧 Fix Track Minute API 400 Error** (2025-01-30) 🚨 **JUST FIXED**
+  - **Issue**: Track minute API returning 400 status with empty error object, causing minute tracking to fail during recording
+  - **Root Cause**: Stale closure bug in `useMinuteTracking` hook - the `startTracking` function was using stale `state.currentSessionSeconds` value instead of current state, causing it to repeatedly try to track the same minute instead of incrementing properly
+  - **Solution**: Fixed the closure issue by using the updated state value within the `setState` callback instead of referencing the stale outer scope variable
+  - **Technical Details**: 
+    - Changed `Math.floor(state.currentSessionSeconds / 60)` to use `newSessionSeconds` from the setState callback
+    - Consolidated the state updates to avoid multiple setState calls
+    - Removed stale dependency from useCallback dependency array
+  - **Result**: ✅ Minute tracking now works correctly and doesn't repeatedly attempt to track the same minute
 
 - [x] **🔧 Fix Completed Session Status Reverting to Draft** (2025-01-30) 🚨 **JUST FIXED**
   - **Issue**: When clicking on a finalized conversation with "Done" status from dashboard, the conversation state changes back to "draft" from "completed" when the /app page loads
