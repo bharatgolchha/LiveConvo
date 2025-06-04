@@ -191,6 +191,8 @@ Return a JSON object:
   "confidence": 85
 }
 
+Only include the `suggestedActions` array when the user explicitly requests additional help (for example asking "what next?" or requesting guidance chips) or when the conversation appears stalled and would benefit from next steps. In all other cases return an empty `suggestedActions` array.
+
 SPECIAL INSTRUCTIONS FOR CHIP GENERATION:
 If the user asks for "guidance chips" or mentions "6 contextual guidance chips", the suggestedActions array should contain exactly 6 items in this format:
 {
