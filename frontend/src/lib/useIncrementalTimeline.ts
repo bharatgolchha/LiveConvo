@@ -323,7 +323,7 @@ export function useIncrementalTimeline({
   }, [sessionId, hasLoadedFromDb, session]);
 
   const refreshTimeline = useCallback(() => {
-    generateTimelineUpdate(true);
+    return generateTimelineUpdate(true);
   }, [generateTimelineUpdate]);
 
   const getTimeUntilNextRefresh = useCallback(() => {

@@ -323,7 +323,7 @@ export function useRealtimeSummary({
   }, [isRecording, isPaused]);
 
   const refreshSummary = useCallback(() => {
-    generateSummary(true);
+    return generateSummary(true);
   }, [generateSummary]);
 
   const getTimeUntilNextRefresh = useCallback(() => {
