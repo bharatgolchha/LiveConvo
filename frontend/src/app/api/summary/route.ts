@@ -147,13 +147,15 @@ Focus on extracting concrete, actionable information. Return only valid JSON.`;
       const errorText = await response.text();
       console.error('OpenRouter API error:', response.status, errorText);
       return NextResponse.json(
-        { error: `OpenRouter API error: ${response.status}` },
+        { error: 'The AI service is currently unavailable. Please try again later.' },
         { status: response.status }
       );
     }
 
     const data = await response.json();
-    console.log('🤖 Raw Summary Response:', data.choices[0].message.content);
+    console.debug('Summary model response received', {
+      length: data.choices[0].message.content.length
+    });
     
     let summaryData;
     try {
@@ -214,8 +216,8 @@ Focus on extracting concrete, actionable information. Return only valid JSON.`;
   } catch (error) {
     console.error('Summary API error:', error);
     return NextResponse.json(
-      { error: 'Failed to generate summary' },
+      { error: 'Unable to generate summary. Please try again later.' },
       { status: 500 }
     );
   }
-} 
+}
