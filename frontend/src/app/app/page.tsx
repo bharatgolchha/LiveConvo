@@ -1544,6 +1544,7 @@ export default function App() {
 
       await Promise.all([startMyRecording(), startThemRecording()]);
 
+      setLoadedSummary(null);
       setConversationState('recording');
       // Reset transcript length trackers for new recording session
       lastMyTranscriptLen.current = 0;
@@ -1622,6 +1623,7 @@ export default function App() {
       // Resume recording
       await Promise.all([startMyRecording(), startThemRecording()]);
 
+      setLoadedSummary(null);
       setConversationState('recording');
       // Reset length trackers so new transcript is captured after resume
       lastMyTranscriptLen.current = 0;
