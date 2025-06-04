@@ -52,7 +52,7 @@ import { ThemeToggle } from '@/components/ui/ThemeToggle';
 import Link from 'next/link';
 import { useAIGuidance, ContextDocument, GuidanceRequest } from '@/lib/aiGuidance';
 import { useTranscription } from '@/lib/useTranscription';
-import { useRealtimeSummary, ConversationSummary, TimelineEvent } from '@/lib/useRealtimeSummary';
+import { TimelineEvent } from '@/lib/useIncrementalTimeline';
 import { useIncrementalTimeline } from '@/lib/useIncrementalTimeline';
 import { useChatGuidance } from '@/lib/useChatGuidance';
 import { cn } from '@/lib/utils';
@@ -211,37 +211,7 @@ const saveTimelineToDatabase = async (sessionId: string, timelineEvents: Timelin
   }
 };
 
-const saveSummaryToDatabase = async (sessionId: string, summary: ConversationSummary, session: any): Promise<void> => {
-  try {
-    console.log('💾 Saving summary to database:', {
-      sessionId,
-      hasSummary: !!summary,
-      tldrLength: summary?.tldr?.length,
-      keyPointsCount: summary?.keyPoints?.length,
-      decisionsCount: summary?.decisions?.length,
-      hasPerformanceMetrics: !!(summary as any).performanceMetrics,
-      hasConversationDynamics: !!(summary as any).conversationDynamics
-    });
-
-    const response = await authenticatedFetch(`/api/sessions/${sessionId}`, session, {
-      method: 'PATCH',
-      body: JSON.stringify({
-        realtime_summary_cache: summary
-      })
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('Failed to save summary cache:', errorText);
-      throw new Error(`Failed to save summary: ${response.status}`);
-    } else {
-      console.log('✅ Summary saved successfully to database');
-    }
-  } catch (error) {
-    console.error('Error saving summary to database:', error);
-    throw error;
-  }
-};
+// Summary functionality removed
 
 export default function App() {
   const searchParams = useSearchParams();
@@ -266,8 +236,7 @@ export default function App() {
   const [systemAudioStream, setSystemAudioStream] = useState<MediaStream | null>(null);
   const [personalContext, setPersonalContext] = useState<string>('');
 
-  // Database-loaded data (overrides AI-generated data when available)
-  const [loadedSummary, setLoadedSummary] = useState<ConversationSummary | null>(null);
+  // Summary functionality removed
 
   // Add a ref to track whether we've loaded from localStorage
   const hasLoadedFromStorage = useRef(false);
@@ -625,7 +594,7 @@ export default function App() {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [audioEnabled, setAudioEnabled] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'transcript' | 'summary' | 'timeline' | 'checklist'>('summary');
+  const [activeTab, setActiveTab] = useState<'transcript' | 'timeline' | 'checklist'>('timeline');
   const [selectedPreviousConversations, setSelectedPreviousConversations] = useState<string[]>([]);
   const [previousConversationSearch, setPreviousConversationSearch] = useState('');
   const [aiCoachWidth, setAiCoachWidth] = useState(400); // Default AI Coach sidebar width
@@ -715,22 +684,7 @@ export default function App() {
     lastLoggedState.current = {state: conversationState, transcriptLength: transcript.length};
   }
 
-  const {
-    summary,
-    isLoading: isSummaryLoading,
-    error: summaryError,
-    lastUpdated: summaryLastUpdated,
-    refreshSummary,
-    getTimeUntilNextRefresh
-  } = useRealtimeSummary({
-    transcript: fullTranscriptText, // Always pass full transcript for manual refresh capability
-    sessionId: conversationId || undefined,
-    conversationType,
-    isRecording: conversationState === 'recording',
-    // Treat completed sessions like paused so summary data is retained
-    isPaused: conversationState === 'paused' || conversationState === 'completed',
-    refreshIntervalMs: 45000 // 45 seconds
-  });
+  // Summary functionality removed
 
   // Incremental timeline hook - updates every 15 seconds
   const {
@@ -754,90 +708,7 @@ export default function App() {
   // Use timeline data from the hook (which now handles both DB loading and AI generation)
   const effectiveTimeline = timeline;
   
-  // Use summary data - prioritize real summary content over placeholder
-  const effectiveSummary = React.useMemo(() => {
-    // Check if summary has real content (not just placeholder)
-    const hasRealContent = (s: any) => {
-      return s && (
-        (s.keyPoints && s.keyPoints.length > 0) ||
-        (s.decisions && s.decisions.length > 0) ||
-        (s.actionItems && s.actionItems.length > 0) ||
-        (s.tldr && s.tldr !== 'Not enough conversation content to generate a meaningful summary yet.')
-      );
-    };
-    
-    // For completed sessions, always prefer loaded summary if it has content
-    if (conversationState === 'completed' && hasRealContent(loadedSummary)) {
-      return loadedSummary;
-    }
-    
-    // If we have a real summary from the hook (with actual content)
-    if (hasRealContent(summary)) {
-      return summary;
-    }
-    
-    // Otherwise use the loaded summary from database if it has content
-    if (hasRealContent(loadedSummary)) {
-      return loadedSummary;
-    }
-    
-    // Finally, use whatever summary we have (could be placeholder)
-    return summary || loadedSummary;
-  }, [summary, loadedSummary, conversationState]);
-  
-  // Clear loaded data when fresh data is available to prevent conflicts
-  // Only clear if we have NEW real-time generated content that's better than loaded
-  useEffect(() => {
-    const hasRealContent = (s: any) => {
-      return s && (
-        (s.keyPoints && s.keyPoints.length > 0) ||
-        (s.decisions && s.decisions.length > 0) ||
-        (s.actionItems && s.actionItems.length > 0) ||
-        (s.tldr && s.tldr !== 'Not enough conversation content to generate a meaningful summary yet.')
-      );
-    };
-    
-    // Only clear loaded summary if we have new real content from real-time generation
-    if (summary && loadedSummary && hasRealContent(summary) && conversationState === 'recording') {
-      console.log('🧹 Clearing loaded summary to use fresh real-time data');
-      setLoadedSummary(null);
-    }
-  }, [summary, loadedSummary, conversationState]);
-
-
-  // Add debugging for summary state
-  useEffect(() => {
-    const hasRealContent = (s: any) => {
-      return s && (
-        (s.keyPoints && s.keyPoints.length > 0) ||
-        (s.decisions && s.decisions.length > 0) ||
-        (s.actionItems && s.actionItems.length > 0) ||
-        (s.tldr && s.tldr !== 'Not enough conversation content to generate a meaningful summary yet.')
-      );
-    };
-    
-    console.log('🔍 Summary State Debug:', {
-      conversationState,
-      loadedSummary: !!loadedSummary,
-      loadedSummaryHasContent: hasRealContent(loadedSummary),
-      loadedSummaryPreview: loadedSummary ? {
-        tldr: loadedSummary.tldr?.substring(0, 50) + '...',
-        keyPointsCount: loadedSummary.keyPoints?.length,
-        decisionsCount: loadedSummary.decisions?.length
-      } : null,
-      summary: !!summary,
-      summaryHasContent: hasRealContent(summary),
-      summaryPreview: summary ? {
-        tldr: summary.tldr?.substring(0, 50) + '...',
-        keyPointsCount: summary.keyPoints?.length,
-        decisionsCount: summary.decisions?.length
-      } : null,
-      effectiveSummary: !!effectiveSummary,
-      effectiveSummaryHasContent: hasRealContent(effectiveSummary),
-      isSummaryLoading,
-      summaryError
-    });
-  }, [loadedSummary, summary, effectiveSummary, isSummaryLoading, summaryError, conversationState]);
+  // Summary functionality removed
 
   // Add debugging for tab state
   useEffect(() => {
@@ -867,7 +738,7 @@ export default function App() {
     // Enhanced context - combine user's setup context with previous conversation summaries
     textContext: textContext + (previousConversationsContext ? '\n\n=== PREVIOUS CONVERSATIONS CONTEXT ===\n' + previousConversationsContext : ''),
     conversationTitle,
-    summary: effectiveSummary || undefined,
+    summary: undefined, // Summary functionality removed
     timeline: effectiveTimeline || undefined,
     uploadedFiles,
     selectedPreviousConversations,
@@ -965,64 +836,9 @@ export default function App() {
     }
   }, [conversationState, conversationId, transcript.length, session, lastSavedTranscriptIndex]);
 
-  // Debug logging for summary state
-  useEffect(() => {
-    console.log('🔍 Summary State Debug:', {
-      hasRawSummary: !!summary,
-      hasLoadedSummary: !!loadedSummary,
-      hasEffectiveSummary: !!effectiveSummary,
-      conversationState,
-      rawSummaryContent: summary ? {
-        tldr: summary.tldr?.substring(0, 50) + '...',
-        keyPointsCount: summary.keyPoints?.length,
-        decisionsCount: summary.decisions?.length
-      } : null,
-      effectiveSummaryContent: effectiveSummary ? {
-        tldr: effectiveSummary.tldr?.substring(0, 50) + '...',
-        keyPointsCount: effectiveSummary.keyPoints?.length,
-        decisionsCount: effectiveSummary.decisions?.length
-      } : null
-    });
-  }, [summary, loadedSummary, effectiveSummary, conversationState]);
+  // Summary debug logging removed
 
-  // Auto-save summary to database when summary changes
-  useEffect(() => {
-    const hasRealContent = (s: any) => {
-      return s && (
-        (s.keyPoints && s.keyPoints.length > 0) ||
-        (s.decisions && s.decisions.length > 0) ||
-        (s.actionItems && s.actionItems.length > 0) ||
-        (s.tldr && s.tldr !== 'Not enough conversation content to generate a meaningful summary yet.')
-      );
-    };
-    
-    // Only save if we have real content, not placeholder
-    if (conversationId && effectiveSummary && hasRealContent(effectiveSummary) && (conversationState === 'recording' || conversationState === 'completed')) {
-      // Extra check to ensure we're not saving placeholder
-      if (effectiveSummary.tldr === 'Not enough conversation content to generate a meaningful summary yet.') {
-        console.log('❌ Skipping save of placeholder summary');
-        return;
-      }
-      
-      // Debounce saving to avoid too many API calls
-      const timeoutId = setTimeout(() => {
-        if (effectiveSummary && hasRealContent(effectiveSummary) && 
-            effectiveSummary.tldr !== 'Not enough conversation content to generate a meaningful summary yet.') {
-          console.log('💾 Auto-saving summary to database:', {
-            conversationState,
-            keyPointsCount: effectiveSummary.keyPoints?.length,
-            decisionsCount: effectiveSummary.decisions?.length,
-            tldr: effectiveSummary.tldr?.substring(0, 50) + '...'
-          });
-          saveSummaryToDatabase(conversationId, effectiveSummary, session).catch(error => {
-            console.error('⚠️ Failed to auto-save summary:', error);
-          });
-        }
-      }, 1000); // Save after 1 second of no changes
-      
-      return () => clearTimeout(timeoutId);
-    }
-  }, [effectiveSummary, conversationId, conversationState, session]);
+  // Auto-save summary functionality removed
 
   // Auto-save timeline to database when timeline changes
   useEffect(() => {
@@ -1368,32 +1184,7 @@ export default function App() {
           }
           // Timeline events are now loaded directly in the useIncrementalTimeline hook
 
-          // Load cached summary from database if available
-          if (sessionData.realtime_summary_cache) {
-            try {
-              const cachedSummary: any = typeof sessionData.realtime_summary_cache === 'string'
-                ? JSON.parse(sessionData.realtime_summary_cache)
-                : sessionData.realtime_summary_cache;
-              
-              // Transform database format to match ConversationSummary interface
-              const transformedSummary: ConversationSummary = {
-                tldr: cachedSummary.tldr || '',
-                keyPoints: cachedSummary.keyPoints || cachedSummary.key_points || [],
-                decisions: cachedSummary.decisions || [],
-                actionItems: cachedSummary.actionItems || cachedSummary.action_items || [],
-                nextSteps: cachedSummary.nextSteps || cachedSummary.next_steps || [],
-                topics: cachedSummary.topics || [],
-                sentiment: cachedSummary.sentiment || 'neutral',
-                progressStatus: cachedSummary.progressStatus || cachedSummary.progress_status || 'building_momentum',
-                timeline: cachedSummary.timeline || []
-              };
-              
-              setLoadedSummary(transformedSummary);
-              console.log('✅ Summary loaded from database cache:', transformedSummary);
-            } catch (summaryError) {
-              console.warn('⚠️ Could not parse cached summary:', summaryError);
-            }
-          }
+          // Summary loading functionality removed
           console.log('✅ Session data loaded successfully from database');
           
         } catch (error) {
@@ -2277,13 +2068,7 @@ export default function App() {
   const hasTriggeredForcedGeneration = useRef(false);
   
   // Refs to store latest values for the forced generation effect
-  const latestRefreshSummary = useRef(refreshSummary);
   const latestRefreshTimeline = useRef(refreshTimeline);
-  
-  // Update refs when functions change
-  useEffect(() => {
-    latestRefreshSummary.current = refreshSummary;
-  }, [refreshSummary]);
   
   useEffect(() => {
     latestRefreshTimeline.current = refreshTimeline;
@@ -2300,13 +2085,12 @@ export default function App() {
         .trim()
         .split(' ').length;
 
-      const hasCachedSummary = !!loadedSummary;
       const hasCachedTimeline = timeline.length > 0;
 
       // Only force generation if we have a substantial transcript loaded from database
       // and we're not currently recording (meaning this is restored data)
       // and we haven't already triggered forced generation
-      // and we don't already have both summary and timeline cached
+      // and we don't already have timeline cached
       if (
         currentTranscriptLength > 10 &&
         currentTranscriptWords > 50 &&
@@ -2316,38 +2100,24 @@ export default function App() {
         session &&
         !authLoading &&
         !hasTriggeredForcedGeneration.current &&
-        (!hasCachedSummary || !hasCachedTimeline)
+        !hasCachedTimeline
       ) {
-        console.log('🚀 Forcing summary and timeline generation for loaded transcript:', {
+        console.log('🚀 Forcing timeline generation for loaded transcript:', {
           transcriptLines: currentTranscriptLength,
           transcriptWords: currentTranscriptWords,
           conversationState,
-          hasCachedSummary,
           hasCachedTimeline
         });
 
         // Set flag to prevent repeated execution
         hasTriggeredForcedGeneration.current = true;
 
-        // Stagger the force calls to prevent simultaneous API requests
-        // If loaded summary is just a placeholder, clear it before force refresh
-        if (loadedSummary && loadedSummary.tldr === 'Not enough conversation content to generate a meaningful summary yet.') {
-          console.log('🧹 Clearing placeholder summary before force refresh');
-          setLoadedSummary(null);
-        }
-        
-        if (!hasCachedSummary && (!summary || summary.tldr === 'Not enough conversation content to generate a meaningful summary yet.')) {
-          setTimeout(() => {
-            console.log('🔄 Force-refreshing summary for resumed session');
-            latestRefreshSummary.current();
-          }, 1500);
-        }
-
+        // Force timeline generation
         if (!hasCachedTimeline && timeline.length === 0) {
           setTimeout(() => {
             console.log('🔄 Force-refreshing timeline for resumed session');
             latestRefreshTimeline.current();
-          }, 3000);
+          }, 1500);
         }
 
         // Ensure we're in a valid state for showing the content
@@ -2364,8 +2134,6 @@ export default function App() {
     conversationId,
     session,
     authLoading,
-    loadedSummary,
-    summary,
     timeline.length
   ]);
 
@@ -2596,11 +2364,6 @@ export default function App() {
                   conversationState={conversationState}
                   isSummarizing={isSummarizing}
                   transcript={transcript}
-                  summary={effectiveSummary}
-                  isSummaryLoading={isSummaryLoading}
-                  summaryError={summaryError}
-                  summaryLastUpdated={summaryLastUpdated}
-                  refreshSummary={refreshSummary}
                   timeline={effectiveTimeline}
                   isTimelineLoading={isTimelineLoading}
                   timelineError={timelineError}

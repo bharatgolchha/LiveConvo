@@ -2,7 +2,7 @@
 
 ## IMPORTANT INSTRUCTIONS
 
-⚠️ **DO NOT CHANGE THE AI MODEL**: The project uses `google/gemini-2.5-flash-preview-05-20` for all AI operations. Do not change this model without explicitly asking the user first.
+⚠️ **DO NOT CHANGE THE AI MODEL**: The project uses `gemini-2.0-flash` for all AI operations. Do not change this model without explicitly asking the user first.
 
 ⚠️ **ALWAYS USE MCP TOOLS**: When working with Supabase database operations, always use the Supabase MCP tools (prefixed with `mcp__supabase__`) instead of writing SQL files or using other methods.
 
@@ -29,7 +29,7 @@ liveprompt.ai is a real-time conversation coaching application that provides AI-
 ### Backend & Services
 - **Database**: Supabase (PostgreSQL with RLS)
 - **Auth**: Supabase Auth (email/password + Google OAuth)
-- **AI**: Google Gemini API (Model: `gemini-2.5-flash-preview-05-20` with structured outputs)
+- **AI**: Google Gemini API (Model: `gemini-2.0-flash` with structured outputs)
 - **Speech**: Deepgram SDK for transcription
 - **Real-time**: WebRTC for audio capture
 

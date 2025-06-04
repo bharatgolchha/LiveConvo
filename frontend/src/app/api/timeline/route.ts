@@ -40,49 +40,18 @@ export async function POST(request: NextRequest) {
 
     console.log('📋 Timeline request:', {
       transcriptLength: transcript.length,
+      transcriptWords: transcript.trim().split(/\s+/).filter(Boolean).length,
       existingEvents: existingTimeline.length,
-      conversationType
+      conversationType,
+      transcriptSample: transcript.substring(0, 200)
     });
 
     // Initialize Gemini
     const genAI = new GoogleGenerativeAI(apiKey);
     const model = genAI.getGenerativeModel({
-      model: 'gemini-2.5-flash-preview-05-20',
+      model: 'gemini-2.0-flash',
       generationConfig: {
         responseMimeType: 'application/json',
-        responseSchema: {
-          type: 'object',
-          properties: {
-            events: {
-              type: 'array',
-              items: {
-                type: 'object',
-                properties: {
-                  title: {
-                    type: 'string'
-                  },
-                  description: {
-                    type: 'string'
-                  },
-                  type: {
-                    type: 'string',
-                    enum: ['milestone', 'decision', 'topic_shift', 'action_item', 'question', 'agreement']
-                  },
-                  importance: {
-                    type: 'string',
-                    enum: ['low', 'medium', 'high']
-                  },
-                  speaker: {
-                    type: 'string',
-                    enum: ['ME', 'THEM', 'BOTH']
-                  }
-                },
-                required: ['title', 'description', 'type', 'importance']
-              }
-            }
-          },
-          required: ['events']
-        },
         temperature: 0.3,
         maxOutputTokens: 800
       }
@@ -99,7 +68,25 @@ Extract 3-5 significant events that capture the flow and key moments. Focus on:
 - Milestones or achievements
 - Agreements reached
 
-For each event, provide a brief title, detailed description, type, importance level, and who was involved.
+Return a JSON object with an "events" array. Each event should have:
+- title (string): Brief title
+- description (string): Detailed description
+- type (string): One of "milestone", "decision", "topic_shift", "action_item", "question", "agreement"
+- importance (string): One of "low", "medium", "high"
+- speaker (string, optional): One of "ME", "THEM", "BOTH"
+
+Example format:
+{
+  "events": [
+    {
+      "title": "Initial Greeting",
+      "description": "The conversation began with mutual introductions",
+      "type": "milestone",
+      "importance": "low",
+      "speaker": "BOTH"
+    }
+  ]
+}
 
 Conversation transcript:
 ${transcript}`;
@@ -111,6 +98,8 @@ ${transcript}`;
     const text = response.text();
 
     console.log('📝 Gemini Timeline Response received');
+    console.log('📝 Raw response:', text);
+    console.log('📝 Response length:', text.length);
 
     // Parse the response
     let timelineData;
@@ -139,7 +128,8 @@ ${transcript}`;
       
       timelineData = JSON.parse(cleanedText);
       console.log('✅ Successfully parsed timeline response:', {
-        eventsCount: timelineData.events?.length || 0
+        eventsCount: timelineData.events?.length || 0,
+        events: timelineData.events
       });
     } catch (parseError) {
       console.error('❌ Failed to parse timeline response:', parseError);
@@ -147,6 +137,9 @@ ${transcript}`;
       console.error('Text length:', text.length);
       timelineData = { events: [] };
     }
+
+    // Log the parsed data for debugging
+    console.log('📊 Parsed timeline data:', JSON.stringify(timelineData, null, 2));
 
     // Convert to our format with timestamps
     const baseTime = new Date();
@@ -159,6 +152,8 @@ ${transcript}`;
       importance: event.importance || 'medium',
       speaker: event.speaker === 'ME' || event.speaker === 'THEM' ? event.speaker : undefined
     }));
+
+    console.log('🆕 New events generated:', newEvents.length);
 
     // Combine with existing timeline
     const existingIds = new Set(existingTimeline.map(e => e.id));

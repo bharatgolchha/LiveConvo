@@ -158,7 +158,8 @@ export function useIncrementalTimeline({
         timelineLength: data.timeline?.length || 0,
         lastProcessedLength: data.lastProcessedLength,
         newEventsCount: data.newEventsCount,
-        generatedAt: data.generatedAt
+        generatedAt: data.generatedAt,
+        debug: (data as any).debug
       });
       
       // Final check before updating state

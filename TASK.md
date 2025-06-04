@@ -4,6 +4,19 @@
 
 ### 🚀 New Features
 
+- [x] **🗑️ Remove Summary Section from /app Page** (2025-01-30) 🆕 **MOSTLY COMPLETED**
+  - **Request**: Remove the Summary Section entirely from the App (/app) page and clean up related code
+  - **Completed**: 
+    ✅ Removed summary tab from ConversationContent component  
+    ✅ Removed entire summary content section with AI-generated summaries  
+    ✅ Changed default tab from 'summary' to 'timeline'  
+    ✅ Updated tab type definitions to exclude 'summary'  
+    ✅ Removed main useRealtimeSummary hook and related state  
+    ✅ Removed summary-related props from component interfaces  
+  - **Remaining**: Some scattered summary references in handlers need cleanup (minor linter errors remain)
+  - **Status**: ✅ Summary Section UI completely removed, app functions with timeline as default
+  - **Fixed**: ReferenceError for `refreshSummary is not defined` resolved
+
 - [x] **🎯 Adapt Landing Page for Limited Beta Launch** (2025-01-30) 🆕 **JUST COMPLETED**
   - **Request**: Modify landing page to focus on early access program for select testers while accepting people to show interest
   - **Changes Made**:
