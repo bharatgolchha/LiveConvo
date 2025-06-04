@@ -311,6 +311,36 @@ function buildChatPrompt(message: string, transcript: string, chatHistory: ChatM
     prompt += `- Important highlights and insights\n`;
     prompt += `Use this historical context to provide continuity in your guidance.\n\n`;
   }
+
+  // Chat history handling
+  // When history grows beyond the threshold we summarise older messages to keep
+  // the prompt concise. Older messages are reduced to short bullet points while
+  // the most recent ones are included verbatim for full context.
+  if (chatHistory && chatHistory.length > 0) {
+    const HISTORY_THRESHOLD = 6;
+    if (chatHistory.length > HISTORY_THRESHOLD) {
+      const older = chatHistory.slice(0, -HISTORY_THRESHOLD);
+      const recent = chatHistory.slice(-HISTORY_THRESHOLD);
+      prompt += `PREVIOUS CHAT SUMMARY:\n`;
+      older.forEach(msg => {
+        const role = msg.type === 'user' ? 'User' : 'AI';
+        const text = msg.content.replace(/\n/g, ' ').slice(0, 60);
+        prompt += `- ${role}: ${text}${msg.content.length > 60 ? '...' : ''}\n`;
+      });
+      prompt += `\nRECENT CHAT MESSAGES:\n`;
+      recent.forEach(msg => {
+        const role = msg.type === 'user' ? 'User' : 'AI';
+        prompt += `${role}: ${msg.content}\n`;
+      });
+    } else {
+      prompt += `CHAT HISTORY:\n`;
+      chatHistory.forEach(msg => {
+        const role = msg.type === 'user' ? 'User' : 'AI';
+        prompt += `${role}: ${msg.content}\n`;
+      });
+    }
+    prompt += `\n`;
+  }
   
   // Current conversation summary
   if (summary && isLiveConversation) {
@@ -405,4 +435,7 @@ function parseContextFromMessage(message: string): ParsedContext {
   return {
     userMessage: message
   };
-} 
+}
+
+// Export internal helpers for testing
+export { buildChatPrompt };
