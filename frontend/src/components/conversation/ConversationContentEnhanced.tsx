@@ -39,7 +39,7 @@ interface ConversationContentEnhancedProps {
   setRecordingDuration: (duration: number) => void;
   
   // Transcription handler
-  onTranscriptionUpdate: (text: string, isFinal: boolean) => void;
+  onTranscriptionUpdate: (text: string, isFinal: boolean, speaker?: string) => void;
   
   // Active tab
   activeTab?: 'summary' | 'timeline' | 'checklist';
@@ -340,9 +340,7 @@ export const ConversationContentEnhanced: React.FC<ConversationContentEnhancedPr
 
       {/* Hidden audio capture component */}
       <RealtimeAudioCapture
-        isRecording={isRecording}
-        onTranscriptionUpdate={onTranscriptionUpdate}
-        sessionId={sessionId}
+        onTranscript={(text, speaker) => onTranscriptionUpdate(text, true, speaker)}
       />
     </div>
   );
