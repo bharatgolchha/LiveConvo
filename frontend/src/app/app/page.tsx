@@ -69,6 +69,7 @@ import AICoachSidebar from '@/components/guidance/AICoachSidebar';
 import { TranscriptModal } from '@/components/conversation/TranscriptModal';
 import { useSessionData, SessionDocument } from '@/lib/hooks/useSessionData';
 import { useMinuteTracking } from '@/lib/hooks/useMinuteTracking';
+import { RecordingConsentModal } from '@/components/conversation/RecordingConsentModal';
 
 interface TranscriptLine {
   id: string;
@@ -317,7 +318,7 @@ export default function App() {
           setSessionDuration(cumulativeDuration + elapsed);
         }
       }, 1000);
-    } else if (conversationState !== 'recording' && recordingStartTime) {
+    } else if (recordingStartTime) {
       // Recording stopped/paused, update cumulative duration
       const elapsed = Math.floor((Date.now() - recordingStartTime) / 1000);
       setCumulativeDuration(prev => prev + elapsed);
@@ -612,6 +613,7 @@ export default function App() {
   const [previousConversationSearch, setPreviousConversationSearch] = useState('');
   const [aiCoachWidth, setAiCoachWidth] = useState(400); // Default AI Coach sidebar width
   const [showTranscriptModal, setShowTranscriptModal] = useState(false);
+  const [showRecordingConsentModal, setShowRecordingConsentModal] = useState(false);
   const [previousConversationsContext, setPreviousConversationsContext] = useState<string>('');
 
   const transcriptEndRef = useRef<null | HTMLDivElement>(null);
@@ -1439,6 +1441,11 @@ export default function App() {
     return `${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
+  // Show recording consent modal first
+  const handleInitiateRecording = () => {
+    setShowRecordingConsentModal(true);
+  };
+
   // Event Handlers - Define handleGenerateGuidance before useEffect hooks
   const handleGenerateGuidance = React.useCallback(async () => {
     if (transcript.length === 0 && !textContext) return;
@@ -2093,7 +2100,7 @@ export default function App() {
       return <Button onClick={() => { if (textContext) addUserContext(textContext); setConversationState('ready');}} size="lg" className="px-8 bg-blue-600 hover:bg-blue-700"><Play className="w-5 h-5 mr-2" />Get Ready</Button>;
     }
     if (conversationState === 'ready') {
-      return <Button onClick={handleStartRecording} size="lg" className="px-8 bg-green-600 hover:bg-green-700"><Mic className="w-5 h-5 mr-2" />Start Recording</Button>;
+      return <Button onClick={handleInitiateRecording} size="lg" className="px-8 bg-green-600 hover:bg-green-700"><Mic className="w-5 h-5 mr-2" />Start Recording</Button>;
     }
     if (conversationState === 'recording') {
       return <Button onClick={handlePauseRecording} size="lg" className="px-8 bg-yellow-500 hover:bg-yellow-600"><PauseCircle className="w-5 h-5 mr-2" />Pause</Button>;
@@ -2281,7 +2288,7 @@ export default function App() {
                   <div className="hidden sm:flex items-center gap-3 ml-6">
                     {(conversationState === 'setup' || conversationState === 'ready') && (
                       <Button 
-                        onClick={conversationState === 'setup' ? () => { if (textContext) addUserContext(textContext); setConversationState('ready'); } : handleStartRecording}
+                        onClick={conversationState === 'setup' ? () => { if (textContext) addUserContext(textContext); setConversationState('ready'); } : handleInitiateRecording}
                         size="md" 
                         className="bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg font-semibold px-6"
                       >
@@ -2460,7 +2467,7 @@ export default function App() {
                   refreshTimeline={refreshTimeline}
                   isFullscreen={isFullscreen}
                   setIsFullscreen={setIsFullscreen}
-                  handleStartRecording={handleStartRecording}
+                  handleStartRecording={handleInitiateRecording}
                   handleExportSession={handleExportSession}
                   sessionId={conversationId || undefined}
                   authToken={session?.access_token}
@@ -2531,6 +2538,14 @@ export default function App() {
           />
         </div>
       </main>
+
+      {/* Recording Consent Modal */}
+      <RecordingConsentModal
+        isOpen={showRecordingConsentModal}
+        onClose={() => setShowRecordingConsentModal(false)}
+        onStartRecording={handleStartRecording}
+        conversationTitle={conversationTitle}
+      />
 
       {/* Transcript Modal */}
       <TranscriptModal
