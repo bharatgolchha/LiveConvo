@@ -173,6 +173,7 @@ CREATE TABLE users (
     
     -- Organization Context
     current_organization_id UUID REFERENCES organizations(id) ON DELETE SET NULL,
+    personal_context TEXT, -- User-defined personal context for AI guidance
     
     -- Onboarding & Preferences
     has_completed_onboarding BOOLEAN DEFAULT FALSE,
@@ -183,6 +184,7 @@ CREATE TABLE users (
     -- Account Status
     is_active BOOLEAN DEFAULT TRUE,
     is_email_verified BOOLEAN DEFAULT FALSE,
+    is_admin BOOLEAN DEFAULT FALSE, -- Admin privileges flag
     
     -- Timestamps
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,

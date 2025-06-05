@@ -4,6 +4,29 @@
 
 ### 🚀 New Features
 
+- [x] **🔐 Add Admin Flag to Users Table** (2025-01-30) 🆕 **JUST COMPLETED**
+  - **Request**: Add an admin flag to the user field for administrative privileges
+  - **Solution Implemented**:
+    - ✅ **Database Migration**: Added `is_admin` boolean column to users table
+      - Column: `is_admin BOOLEAN NOT NULL DEFAULT false`
+      - Default value: `false` for all existing and new users
+      - Includes descriptive comment for column purpose
+    - ✅ **Schema Update**: Successfully applied migration using MCP Supabase tools
+      - Migration name: `add_admin_flag_to_users`
+      - Applied to production database: VoiceConvo Dev project
+      - Verified column exists with correct data type and constraints
+  - **Technical Details**:
+    - Used Supabase MCP tools to examine existing schema and apply migration
+    - Column is NOT NULL with default false to prevent admin privilege escalation
+    - All existing users automatically set to non-admin status
+    - Ready for future admin functionality implementation
+  - **Next Steps**: 
+    - Update TypeScript types to include `is_admin` field
+    - Implement admin role checking in authentication middleware
+    - Create admin-only UI components and routes
+    - Add admin user management interface
+  - **Status**: ✅ COMPLETED - Admin flag column successfully added to users table
+
 - [x] **📝 Add Real-Time Transcription Tab** (2025-01-30) 🆕 **JUST COMPLETED**
   - **Request**: Bring the real time transcription to a tab, put it on the left of summary on /app
   - **Solution Implemented**:

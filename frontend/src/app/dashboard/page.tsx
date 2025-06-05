@@ -40,6 +40,7 @@ interface User {
   email: string;
   avatar?: string;
   plan: 'free' | 'pro' | 'team';
+  is_admin?: boolean;
 }
 
 interface UsageStats {

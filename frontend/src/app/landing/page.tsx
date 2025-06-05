@@ -201,33 +201,45 @@ export default function LandingPage() {
       </header>
 
       {/* 1. Above-the-Fold Hero */}
-      <section className="relative pt-24 pb-20">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+      <section className="relative min-h-screen flex items-center overflow-hidden">
+        {/* Enhanced Gradient Background */}
+        <div className="absolute inset-0 bg-gradient-to-br from-blue-600/30 via-purple-600/30 to-pink-600/30">
+          <div className="absolute inset-0 bg-gradient-to-t from-gray-900/50 to-transparent" />
+        </div>
+        <div className="absolute inset-0 overflow-hidden">
+          <div className="absolute -top-40 -right-40 w-80 h-80 bg-purple-500 rounded-full mix-blend-multiply filter blur-3xl opacity-30 animate-blob" />
+          <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-blue-500 rounded-full mix-blend-multiply filter blur-3xl opacity-30 animate-blob animation-delay-2000" />
+          <div className="absolute top-40 left-40 w-80 h-80 bg-pink-500 rounded-full mix-blend-multiply filter blur-3xl opacity-30 animate-blob animation-delay-4000" />
+        </div>
+        
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center relative">
           <motion.div
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
-            className="inline-flex items-center gap-2 rounded-full px-4 py-2 mb-6"
-            style={{ backgroundColor: 'rgba(59, 130, 246, 0.1)', border: '1px solid rgba(59, 130, 246, 0.2)' }}
+            className="inline-flex items-center gap-2 rounded-full px-4 py-2 mb-6 backdrop-blur-sm"
+            style={{ backgroundColor: 'rgba(255, 255, 255, 0.1)', border: '1px solid rgba(255, 255, 255, 0.2)' }}
           >
-            <div className="w-2 h-2 rounded-full animate-pulse" style={{ backgroundColor: '#60a5fa' }} />
-            <span className="text-sm font-medium" style={{ color: '#93c5fd' }}>Limited Beta • Invitation Only</span>
+            <div className="w-2 h-2 rounded-full animate-pulse bg-gradient-to-r from-blue-400 to-purple-400" />
+            <span className="text-sm font-medium text-white">Limited Beta • Invitation Only</span>
           </motion.div>
           
           <motion.h1 
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            className="text-5xl sm:text-6xl font-bold leading-tight mb-6"
-            style={{ color: '#ffffff' }}
+            className="text-5xl sm:text-6xl lg:text-7xl font-bold leading-tight mb-6 text-white"
           >
-            Never wing another important conversation again
+            Never wing another{' '}
+            <span className="text-blue-300 italic">
+              important conversation
+            </span>{' '}
+            again
           </motion.h1>
           
           <motion.p 
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.1 }}
-            className="text-xl mb-8"
-            style={{ color: '#d1d5db' }}
+            className="text-xl mb-8 text-gray-200 max-w-2xl mx-auto"
           >
             Real-time AI cues, instant summaries—get exclusive early access to the future of conversation intelligence.
           </motion.p>
@@ -240,10 +252,12 @@ export default function LandingPage() {
           >
             <button
               onClick={() => document.getElementById('waitlist')?.scrollIntoView({ behavior: 'smooth' })}
-              className="px-8 py-4 text-lg rounded-lg font-medium inline-flex items-center justify-center transition-colors"
-              style={{ backgroundColor: '#3b82f6', color: '#ffffff' }}
-              onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#2563eb'}
-              onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#3b82f6'}
+              className="px-8 py-4 text-lg rounded-xl font-semibold inline-flex items-center justify-center text-white shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-200"
+              style={{
+                background: 'linear-gradient(to right, #3b82f6, #8b5cf6)',
+              }}
+              onMouseEnter={(e) => e.currentTarget.style.background = 'linear-gradient(to right, #2563eb, #7c3aed)'}
+              onMouseLeave={(e) => e.currentTarget.style.background = 'linear-gradient(to right, #3b82f6, #8b5cf6)'}
             >
               Request Early Access
               <ArrowRight className="ml-2 w-5 h-5" />
@@ -254,12 +268,21 @@ export default function LandingPage() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 0.4 }}
-            className="mt-6 text-sm"
-            style={{ color: '#9ca3af' }}
+            className="mt-6 text-sm text-gray-300"
           >
-            🔥 <span className="font-medium" style={{ color: '#fb923c' }}>47 spots filled</span> of 100 beta testers
+            🔥 <span className="font-medium text-orange-400">47 spots filled</span> of 100 beta testers
           </motion.p>
         </div>
+        
+        {/* Scroll Indicator */}
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 1 }}
+          className="absolute bottom-8 left-1/2 transform -translate-x-1/2"
+        >
+          <ChevronDown className="w-8 h-8 text-white/50 animate-bounce" />
+        </motion.div>
       </section>
 
             {/* Optimized Product Demo Section */}
@@ -279,7 +302,7 @@ export default function LandingPage() {
               <span className="text-sm font-medium" style={{ color: '#60a5fa' }}>Live Demo</span>
             </div>
             
-            <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold mb-4 text-transparent bg-clip-text bg-gradient-to-r from-blue-400 via-purple-500 to-pink-500">
+            <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold mb-4 text-blue-400">
               Real-time AI guidance
             </h2>
             
