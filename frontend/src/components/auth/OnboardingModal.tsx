@@ -178,7 +178,7 @@ export function OnboardingModal({ isOpen, onClose, onComplete }: OnboardingModal
                   <Button
                     type="submit"
                     disabled={isLoading}
-                    className="flex-1 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
+                    className="flex-1 bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 text-primary-foreground transition-all duration-200"
                   >
                     {isLoading ? (
                       <div className="flex items-center">

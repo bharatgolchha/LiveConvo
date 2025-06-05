@@ -136,30 +136,40 @@ export function useChatGuidance({
     setIsLoading(true);
 
     try {
+      // Debug log the request payload
+      const requestPayload = {
+        message: messageToSend,
+        transcript,
+        chatHistory: messages,
+        conversationType,
+        sessionId,
+        // Enhanced context
+        textContext,
+        conversationTitle,
+        summary,
+        timeline,
+        uploadedFiles: uploadedFiles ? uploadedFiles.map(f => ({ 
+          name: f.name, 
+          type: f.type, 
+          size: f.size 
+        })) : [],
+        selectedPreviousConversations,
+        personalContext
+      };
+      
+      console.log('🔍 Chat Request Payload Debug:', {
+        hasPersonalContext: !!requestPayload.personalContext,
+        personalContextLength: requestPayload.personalContext?.length || 0,
+        personalContextPreview: requestPayload.personalContext ? requestPayload.personalContext.substring(0, 100) + '...' : null,
+        messagePreview: messageToSend.substring(0, 50) + '...'
+      });
+
       const response = await fetch('/api/chat-guidance', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          message: messageToSend,
-          transcript,
-          chatHistory: messages,
-          conversationType,
-          sessionId,
-          // Enhanced context
-          textContext,
-          conversationTitle,
-          summary,
-          timeline,
-          uploadedFiles: uploadedFiles ? uploadedFiles.map(f => ({ 
-            name: f.name, 
-            type: f.type, 
-            size: f.size 
-          })) : [],
-          selectedPreviousConversations,
-          personalContext
-        })
+        body: JSON.stringify(requestPayload)
       });
 
       if (!response.ok) {

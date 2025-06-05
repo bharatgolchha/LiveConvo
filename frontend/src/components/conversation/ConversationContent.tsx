@@ -19,7 +19,9 @@ import {
   CheckSquare,
   ArrowRight,
   Brain,
-  Mic
+  Mic,
+  User,
+  Users
 } from 'lucide-react';
 
 import { Button } from '@/components/ui/Button';
@@ -221,6 +223,100 @@ export const ConversationContent: React.FC<ConversationContentProps> = ({
     });
   }, [activeTab, summary, isSummaryLoading, summaryError, isSummarizing]);
 
+  // Auto-scroll transcript to bottom when new content is added and user is on transcript tab
+  React.useEffect(() => {
+    if (activeTab === 'transcript' && transcript.length > 0) {
+      // Small delay to ensure DOM has updated
+      const timer = setTimeout(() => {
+        transcriptEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [transcript.length, activeTab]);
+
+  // Group consecutive transcript lines from the same speaker into coherent messages
+  const groupTranscriptMessages = (transcript: TranscriptLine[]) => {
+    if (transcript.length === 0) return [];
+
+    const grouped: Array<{
+      id: string;
+      speaker: 'ME' | 'THEM';
+      text: string;
+      timestamp: Date;
+      messageCount: number;
+      confidence?: number;
+    }> = [];
+
+    let currentGroup: TranscriptLine[] = [];
+    let lastSpeaker: 'ME' | 'THEM' | null = null;
+    let lastTimestamp: Date | null = null;
+
+    for (const line of transcript) {
+      // Check if this line should be grouped with the previous ones
+      const shouldGroup = (
+        lastSpeaker === line.speaker && 
+        lastTimestamp && 
+        Math.abs(line.timestamp.getTime() - lastTimestamp.getTime()) < 30000 // Within 30 seconds
+      );
+
+      if (shouldGroup && currentGroup.length > 0) {
+        // Add to current group
+        currentGroup.push(line);
+      } else {
+        // Finish previous group if it exists
+        if (currentGroup.length > 0) {
+          const combinedText = currentGroup
+            .map(l => l.text.trim())
+            .join(' ')
+            .replace(/\s+/g, ' ') // Remove extra spaces
+            .trim();
+
+          if (combinedText.length > 0) {
+            grouped.push({
+              id: currentGroup[0].id,
+              speaker: currentGroup[0].speaker,
+              text: combinedText,
+              timestamp: currentGroup[0].timestamp,
+              messageCount: currentGroup.length,
+              confidence: currentGroup.reduce((sum, l) => sum + (l.confidence || 0.85), 0) / currentGroup.length
+            });
+          }
+        }
+
+        // Start new group
+        currentGroup = [line];
+        lastSpeaker = line.speaker;
+        lastTimestamp = line.timestamp;
+      }
+    }
+
+    // Don't forget the last group
+    if (currentGroup.length > 0) {
+      const combinedText = currentGroup
+        .map(l => l.text.trim())
+        .join(' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+
+      if (combinedText.length > 0) {
+        grouped.push({
+          id: currentGroup[0].id,
+          speaker: currentGroup[0].speaker,
+          text: combinedText,
+          timestamp: currentGroup[0].timestamp,
+          messageCount: currentGroup.length,
+          confidence: currentGroup.reduce((sum, l) => sum + (l.confidence || 0.85), 0) / currentGroup.length
+        });
+      }
+    }
+
+    return grouped;
+  };
+
+  const groupedTranscript = React.useMemo(() => {
+    return groupTranscriptMessages(transcript);
+  }, [transcript]);
+
   const nextRefreshSeconds = Math.ceil(
     Math.min(summaryRefreshMs, timelineRefreshMs) / 1000
   );
@@ -232,8 +328,36 @@ export const ConversationContent: React.FC<ConversationContentProps> = ({
         <div className="px-6 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-6">
-              {/* Main Tabs - Now includes Checklist */}
+              {/* Main Tabs - Now includes Transcript first, then Summary */}
               <div className="flex bg-muted/50 rounded-xl p-1.5 shadow-inner">
+                <button 
+                  onClick={() => setActiveTab('transcript')}
+                  className={cn(
+                    "flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium transition-all duration-200",
+                    activeTab === 'transcript' 
+                      ? "bg-background text-app-primary shadow-md ring-1 ring-app-primary/20" 
+                      : "text-muted-foreground hover:text-foreground hover:bg-background/50"
+                  )}
+                >
+                  <Mic className="w-4 h-4" />
+                  <span>Live Transcript</span>
+                  {groupedTranscript.length > 0 && (
+                    <span className={cn(
+                      "px-1.5 py-0.5 rounded-full text-xs font-semibold",
+                      activeTab === 'transcript' ? "bg-app-primary/10 text-app-primary" : "bg-muted text-muted-foreground"
+                    )}>
+                      {groupedTranscript.length}
+                    </span>
+                  )}
+                  {conversationState === 'recording' && (
+                    <div className={cn(
+                      "flex items-center",
+                      activeTab === 'transcript' ? "text-app-primary" : "text-muted-foreground"
+                    )}>
+                      <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
+                    </div>
+                  )}
+                </button>
                 <button 
                   onClick={() => setActiveTab('summary')}
                   className={cn(
@@ -363,8 +487,210 @@ export const ConversationContent: React.FC<ConversationContentProps> = ({
           </div>
         )}
 
+        {/* Live Transcript Tab */}
+        {activeTab === 'transcript' && !isSummarizing && (
+          <div className="h-full max-h-full flex flex-col overflow-hidden bg-gradient-to-br from-background via-background to-muted/20">
+            {groupedTranscript.length === 0 ? (
+              <div className="h-full flex items-center justify-center">
+                <div className="max-w-2xl mx-auto px-8 text-center">
+                  {/* Hero Section */}
+                  <div className="mb-8">
+                    <div className="w-32 h-32 mx-auto mb-8 bg-gradient-to-br from-blue-100 to-blue-200/50 dark:from-blue-900/30 dark:to-blue-800/20 rounded-3xl flex items-center justify-center ring-8 ring-blue-50 dark:ring-blue-900/20">
+                      <Mic className="w-16 h-16 text-blue-600 dark:text-blue-400" />
+                    </div>
+                    <h2 className="text-3xl font-bold text-foreground mb-4">Live Transcription</h2>
+                    <p className="text-lg text-muted-foreground leading-relaxed">
+                      {conversationState === 'ready' 
+                        ? "Start recording to see real-time speech-to-text transcription of your conversation."
+                        : conversationState === 'recording'
+                        ? "Recording in progress... Speak and watch your words appear here in real-time!"
+                        : "Your conversation transcript will appear here during recording."
+                      }
+                    </p>
+                  </div>
+
+                  {/* Status Bar */}
+                  <div className="mt-8 pt-6 border-t border-border">
+                    <div className="flex items-center justify-center gap-8 text-sm text-muted-foreground">
+                      <div className="flex items-center gap-2">
+                        <div className={cn(
+                          "w-2 h-2 rounded-full",
+                          conversationState === 'recording' ? "bg-green-500 animate-pulse" : "bg-muted"
+                        )} />
+                        <span>Recording: {conversationState === 'recording' ? 'Active' : 'Inactive'}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <div className="w-2 h-2 rounded-full bg-blue-500" />
+                        <span>Transcription: Ready</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* CTA */}
+                  {conversationState === 'ready' && (
+                    <div className="mt-8">
+                      <Button 
+                        onClick={handleStartRecording}
+                        size="lg"
+                        className="bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 text-primary-foreground shadow-lg transition-all duration-200"
+                      >
+                        <Mic className="w-5 h-5 mr-2" />
+                        Start Recording
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            ) : (
+              <div className="h-full max-h-full flex flex-col overflow-hidden">
+                {/* Transcript Header with Stats */}
+                <div className="flex-shrink-0 px-8 py-6 bg-gradient-to-r from-blue-50/50 to-purple-50/50 dark:from-blue-950/20 dark:to-purple-950/20 border-b border-border/50">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h3 className="text-xl font-semibold text-foreground mb-2">Live Conversation Transcript</h3>
+                      <div className="flex items-center gap-6 text-sm text-muted-foreground">
+                        <div className="flex items-center gap-2">
+                          <MessageCircle className="w-4 h-4" />
+                          <span>{groupedTranscript.length} messages</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <User className="w-4 h-4" />
+                          <span>{groupedTranscript.filter(t => t.speaker === 'ME').length} you</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Users className="w-4 h-4" />
+                          <span>{groupedTranscript.filter(t => t.speaker === 'THEM').length} them</span>
+                        </div>
+                        <div className="flex items-center gap-2 text-xs">
+                          <Hash className="w-3 h-3" />
+                          <span>{transcript.length} fragments</span>
+                        </div>
+                        {conversationState === 'recording' && (
+                          <div className="flex items-center gap-2 text-green-600 dark:text-green-400">
+                            <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
+                            <span className="font-medium">LIVE</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          // Scroll to bottom of transcript
+                          transcriptEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+                        }}
+                        className="text-muted-foreground hover:text-foreground"
+                        title="Scroll to latest"
+                      >
+                        <ArrowRight className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Transcript Content */}
+                <div className="flex-1 min-h-0 overflow-y-auto px-8 py-6 space-y-4">
+                  {groupedTranscript.map((line, index) => (
+                    <div 
+                      key={line.id} 
+                      className={cn(
+                        "flex gap-4 p-4 rounded-2xl transition-all duration-200",
+                        line.speaker === 'ME' 
+                          ? "bg-gradient-to-r from-blue-50 to-blue-100/50 dark:from-blue-950/30 dark:to-blue-900/20 border border-blue-200/50 dark:border-blue-800/30 ml-8" 
+                          : "bg-gradient-to-r from-gray-50 to-gray-100/50 dark:from-gray-900/30 dark:to-gray-800/20 border border-gray-200/50 dark:border-gray-700/30 mr-8",
+                        // Highlight the most recent message
+                        index === groupedTranscript.length - 1 && conversationState === 'recording' ? "ring-2 ring-blue-400/50 shadow-lg" : ""
+                      )}
+                    >
+                      <div className="flex-shrink-0">
+                        <div className={cn(
+                          "w-10 h-10 rounded-full flex items-center justify-center text-sm font-semibold",
+                          line.speaker === 'ME' 
+                            ? "bg-blue-500 text-white" 
+                            : "bg-gray-500 text-white"
+                        )}>
+                          {line.speaker === 'ME' ? 'ME' : 'THEM'}
+                        </div>
+                      </div>
+                      
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-3 mb-2">
+                          <span className={cn(
+                            "text-sm font-medium",
+                            line.speaker === 'ME' 
+                              ? "text-blue-900 dark:text-blue-100" 
+                              : "text-gray-900 dark:text-gray-100"
+                          )}>
+                            {line.speaker === 'ME' ? 'You' : 'Participant'}
+                          </span>
+                          <span className="text-xs text-muted-foreground">
+                            {line.timestamp.toLocaleTimeString()}
+                          </span>
+                          {line.messageCount > 1 && (
+                            <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
+                              {line.messageCount} fragments
+                            </span>
+                          )}
+                          {line.confidence && line.confidence < 0.8 && (
+                            <span className="text-xs text-amber-600 dark:text-amber-400 bg-amber-100 dark:bg-amber-900/20 px-2 py-0.5 rounded-full">
+                              Low confidence
+                            </span>
+                          )}
+                        </div>
+                                                   <p className={cn(
+                             "leading-relaxed break-words text-sm",
+                             line.speaker === 'ME' 
+                               ? "text-blue-800 dark:text-blue-200" 
+                               : "text-gray-800 dark:text-gray-200"
+                           )}>
+                             {line.text}
+                           </p>
+                      </div>
+                    </div>
+                  ))}
+                  
+                  {/* Auto-scroll target */}
+                  <div ref={transcriptEndRef} className="h-1" />
+                </div>
+
+                {/* Footer with Quick Actions */}
+                <div className="flex-shrink-0 px-8 py-4 bg-gradient-to-r from-muted/30 via-muted/20 to-muted/30 border-t border-border/50">
+                  <div className="flex items-center justify-between">
+                    <div className="text-xs text-muted-foreground">
+                      {conversationState === 'recording' 
+                        ? "Recording in progress - transcript updates in real-time" 
+                        : "Recording paused - resume to continue transcription"
+                      }
+                    </div>
+                    
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          // Copy full transcript to clipboard
+                          const fullTranscript = groupedTranscript
+                            .map(line => `${line.speaker}: ${line.text}`)
+                            .join('\n');
+                          navigator.clipboard.writeText(fullTranscript);
+                        }}
+                        className="text-xs"
+                      >
+                        Copy Full Transcript
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Summary Tab */}
-        {(activeTab === 'summary' || activeTab === 'transcript') && !isSummarizing && (
+        {activeTab === 'summary' && !isSummarizing && (
           <div className="h-full max-h-full flex flex-col overflow-y-auto" data-summary-content>
             {summaryError && (
               <div className="flex-shrink-0 mx-8 mt-6">
@@ -419,7 +745,7 @@ export const ConversationContent: React.FC<ConversationContentProps> = ({
                     <Button 
                       onClick={handleStartRecording}
                       size="lg"
-                      className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white shadow-lg"
+                      className="bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 text-primary-foreground shadow-lg transition-all duration-200"
                     >
                       <Mic className="w-5 h-5 mr-2" />
                       Start Conversation
@@ -637,7 +963,7 @@ export const ConversationContent: React.FC<ConversationContentProps> = ({
               title={conversationTitle}
               contextText={textContext}
               previousConversationIds={selectedPreviousConversations}
-              transcript={transcript.map(line => `${line.speaker}: ${line.text}`).join('\n')}
+              transcript={groupedTranscript.map(line => `${line.speaker}: ${line.text}`).join('\n')}
             />
           </div>
         )}
