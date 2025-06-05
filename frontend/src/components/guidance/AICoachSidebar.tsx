@@ -1110,6 +1110,26 @@ Example format for each chip: {"text": "🔥 Build rapport", "prompt": "How can 
                       <p className="text-xs mt-2">I'll provide real-time coaching and feedback</p>
                     </>
                   )}
+                  
+                  {/* Debug: Personal Context Status */}
+                  <div className="mt-4 text-xs">
+                    {contextSummary?.personalContext ? (
+                      <div className="p-2 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded text-green-700 dark:text-green-300">
+                        ✅ Personal context loaded ({contextSummary.personalContext.length} chars)
+                      </div>
+                    ) : (
+                      <div className="p-2 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded text-yellow-700 dark:text-yellow-300">
+                        ⚠️ No personal context set.<br/>Visit Settings to add your details for personalized guidance.
+                        <br/>
+                        <button 
+                          onClick={() => onSendMessage?.("What's my name?")}
+                          className="mt-2 text-xs underline hover:no-underline"
+                        >
+                          Test: Ask about my personal info
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 </div>
               ) : (
                 <>

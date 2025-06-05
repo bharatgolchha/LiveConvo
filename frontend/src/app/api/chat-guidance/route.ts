@@ -59,6 +59,14 @@ export async function POST(request: NextRequest) {
       personalContext
     }: ChatRequest = await request.json();
 
+    // Debug logging for personal context
+    console.log('🔍 Chat API Debug:', {
+      hasPersonalContext: !!personalContext,
+      personalContextLength: personalContext?.length || 0,
+      personalContextPreview: personalContext ? personalContext.substring(0, 100) + '...' : null,
+      messagePreview: message.substring(0, 50) + '...'
+    });
+
     const apiKey = process.env.OPENROUTER_API_KEY;
     if (!apiKey) {
       return NextResponse.json(
@@ -307,6 +315,13 @@ export function buildChatPrompt(message: string, transcript: string, chatHistory
   // Personal context from user settings
   if (personalContext && personalContext.trim()) {
     prompt += `USER'S PERSONAL CONTEXT (from settings):\n${personalContext}\n\n`;
+    console.log('✅ Added personal context to prompt:', personalContext.substring(0, 100) + '...');
+  } else {
+    console.log('⚠️ No personal context available in buildChatPrompt:', {
+      hasPersonalContext: !!personalContext,
+      personalContextTrimmed: personalContext?.trim(),
+      personalContextLength: personalContext?.length || 0
+    });
   }
   
   // Background context from setup

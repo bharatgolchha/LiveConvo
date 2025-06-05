@@ -586,7 +586,9 @@ export default function App() {
           const data = await response.json();
           if (data.personal_context) {
             setPersonalContext(data.personal_context);
-            console.log('✅ Personal context loaded');
+            console.log('✅ Personal context loaded:', data.personal_context.substring(0, 100) + '...');
+          } else {
+            console.log('⚠️ No personal context found in API response:', data);
           }
         }
       } catch (error) {
@@ -608,7 +610,7 @@ export default function App() {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [audioEnabled, setAudioEnabled] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'transcript' | 'summary' | 'timeline' | 'checklist'>('summary');
+  const [activeTab, setActiveTab] = useState<'transcript' | 'summary' | 'timeline' | 'checklist'>('transcript');
   const [selectedPreviousConversations, setSelectedPreviousConversations] = useState<string[]>([]);
   const [previousConversationSearch, setPreviousConversationSearch] = useState('');
   const [aiCoachWidth, setAiCoachWidth] = useState(400); // Default AI Coach sidebar width
@@ -775,6 +777,15 @@ export default function App() {
     });
   }, [activeTab, conversationState, isSummarizing]);
 
+  // Debug personal context before passing to chat guidance
+  useEffect(() => {
+    console.log('🔍 Personal Context Debug for Chat:', {
+      hasPersonalContext: !!personalContext,
+      personalContextLength: personalContext?.length || 0,
+      personalContextPreview: personalContext ? personalContext.substring(0, 100) + '...' : null
+    });
+  }, [personalContext]);
+
   // Chat guidance
   const {
     messages: chatMessages,
@@ -820,7 +831,7 @@ export default function App() {
     }
   }, [conversationType, clearChat]); // Only depend on conversationType and clearChat, not chatMessages to avoid loops
 
-  // Enhanced auto-save transcript to database - Only save new lines
+  // Auto-save transcript to database - Only save new lines
   useEffect(() => {
     if (conversationId && transcript.length > lastSavedTranscriptIndex && session && !authLoading) {
       // Save in all active states: recording, paused, and completed
@@ -863,32 +874,70 @@ export default function App() {
     previousConversationState.current = conversationState;
   }, [conversationState, conversationId, transcript, session, authLoading]);
 
-  // Auto-save transcript periodically during recording
+  // Auto-save transcript with optimized batching during recording
   useEffect(() => {
     if (conversationState === 'recording' && conversationId && transcript.length > 0) {
+      // Smart batching: save when we have significant new content OR after time interval
       const autoSaveInterval = setInterval(async () => {
-        try {
-          const newIndex = await saveTranscriptNow(conversationId, transcript, session, lastSavedTranscriptIndex);
-          if (newIndex !== undefined) {
-            setLastSavedTranscriptIndex(newIndex);
-            const linesSaved = newIndex - lastSavedTranscriptIndex;
-            if (linesSaved > 0) {
-              toast.success('Auto-saved', {
-                description: `${linesSaved} new lines saved`
+        const unsavedLines = transcript.length - lastSavedTranscriptIndex;
+        
+        // Only save if we have new content worth saving
+        if (unsavedLines >= 5) { // Save when we have 5+ new lines
+          try {
+            console.log(`💾 Auto-saving transcript: ${unsavedLines} new lines`);
+            const newIndex = await saveTranscriptNow(conversationId, transcript, session, lastSavedTranscriptIndex);
+            if (newIndex !== undefined) {
+              setLastSavedTranscriptIndex(newIndex);
+              // Only show toast for substantial saves to avoid spam
+              if (unsavedLines >= 10) {
+                toast.success('Auto-saved', {
+                  description: `${unsavedLines} new lines saved`,
+                  duration: 2000
+                });
+              }
+            }
+          } catch (error) {
+            console.error('❌ Auto-save failed:', error);
+            // Only show error toast occasionally to avoid spam
+            if (unsavedLines >= 20) {
+              toast.error('Auto-save failed', {
+                description: 'Your conversation is still being recorded',
+                duration: 3000
               });
             }
           }
-        } catch (error) {
-          console.error('❌ Auto-save failed:', error);
-          toast.error('Auto-save failed', {
-            description: 'Your conversation is still being recorded'
-          });
+        } else {
+          console.log(`💾 Auto-save skipped: only ${unsavedLines} new lines (need 5+)`);
         }
-      }, 30000); // Auto-save every 30 seconds
+      }, 45000); // Increased interval to 45 seconds to reduce database load
       
       return () => clearInterval(autoSaveInterval);
     }
   }, [conversationState, conversationId, transcript.length, session, lastSavedTranscriptIndex]);
+
+  // Smart save on high activity - save immediately when we get a burst of new content
+  useEffect(() => {
+    if (conversationState === 'recording' && conversationId && transcript.length > 0) {
+      const unsavedLines = transcript.length - lastSavedTranscriptIndex;
+      
+      // Immediate save if we have 20+ unsaved lines (high activity burst)
+      if (unsavedLines >= 20) {
+        const timeoutId = setTimeout(async () => {
+          try {
+            console.log(`💾 High-activity save: ${unsavedLines} new lines`);
+            const newIndex = await saveTranscriptNow(conversationId, transcript, session, lastSavedTranscriptIndex);
+            if (newIndex !== undefined) {
+              setLastSavedTranscriptIndex(newIndex);
+            }
+          } catch (error) {
+            console.error('❌ High-activity save failed:', error);
+          }
+        }, 2000); // 2 second debounce to batch rapid additions
+        
+        return () => clearTimeout(timeoutId);
+      }
+    }
+  }, [transcript.length, conversationState, conversationId, session, lastSavedTranscriptIndex]);
 
   // Auto-save summary to database when summary changes
   useEffect(() => {
@@ -1007,7 +1056,7 @@ export default function App() {
     latestTextContext.current = textContext;
   }, [textContext]);
 
-  // Auto-scroll transcript to bottom when new messages arrive
+  // Auto-scroll transcript to bottom when new messages arrive (only when on transcript tab)
   useEffect(() => {
     if (transcriptEndRef.current && activeTab === 'transcript') {
       transcriptEndRef.current.scrollIntoView({ behavior: 'smooth' });
@@ -1024,11 +1073,6 @@ export default function App() {
     }
     return () => clearInterval(interval);
   }, [conversationState]);
-
-  // Scroll to bottom of transcript
-  useEffect(() => {
-    transcriptEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [transcript]);
 
   // Load conversation config from localStorage if conversationId is provided
   useEffect(() => {

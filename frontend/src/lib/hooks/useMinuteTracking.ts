@@ -30,9 +30,9 @@ export function useMinuteTracking({
     currentSessionMinutes: 0,
     currentSessionSeconds: 0,
     monthlyMinutesUsed: 0,
-    monthlyMinutesLimit: 0,
+    monthlyMinutesLimit: 600,
     isApproachingLimit: false,
-    minutesRemaining: 0,
+    minutesRemaining: 600,
     canRecord: true,
     usagePercentage: 0
   });
@@ -103,7 +103,15 @@ export function useMinuteTracking({
         onApproachingLimit(data.minutes_remaining);
       }
       
+      console.log('🔍 Checking if limit reached:', {
+        can_record: data.can_record,
+        minutes_used: data.minutes_used,
+        minutes_limit: data.minutes_limit,
+        will_trigger_limit: !data.can_record
+      });
+      
       if (!data.can_record && onLimitReached) {
+        console.log('🚨 Triggering onLimitReached from checkUsageLimit');
         onLimitReached();
       }
 
@@ -154,18 +162,28 @@ export function useMinuteTracking({
       const data = await response.json();
       
       // Update state with new usage data
-      setState(prev => ({
-        ...prev,
-        monthlyMinutesUsed: data.total_minutes_used,
-        minutesRemaining: Math.max(0, prev.monthlyMinutesLimit - data.total_minutes_used),
-        usagePercentage: (data.total_minutes_used / prev.monthlyMinutesLimit) * 100,
-        isApproachingLimit: prev.monthlyMinutesLimit - data.total_minutes_used <= 10
-      }));
+      setState(prev => {
+        const newState = {
+          ...prev,
+          monthlyMinutesUsed: data.total_minutes_used,
+          minutesRemaining: Math.max(0, prev.monthlyMinutesLimit - data.total_minutes_used),
+          usagePercentage: (data.total_minutes_used / prev.monthlyMinutesLimit) * 100,
+          isApproachingLimit: prev.monthlyMinutesLimit - data.total_minutes_used <= 10
+        };
 
-      // Check if limit reached
-      if (data.total_minutes_used >= state.monthlyMinutesLimit && onLimitReached) {
-        onLimitReached();
-      }
+                 // Check if limit reached using the current state
+         if (data.total_minutes_used >= prev.monthlyMinutesLimit && onLimitReached) {
+           // Use setTimeout to avoid calling during state update
+           console.log('🚨 Triggering onLimitReached from trackMinute:', {
+             total_minutes_used: data.total_minutes_used,
+             monthlyMinutesLimit: prev.monthlyMinutesLimit,
+             trigger_condition: data.total_minutes_used >= prev.monthlyMinutesLimit
+           });
+           setTimeout(() => onLimitReached(), 0);
+         }
+
+        return newState;
+      });
 
       return data;
     } catch (err) {
