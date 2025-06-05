@@ -17,6 +17,7 @@ export interface Session {
   wordCount?: number;
   lastActivity?: string;
   hasSummary?: boolean;
+  linkedConversationsCount?: number;
   summaries?: Array<{
     id: string;
     generation_status: string;
@@ -283,10 +284,10 @@ export function useSessions(): SessionsHookReturn {
     await fetchSessions(currentFilters);
   }, [fetchSessions, currentFilters]);
 
-  // Initial fetch on mount
+  // Initial fetch on mount with higher limit to show more sessions
   useEffect(() => {
     if (user && !authLoading) {
-      fetchSessions(currentFilters);
+      fetchSessions({ ...currentFilters, limit: 100 }); // Increase default limit to 100
     } else if (!user && !authLoading) {
       setSessions([]);
       setLoading(false);

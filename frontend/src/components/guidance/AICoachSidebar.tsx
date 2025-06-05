@@ -166,7 +166,7 @@ Example format for each chip: {"text": "🔥 Build rapport", "prompt": "How can 
           textContext: contextSummary?.textContext || conversationContext,
           conversationTitle: contextSummary?.conversationTitle,
           summary: '',
-          timeline: [],
+
           uploadedFiles: contextSummary?.uploadedFiles ? contextSummary.uploadedFiles.map(f => ({ 
             name: f.name, 
             type: f.type, 

@@ -73,25 +73,7 @@ export async function GET(
       );
     }
 
-    // Fetch timeline events from session_timeline_events table
-    const { data: timelineEvents, error: timelineError } = await supabase
-      .from('session_timeline_events')
-      .select('*')
-      .eq('session_id', sessionId)
-      .order('event_timestamp', { ascending: true });
-
-    if (timelineError) {
-      console.error('Timeline fetch error:', timelineError);
-      console.warn('Failed to fetch timeline events, continuing without them');
-    }
-
-    // Add timeline events to session response
-    const sessionWithTimeline = {
-      ...session,
-      timeline_events: timelineEvents || []
-    };
-
-    return NextResponse.json({ session: sessionWithTimeline });
+    return NextResponse.json({ session });
 
   } catch (error) {
     console.error('Session fetch API error:', error);

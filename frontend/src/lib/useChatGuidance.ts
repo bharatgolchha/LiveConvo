@@ -53,7 +53,6 @@ interface UseChatGuidanceProps {
   textContext?: string;
   conversationTitle?: string;
   summary?: any; // ConversationSummary type
-  timeline?: any[]; // TimelineEvent[] type
   uploadedFiles?: File[];
   selectedPreviousConversations?: string[];
   personalContext?: string;
@@ -66,7 +65,6 @@ export function useChatGuidance({
   textContext,
   conversationTitle,
   summary,
-  timeline,
   uploadedFiles,
   selectedPreviousConversations,
   personalContext
@@ -147,7 +145,6 @@ export function useChatGuidance({
         textContext,
         conversationTitle,
         summary,
-        timeline,
         uploadedFiles: uploadedFiles ? uploadedFiles.map(f => ({ 
           name: f.name, 
           type: f.type, 
@@ -204,7 +201,7 @@ export function useChatGuidance({
     } finally {
       setIsLoading(false);
     }
-  }, [inputValue, addMessage, transcript, messages, conversationType, sessionId, textContext, conversationTitle, summary, timeline, uploadedFiles, selectedPreviousConversations]);
+  }, [inputValue, addMessage, transcript, messages, conversationType, sessionId, textContext, conversationTitle, summary, uploadedFiles, selectedPreviousConversations]);
 
   // Quick actions for common requests
   const sendQuickAction = useCallback((action: string) => {
@@ -214,7 +211,7 @@ export function useChatGuidance({
       'handle-objection': "Help me handle their concerns",
       'close-conversation': "How should I wrap this up?",
       'key-points': "What are the key points I should cover?",
-      'timeline': "What should I ask about their timeline?",
+
       'decision-makers': "How do I identify decision makers?",
       'follow-up': "What follow-up should I plan?"
     };

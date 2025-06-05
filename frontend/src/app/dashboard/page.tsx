@@ -30,6 +30,8 @@ import { useSessions, type Session } from '@/lib/hooks/useSessions';
 import { useUserStats, defaultStats } from '@/lib/hooks/useUserStats';
 import { useSessionData } from '@/lib/hooks/useSessionData';
 import { DeleteConfirmationModal } from '@/components/ui/DeleteConfirmationModal';
+import { PricingModal } from '@/components/ui/PricingModal';
+import { SettingsPanel } from '@/components/settings/SettingsPanel';
 
 // Types (using Session from useSessions hook)
 
@@ -53,7 +55,11 @@ interface UsageStats {
 // No mock data - using real data from hooks
 
 // Components
-const DashboardHeader: React.FC<{ user: User; onSearch: (query: string) => void }> = ({ user, onSearch }) => {
+const DashboardHeader: React.FC<{ 
+  user: User; 
+  onSearch: (query: string) => void;
+  onNavigateToSettings: () => void;
+}> = ({ user, onSearch, onNavigateToSettings }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const { signOut } = useAuth();
@@ -122,12 +128,6 @@ const DashboardHeader: React.FC<{ user: User; onSearch: (query: string) => void 
 
         {/* Right Actions */}
         <div className="flex items-center space-x-4">
-          {/* Notifications */}
-          <button className="relative p-2 text-muted-foreground hover:text-foreground rounded-lg hover:bg-accent">
-            <BellIcon className="w-6 h-6" />
-            <span className="absolute top-1 right-1 w-2 h-2 bg-app-error rounded-full"></span>
-          </button>
-
           {/* Theme Toggle */}
           <ThemeToggle />
 
@@ -160,7 +160,13 @@ const DashboardHeader: React.FC<{ user: User; onSearch: (query: string) => void 
                     <p className="text-xs text-muted-foreground">{user.email}</p>
                   </div>
                   
-                  <button className="w-full text-left px-4 py-2 text-sm text-foreground hover:bg-accent flex items-center space-x-2">
+                  <button 
+                    onClick={() => {
+                      onNavigateToSettings();
+                      setUserMenuOpen(false);
+                    }}
+                    className="w-full text-left px-4 py-2 text-sm text-foreground hover:bg-accent flex items-center space-x-2"
+                  >
                     <Cog6ToothIcon className="w-4 h-4" />
                     <span>Settings</span>
                   </button>
@@ -432,6 +438,15 @@ const ConversationInboxItem: React.FC<{
               
               {session.wordCount && (
                 <span>{session.wordCount} words</span>
+              )}
+              
+              {session.linkedConversationsCount && session.linkedConversationsCount > 0 && (
+                <span className="flex items-center gap-1 text-app-primary font-medium">
+                  <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+                  </svg>
+                  Linked to {session.linkedConversationsCount} conversation{session.linkedConversationsCount > 1 ? 's' : ''}
+                </span>
               )}
               
               {session.lastActivity && session.status === 'active' && (
@@ -833,7 +848,7 @@ const NewConversationModal: React.FC<{
                                   );
                                 })
                                 .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-                                .slice(0, 20); // Show up to 20 matching conversations
+; // Show all matching conversations
 
                               if (filteredSessions.length === 0) {
                                 return (
@@ -1243,6 +1258,7 @@ const DashboardPage: React.FC = () => {
   const [showOnboardingModal, setShowOnboardingModal] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedSessions, setSelectedSessions] = useState<Set<string>>(new Set());
+  const [isPricingModalOpen, setIsPricingModalOpen] = useState(false);
 
   // Get sessions and stats from hooks
   const { 
@@ -1603,15 +1619,19 @@ const DashboardPage: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      <DashboardHeader user={currentUser} onSearch={handleSearch} />
+      <DashboardHeader 
+        user={currentUser} 
+        onSearch={handleSearch}
+        onNavigateToSettings={() => setActivePath('settings')}
+      />
       
       <div className="flex h-[calc(100vh-80px)]">
         <DashboardSidebar 
           usageStats={userStats || defaultStats}
           activePath={activePath}
           onNavigate={(path) => {
-            if (path === 'settings') {
-              router.push('/settings');
+            if (path === 'pricing') {
+              setIsPricingModalOpen(true);
             } else {
               setActivePath(path);
             }
@@ -1623,7 +1643,7 @@ const DashboardPage: React.FC = () => {
         <main className="flex-1 overflow-auto flex flex-col">
           <div className="p-6 flex flex-col flex-1">
             {/* Hero Section */}
-            {hasAnySessions && (
+            {hasAnySessions && activePath !== 'settings' && (
               <motion.div 
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -1650,7 +1670,14 @@ const DashboardPage: React.FC = () => {
             )}
 
             {/* Main Content */}
-            {!hasAnySessions ? (
+            {activePath === 'settings' ? (
+              <SettingsPanel 
+                onSessionsDeleted={() => {
+                  fetchSessions(); // Refresh sessions after deletion
+                  setActivePath('conversations'); // Return to conversations view
+                }}
+              />
+            ) : !hasAnySessions ? (
               <EmptyState onNewConversation={handleNewConversation} />
             ) : (
               <div className="flex flex-col flex-1">
@@ -1800,6 +1827,12 @@ const DashboardPage: React.FC = () => {
         isOpen={showOnboardingModal}
         onClose={() => setShowOnboardingModal(false)}
         onComplete={handleOnboardingComplete}
+      />
+
+      {/* Pricing Modal */}
+      <PricingModal
+        isOpen={isPricingModalOpen}
+        onClose={() => setIsPricingModalOpen(false)}
       />
 
       {/* Delete Confirmation Modal */}

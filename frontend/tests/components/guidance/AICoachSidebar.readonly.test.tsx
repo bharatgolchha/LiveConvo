@@ -61,8 +61,8 @@ describe('AICoachSidebar - Read Only Mode', () => {
     it('should show completed message when no messages', () => {
       render(<AICoachSidebar {...completedProps} />);
       
-      expect(screen.getByText('Conversation Complete')).toBeInTheDocument();
-      expect(screen.getByText('View the summary and timeline for insights')).toBeInTheDocument();
+      expect(screen.getByText('Chat about this completed conversation')).toBeInTheDocument();
+      expect(screen.getByText('Ask questions or get insights about what happened')).toBeInTheDocument();
     });
 
     it('should disable guidance chip buttons', () => {
@@ -144,7 +144,7 @@ describe('AICoachSidebar - Read Only Mode', () => {
     it('should show different title in quick help section', () => {
       render(<AICoachSidebar {...completedProps} />);
       
-      expect(screen.getByText('Conversation Complete')).toBeInTheDocument();
+      expect(screen.getByText('Analysis Questions')).toBeInTheDocument();
       expect(screen.queryByText(/Live.*Help/)).not.toBeInTheDocument();
     });
   });
