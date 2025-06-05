@@ -27,7 +27,7 @@ export type ConversationState = 'setup' | 'ready' | 'recording' | 'paused' | 'pr
 
 export type ConversationType = 'sales' | 'support' | 'meeting' | 'interview';
 
-export type ActiveTab = 'transcript' | 'summary' | 'timeline';
+export type ActiveTab = 'transcript' | 'summary' | 'checklist';
 
 export type ActiveContextTab = 'setup' | 'files' | 'previous';
 

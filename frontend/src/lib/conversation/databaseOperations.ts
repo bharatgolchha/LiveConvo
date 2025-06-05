@@ -4,7 +4,7 @@
 
 import { authenticatedFetch } from '@/lib/api';
 import { TranscriptLine } from '@/types/conversation';
-import { TimelineEvent, ConversationSummary } from '@/lib/useRealtimeSummary';
+import { ConversationSummary } from '@/lib/useRealtimeSummary';
 
 /**
  * Save transcript lines to the database.
@@ -38,36 +38,7 @@ export const saveTranscriptToDatabase = async (
   }
 };
 
-/**
- * Save timeline events to the database.
- */
-export const saveTimelineToDatabase = async (
-  sessionId: string, 
-  timelineEvents: TimelineEvent[], 
-  session: any
-): Promise<void> => {
-  try {
-    const timelineData = timelineEvents.map(event => ({
-      session_id: sessionId,
-      event_timestamp: event.timestamp,
-      title: event.title,
-      description: event.description,
-      type: event.type,
-      importance: event.importance
-    }));
 
-    const response = await authenticatedFetch(`/api/sessions/${sessionId}/timeline`, session, {
-      method: 'POST',
-      body: JSON.stringify(timelineData)
-    });
-
-    if (!response.ok) {
-      console.error('Failed to save timeline:', await response.text());
-    }
-  } catch (error) {
-    console.error('Error saving timeline to database:', error);
-  }
-};
 
 /**
  * Save conversation summary to the database.

@@ -52,13 +52,12 @@ import { ThemeToggle } from '@/components/ui/ThemeToggle';
 import Link from 'next/link';
 import { useAIGuidance, ContextDocument, GuidanceRequest } from '@/lib/aiGuidance';
 import { useTranscription } from '@/lib/useTranscription';
-import { useRealtimeSummary, ConversationSummary, TimelineEvent } from '@/lib/useRealtimeSummary';
-import { useIncrementalTimeline } from '@/lib/useIncrementalTimeline';
+import { useRealtimeSummary, ConversationSummary } from '@/lib/useRealtimeSummary';
 import { useChatGuidance } from '@/lib/useChatGuidance';
 import { cn } from '@/lib/utils';
 import { updateTalkStats, TalkStats } from '@/lib/transcriptUtils';
 import { FloatingChatGuidance } from '@/components/guidance/FloatingChatGuidance';
-import { CompactTimeline } from '@/components/timeline/CompactTimeline';
+
 import { useSessions, Session } from '@/lib/hooks/useSessions';
 import { GuidanceChip, GuidanceType } from '@/components/guidance/GuidanceChip';
 import { useAuth } from '@/contexts/AuthContext';
@@ -168,29 +167,7 @@ const saveTranscriptNow = async (
   return newIndex || lastSavedIndex; // Fallback to current index if undefined
 };
 
-const saveTimelineToDatabase = async (sessionId: string, timelineEvents: TimelineEvent[], session: any) => {
-  try {
-    const timelineData = timelineEvents.map(event => ({
-      session_id: sessionId,
-      event_timestamp: event.timestamp,
-      title: event.title,
-      description: event.description,
-      type: event.type,
-      importance: event.importance
-    }));
 
-    const response = await authenticatedFetch(`/api/sessions/${sessionId}/timeline`, session, {
-      method: 'POST',
-      body: JSON.stringify(timelineData)
-    });
-
-    if (!response.ok) {
-      console.error('Failed to save timeline:', await response.text());
-    }
-  } catch (error) {
-    console.error('Error saving timeline to database:', error);
-  }
-};
 
 const saveSummaryToDatabase = async (sessionId: string, summary: ConversationSummary, session: any) => {
   try {
@@ -378,6 +355,9 @@ export default function App() {
           if (parsed.conversationType) setConversationType(parsed.conversationType);
           if (parsed.conversationTitle) setConversationTitle(parsed.conversationTitle);
           if (parsed.textContext) setTextContext(parsed.textContext);
+          if (parsed.selectedPreviousConversations && Array.isArray(parsed.selectedPreviousConversations)) {
+            setSelectedPreviousConversations(parsed.selectedPreviousConversations);
+          }
           // Don't load conversation state from localStorage - let backend determine it
         } catch (err) {
           console.error('Error loading saved conversation state:', err);
@@ -610,7 +590,7 @@ export default function App() {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [audioEnabled, setAudioEnabled] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'transcript' | 'summary' | 'timeline' | 'checklist'>('transcript');
+  const [activeTab, setActiveTab] = useState<'transcript' | 'summary' | 'checklist'>('transcript');
   const [selectedPreviousConversations, setSelectedPreviousConversations] = useState<string[]>([]);
   const [previousConversationSearch, setPreviousConversationSearch] = useState('');
   const [aiCoachWidth, setAiCoachWidth] = useState(400); // Default AI Coach sidebar width
@@ -718,27 +698,7 @@ export default function App() {
     refreshIntervalMs: 45000 // 45 seconds
   });
 
-  // Incremental timeline hook - updates every 15 seconds
-  const {
-    timeline,
-    isLoading: isTimelineLoading,
-    error: timelineError,
-    lastUpdated: timelineLastUpdated,
-    refreshTimeline,
-    getTimeUntilNextRefresh: getTimelineTimeUntilNextRefresh
-  } = useIncrementalTimeline({
-    transcript: fullTranscriptText, // Always pass full transcript for manual refresh capability
-    sessionId: conversationId || undefined,
-    conversationType,
-    isRecording: conversationState === 'recording', // Auto-generate during recording
-    // Preserve timeline data when session is completed
-    isPaused: conversationState === 'paused' || conversationState === 'completed',
-    refreshIntervalMs: 15000, // 15 seconds for real-time timeline
-    session // Pass auth session for API calls
-  });
 
-  // Use timeline data from the hook (which now handles both DB loading and AI generation)
-  const effectiveTimeline = timeline;
   const effectiveSummary = summary || loadedSummary;
   
   // Clear loaded data when fresh data is available to prevent conflicts
@@ -807,7 +767,7 @@ export default function App() {
     textContext: textContext + (previousConversationsContext ? '\n\n=== PREVIOUS CONVERSATIONS CONTEXT ===\n' + previousConversationsContext : ''),
     conversationTitle,
     summary: effectiveSummary || undefined,
-    timeline: effectiveTimeline || undefined,
+
     uploadedFiles,
     selectedPreviousConversations,
     personalContext
@@ -953,27 +913,7 @@ export default function App() {
     }
   }, [effectiveSummary, conversationId, conversationState, session]);
 
-  // Auto-save timeline to database when timeline changes
-  useEffect(() => {
-    if (conversationId && effectiveTimeline && effectiveTimeline.length > 0 && (conversationState === 'recording' || conversationState === 'completed')) {
-      // Debounce saving to avoid too many API calls
-      const timeoutId = setTimeout(() => {
-        // Filter to only include supported timeline event types for database
-        const supportedTimeline = effectiveTimeline.filter(event => 
-          ['milestone', 'decision', 'topic_shift', 'action_item', 'question', 'agreement'].includes(event.type)
-        ).map(event => ({
-          ...event,
-          type: event.type as 'milestone' | 'decision' | 'topic_shift' | 'action_item' | 'question' | 'agreement'
-        }));
-        
-        if (supportedTimeline.length > 0) {
-          saveTimelineToDatabase(conversationId, supportedTimeline, session);
-        }
-      }, 1000); // Save after 1 second of no changes
-      
-      return () => clearTimeout(timeoutId);
-    }
-  }, [effectiveTimeline, conversationId, conversationState, session]);
+
 
   // Update session status in database when recording starts/stops
   // Only update status for state changes that should modify the database (not for viewing completed sessions)
@@ -1291,7 +1231,7 @@ export default function App() {
           } else {
             console.log('🔒 Preserving current transcript data (', transcript.length, 'lines)');
           }
-          // Timeline events are now loaded directly in the useIncrementalTimeline hook
+  
 
           // Load cached summary from database if available
           if (sessionData.realtime_summary_cache) {
@@ -1310,7 +1250,7 @@ export default function App() {
                 topics: cachedSummary.topics || [],
                 sentiment: cachedSummary.sentiment || 'neutral',
                 progressStatus: cachedSummary.progressStatus || cachedSummary.progress_status || 'building_momentum',
-                timeline: cachedSummary.timeline || []
+    
               };
               
               setLoadedSummary(transformedSummary);
@@ -1333,7 +1273,7 @@ export default function App() {
     loadSessionFromDatabase();
   }, [conversationId, session, authLoading, conversationState]); // Added conversationState to dependency array
 
-  // Update textContext when context is fetched from database
+  // Update textContext and selectedPreviousConversations when context is fetched from database
   useEffect(() => {
     if (context && context.text_context && !textContext) {
       // Only update if textContext is empty to avoid overwriting user input
@@ -1341,7 +1281,16 @@ export default function App() {
       addUserContext(context.text_context);
       console.log('✅ Context loaded from database:', context.text_context);
     }
-  }, [context, textContext, addUserContext]);
+    
+    // Load selectedPreviousConversations from database context_metadata
+    if (context && context.context_metadata && context.context_metadata.selectedPreviousConversations) {
+      const dbSelectedConversations = context.context_metadata.selectedPreviousConversations;
+      if (Array.isArray(dbSelectedConversations) && selectedPreviousConversations.length === 0) {
+        setSelectedPreviousConversations(dbSelectedConversations);
+        console.log('✅ Previous conversations selection loaded from database:', dbSelectedConversations);
+      }
+    }
+  }, [context, textContext, addUserContext, selectedPreviousConversations]);
 
   // Integrate selected previous conversations into AI context - Optimized version
   useEffect(() => {
@@ -1475,6 +1424,52 @@ export default function App() {
 
     fetchAndIntegrateConversationSummaries();
   }, [selectedPreviousConversations, sessions, addContext, session, authLoading]);
+
+  // Save selectedPreviousConversations to localStorage and database for persistence
+  useEffect(() => {
+    if (conversationId && typeof window !== 'undefined') {
+      // Save to localStorage
+      const storedState = localStorage.getItem(`conversation_state_${conversationId}`);
+      let currentState = {};
+      
+      if (storedState) {
+        try {
+          currentState = JSON.parse(storedState);
+        } catch (error) {
+          console.error('Error parsing stored state:', error);
+        }
+      }
+      
+      const updatedState = {
+        ...currentState,
+        selectedPreviousConversations,
+        updatedAt: new Date().toISOString()
+      };
+      
+      localStorage.setItem(`conversation_state_${conversationId}`, JSON.stringify(updatedState));
+      
+      // Save to database as well (debounced)
+      if (selectedPreviousConversations.length > 0 && session && !authLoading) {
+        const saveToDatabase = async () => {
+          try {
+            await saveContext(conversationId, textContext || '', {
+              conversation_type: conversationType,
+              updated_from: 'app_page_auto_previous_conversations',
+              timestamp: new Date().toISOString(),
+              selectedPreviousConversations
+            });
+            console.log('✅ Previous conversations selection auto-saved to database');
+          } catch (error) {
+            console.error('❌ Failed to auto-save previous conversations to database:', error);
+          }
+        };
+        
+        // Debounce database save to avoid too many requests
+        const timeoutId = setTimeout(saveToDatabase, 1000);
+        return () => clearTimeout(timeoutId);
+      }
+    }
+  }, [selectedPreviousConversations, conversationId, textContext, conversationType, saveContext, session, authLoading]);
 
   // Helper Functions
   const formatDuration = (seconds: number) => {
@@ -1856,7 +1851,8 @@ export default function App() {
       await saveContext(conversationId, textContext, {
         conversation_type: conversationType,
         updated_from: 'app_page_manual',
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
+        selectedPreviousConversations
       });
       console.log('✅ Context manually saved to database');
       // You could add a toast notification here if desired
@@ -1882,8 +1878,8 @@ export default function App() {
   }, []);
 
   const filteredPreviousSessions = sessions.filter(session => {
-    // Only show completed sessions with summaries
-    if (session.status !== 'completed' || !session.hasSummary) return false;
+    // Only show completed sessions (remove hasSummary requirement to show all completed calls)
+    if (session.status !== 'completed') return false;
     
     // Filter by search term
     if (previousConversationSearch) {
@@ -1893,7 +1889,7 @@ export default function App() {
     }
     
     return true;
-  }).slice(0, 10); // Limit to 10 most recent
+  }); // Remove the .slice(0, 10) limit to show all conversations // Limit to 10 most recent
 
   const handleExportSession = () => {
     const sessionData = {
@@ -1977,8 +1973,7 @@ export default function App() {
       // Trigger a final summary refresh to ensure we have the most up-to-date summary
       await refreshSummary();
       
-      // Also refresh timeline for completeness
-      await refreshTimeline();
+
       
       // Generate and save final summary to database
       if (conversationId && session) {
@@ -2110,50 +2105,25 @@ export default function App() {
     }
   };
 
-  const getTimelineEventStyle = (type: TimelineEvent['type'], importance: TimelineEvent['importance']): {
-    iconBgColor: string, 
-    Icon: React.ElementType,
-    textColor: string
-  } => {
-    const styles = {
-      milestone: { Icon: Target, color: 'purple' },
-      decision: { Icon: ShieldCheck, color: 'green' },
-      topic_shift: { Icon: MessageCircle, color: 'blue' },
-      action_item: { Icon: CheckSquare, color: 'orange' },
-      question: { Icon: MessageCircle, color: 'yellow' },
-      agreement: { Icon: Handshake, color: 'emerald' },
-      speaker_change: { Icon: Users, color: 'gray' },
-      key_statement: { Icon: Quote, color: 'indigo' }
-    };
 
-    const style = styles[type] || styles.milestone;
-    const intensityMap = { high: '600', medium: '500', low: '400' };
-    const intensity = intensityMap[importance];
-
-    return {
-      iconBgColor: `bg-${style.color}-100`,
-      Icon: style.Icon,
-      textColor: `text-${style.color}-${intensity}`
-    };
-  };
 
   const { text: stateText, color: stateColorClass, icon: StateIcon } = getStateTextAndColor(conversationState);
 
   const MainActionButton: React.FC = () => {
     if (conversationState === 'setup') {
-      return <Button onClick={() => { if (textContext) addUserContext(textContext); setConversationState('ready');}} size="lg" className="px-8 bg-blue-600 hover:bg-blue-700"><Play className="w-5 h-5 mr-2" />Get Ready</Button>;
+      return <Button onClick={() => { if (textContext) addUserContext(textContext); setConversationState('ready');}} size="lg" className="px-8 bg-primary hover:bg-primary/90 text-primary-foreground"><Play className="w-5 h-5 mr-2" />Get Ready</Button>;
     }
     if (conversationState === 'ready') {
-      return <Button onClick={handleInitiateRecording} size="lg" className="px-8 bg-green-600 hover:bg-green-700"><Mic className="w-5 h-5 mr-2" />Start Recording</Button>;
+      return <Button onClick={handleInitiateRecording} size="lg" className="px-8 bg-primary hover:bg-primary/90 text-primary-foreground"><Mic className="w-5 h-5 mr-2" />Start Recording</Button>;
     }
     if (conversationState === 'recording') {
-      return <Button onClick={handlePauseRecording} size="lg" className="px-8 bg-yellow-500 hover:bg-yellow-600"><PauseCircle className="w-5 h-5 mr-2" />Pause</Button>;
+      return <Button onClick={handlePauseRecording} size="lg" className="px-8 bg-warning hover:bg-warning/90 text-warning-foreground"><PauseCircle className="w-5 h-5 mr-2" />Pause</Button>;
     }
     if (conversationState === 'paused') {
-      return <Button onClick={handleResumeRecording} size="lg" className="px-8 bg-green-600 hover:bg-green-700"><Play className="w-5 h-5 mr-2" />Resume</Button>;
+      return <Button onClick={handleResumeRecording} size="lg" className="px-8 bg-primary hover:bg-primary/90 text-primary-foreground"><Play className="w-5 h-5 mr-2" />Resume</Button>;
     }
     if (conversationState === 'completed' || conversationState === 'error') {
-      return <Button onClick={handleResetSession} size="lg" className="px-8"><RotateCcw className="w-5 h-5 mr-2" />New Session</Button>;
+      return <Button onClick={handleResetSession} size="lg" className="px-8 bg-secondary hover:bg-secondary/90 text-secondary-foreground"><RotateCcw className="w-5 h-5 mr-2" />New Session</Button>;
     }
     return null;
   };
@@ -2203,18 +2173,13 @@ export default function App() {
   
   // Refs to store latest values for the forced generation effect
   const latestRefreshSummary = useRef(refreshSummary);
-  const latestRefreshTimeline = useRef(refreshTimeline);
   
   // Update refs when functions change
   useEffect(() => {
     latestRefreshSummary.current = refreshSummary;
   }, [refreshSummary]);
-  
-  useEffect(() => {
-    latestRefreshTimeline.current = refreshTimeline;
-  }, [refreshTimeline]);
 
-  // Force summary and timeline generation when loading existing transcript from database
+  // Force summary generation when loading existing transcript from database
   useEffect(() => {
     const forceGenerationOnLoad = async () => {
       // Get the current values directly inside the effect to avoid dependency issues
@@ -2224,7 +2189,7 @@ export default function App() {
       // Only force generation if we have a substantial transcript loaded from database
       // and we're not currently recording (meaning this is restored data)
       // and we haven't already triggered forced generation
-      // and we have actually loaded existing summary/timeline data (indicating this is a resumed session)
+      // and we have actually loaded existing summary data (indicating this is a resumed session)
       if (currentTranscriptLength > 10 && 
           currentTranscriptWords > 50 && 
           conversationState !== 'recording' && 
@@ -2235,12 +2200,11 @@ export default function App() {
           !hasTriggeredForcedGeneration.current &&
           loadedSummary) { // Only force if we have pre-existing data
         
-        console.log('🚀 Forcing summary and timeline generation for loaded transcript:', {
+        console.log('🚀 Forcing summary generation for loaded transcript:', {
           transcriptLines: currentTranscriptLength,
           transcriptWords: currentTranscriptWords,
           conversationState,
-          hasLoadedSummary: !!loadedSummary,
-          hasLoadedTimeline: timeline.length > 0
+          hasLoadedSummary: !!loadedSummary
         });
         
         // Set flag to prevent repeated execution
@@ -2255,12 +2219,7 @@ export default function App() {
           }, 1500);
         }
         
-        if (timeline.length === 0) {
-          setTimeout(() => {
-            console.log('🔄 Force-refreshing timeline for resumed session');
-            latestRefreshTimeline.current();
-          }, 3000);
-        }
+
 
         // Ensure we're in a valid state for showing the content
         if (!['ready', 'recording', 'paused', 'processing', 'completed'].includes(conversationState)) {
@@ -2270,7 +2229,7 @@ export default function App() {
     };
 
     forceGenerationOnLoad();
-  }, [transcript.length, conversationState, conversationId, session, authLoading, loadedSummary, summary, timeline.length]);
+  }, [transcript.length, conversationState, conversationId, session, authLoading, loadedSummary, summary]);
 
   // Reset the forced generation flag when conversation changes or when starting a new recording
   useEffect(() => {
@@ -2334,7 +2293,7 @@ export default function App() {
                       <Button 
                         onClick={conversationState === 'setup' ? () => { if (textContext) addUserContext(textContext); setConversationState('ready'); } : handleInitiateRecording}
                         size="md" 
-                        className="bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg font-semibold px-6"
+                        className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold px-6"
                       >
                         <Mic className="w-4 h-4 mr-2" />
                         {conversationState === 'setup' ? 'Get Ready' : 'Start Recording'}
@@ -2347,7 +2306,7 @@ export default function App() {
                           onClick={handlePauseRecording}
                           size="md" 
                           variant="outline"
-                          className="border-2 border-yellow-500 text-yellow-600 hover:bg-yellow-50 dark:hover:bg-yellow-950/20 font-semibold"
+                          className="border-2 border-warning text-warning hover:bg-warning/10 font-semibold"
                         >
                           <PauseCircle className="w-4 h-4 mr-2" />
                           Pause
@@ -2355,7 +2314,7 @@ export default function App() {
                         <Button 
                           onClick={handleEndConversationAndFinalize}
                           size="md" 
-                          className="bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg font-semibold"
+                          className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold"
                         >
                           <FileText className="w-4 h-4 mr-2" />
                           End & Finalize
@@ -2368,7 +2327,7 @@ export default function App() {
                         <Button 
                           onClick={handleResumeRecording}
                           size="md" 
-                          className="bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg font-semibold"
+                          className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold"
                         >
                           <Play className="w-4 h-4 mr-2" />
                           Resume
@@ -2376,7 +2335,7 @@ export default function App() {
                         <Button 
                           onClick={handleEndConversationAndFinalize}
                           size="md" 
-                          className="bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg font-semibold"
+                          className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold"
                         >
                           <FileText className="w-4 h-4 mr-2" />
                           End & Finalize
@@ -2390,8 +2349,7 @@ export default function App() {
                           <Button 
                             onClick={() => router.push(`/summary/${conversationId}`)}
                             size="md" 
-                            variant="primary"
-                            className="bg-app-primary hover:bg-app-primary/90 text-primary-foreground font-semibold"
+                            className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold"
                           >
                             <FileText className="w-4 h-4 mr-2" />
                             View Final Summary
@@ -2475,7 +2433,7 @@ export default function App() {
             </motion.div>
           )}
 
-          {/* Core Interface - Summary/Transcript/Timeline - Always Visible */}
+          {/* Core Interface - Summary/Transcript - Always Visible */}
           <div className="flex-1 h-full max-h-full overflow-hidden">
             {conversationState === 'setup' && (
               <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="m-auto text-center max-w-lg p-8 bg-card rounded-xl shadow-2xl">
@@ -2504,11 +2462,6 @@ export default function App() {
                   summaryError={summaryError}
                   summaryLastUpdated={summaryLastUpdated}
                   refreshSummary={refreshSummary}
-                  timeline={effectiveTimeline}
-                  isTimelineLoading={isTimelineLoading}
-                  timelineError={timelineError}
-                  timelineLastUpdated={timelineLastUpdated}
-                  refreshTimeline={refreshTimeline}
                   isFullscreen={isFullscreen}
                   setIsFullscreen={setIsFullscreen}
                   handleStartRecording={handleInitiateRecording}
@@ -2520,7 +2473,6 @@ export default function App() {
                   textContext={textContext}
                   selectedPreviousConversations={selectedPreviousConversations}
                   getSummaryTimeUntilNextRefresh={getTimeUntilNextRefresh}
-                  getTimelineTimeUntilNextRefresh={getTimelineTimeUntilNextRefresh}
                 />
               </div>
             )}

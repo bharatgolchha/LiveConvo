@@ -1,14 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { toast } from 'sonner';
 
-export interface TimelineEvent {
-  id: string;
-  timestamp: Date;
-  title: string;
-  description: string;
-  type: 'milestone' | 'decision' | 'topic_shift' | 'action_item' | 'question' | 'agreement';
-  importance: 'low' | 'medium' | 'high';
-}
+
 
 export interface SuggestedChecklistItem {
   text: string;
@@ -26,7 +19,7 @@ export interface ConversationSummary {
   topics: string[];
   sentiment: 'positive' | 'neutral' | 'negative';
   progressStatus: 'just_started' | 'building_momentum' | 'making_progress' | 'wrapping_up';
-  timeline?: TimelineEvent[];
+
   suggestedChecklistItems?: SuggestedChecklistItem[]; // Add this field
 }
 
@@ -54,7 +47,6 @@ export function useRealtimeSummary({
   refreshIntervalMs = 45000
 }: UseRealtimeSummaryProps) {
   const [summary, setSummary] = useState<ConversationSummary | null>(null);
-  const [accumulatedTimeline, setAccumulatedTimeline] = useState<TimelineEvent[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
@@ -189,29 +181,13 @@ export function useRealtimeSummary({
         return;
       }
       
-      // Parse timeline timestamps if they exist
-      let currentAccumulatedTimeline = accumulatedTimeline;
-      if (data.summary.timeline) {
-        const newTimelineEvents = data.summary.timeline.map(event => ({
-          ...event,
-          timestamp: new Date(event.timestamp)
-        }));
-        
-        // Update accumulated timeline state, ensuring newest are first overall
-        setAccumulatedTimeline(prevTimeline => {
-          currentAccumulatedTimeline = [...newTimelineEvents, ...prevTimeline].sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
-          return currentAccumulatedTimeline;
-        });
-        data.summary.timeline = currentAccumulatedTimeline;
-      } else {
-        data.summary.timeline = [...currentAccumulatedTimeline].sort((a,b) => b.timestamp.getTime() - a.timestamp.getTime());
-      }
+
       
       console.log('📈 Setting Summary:', {
         requestId,
         tldr: data.summary.tldr.substring(0, 50) + '...',
         keyPoints: data.summary.keyPoints.length,
-        timeline: data.summary.timeline?.length || 0
+        actionItems: data.summary.actionItems.length
       });
       
       setSummary(data.summary);
@@ -242,7 +218,7 @@ export function useRealtimeSummary({
       isGenerating.current = false;
       setIsLoading(false);
     }
-  }, [transcript, sessionId, conversationType, isRecording, isPaused, accumulatedTimeline]);
+  }, [transcript, sessionId, conversationType, isRecording, isPaused]);
 
   // Auto-refresh effect
   useEffect(() => {
@@ -290,13 +266,12 @@ export function useRealtimeSummary({
         topics: [],
         sentiment: 'neutral' as const,
         progressStatus: 'just_started' as const,
-        timeline: []
+
       };
       
       // Only update if we need to clear the data (avoid unnecessary re-renders)
-      if (!summary || (summary.tldr !== defaultSummary.tldr || summary.timeline?.length !== 0)) {
+      if (!summary || (summary.tldr !== defaultSummary.tldr)) {
         setSummary(defaultSummary);
-        setAccumulatedTimeline([]);
       }
       initialSummaryGenerated.current = false;
       // Reset tracking variables

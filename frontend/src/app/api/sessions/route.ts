@@ -113,11 +113,21 @@ export async function GET(request: NextRequest) {
       hasSummary: session.summaries?.some(s => s.generation_status === 'completed')
     })) || [];
 
+    // Get linked conversations info for all sessions
+    const sessionIds = enhancedSessions.map(s => s.id);
+    const linkedConversationsData = await getLinkedConversations(sessionIds, userData.current_organization_id);
+
+    // Add linked conversations count to each session
+    const sessionsWithLinkedInfo = enhancedSessions.map(session => ({
+      ...session,
+      linkedConversationsCount: linkedConversationsData.get(session.id) || 0
+    }));
+
     const totalCount = count || 0;
     const hasMore = offset + limit < totalCount;
 
     return NextResponse.json({
-      sessions: enhancedSessions,
+      sessions: sessionsWithLinkedInfo,
       total_count: totalCount,
       has_more: hasMore,
       pagination: {
@@ -236,6 +246,48 @@ export async function POST(request: NextRequest) {
       { error: 'Internal server error', message: 'Failed to create session' },
       { status: 500 }
     );
+  }
+}
+
+/**
+ * Get linked conversations count for sessions
+ */
+async function getLinkedConversations(sessionIds: string[], organizationId: string): Promise<Map<string, number>> {
+  try {
+    const { data: contextData, error } = await supabase
+      .from('session_context')
+      .select('context_metadata')
+      .eq('organization_id', organizationId)
+      .not('context_metadata', 'is', null);
+
+    if (error) {
+      console.error('Error fetching linked conversations:', error);
+      return new Map();
+    }
+
+    const linkedCounts = new Map<string, number>();
+
+    // Initialize all session IDs with 0
+    sessionIds.forEach(id => linkedCounts.set(id, 0));
+
+    // Count how many times each session ID appears in selectedPreviousConversations
+    contextData?.forEach(context => {
+      if (context.context_metadata?.selectedPreviousConversations) {
+        const selectedIds = context.context_metadata.selectedPreviousConversations;
+        if (Array.isArray(selectedIds)) {
+          selectedIds.forEach(sessionId => {
+            if (sessionIds.includes(sessionId)) {
+              linkedCounts.set(sessionId, (linkedCounts.get(sessionId) || 0) + 1);
+            }
+          });
+        }
+      }
+    });
+
+    return linkedCounts;
+  } catch (error) {
+    console.error('Error in getLinkedConversations:', error);
+    return new Map();
   }
 }
 

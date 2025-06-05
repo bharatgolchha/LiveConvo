@@ -26,10 +26,7 @@ interface ChatRequest {
     key_points?: string[];
     sentiment?: string;
   };
-  timeline?: Array<{
-    type: string;
-    title: string;
-  }>;
+
   uploadedFiles?: Array<{ name: string; type: string; size: number }>;
   selectedPreviousConversations?: string[];
   personalContext?: string;
@@ -53,7 +50,6 @@ export async function POST(request: NextRequest) {
       textContext,
       conversationTitle,
       summary,
-      timeline,
       uploadedFiles,
       selectedPreviousConversations,
       personalContext
@@ -89,7 +85,6 @@ export async function POST(request: NextRequest) {
       // Enhanced context
       textContext,
       summary,
-      timeline,
       uploadedFiles,
       selectedPreviousConversations,
       personalContext
@@ -243,7 +238,7 @@ If the user asks for "guidance chips" or mentions "6 contextual guidance chips",
 }
 
 GUIDANCE PRINCIPLES:
-- Use ALL provided context (background notes, conversation type, summary, timeline, files, etc.)
+- Use ALL provided context (background notes, conversation type, summary, files, etc.)
 - Be specific rather than generic - reference their actual situation
 - Provide actionable next steps based on their conversation state
 - If they ask a question, use their background notes to answer specifically
@@ -286,7 +281,7 @@ EXAMPLES OF WHEN NOT TO INCLUDE SMART SUGGESTIONS:
 
 CONTEXT AWARENESS:
 - Always prioritize user's background notes and setup context
-- Reference specific conversation events from timeline when relevant
+- Reference conversation history and context when relevant
 - Use conversation summary to understand current state
 - Consider uploaded files and previous conversations
 - Tailor advice to the specific conversation type and situation
@@ -300,7 +295,7 @@ PREVIOUS CONVERSATION CONTEXT:
 - Provide continuity by acknowledging past interactions and progress`;
 }
 
-export function buildChatPrompt(message: string, transcript: string, chatHistory: ChatMessage[], conversationType?: string, conversationTitle?: string, textContext?: string, summary?: { tldr?: string; key_points?: string[]; sentiment?: string }, timeline?: Array<{ type: string; title: string }>, uploadedFiles?: Array<{ name: string; type: string; size: number }>, selectedPreviousConversations?: string[], personalContext?: string): string {
+export function buildChatPrompt(message: string, transcript: string, chatHistory: ChatMessage[], conversationType?: string, conversationTitle?: string, textContext?: string, summary?: { tldr?: string; key_points?: string[]; sentiment?: string }, uploadedFiles?: Array<{ name: string; type: string; size: number }>, selectedPreviousConversations?: string[], personalContext?: string): string {
   // Detect if user is in live conversation or preparation mode
   const hasActiveTranscript = transcript && transcript.trim().length > 0;
   const isLiveConversation = hasActiveTranscript || message.toLowerCase().includes('they') || message.toLowerCase().includes('currently') || message.toLowerCase().includes('right now');
@@ -394,14 +389,7 @@ export function buildChatPrompt(message: string, transcript: string, chatHistory
     prompt += `\n`;
   }
   
-  // Timeline of key events
-  if (timeline && timeline.length > 0 && isLiveConversation) {
-    prompt += `KEY CONVERSATION EVENTS:\n`;
-    timeline.slice(-5).forEach(event => { // Last 5 events
-      prompt += `- ${event.type}: ${event.title}\n`;
-    });
-    prompt += `\n`;
-  }
+
   
   // Live transcript
   if (transcript && transcript.trim()) {

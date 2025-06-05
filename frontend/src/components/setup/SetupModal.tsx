@@ -113,14 +113,14 @@ export const SetupModal: React.FC<SetupModalProps> = ({
   ];
 
   const filteredPreviousSessions = sessions.filter(session => {
-    if (session.status !== 'completed' || !session.hasSummary) return false;
+    if (session.status !== 'completed') return false; // Remove hasSummary requirement to show all completed calls
     if (previousConversationSearch) {
       const searchTerm = previousConversationSearch.toLowerCase();
       return session.title?.toLowerCase().includes(searchTerm) ||
              session.conversation_type?.toLowerCase().includes(searchTerm);
     }
     return true;
-  }).slice(0, 10);
+  }); // Remove the .slice(0, 10) limit to show all conversations
 
   // Enhanced file upload validation
   const validateFile = (file: File): { valid: boolean; error?: string } => {

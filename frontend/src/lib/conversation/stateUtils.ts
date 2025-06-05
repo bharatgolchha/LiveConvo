@@ -87,6 +87,7 @@ export const saveConversationState = (
     conversationType: string;
     conversationTitle: string;
     textContext: string;
+    selectedPreviousConversations?: string[];
   }
 ): void => {
   if (typeof window === 'undefined') return;

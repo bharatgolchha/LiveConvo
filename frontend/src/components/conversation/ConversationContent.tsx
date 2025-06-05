@@ -26,9 +26,7 @@ import {
 
 import { Button } from '@/components/ui/Button';
 import { cn } from '@/lib/utils';
-import { CompactTimeline } from '@/components/timeline/CompactTimeline';
 import { ConversationSummary } from '@/lib/useRealtimeSummary';
-import { TimelineEvent } from '@/lib/useIncrementalTimeline';
 import { ProcessingAnimation } from './ProcessingAnimation';
 import { ChecklistTab } from '@/components/checklist/ChecklistTab';
 
@@ -44,8 +42,8 @@ type ConversationState = 'setup' | 'ready' | 'recording' | 'paused' | 'processin
 
 interface ConversationContentProps {
   // Tab state
-  activeTab: 'transcript' | 'summary' | 'timeline' | 'checklist';
-  setActiveTab: (tab: 'transcript' | 'summary' | 'timeline' | 'checklist') => void;
+  activeTab: 'transcript' | 'summary' | 'checklist';
+  setActiveTab: (tab: 'transcript' | 'summary' | 'checklist') => void;
   
   // Conversation state
   conversationState: ConversationState;
@@ -60,13 +58,6 @@ interface ConversationContentProps {
   summaryError: string | null;
   summaryLastUpdated: Date | null;
   refreshSummary: () => void;
-  
-  // Timeline data
-  timeline: TimelineEvent[] | null;
-  isTimelineLoading: boolean;
-  timelineError: string | null;
-  timelineLastUpdated: Date | null;
-  refreshTimeline: () => void;
   
   // UI state
   isFullscreen: boolean;
@@ -86,7 +77,6 @@ interface ConversationContentProps {
 
   // Refresh timing helpers
   getSummaryTimeUntilNextRefresh: () => number;
-  getTimelineTimeUntilNextRefresh: () => number;
 }
 
 export const ConversationContent: React.FC<ConversationContentProps> = ({
@@ -100,11 +90,6 @@ export const ConversationContent: React.FC<ConversationContentProps> = ({
   summaryError,
   summaryLastUpdated,
   refreshSummary,
-  timeline,
-  isTimelineLoading,
-  timelineError,
-  timelineLastUpdated,
-  refreshTimeline,
   isFullscreen,
   setIsFullscreen,
   handleStartRecording,
@@ -115,8 +100,7 @@ export const ConversationContent: React.FC<ConversationContentProps> = ({
   conversationTitle,
   textContext,
   selectedPreviousConversations,
-  getSummaryTimeUntilNextRefresh,
-  getTimelineTimeUntilNextRefresh
+  getSummaryTimeUntilNextRefresh
 }) => {
   const transcriptEndRef = useRef<null | HTMLDivElement>(null);
   const [isRefreshing, setIsRefreshing] = React.useState(false);
@@ -124,7 +108,6 @@ export const ConversationContent: React.FC<ConversationContentProps> = ({
   const [topicSummary, setTopicSummary] = React.useState<string | null>(null);
   const [isLoadingTopicSummary, setIsLoadingTopicSummary] = React.useState(false);
   const [summaryRefreshMs, setSummaryRefreshMs] = React.useState(0);
-  const [timelineRefreshMs, setTimelineRefreshMs] = React.useState(0);
 
   const handleTopicClick = async (topic: string) => {
     setSelectedTopic(topic);
@@ -191,12 +174,11 @@ export const ConversationContent: React.FC<ConversationContentProps> = ({
   React.useEffect(() => {
     const updateTimes = () => {
       setSummaryRefreshMs(getSummaryTimeUntilNextRefresh());
-      setTimelineRefreshMs(getTimelineTimeUntilNextRefresh());
     };
     updateTimes();
     const interval = setInterval(updateTimes, 1000);
     return () => clearInterval(interval);
-  }, [getSummaryTimeUntilNextRefresh, getTimelineTimeUntilNextRefresh]);
+  }, [getSummaryTimeUntilNextRefresh]);
 
   // Debug logging for summary
   React.useEffect(() => {
@@ -317,9 +299,7 @@ export const ConversationContent: React.FC<ConversationContentProps> = ({
     return groupTranscriptMessages(transcript);
   }, [transcript]);
 
-  const nextRefreshSeconds = Math.ceil(
-    Math.min(summaryRefreshMs, timelineRefreshMs) / 1000
-  );
+  const nextRefreshSeconds = Math.ceil(summaryRefreshMs / 1000);
 
   return (
     <div className="h-full max-h-full flex flex-col overflow-hidden bg-gradient-to-br from-background via-background to-muted/20">
@@ -382,26 +362,7 @@ export const ConversationContent: React.FC<ConversationContentProps> = ({
                     </div>
                   )}
                 </button>
-                <button 
-                  onClick={() => setActiveTab('timeline')}
-                  className={cn(
-                    "flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium transition-all duration-200",
-                    activeTab === 'timeline' 
-                      ? "bg-background text-app-primary shadow-md ring-1 ring-app-primary/20" 
-                      : "text-muted-foreground hover:text-foreground hover:bg-background/50"
-                  )}
-                >
-                  <Clock3 className="w-4 h-4" />
-                  <span>Timeline</span>
-                  {timeline && timeline.length > 0 && (
-                    <span className={cn(
-                      "px-1.5 py-0.5 rounded-full text-xs font-semibold",
-                      activeTab === 'timeline' ? "bg-app-primary/10 text-app-primary" : "bg-muted text-muted-foreground"
-                    )}>
-                      {timeline.length}
-                    </span>
-                  )}
-                </button>
+
                 <button 
                   onClick={() => setActiveTab('checklist')}
                   className={cn(
@@ -434,18 +395,18 @@ export const ConversationContent: React.FC<ConversationContentProps> = ({
                   console.log('🔄 Manual refresh triggered by user');
                   setIsRefreshing(true);
                   try {
-                    await Promise.all([refreshSummary(), refreshTimeline()]);
+                    await refreshSummary();
                   } finally {
                     // Show visual feedback for at least 1 second
                     setTimeout(() => setIsRefreshing(false), 1000);
                   }
                 }} 
-                disabled={isRefreshing || isSummaryLoading || isTimelineLoading}
+                disabled={isRefreshing || isSummaryLoading}
                 className={cn(
                   "h-9 px-3 hover:bg-muted/80 transition-all duration-200 text-xs",
                   isRefreshing && "pointer-events-none"
                 )}
-                title="Refresh Summary & Timeline"
+                title="Refresh Summary"
               >
                 <RefreshCw className={cn("w-3 h-3 mr-1.5", isRefreshing && "animate-spin")} />
                 {isRefreshing ? 'Refreshing...' : 'Refresh'}
@@ -532,7 +493,7 @@ export const ConversationContent: React.FC<ConversationContentProps> = ({
                       <Button 
                         onClick={handleStartRecording}
                         size="lg"
-                        className="bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 text-primary-foreground shadow-lg transition-all duration-200"
+                        className="bg-primary hover:bg-primary/90 text-primary-foreground transition-all duration-200"
                       >
                         <Mic className="w-5 h-5 mr-2" />
                         Start Recording
@@ -745,7 +706,7 @@ export const ConversationContent: React.FC<ConversationContentProps> = ({
                     <Button 
                       onClick={handleStartRecording}
                       size="lg"
-                      className="bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 text-primary-foreground shadow-lg transition-all duration-200"
+                      className="bg-primary hover:bg-primary/90 text-primary-foreground transition-all duration-200"
                     >
                       <Mic className="w-5 h-5 mr-2" />
                       Start Conversation
@@ -940,18 +901,7 @@ export const ConversationContent: React.FC<ConversationContentProps> = ({
           </div>
         )}
 
-        {/* Timeline Tab */}
-        {activeTab === 'timeline' && !isSummarizing && (
-          <div className="h-full max-h-full flex flex-col overflow-hidden bg-gradient-to-br from-background via-muted/10 to-muted/20">
-            <CompactTimeline
-              timeline={timeline || []}
-              isLoading={isTimelineLoading}
-              error={timelineError}
-              lastUpdated={timelineLastUpdated}
-              onRefresh={refreshTimeline}
-            />
-          </div>
-        )}
+
 
         {/* Checklist Tab */}
         {activeTab === 'checklist' && !isSummarizing && sessionId && (
