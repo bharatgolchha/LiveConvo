@@ -11,6 +11,24 @@ liveprompt.ai is a real-time conversation coaching application that provides AI-
 - Session management and analytics
 - Comprehensive post-conversation summaries
 - Interactive checklist and task management
+The database is Postgres hosted on Supabase
+Please use Supabase MCP for anything database related.
+{
+  "mcpServers": {
+    "supabase": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@supabase/mcp-server-supabase@latest",
+        "--access-token",
+        "sbp_f8add63cb4621e0d0ab3e61c6db3dc566a7c5af0"
+      ]
+    }
+  }
+}
+
+SUPABASE_URL=https://ucvfgfbjcrxbzppwjpuu.supabase.co
+
 
 ## Tech Stack
 

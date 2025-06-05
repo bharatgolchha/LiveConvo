@@ -49,7 +49,10 @@ export function useMinuteTracking({
   // Check usage limits
   const checkUsageLimit = useCallback(async () => {
     if (!authSession?.access_token) {
-      console.warn('⚠️ No auth token, skipping usage check');
+      console.warn('⚠️ No auth token, skipping usage check', {
+        hasAuthSession: !!authSession,
+        sessionKeys: authSession ? Object.keys(authSession) : []
+      });
       return null;
     }
 
@@ -137,9 +140,24 @@ export function useMinuteTracking({
 
   // Track a minute of usage
   const trackMinute = useCallback(async (seconds: number) => {
-    if (!authSession?.access_token || !sessionId) return;
+    if (!sessionId) {
+      console.warn('❌ trackMinute: No session ID');
+      return;
+    }
+
+    if (!authSession?.access_token) {
+      console.warn('❌ trackMinute: No auth token - minute not tracked!', {
+        sessionId,
+        seconds,
+        hasAuthSession: !!authSession
+      });
+      setError('Authentication required to track usage');
+      return;
+    }
 
     try {
+      // console.log('📊 Tracking minute:', { sessionId, seconds, timestamp: new Date().toISOString() });
+      
       const response = await fetch('/api/usage/track-minute', {
         method: 'POST',
         headers: {
@@ -155,11 +173,13 @@ export function useMinuteTracking({
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({ message: 'Unknown error' }));
-        console.error('Track minute API error:', response.status, errorData);
+        console.error('❌ Track minute API error:', response.status, errorData);
+        setError(`Failed to track usage: ${errorData.message}`);
         throw new Error(errorData.message || 'Failed to track minute');
       }
 
       const data = await response.json();
+      console.log('✅ Track minute success:', data);
       
       // Update state with new usage data
       setState(prev => {
@@ -195,7 +215,21 @@ export function useMinuteTracking({
 
   // Start recording timer
   const startTracking = useCallback(() => {
-    if (!isRecording || intervalRef.current) return;
+    if (!isRecording) {
+      console.log('⏹️ Not recording, skipping startTracking');
+      return;
+    }
+    
+    if (intervalRef.current) {
+      console.log('⏸️ Already tracking, skipping startTracking');
+      return;
+    }
+
+    console.log('🎯 Starting minute tracking...', {
+      sessionId,
+      hasAuth: !!authSession?.access_token,
+      timestamp: new Date().toISOString()
+    });
 
     recordingStartTime.current = new Date();
     secondsInCurrentMinute.current = 0;
@@ -214,6 +248,7 @@ export function useMinuteTracking({
           // Only track if this is a new minute
           if (currentMinute > lastMinuteSaved.current) {
             lastMinuteSaved.current = currentMinute;
+            console.log(`⏰ Completed minute ${currentMinute}, tracking 60 seconds...`);
             trackMinute(60); // Full minute
             
             return {
@@ -243,6 +278,7 @@ export function useMinuteTracking({
 
     // Track any remaining seconds as a partial minute
     if (secondsInCurrentMinute.current > 0 && sessionId) {
+      console.log(`⏰ Recording stopped, tracking partial minute: ${secondsInCurrentMinute.current} seconds`);
       trackMinute(secondsInCurrentMinute.current);
     }
 
@@ -299,11 +335,17 @@ export function useMinuteTracking({
     }
   }, [authSession]);
 
-  // Initialize and check limits on mount
+  // Initialize and check limits on mount and when auth changes
   useEffect(() => {
-    checkUsageLimit();
-    getCurrentMonthUsage();
-  }, []); // Only run on mount
+    if (authSession?.access_token) {
+      console.log('🔑 Auth token available, checking usage limits...');
+      checkUsageLimit();
+      getCurrentMonthUsage();
+      setError(null); // Clear any auth-related errors
+    } else {
+      console.log('⏳ Waiting for auth token...');
+    }
+  }, [authSession?.access_token]); // Only react to auth token changes
 
   // Handle recording state changes
   useEffect(() => {
@@ -316,7 +358,7 @@ export function useMinuteTracking({
     return () => {
       stopTracking();
     };
-  }, [isRecording, startTracking, stopTracking]);
+  }, [isRecording]); // Only depend on isRecording to prevent excessive calls
 
   // Format time display
   const formatSessionTime = useCallback(() => {
