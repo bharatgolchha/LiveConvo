@@ -147,6 +147,27 @@
 
 ### 🔧 Bug Fixes & Issues
 
+- [x] **🚨 Fix Minute Tracking Issues - Complete** (2025-06-05) 🚨 **JUST FIXED**
+  - **Issue**: Database trigger was counting every `usage_tracking` insert as 1 full minute, regardless of actual `seconds_recorded` value. This caused massive over-counting when users start/stop recording repeatedly.
+  - **Example**: User with 46 seconds of actual recording was showing 26 minutes used (26 separate 2-second recordings = 26 minutes incorrectly counted)
+  - **Root Cause**: The `update_member_usage()` trigger function was using `+ 1` minute for every insert instead of calculating based on actual seconds recorded
+  - **Solution Implemented**:
+    - ✅ **Accurate Seconds-to-Minutes Conversion**: Modified trigger to use `CEIL(total_seconds / 60.0)` instead of always adding 1 minute
+    - ✅ **Proper Incremental Calculation**: Only increment minutes by the difference between new total and old total 
+    - ✅ **Fixed Monthly Cache Logic**: Fetch existing totals, add new seconds, recalculate minutes accurately
+    - ✅ **Corrected Organization Members Sync**: Both tables now stay in perfect sync with accurate calculations
+    - ✅ **Data Correction Migration**: Fixed all existing incorrect data by recalculating from actual usage_tracking records
+  - **Technical Details**:
+    - Updated trigger function to fetch existing monthly totals before calculating new values
+    - Changed from `+ 1` minute to `minute_increment = new_minutes - old_minutes`
+    - Fixed total_audio_hours_used calculation to use actual seconds: `seconds_recorded / 3600.0`
+    - Added comprehensive data correction to fix historical over-counting
+  - **Results**: 
+    - ✅ Test user went from 26 minutes (incorrect) to 1 minute (correct) for 46 seconds of recording
+    - ✅ New recordings properly increment only by actual time used
+    - ✅ Minute boundaries handled correctly (120 seconds = 2 minutes, 121 seconds = 3 minutes)
+  - **Status**: ✅ COMPLETED - Minute tracking now accurately reflects actual recording time
+
 - [x] **🚨 Fix Usage Limit False Positive Bug** (2025-01-30) 🚨 **JUST FIXED**
   - **Issue**: Recording was automatically stopping with "Usage limit reached" message even when user had minutes remaining
   - **Root Cause**: The `useMinuteTracking` hook was initialized with `monthlyMinutesLimit: 0` and `minutesRemaining: 0` in the initial state, causing any usage to immediately trigger the limit reached callback
