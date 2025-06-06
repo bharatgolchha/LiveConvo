@@ -3,7 +3,6 @@ import { Geist, Geist_Mono, Poppins } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { ThemeProvider } from "@/contexts/ThemeContext";
-import { StagewiseToolbar } from "@/components/StagewiseToolbar";
 import { Toaster } from "sonner";
 
 const geistSans = Geist({
@@ -54,7 +53,6 @@ export default function RootLayout({
             />
           </AuthProvider>
         </ThemeProvider>
-        <StagewiseToolbar />
       </body>
     </html>
   );

@@ -1431,3 +1431,41 @@ None currently identified - all major issues have been resolved or moved to acti
     - Improved spacing and typography throughout
     - Added motion animations for button interactions and loading states
   - **Result**: ✅ Sidebar now has a modern, professional appearance with enhanced UX
+
+- [x] **🤖 Enable AI Advisor Chips for Finalized Conversations** (2025-01-30) 🆕 **JUST COMPLETED**
+  - **Request**: Re-enable AI advisor chips (analysis questions) when viewing finalized/completed conversations
+  - **Solution Implemented**:
+    - ✅ **Enabled AI advisor chips for finalized conversations** - Removed disabled state from guidance chip buttons when viewing completed conversations
+    - ✅ **Added analysis-specific chips** - Created conversation type-specific analysis chips (e.g., "🎯 Key objective", "💡 Discovery questions", "🔥 Build rapport", "📊 Present value", etc.)
+    - ✅ **Smart chip generation** - Added logic to show analysis-focused chips instead of live conversation chips for completed conversations
+    - ✅ **Enhanced message input** - Updated placeholder text to "Analyze this completed [conversation type]..." to encourage analysis
+    - ✅ **Maintained refresh restriction** - Kept refresh button disabled for completed conversations while enabling individual chip buttons
+    - ✅ **Conversation type support** - Added analysis chips for all conversation types (sales, support, meeting, interview)
+  - **Technical Implementation**:
+    - Modified `AICoachSidebar.tsx` to remove `disabled={isViewingFinalized}` from chip buttons
+    - Updated `getContextAwareQuickHelp()` function to provide analysis-specific chips for finalized conversations
+    - Modified initial chip generation useEffect to create analysis chips for completed conversations
+    - Enhanced chip prompts to be analysis-focused (e.g., "What was the key objective for this conversation and was it achieved?")
+    - Updated test file to reflect new behavior and fixed all test failures
+  - **User Experience**:
+    - Users can now click analysis question chips when viewing completed conversations
+    - Chips are tailored to the conversation type with relevant analysis questions
+    - Message input encourages analysis with contextual placeholder text
+    - Seamless transition between live conversation chips and analysis chips
+  - **Status**: ✅ COMPLETED - AI advisor chips now fully enabled for finalized conversations with analysis-specific functionality
+
+- [x] **📅 Add Conversation Date Indicators** (2025-01-30) ✅ **COMPLETED**
+  - **Request**: Add date information for when conversations were initiated and ended/finalized
+  - **Requirements**: 
+    - Show start and end dates on the /app page for individual conversations
+    - Display date information on the dashboard for each conversation in the list
+    - Use a nice, user-friendly format for date display
+    - Consider finalized_at vs session end time for proper completion dates
+  - **Implementation Completed**:
+    - [x] Updated Session interface to include `finalized_at` field
+    - [x] Created comprehensive date formatting utilities in `utils.ts`
+    - [x] Built reusable `ConversationDateIndicator` component with multiple contexts
+    - [x] Updated dashboard conversation list to show enhanced date ranges
+    - [x] Added date indicator to /app page header showing conversation timeline
+    - [x] Integrated with Supabase MCP to verify database schema and date fields
+  - **Status**: ✅ COMPLETED - Conversation date indicators now show on both dashboard and /app page with smart formatting

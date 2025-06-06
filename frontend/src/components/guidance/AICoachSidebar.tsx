@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { Brain, MessageCircle, ChevronRight, ChevronLeft, Maximize2, Minimize2, RefreshCw, Plus, Loader2, Sparkles, CheckCircle, UserCheck, Send, HelpCircle, Target, ArrowRight, Clock, Shield, Calendar } from 'lucide-react';
+import { Brain, MessageCircle, ChevronRight, ChevronLeft, Maximize2, Minimize2, RefreshCw, Plus, Loader2, Sparkles, CheckCircle, UserCheck, Send, HelpCircle, Target, ArrowRight, Clock, Shield, Calendar, ChevronDown } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
@@ -127,6 +127,7 @@ export default function AICoachSidebar({
   const [addingToChecklistId, setAddingToChecklistId] = useState<string | null>(null);
   const [isAutoGuidanceActive, setIsAutoGuidanceActive] = useState(false);
   const [isAIThinking, setIsAIThinking] = useState(false);
+  const [isAnalysisVisible, setIsAnalysisVisible] = useState(true);
   
   const sidebarRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -265,6 +266,46 @@ Example format for each chip: {"text": "🔥 Build rapport", "prompt": "How can 
     
     const { conversationType } = contextSummary;
     
+    // If viewing finalized conversation, provide analysis-specific chips
+    if (isViewingFinalized) {
+      const analysisHelp = {
+        sales: [
+          { text: "🎯 Key objective", prompt: "What was the key objective for this sales conversation and was it achieved?" },
+          { text: "💡 Discovery questions", prompt: "What discovery questions were asked and what insights were gained?" },
+          { text: "🔥 Build rapport", prompt: "How effectively was rapport built during this conversation?" },
+          { text: "📊 Present value", prompt: "How was value presented and what was the customer's response?" },
+          { text: "🛡️ Handle objections", prompt: "What objections came up and how were they handled?" },
+          { text: "🤝 Next steps", prompt: "What were the next steps and action items from this conversation?" }
+        ],
+        support: [
+          { text: "🎯 Issue resolution", prompt: "How effectively was the customer's issue resolved?" },
+          { text: "💡 Root cause", prompt: "What was the root cause of the issue and how was it identified?" },
+          { text: "🔥 Customer satisfaction", prompt: "How satisfied was the customer with the support provided?" },
+          { text: "📊 Solution effectiveness", prompt: "How effective were the solutions provided?" },
+          { text: "🛡️ Escalation handling", prompt: "How were escalations or complex issues handled?" },
+          { text: "🤝 Follow-up actions", prompt: "What follow-up actions were taken or planned?" }
+        ],
+        meeting: [
+          { text: "🎯 Meeting objectives", prompt: "Were the meeting objectives achieved?" },
+          { text: "💡 Key decisions", prompt: "What key decisions were made during this meeting?" },
+          { text: "🔥 Participation", prompt: "How was the level of participation and engagement?" },
+          { text: "📊 Agenda coverage", prompt: "How well was the agenda covered?" },
+          { text: "🛡️ Conflict resolution", prompt: "How were any conflicts or disagreements handled?" },
+          { text: "🤝 Action items", prompt: "What action items were assigned and to whom?" }
+        ],
+        interview: [
+          { text: "🎯 Assessment criteria", prompt: "How did the candidate perform against key assessment criteria?" },
+          { text: "💡 Key insights", prompt: "What key insights were gained about the candidate?" },
+          { text: "🔥 Cultural fit", prompt: "How well would this candidate fit with the company culture?" },
+          { text: "📊 Technical skills", prompt: "How were the candidate's technical skills assessed?" },
+          { text: "🛡️ Red flags", prompt: "Were there any red flags or concerns raised?" },
+          { text: "🤝 Next steps", prompt: "What are the next steps in the interview process?" }
+        ]
+      };
+      
+      return analysisHelp[conversationType] || analysisHelp.sales;
+    }
+    
     // Detect if user is in preparation mode or live conversation mode
     const hasActiveTranscript = (transcriptLength || 0) > 0;
     const isLiveConversation = isRecording || hasActiveTranscript;
@@ -385,13 +426,26 @@ Example format for each chip: {"text": "🔥 Build rapport", "prompt": "How can 
     }
   }, [isAIThinking]);
 
-  // Generate initial contextual chips when context is available (but not for completed conversations)
+  // Generate initial contextual chips when context is available
   useEffect(() => {
-    if (contextSummary?.textContext && messages.length === 0 && dynamicChips.length === 0 && !isViewingFinalized) {
-      generateContextualChips(
-        `Starting ${contextSummary.conversationType} conversation`, 
-        contextSummary.textContext
-      );
+    if (contextSummary?.textContext && messages.length === 0 && dynamicChips.length === 0) {
+      if (isViewingFinalized) {
+        // For finalized conversations, use analysis-specific chips
+        const analysisChips: GuidanceChip[] = [
+          { text: "🎯 Key objective", prompt: "What was the key objective for this conversation and was it achieved?" },
+          { text: "💡 Discovery questions", prompt: "What discovery questions were asked and what insights were gained?" },
+          { text: "🔥 Build rapport", prompt: "How effectively was rapport built during this conversation?" },
+          { text: "📊 Present value", prompt: "How was value presented and what was the response?" },
+          { text: "🛡️ Handle objections", prompt: "What objections came up and how were they handled?" },
+          { text: "🤝 Next steps", prompt: "What were the next steps and action items from this conversation?" }
+        ];
+        setDynamicChips(analysisChips);
+      } else {
+        generateContextualChips(
+          `Starting ${contextSummary.conversationType} conversation`, 
+          contextSummary.textContext
+        );
+      }
     }
   }, [contextSummary?.textContext, messages.length, dynamicChips.length, generateContextualChips, isViewingFinalized]);
 
@@ -1143,20 +1197,22 @@ Example format for each chip: {"text": "🔥 Build rapport", "prompt": "How can 
             {/* Quick Help Actions */}
             <div className="flex-shrink-0 p-4 border-t border-border bg-muted/30">
               <div className="flex items-center justify-between mb-3">
-                <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                  {isViewingFinalized 
-                    ? 'Analysis Questions'
-                    : contextSummary 
-                      ? `${currentMode} ${contextSummary.conversationType} Help`
-                      : 'Quick Help'
-                  }
-                  {isGeneratingChips && !isViewingFinalized && (
-                    <span className="ml-2 text-xs text-blue-500 animate-pulse">
-                      • AI generating...
-                    </span>
-                  )}
-                </h4>
-                <div className="flex gap-1">
+                <div className="flex items-center gap-2">
+                  <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                    {isViewingFinalized 
+                      ? 'Analysis Questions'
+                      : contextSummary 
+                        ? `${currentMode} ${contextSummary.conversationType} Help`
+                        : 'Quick Help'
+                    }
+                    {isGeneratingChips && !isViewingFinalized && (
+                      <span className="ml-2 text-xs text-blue-500 animate-pulse">
+                        • AI generating...
+                      </span>
+                    )}
+                  </h4>
+                </div>
+                <div className="flex items-center gap-1">
                   {isRecording && !isPaused && (
                     <Button
                       variant="ghost"
@@ -1184,40 +1240,51 @@ Example format for each chip: {"text": "🔥 Build rapport", "prompt": "How can 
                   >
                     <RefreshCw className={`h-3 w-3 ${isGeneratingChips ? 'animate-spin' : ''}`} />
                   </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setIsAnalysisVisible(!isAnalysisVisible)}
+                    className="h-6 w-6 p-0 text-muted-foreground hover:text-foreground"
+                    title={isAnalysisVisible ? "Hide" : "Show"}
+                  >
+                    <ChevronDown className={`h-4 w-4 transition-transform ${isAnalysisVisible ? '' : '-rotate-90'}`} />
+                  </Button>
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-2 mb-3">
-                {(dynamicChips.length > 0 ? dynamicChips : quickHelpButtons).slice(0, 4).map((help, idx) => (
-                  <Button
-                    key={`${help.text}-${idx}`}
-                    variant="outline"
-                    size="sm"
-                    onClick={() => !isViewingFinalized && setNewMessage(help.prompt)}
-                    disabled={isViewingFinalized}
-                    className={`text-xs h-8 bg-card hover:bg-accent border-border justify-start ${
-                      dynamicChips.length > 0 ? 'ring-1 ring-blue-200 dark:ring-blue-800' : ''
-                    } ${isViewingFinalized ? 'opacity-50 cursor-not-allowed' : ''}`}
-                  >
-                    {help.text}
-                  </Button>
-                ))}
-              </div>
-              <div className="grid grid-cols-1 gap-1">
-                {(dynamicChips.length > 0 ? dynamicChips : quickHelpButtons).slice(4, 6).map((help, idx) => (
-                  <Button
-                    key={`${help.text}-${idx + 4}`}
-                    variant="outline"
-                    size="sm"
-                    onClick={() => !isViewingFinalized && setNewMessage(help.prompt)}
-                    disabled={isViewingFinalized}
-                    className={`text-xs h-7 bg-card hover:bg-accent border-border justify-start ${
-                      dynamicChips.length > 0 ? 'ring-1 ring-blue-200 dark:ring-blue-800' : ''
-                    } ${isViewingFinalized ? 'opacity-50 cursor-not-allowed' : ''}`}
-                  >
-                    {help.text}
-                  </Button>
-                ))}
-              </div>
+              {isAnalysisVisible && (
+                <>
+                  <div className="grid grid-cols-2 gap-2 mb-3">
+                    {(dynamicChips.length > 0 ? dynamicChips : quickHelpButtons).slice(0, 4).map((help, idx) => (
+                      <Button
+                        key={`${help.text}-${idx}`}
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setNewMessage(help.prompt)}
+                        className={`text-xs h-8 bg-card hover:bg-accent border-border justify-start ${
+                          dynamicChips.length > 0 ? 'ring-1 ring-blue-200 dark:ring-blue-800' : ''
+                        }`}
+                      >
+                        {help.text}
+                      </Button>
+                    ))}
+                  </div>
+                  <div className="grid grid-cols-1 gap-1">
+                    {(dynamicChips.length > 0 ? dynamicChips : quickHelpButtons).slice(4, 6).map((help, idx) => (
+                      <Button
+                        key={`${help.text}-${idx + 4}`}
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setNewMessage(help.prompt)}
+                        className={`text-xs h-7 bg-card hover:bg-accent border-border justify-start ${
+                          dynamicChips.length > 0 ? 'ring-1 ring-blue-200 dark:ring-blue-800' : ''
+                        }`}
+                      >
+                        {help.text}
+                      </Button>
+                    ))}
+                  </div>
+                </>
+              )}
             </div>
 
             {/* Message Input */}

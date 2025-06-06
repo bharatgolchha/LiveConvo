@@ -32,6 +32,7 @@ import { useSessionData } from '@/lib/hooks/useSessionData';
 import { DeleteConfirmationModal } from '@/components/ui/DeleteConfirmationModal';
 import { PricingModal } from '@/components/ui/PricingModal';
 import { SettingsPanel } from '@/components/settings/SettingsPanel';
+import { ConversationListDate } from '@/components/ui/ConversationDateIndicator';
 
 // Types (using Session from useSessions hook)
 
@@ -349,26 +350,7 @@ const ConversationInboxItem: React.FC<{
     return hours > 0 ? `${hours}h ${remainingMinutes}m` : `${minutes}m`;
   };
 
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    const now = new Date();
-    const diffInHours = Math.abs(now.getTime() - date.getTime()) / (1000 * 60 * 60);
-    
-    if (diffInHours < 24) {
-      return date.toLocaleTimeString('en-US', { 
-        hour: 'numeric', 
-        minute: '2-digit',
-        hour12: true 
-      });
-    } else if (diffInHours < 168) { // Less than a week
-      return date.toLocaleDateString('en-US', { weekday: 'short' });
-    } else {
-      return date.toLocaleDateString('en-US', { 
-        month: 'short', 
-        day: 'numeric' 
-      });
-    }
-  };
+
 
   const statusIndicator = getStatusIndicator(session.status);
 
@@ -425,10 +407,7 @@ const ConversationInboxItem: React.FC<{
             
             {/* Metadata Row */}
             <div className="flex items-center gap-3 text-xs text-muted-foreground">
-              <span className="flex items-center gap-1">
-                <ClockIcon className="w-3 h-3" />
-                {formatDate(session.created_at)}
-              </span>
+              <ConversationListDate session={session} />
               
               {session.duration && (
                 <span className="flex items-center gap-1">
@@ -1448,7 +1427,8 @@ const DashboardPage: React.FC = () => {
     setDeleteModal(prev => ({ ...prev, isLoading: true }));
     
     try {
-      const success = await deleteSession(deleteModal.sessionId);
+      // Perform a hard delete
+      const success = await deleteSession(deleteModal.sessionId, true);
       if (success) {
         setDeleteModal({
           isOpen: false,
@@ -1512,11 +1492,7 @@ const DashboardPage: React.FC = () => {
     setSelectedSessions(new Set());
   };
 
-  const [bulkDeleteModal, setBulkDeleteModal] = useState<{
-    isOpen: boolean;
-    count: number;
-    isLoading: boolean;
-  }>({
+  const [bulkDeleteModal, setBulkDeleteModal] = useState({
     isOpen: false,
     count: 0,
     isLoading: false
@@ -1531,22 +1507,24 @@ const DashboardPage: React.FC = () => {
   };
 
   const handleConfirmBulkDelete = async () => {
+    if (!bulkDeleteModal.isOpen || bulkDeleteModal.isLoading) return;
+
     setBulkDeleteModal(prev => ({ ...prev, isLoading: true }));
-    
+
     try {
-      // Delete all selected sessions
-      const deletePromises = Array.from(selectedSessions).map(sessionId => 
-        deleteSession(sessionId)
-      );
-      await Promise.all(deletePromises);
+      // Use Promise.all to delete all selected sessions
+      const deletePromises = Array.from(selectedSessions).map(id => deleteSession(id, true));
+      const results = await Promise.all(deletePromises);
+      
+      const successfulDeletes = results.filter(Boolean).length;
+      console.log(`✅ Bulk delete successful for ${successfulDeletes} sessions.`);
+      
+      // Clear selection and close modal
       setSelectedSessions(new Set());
-      setBulkDeleteModal({
-        isOpen: false,
-        count: 0,
-        isLoading: false
-      });
+      setBulkDeleteModal({ isOpen: false, isLoading: false, count: 0 });
+
     } catch (error) {
-      console.error('Error deleting sessions:', error);
+      console.error('❌ Error during bulk delete:', error);
       setBulkDeleteModal(prev => ({ ...prev, isLoading: false }));
     }
   };
@@ -1841,9 +1819,8 @@ const DashboardPage: React.FC = () => {
         isOpen={deleteModal.isOpen}
         onClose={handleCloseDeleteModal}
         onConfirm={handleConfirmDelete}
-        title="Delete Conversation"
-        description="Are you sure you want to delete this conversation?"
-        itemName={deleteModal.sessionTitle || undefined}
+        title={`Delete "${deleteModal.sessionTitle}"?`}
+        description="Are you sure you want to permanently delete this conversation? This action cannot be undone."
         isLoading={deleteModal.isLoading}
       />
 
@@ -1853,7 +1830,7 @@ const DashboardPage: React.FC = () => {
         onClose={handleCloseBulkDeleteModal}
         onConfirm={handleConfirmBulkDelete}
         title="Delete Multiple Conversations"
-        description={`Are you sure you want to delete ${bulkDeleteModal.count} conversation${bulkDeleteModal.count === 1 ? '' : 's'}?`}
+        description={`Are you sure you want to permanently delete ${bulkDeleteModal.count} conversation${bulkDeleteModal.count === 1 ? '' : 's'}? This action cannot be undone.`}
         isLoading={bulkDeleteModal.isLoading}
       />
     </div>
