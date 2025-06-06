@@ -74,7 +74,7 @@ export default function SignUpPage() {
         setError(
           <span>
             This email is not on our approved waitlist.{' '}
-            <Link href="/landing#waitlist" className="text-green-600 dark:text-green-400 hover:text-green-500 dark:hover:text-green-300 underline">
+                          <Link href="/#waitlist" className="text-green-600 dark:text-green-400 hover:text-green-500 dark:hover:text-green-300 underline">
               Request access here
             </Link>
             {' '}or contact support.
@@ -245,7 +245,7 @@ export default function SignUpPage() {
               <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3">
                 <p className="text-sm text-blue-800 dark:text-blue-200">
                   <strong>Invitation Required:</strong> Only users who have been approved on our waitlist can create accounts.{' '}
-                  <Link href="/landing#waitlist" className="underline hover:text-blue-900 dark:hover:text-blue-100 transition-colors">
+                  <Link href="/#waitlist" className="underline hover:text-blue-900 dark:hover:text-blue-100 transition-colors">
                     Request access here
                   </Link>
                   .

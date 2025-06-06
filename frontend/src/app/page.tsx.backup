@@ -4,6 +4,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useTheme } from '@/contexts/ThemeContext';
 import { 
   Mic, 
   MessageSquare, 
@@ -54,6 +55,7 @@ export default function LandingPage() {
       if (response.ok) {
         setIsSubmitted(true);
       } else {
+        // Show detailed error message if available
         const errorMessage = result.details 
           ? `${result.error}\n\n${result.details}`
           : result.error || 'Failed to join waitlist';
@@ -67,28 +69,25 @@ export default function LandingPage() {
 
   const testimonials = [
     {
-      quote: "Finally, an AI that actually understands sales conversations. The real-time prompts helped me close 3 deals this week that I would have definitely lost.",
-      name: "Marcus Johnson",
-      role: "Senior Sales Director",
-      company: "DataFlow Solutions",
-      badge: "Beta Tester",
-      image: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&h=150&fit=crop&crop=face"
+      quote: "Invaluable feedback during alpha testing. This will change how we do discovery.",
+      name: "Sarah Chen",
+      role: "Beta Tester",
+      company: "TechCorp",
+      badge: "Alpha Tester"
     },
     {
-      quote: "I used to spend 2 hours after each client call writing notes. Now I get perfect summaries in 30 seconds. This saves me 10+ hours per week.",
-      name: "Jessica Martinez", 
-      role: "Management Consultant",
-      company: "Strategic Partners LLC",
-      badge: "Alpha Tester",
-      image: "https://images.unsplash.com/photo-1494790108755-2616b612b120?w=150&h=150&fit=crop&crop=face"
+      quote: "Direct line to founders made this feel like a true partnership.",
+      name: "Mike Rodriguez", 
+      role: "Early Access",
+      company: "CloudSoft",
+      badge: "Beta Tester"
     },
     {
-      quote: "As a hiring manager, this catches things I miss. It suggested follow-up questions that revealed a candidate wasn't a good fit. Saved us months of pain.",
-      name: "David Park",
-      role: "VP of Engineering", 
-      company: "TechFlow",
-      badge: "Founding User",
-      image: "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face"
+      quote: "Excited to help shape the future of AI-powered conversations.",
+      name: "Lisa Wang",
+      role: "Product Advisor", 
+      company: "Strategic Partners",
+      badge: "Founding User"
     }
   ];
 
@@ -112,6 +111,29 @@ export default function LandingPage() {
     {
       question: 'What happens after the beta period?',
       answer: 'Beta testers get grandfather pricing and continued priority support when we launch publicly.'
+    }
+  ];
+
+  const perks = [
+    {
+      icon: <Star className="w-6 h-6" />,
+      title: 'Free Beta Access',
+      description: 'Full platform access during testing period'
+    },
+    {
+      icon: <UserCheck className="w-6 h-6" />,
+      title: 'Direct Founder Access',
+      description: 'Weekly feedback sessions and feature requests'
+    },
+    {
+      icon: <Zap className="w-6 h-6" />,
+      title: 'Priority Features',
+      description: 'Your use cases drive our development roadmap'
+    },
+    {
+      icon: <Shield className="w-6 h-6" />,
+      title: 'Grandfather Pricing',
+      description: 'Lock in special rates before public launch'
     }
   ];
 
@@ -175,18 +197,206 @@ export default function LandingPage() {
         </div>
       </header>
 
-      {/* Use-Case Blocks */}
-      <section className="py-20 pt-32">
+      {/* 1. Above-the-Fold Hero */}
+      <section className="relative pt-24 pb-20">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="inline-flex items-center gap-2 rounded-full px-4 py-2 mb-6"
+            style={{ backgroundColor: 'rgba(59, 130, 246, 0.1)', border: '1px solid rgba(59, 130, 246, 0.2)' }}
+          >
+            <div className="w-2 h-2 rounded-full animate-pulse" style={{ backgroundColor: '#60a5fa' }} />
+            <span className="text-sm font-medium" style={{ color: '#93c5fd' }}>Limited Beta • Invitation Only</span>
+          </motion.div>
+          
+          <motion.h1 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="text-5xl sm:text-6xl font-bold leading-tight mb-6"
+            style={{ color: '#ffffff' }}
+          >
+            Never wing another important conversation again
+          </motion.h1>
+          
+          <motion.p 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.1 }}
+            className="text-xl mb-8"
+            style={{ color: '#d1d5db' }}
+          >
+            Real-time AI cues, instant summaries—get exclusive early access to the future of conversation intelligence.
+          </motion.p>
+          
+          <motion.div 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2 }}
+            className="flex flex-col sm:flex-row gap-4 justify-center"
+          >
+            <button
+              onClick={() => document.getElementById('waitlist')?.scrollIntoView({ behavior: 'smooth' })}
+              className="px-8 py-4 text-lg rounded-lg font-medium inline-flex items-center justify-center transition-colors"
+              style={{ backgroundColor: '#3b82f6', color: '#ffffff' }}
+              onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#2563eb'}
+              onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#3b82f6'}
+            >
+              Request Early Access
+              <ArrowRight className="ml-2 w-5 h-5" />
+            </button>
+            <button
+              onClick={() => router.push('/demo')}
+              className="px-8 py-4 text-lg rounded-lg font-medium inline-flex items-center justify-center transition-colors"
+              style={{ border: '1px solid #4b5563', color: '#d1d5db' }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor = '#374151';
+                e.currentTarget.style.color = '#ffffff';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = 'transparent';
+                e.currentTarget.style.color = '#d1d5db';
+              }}
+            >
+              <Play className="mr-2 w-5 h-5" />
+              Watch 90-sec Demo
+            </button>
+          </motion.div>
+          
+          <motion.p
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.4 }}
+            className="mt-6 text-sm"
+            style={{ color: '#9ca3af' }}
+          >
+            🔥 <span className="font-medium" style={{ color: '#fb923c' }}>47 spots filled</span> of 100 beta testers
+          </motion.p>
+        </div>
+      </section>
+
+      {/* Screenshot Placeholder */}
+      <section className="py-16" style={{ backgroundColor: 'rgba(17, 24, 39, 0.5)' }}>
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            className="rounded-2xl p-8 text-center"
+            style={{ backgroundColor: 'rgba(31, 41, 55, 0.5)', border: '1px solid #374151' }}
+          >
+            <div className="aspect-video rounded-lg flex items-center justify-center mb-4" style={{ backgroundColor: 'rgba(17, 24, 39, 0.5)' }}>
+              <div className="text-center">
+                <div className="w-16 h-16 rounded-2xl mx-auto mb-4 flex items-center justify-center" style={{ background: 'linear-gradient(to bottom right, #3b82f6, #8b5cf6)' }}>
+                  <Mic className="w-8 h-8" style={{ color: '#ffffff' }} />
+                </div>
+                <p className="text-lg font-medium" style={{ color: '#9ca3af' }}>LiveConvo Beta Dashboard</p>
+                <p className="text-sm" style={{ color: '#6b7280' }}>Real-time cues as you speak</p>
+              </div>
+            </div>
+          </motion.div>
+        </div>
+      </section>
+
+      {/* 2. Beta Tester Credibility */}
+      <section className="py-8" style={{ backgroundColor: 'rgba(17, 24, 39, 0.5)', borderTop: '1px solid #374151', borderBottom: '1px solid #374151' }}>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center">
+            <p className="text-sm mb-4" style={{ color: '#9ca3af' }}>Trusted by beta testers from</p>
+            <div className="flex justify-center items-center gap-8" style={{ opacity: 0.6 }}>
+              {['TechCorp', 'CloudSoft', 'DataFlow', 'ScaleUp'].map((company) => (
+                <div key={company} className="font-medium" style={{ color: '#6b7280' }}>
+                  {company}
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* 3. Core Value Trio */}
+      <section className="py-20">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-16">
-            <h1 className="text-4xl sm:text-5xl font-bold mb-6 text-white">
-              Real-time AI guidance for better conversations
-            </h1>
-            <p className="text-xl text-gray-300 max-w-3xl mx-auto">
-              Get instant coaching, automatic summaries, and professional insights during your most important calls.
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            {[
+              {
+                title: 'Real-Time Cues',
+                description: 'Objection handling & next-best-question prompts under 2s.',
+                icon: <Zap className="w-8 h-8" />
+              },
+              {
+                title: 'Smart Summaries', 
+                description: 'Action items & CRM-ready bullet points in your inbox 30 sec after hang-up.',
+                icon: <FileText className="w-8 h-8" />
+              },
+              {
+                title: 'Plug-&-Play',
+                description: 'Works in any browser tab; no Zoom plug-in hell.',
+                icon: <CheckCircle2 className="w-8 h-8" />
+              }
+            ].map((item, index) => (
+              <motion.div
+                key={index}
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                transition={{ delay: index * 0.1 }}
+                viewport={{ once: true }}
+                className="rounded-xl p-6 text-center"
+                style={{ backgroundColor: 'rgba(31, 41, 55, 0.5)', border: '1px solid #374151' }}
+              >
+                <div className="mb-4" style={{ color: '#60a5fa' }}>{item.icon}</div>
+                <h3 className="text-lg font-semibold mb-2" style={{ color: '#ffffff' }}>{item.title}</h3>
+                <p className="text-sm" style={{ color: '#d1d5db' }}>{item.description}</p>
+                <button 
+                  className="text-sm mt-3 transition-colors"
+                  style={{ color: '#60a5fa' }}
+                  onMouseEnter={(e) => e.currentTarget.style.color = '#93c5fd'}
+                  onMouseLeave={(e) => e.currentTarget.style.color = '#60a5fa'}
+                >
+                  Learn how →
+                </button>
+              </motion.div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* 4. Demo Stripe */}
+      <section className="py-16" style={{ backgroundColor: 'rgba(17, 24, 39, 0.5)' }}>
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+          <div className="rounded-2xl p-8" style={{ backgroundColor: 'rgba(31, 41, 55, 0.5)', border: '1px solid #374151' }}>
+            <div className="relative">
+              {/* Demo Video Placeholder */}
+              <div className="rounded-lg aspect-video flex items-center justify-center mb-4" style={{ backgroundColor: 'rgba(17, 24, 39, 0.5)' }}>
+                <div className="text-center">
+                  <Play className="w-16 h-16 mx-auto mb-4" style={{ color: '#60a5fa' }} />
+                  <p style={{ color: '#d1d5db' }}>Live Demo: Cue appears while prospect talks</p>
+                </div>
+              </div>
+              
+              {/* Copy Summary Demo */}
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                className="inline-flex items-center gap-2 rounded-lg px-4 py-2"
+                style={{ backgroundColor: 'rgba(20, 83, 45, 0.3)', border: '1px solid rgba(34, 197, 94, 0.5)' }}
+              >
+                <Copy className="w-4 h-4" style={{ color: '#4ade80' }} />
+                <span className="text-sm" style={{ color: '#86efac' }}>Summary copied to clipboard</span>
+                <Check className="w-4 h-4" style={{ color: '#4ade80' }} />
+              </motion.div>
+            </div>
+            <p className="mt-4" style={{ color: '#9ca3af' }}>
+              Nothing to install. Just hit 'Start' before your call.
             </p>
           </div>
-          
+        </div>
+      </section>
+
+      {/* 5. Use-Case Blocks */}
+      <section className="py-20">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="space-y-20">
             {[
               {
@@ -225,101 +435,9 @@ export default function LandingPage() {
                   <p className="text-lg" style={{ color: '#d1d5db' }}>{useCase.description}</p>
                 </div>
                 <div className={`rounded-xl p-8 ${useCase.reverse ? 'lg:col-start-1' : ''}`} style={{ backgroundColor: 'rgba(31, 41, 55, 0.5)', border: '1px solid #374151' }}>
-                  {/* Clean, Minimal Demo UI */}
-                  {index === 0 && (
-                    // SaaS Sales Demo - Focus on AI Coaching
-                    <div className="h-48 rounded-lg bg-gradient-to-br from-gray-900 to-gray-800 border border-gray-700 flex items-center justify-center relative overflow-hidden">
-                      {/* Subtle background pattern */}
-                      <div className="absolute inset-0 opacity-5">
-                        <div className="absolute top-8 left-8 w-16 h-16 border border-blue-500 rounded rotate-12"></div>
-                        <div className="absolute bottom-12 right-12 w-12 h-12 border border-green-500 rounded-full"></div>
-                      </div>
-                      
-                      {/* Single AI coaching notification */}
-                      <motion.div
-                        initial={{ opacity: 0, scale: 0.9, y: 10 }}
-                        animate={{ opacity: 1, scale: 1, y: 0 }}
-                        transition={{ delay: 0.8, duration: 0.6, ease: "easeOut" }}
-                        className="bg-green-500/90 backdrop-blur-sm rounded-xl p-4 shadow-2xl border border-green-400/30 max-w-xs text-center"
-                      >
-                        <div className="flex items-center justify-center gap-2 mb-2">
-                          <div className="w-2 h-2 rounded-full bg-green-300 animate-pulse"></div>
-                          <span className="text-green-100 text-sm font-semibold">AI Coach</span>
-                        </div>
-                        <p className="text-green-50 text-sm">
-                          "Ask about their budget range"
-                        </p>
-                      </motion.div>
-                    </div>
-                  )}
-                  
-                  {index === 1 && (
-                    // Consulting Demo - Focus on Auto Notes
-                    <div className="h-48 rounded-lg bg-gradient-to-br from-gray-900 to-gray-800 border border-gray-700 flex items-center justify-center relative overflow-hidden">
-                      {/* Subtle background pattern */}
-                      <div className="absolute inset-0 opacity-5">
-                        <div className="absolute top-6 right-8 w-14 h-14 border border-purple-500 rounded rotate-45"></div>
-                        <div className="absolute bottom-8 left-10 w-10 h-10 border border-orange-500 rounded"></div>
-                      </div>
-                      
-                      {/* Auto note-taking interface */}
-                      <motion.div
-                        initial={{ opacity: 0, scale: 0.9, y: 10 }}
-                        animate={{ opacity: 1, scale: 1, y: 0 }}
-                        transition={{ delay: 0.8, duration: 0.6, ease: "easeOut" }}
-                        className="bg-gray-800/90 backdrop-blur-sm rounded-xl p-4 shadow-2xl border border-gray-600 max-w-xs"
-                      >
-                        <div className="flex items-center gap-2 mb-3">
-                          <FileText className="w-4 h-4 text-purple-400" />
-                          <span className="text-gray-200 text-sm font-semibold">Smart Notes</span>
-                          <div className="ml-auto">
-                            <motion.div
-                              animate={{ opacity: [0.5, 1, 0.5] }}
-                              transition={{ duration: 2, repeat: Infinity }}
-                              className="w-2 h-2 rounded-full bg-purple-400"
-                            />
-                          </div>
-                        </div>
-                        <div className="space-y-2 text-xs text-gray-300">
-                          <div className="flex items-center gap-2">
-                            <CheckCircle2 className="w-3 h-3 text-green-400" />
-                            <span>Goal: 40% revenue increase</span>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <Clock className="w-3 h-3 text-orange-400" />
-                            <span>Timeline: Q4 2024</span>
-                          </div>
-                        </div>
-                      </motion.div>
-                    </div>
-                  )}
-                  
-                  {index === 2 && (
-                    // Interview Demo - Focus on Question Suggestions
-                    <div className="h-48 rounded-lg bg-gradient-to-br from-gray-900 to-gray-800 border border-gray-700 flex items-center justify-center relative overflow-hidden">
-                      {/* Subtle background pattern */}
-                      <div className="absolute inset-0 opacity-5">
-                        <div className="absolute top-10 left-6 w-18 h-18 border border-amber-500 rounded-full"></div>
-                        <div className="absolute bottom-6 right-6 w-8 h-8 border border-blue-500 rounded rotate-12"></div>
-                      </div>
-                      
-                      {/* Interview coaching suggestion */}
-                      <motion.div
-                        initial={{ opacity: 0, scale: 0.9, y: 10 }}
-                        animate={{ opacity: 1, scale: 1, y: 0 }}
-                        transition={{ delay: 0.8, duration: 0.6, ease: "easeOut" }}
-                        className="bg-amber-500/90 backdrop-blur-sm rounded-xl p-4 shadow-2xl border border-amber-400/30 max-w-xs text-center"
-                      >
-                        <div className="flex items-center justify-center gap-2 mb-2">
-                          <MessageCircle className="w-4 h-4 text-amber-100" />
-                          <span className="text-amber-100 text-sm font-semibold">Next Question</span>
-                        </div>
-                        <p className="text-amber-50 text-sm">
-                          "What specific challenges did you face?"
-                        </p>
-                      </motion.div>
-                    </div>
-                  )}
+                  <div className="h-48 rounded-lg flex items-center justify-center" style={{ background: 'linear-gradient(to bottom right, #374151, #1f2937)' }}>
+                    <span style={{ color: '#9ca3af' }}>Demo Screenshot</span>
+                  </div>
                 </div>
               </motion.div>
             ))}
@@ -327,7 +445,7 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* Social Proof */}
+      {/* 6. Social Proof */}
       <section className="py-20" style={{ backgroundColor: 'rgba(17, 24, 39, 0.5)' }}>
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
@@ -348,13 +466,7 @@ export default function LandingPage() {
                 </div>
                 <p className="font-medium mb-4 pr-20" style={{ color: '#ffffff' }}>"{testimonial.quote}"</p>
                 <div className="flex items-center gap-3">
-                  <img 
-                    src={testimonial.image} 
-                    alt={testimonial.name}
-                    className="w-10 h-10 rounded-full object-cover"
-                    style={{ border: '2px solid #4b5563' }}
-                    loading="lazy"
-                  />
+                  <div className="w-10 h-10 rounded-full" style={{ backgroundColor: '#4b5563' }} />
                   <div>
                     <p className="text-sm font-medium" style={{ color: '#ffffff' }}>{testimonial.name}</p>
                     <p className="text-xs" style={{ color: '#9ca3af' }}>{testimonial.role}, {testimonial.company}</p>
@@ -366,7 +478,9 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* FAQ Accordion */}
+
+
+      {/* 8. FAQ Accordion */}
       <section className="py-20" style={{ backgroundColor: 'rgba(17, 24, 39, 0.5)' }}>
         <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-12">
@@ -539,7 +653,7 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* Final CTA */}
+      {/* 9. Final CTA */}
       <section className="py-20" style={{ background: 'linear-gradient(to right, #1e3a8a, #581c87)' }}>
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <h2 className="text-4xl font-bold mb-6" style={{ color: '#ffffff' }}>
@@ -564,7 +678,7 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* Footer */}
+      {/* 10. Footer */}
       <footer className="py-12" style={{ backgroundColor: '#030712', color: '#9ca3af' }}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex flex-col md:flex-row justify-between items-center gap-8">
