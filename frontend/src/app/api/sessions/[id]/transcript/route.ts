@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
+import { supabase, createServerSupabaseClient, createAuthenticatedSupabaseClient } from '@/lib/supabase';
 import { z } from 'zod';
 
 // Zod schema for a single transcript line
@@ -31,10 +31,13 @@ type TranscriptLineInput = z.infer<typeof transcriptLineSchema>;
  */
 export async function GET(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id: sessionId } = await params;
+    const params = await context.params;
+    const sessionId = params.id;
+    console.log('Transcript API - Session ID:', sessionId);
+    
     const searchParams = request.nextUrl.searchParams;
     const limit = parseInt(searchParams.get('limit') || '1000');
     const offset = parseInt(searchParams.get('offset') || '0');
@@ -52,12 +55,27 @@ export async function GET(
       );
     }
 
-    // Verify session belongs to user
-    const { data: session, error: sessionError } = await supabase
+    // Get user's current organization using service role client (bypasses RLS)
+    const serviceClient = createServerSupabaseClient();
+    const { data: userData, error: userError } = await serviceClient
+      .from('users')
+      .select('current_organization_id')
+      .eq('id', user.id)
+      .single();
+
+    if (userError || !userData?.current_organization_id) {
+      return NextResponse.json(
+        { error: 'Setup required', message: 'Please complete onboarding first' },
+        { status: 400 }
+      );
+    }
+
+    // Verify session belongs to user's organization
+    const { data: session, error: sessionError } = await serviceClient
       .from('sessions')
-      .select('id, user_id')
+      .select('id, organization_id')
       .eq('id', sessionId)
-      .eq('user_id', user.id)
+      .eq('organization_id', userData.current_organization_id)
       .is('deleted_at', null)
       .single();
 
@@ -68,8 +86,11 @@ export async function GET(
       );
     }
 
+    // Create authenticated client with user's token for RLS
+    const authClient = createAuthenticatedSupabaseClient(token);
+
     // Build query
-    let query = supabase
+    let query = authClient
       .from('transcripts')
       .select('*', { count: 'exact' })
       .eq('session_id', sessionId);
@@ -82,6 +103,7 @@ export async function GET(
     // Fetch transcript lines with pagination
     const { data: transcriptLines, error: transcriptError, count } = await query
       .order('sequence_number', { ascending: true })
+      .order('created_at', { ascending: true })
       .range(offset, offset + limit - 1);
 
     if (transcriptError) {
@@ -92,8 +114,10 @@ export async function GET(
       );
     }
 
+    console.log('Transcript API - Found transcripts:', transcriptLines?.length || 0);
+
     // Get the latest sequence number
-    const { data: latestSeq } = await supabase
+    const { data: latestSeq } = await authClient
       .from('transcripts')
       .select('sequence_number')
       .eq('session_id', sessionId)
@@ -101,8 +125,10 @@ export async function GET(
       .limit(1)
       .single();
 
+    // Return in the format expected by the app
     return NextResponse.json({ 
       data: transcriptLines || [],
+      transcripts: transcriptLines || [], // Keep for backward compatibility
       pagination: {
         total: count || 0,
         limit,
@@ -127,10 +153,11 @@ export async function GET(
  */
 export async function POST(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id: pathSessionId } = await params;
+    const params = await context.params;
+    const pathSessionId = params.id;
     const body = await request.json();
 
     // Support both old format (array) and new format (batch object)

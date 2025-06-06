@@ -421,12 +421,35 @@ const ConversationInboxItem: React.FC<{
               )}
               
               {session.linkedConversationsCount && session.linkedConversationsCount > 0 && (
-                <span className="flex items-center gap-1 text-app-primary font-medium">
-                  <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
-                  </svg>
-                  Linked to {session.linkedConversationsCount} conversation{session.linkedConversationsCount > 1 ? 's' : ''}
-                </span>
+                <div className="relative group">
+                  <span className="flex items-center gap-1 text-app-primary font-medium cursor-pointer">
+                    <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+                    </svg>
+                    Linked to {session.linkedConversationsCount} previous conversation{session.linkedConversationsCount > 1 ? 's' : ''}
+                  </span>
+                  
+                  {/* Hover tooltip */}
+                  {session.linkedConversations && session.linkedConversations.length > 0 && (
+                    <div className="absolute bottom-full left-0 mb-2 hidden group-hover:block z-50">
+                      <div className="bg-card border border-border rounded-lg shadow-lg p-3 min-w-[250px] max-w-[400px]">
+                        <div className="text-xs font-medium text-muted-foreground mb-2">
+                          Previous conversations used as context:
+                        </div>
+                        <div className="space-y-1">
+                          {session.linkedConversations.map((conversation, index) => (
+                            <div key={conversation.id} className="text-sm text-foreground truncate">
+                              {index + 1}. {conversation.title}
+                            </div>
+                          ))}
+                        </div>
+                        {/* Arrow pointing down */}
+                        <div className="absolute top-full left-4 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-border"></div>
+                        <div className="absolute top-full left-4 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-card transform translate-y-[-1px]"></div>
+                      </div>
+                    </div>
+                  )}
+                </div>
               )}
               
               {session.lastActivity && session.status === 'active' && (

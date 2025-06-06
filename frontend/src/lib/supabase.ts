@@ -44,5 +44,24 @@ export const createServerSupabaseClient = () => {
   })
 }
 
+// Create a Supabase client with user's auth token for API routes
+export const createAuthenticatedSupabaseClient = (token: string) => {
+  if (!supabaseUrl || !supabaseAnonKey) {
+    throw new Error('Missing Supabase configuration')
+  }
+  
+  return createClient(supabaseUrl, supabaseAnonKey, {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false
+    },
+    global: {
+      headers: {
+        Authorization: `Bearer ${token}`
+      }
+    }
+  })
+}
+
 // Export configuration status
 export const isSupabaseConfigured = isConfigured 

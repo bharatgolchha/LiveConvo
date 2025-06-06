@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
+import { supabase, createAuthenticatedSupabaseClient } from '@/lib/supabase';
 
 export async function PATCH(request: NextRequest) {
   try {
@@ -7,14 +7,22 @@ export async function PATCH(request: NextRequest) {
     const authHeader = request.headers.get('authorization');
     const token = authHeader?.split(' ')[1];
     
-    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+    if (!token) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+    
+    // Create authenticated client with user's token
+    const authClient = createAuthenticatedSupabaseClient(token);
+    
+    const { data: { user }, error: authError } = await authClient.auth.getUser();
     if (authError || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const { personal_context } = await request.json();
 
-    const { data, error } = await supabase
+    // Update personal context using the authenticated client
+    const { data, error } = await authClient
       .from('users')
       .update({ personal_context })
       .eq('id', user.id)
@@ -45,12 +53,20 @@ export async function GET(request: NextRequest) {
     const authHeader = request.headers.get('authorization');
     const token = authHeader?.split(' ')[1];
     
-    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+    if (!token) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+    
+    // Create authenticated client with user's token
+    const authClient = createAuthenticatedSupabaseClient(token);
+    
+    const { data: { user }, error: authError } = await authClient.auth.getUser();
     if (authError || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { data, error } = await supabase
+    // Fetch personal context using the authenticated client
+    const { data, error } = await authClient
       .from('users')
       .select('personal_context')
       .eq('id', user.id)

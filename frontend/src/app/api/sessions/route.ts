@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
+import { supabase, createServerSupabaseClient, createAuthenticatedSupabaseClient } from '@/lib/supabase';
 
 /**
  * GET /api/sessions - Fetch user sessions/conversations
@@ -37,8 +37,9 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Get user's current organization
-    const { data: userData, error: userError } = await supabase
+    // Get user's current organization using service role client (bypasses RLS)
+    const serviceClient = createServerSupabaseClient();
+    const { data: userData, error: userError } = await serviceClient
       .from('users')
       .select('current_organization_id')
       .eq('id', user.id)
@@ -51,8 +52,11 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    // Create authenticated client with user's token for RLS
+    const authClient = createAuthenticatedSupabaseClient(token);
+    
     // Build the query (filter by organization instead of just user)
-    let query = supabase
+    let query = authClient
       .from('sessions')
       .select(`
         id,
@@ -64,12 +68,7 @@ export async function GET(request: NextRequest) {
         created_at,
         updated_at,
         recording_started_at,
-        recording_ended_at,
-        summaries(
-          id,
-          generation_status,
-          created_at
-        )
+        recording_ended_at
       `)
       .eq('organization_id', userData.current_organization_id)
       .is('deleted_at', null)  // Only get non-deleted sessions
@@ -110,18 +109,22 @@ export async function GET(request: NextRequest) {
       duration: session.recording_duration_seconds,
       wordCount: session.total_words_spoken,
       lastActivity: calculateLastActivity(session),
-      hasSummary: session.summaries?.some(s => s.generation_status === 'completed')
+      hasSummary: false // We'll query summaries separately if needed
     })) || [];
 
     // Get linked conversations info for all sessions
     const sessionIds = enhancedSessions.map(s => s.id);
-    const linkedConversationsData = await getLinkedConversations(sessionIds, userData.current_organization_id);
+    const linkedConversationsData = await getLinkedConversations(sessionIds, userData.current_organization_id, authClient);
 
-    // Add linked conversations count to each session
-    const sessionsWithLinkedInfo = enhancedSessions.map(session => ({
-      ...session,
-      linkedConversationsCount: linkedConversationsData.get(session.id) || 0
-    }));
+    // Add linked conversations data to each session
+    const sessionsWithLinkedInfo = enhancedSessions.map(session => {
+      const linkedData = linkedConversationsData.get(session.id) || { count: 0, conversations: [] };
+      return {
+        ...session,
+        linkedConversationsCount: linkedData.count,
+        linkedConversations: linkedData.conversations
+      };
+    });
 
     const totalCount = count || 0;
     const hasMore = offset + limit < totalCount;
@@ -163,7 +166,18 @@ export async function POST(request: NextRequest) {
     // Get current user from Supabase auth using the access token
     const authHeader = request.headers.get('authorization');
     const token = authHeader?.split(' ')[1];
-    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+    
+    if (!token) {
+      return NextResponse.json(
+        { error: 'Unauthorized', message: 'Please sign in to create sessions' },
+        { status: 401 }
+      );
+    }
+    
+    // Create authenticated client with user's token
+    const authClient = createAuthenticatedSupabaseClient(token);
+    
+    const { data: { user }, error: authError } = await authClient.auth.getUser();
     
     if (authError || !user) {
       return NextResponse.json(
@@ -172,8 +186,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Get user's current organization
-    const { data: userData, error: userError } = await supabase
+    // Get user's current organization using service role client (bypasses RLS)
+    const serviceClient = createServerSupabaseClient();
+    const { data: userData, error: userError } = await serviceClient
       .from('users')
       .select('current_organization_id')
       .eq('id', user.id)
@@ -186,8 +201,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Create the session
-    const { data: session, error: sessionError } = await supabase
+    // Create the session using authenticated client
+    const { data: session, error: sessionError } = await authClient
       .from('sessions')
       .insert({
         user_id: user.id,
@@ -211,7 +226,7 @@ export async function POST(request: NextRequest) {
     // If context data is provided, save it
     let sessionContext = null;
     if (context && (context.text || context.metadata)) {
-      const { data: contextData, error: contextError } = await supabase
+      const { data: contextData, error: contextError } = await authClient
         .from('session_context')
         .insert({
           session_id: session.id,
@@ -250,14 +265,16 @@ export async function POST(request: NextRequest) {
 }
 
 /**
- * Get linked conversations count for sessions
+ * Get linked conversations data for sessions (how many previous conversations each session has linked)
  */
-async function getLinkedConversations(sessionIds: string[], organizationId: string): Promise<Map<string, number>> {
+async function getLinkedConversations(sessionIds: string[], organizationId: string, authClient: any): Promise<Map<string, { count: number, conversations: Array<{ id: string, title: string }> }>> {
   try {
-    const { data: contextData, error } = await supabase
+    // Get session context data for the requested sessions
+    const { data: contextData, error } = await authClient
       .from('session_context')
-      .select('context_metadata')
+      .select('session_id, context_metadata')
       .eq('organization_id', organizationId)
+      .in('session_id', sessionIds)
       .not('context_metadata', 'is', null);
 
     if (error) {
@@ -265,26 +282,51 @@ async function getLinkedConversations(sessionIds: string[], organizationId: stri
       return new Map();
     }
 
-    const linkedCounts = new Map<string, number>();
+    const linkedData = new Map<string, { count: number, conversations: Array<{ id: string, title: string }> }>();
 
-    // Initialize all session IDs with 0
-    sessionIds.forEach(id => linkedCounts.set(id, 0));
+    // Initialize all session IDs with empty data
+    sessionIds.forEach(id => linkedData.set(id, { count: 0, conversations: [] }));
 
-    // Count how many times each session ID appears in selectedPreviousConversations
+    // Get all unique previous conversation IDs to fetch their titles
+    const allPreviousIds = new Set<string>();
     contextData?.forEach(context => {
-      if (context.context_metadata?.selectedPreviousConversations) {
-        const selectedIds = context.context_metadata.selectedPreviousConversations;
-        if (Array.isArray(selectedIds)) {
-          selectedIds.forEach(sessionId => {
-            if (sessionIds.includes(sessionId)) {
-              linkedCounts.set(sessionId, (linkedCounts.get(sessionId) || 0) + 1);
-            }
-          });
-        }
+      if (context.context_metadata?.selectedPreviousConversations && Array.isArray(context.context_metadata.selectedPreviousConversations)) {
+        context.context_metadata.selectedPreviousConversations.forEach((id: string) => allPreviousIds.add(id));
       }
     });
 
-    return linkedCounts;
+    // Fetch titles for all previous conversations
+    let conversationTitles = new Map<string, string>();
+    if (allPreviousIds.size > 0) {
+      const { data: sessionTitles, error: titlesError } = await authClient
+        .from('sessions')
+        .select('id, title')
+        .in('id', Array.from(allPreviousIds));
+
+      if (!titlesError && sessionTitles) {
+        sessionTitles.forEach((session: { id: string, title: string }) => {
+          conversationTitles.set(session.id, session.title);
+        });
+      }
+    }
+
+    // Process each session's linked conversations
+    contextData?.forEach(context => {
+      if (context.context_metadata?.selectedPreviousConversations && Array.isArray(context.context_metadata.selectedPreviousConversations)) {
+        const selectedIds = context.context_metadata.selectedPreviousConversations;
+        const conversations = selectedIds.map((id: string) => ({
+          id,
+          title: conversationTitles.get(id) || 'Untitled Conversation'
+        }));
+
+        linkedData.set(context.session_id, {
+          count: selectedIds.length,
+          conversations
+        });
+      }
+    });
+
+    return linkedData;
   } catch (error) {
     console.error('Error in getLinkedConversations:', error);
     return new Map();

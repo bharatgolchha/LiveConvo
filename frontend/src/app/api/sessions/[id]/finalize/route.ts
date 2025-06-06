@@ -31,23 +31,45 @@ export async function POST(
     // Get current user from Supabase auth using the access token
     const authHeader = request.headers.get('authorization');
     const token = authHeader?.split(' ')[1];
-    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+    
+    if (!token) {
+      return NextResponse.json(
+        { error: 'Unauthorized', message: 'Missing authentication token' },
+        { status: 401 }
+      );
+    }
+
+    // Create authenticated client with user token for RLS
+    const authenticatedSupabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        global: {
+          headers: {
+            Authorization: `Bearer ${token}`
+          }
+        }
+      }
+    );
+
+    const { data: { user }, error: authError } = await authenticatedSupabase.auth.getUser(token);
     
     if (authError || !user) {
+      console.error('❌ Authentication error:', authError);
       return NextResponse.json(
         { error: 'Unauthorized', message: 'Please sign in to finalize session' },
         { status: 401 }
       );
     }
 
-    // Verify session belongs to user and get organization_id
-    const { data: sessionData, error: sessionError } = await supabase
+    console.log('✅ User authenticated:', { userId: user.id, email: user.email });
+
+    // Verify session belongs to user and get organization_id - using authenticated client
+    const { data: sessionData, error: sessionError } = await authenticatedSupabase
       .from('sessions')
       .select('id, user_id, organization_id')
       .eq('id', sessionId)
-      .eq('user_id', user.id)
-      .is('deleted_at', null)
-      .single();
+      .single(); // Remove user_id filter since RLS will handle it
 
     if (sessionError || !sessionData) {
       console.error('❌ Session query error:', sessionError);
@@ -57,8 +79,8 @@ export async function POST(
       );
     }
 
-    // Fetch transcript data from database
-    const { data: transcriptLines, error: transcriptError } = await supabase
+    // Fetch transcript data from database - using authenticated client
+    const { data: transcriptLines, error: transcriptError } = await authenticatedSupabase
       .from('transcripts')
       .select('*')
       .eq('session_id', sessionId)
@@ -149,7 +171,7 @@ export async function POST(
       action_items_count: Array.isArray(summaryInsertData.action_items) ? summaryInsertData.action_items.length : 0
     });
 
-    const { data: summaryData, error: summaryError } = await supabase
+    const { data: summaryData, error: summaryError } = await authenticatedSupabase
       .from('summaries')
       .insert(summaryInsertData)
       .select()
@@ -163,8 +185,8 @@ export async function POST(
       console.log('✅ Summary successfully saved to database with ID:', summaryData?.id);
     }
 
-    // Update session status to completed
-    const { error: sessionUpdateError } = await supabase
+    // Update session status to completed - using authenticated client
+    const { error: sessionUpdateError } = await authenticatedSupabase
       .from('sessions')
       .update({ 
         status: 'completed',
