@@ -2,6 +2,7 @@ import { createClient } from '@supabase/supabase-js'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
 
 // Check if Supabase is properly configured
 const isConfigured = supabaseUrl && 
@@ -28,6 +29,20 @@ export const supabase = createClient(
     }
   }
 )
+
+// Server-side Supabase client for API routes
+export const createServerSupabaseClient = () => {
+  if (!supabaseUrl || !supabaseServiceRoleKey) {
+    throw new Error('Missing Supabase configuration for server-side client')
+  }
+  
+  return createClient(supabaseUrl, supabaseServiceRoleKey, {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false
+    }
+  })
+}
 
 // Export configuration status
 export const isSupabaseConfigured = isConfigured 

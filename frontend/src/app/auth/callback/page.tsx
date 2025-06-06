@@ -1,21 +1,62 @@
 'use client'
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 
 export default function AuthCallbackPage() {
   const router = useRouter()
+  const [status, setStatus] = useState('Signing in...')
+
   useEffect(() => {
     const handleAuth = async () => {
-      await supabase.auth.getSession()
-      router.replace('/dashboard')
+      try {
+        const { data: { session }, error } = await supabase.auth.getSession()
+        
+        if (error) {
+          console.error('Auth error:', error)
+          router.replace('/auth/login?error=Authentication failed')
+          return
+        }
+
+        if (session?.user?.email) {
+          setStatus('Verifying access...')
+          
+          // Check if user is on approved waitlist
+          const waitlistResponse = await fetch('/api/auth/check-waitlist', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ email: session.user.email }),
+          })
+
+          const waitlistData = await waitlistResponse.json()
+
+          if (!waitlistResponse.ok || !waitlistData.isApproved) {
+            // Sign out the user and redirect with error
+            await supabase.auth.signOut()
+            router.replace('/auth/login?error=This email is not on our approved waitlist. Please contact support.')
+            return
+          }
+        }
+
+        // User is approved, proceed to dashboard
+        router.replace('/dashboard')
+      } catch (error) {
+        console.error('Callback error:', error)
+        router.replace('/auth/login?error=Authentication failed')
+      }
     }
+    
     handleAuth()
   }, [router])
 
   return (
-    <div className="min-h-screen flex items-center justify-center">
-      <p className="text-gray-600">Signing in...</p>
+    <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
+      <div className="text-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+        <p className="text-gray-600 dark:text-gray-400">{status}</p>
+      </div>
     </div>
   )
 }

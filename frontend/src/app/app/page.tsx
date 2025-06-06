@@ -69,6 +69,7 @@ import { TranscriptModal } from '@/components/conversation/TranscriptModal';
 import { useSessionData, SessionDocument } from '@/lib/hooks/useSessionData';
 import { useMinuteTracking } from '@/lib/hooks/useMinuteTracking';
 import { RecordingConsentModal } from '@/components/conversation/RecordingConsentModal';
+import { ConversationHeaderDate } from '@/components/ui/ConversationDateIndicator';
 
 interface TranscriptLine {
   id: string;
@@ -198,6 +199,15 @@ export default function App() {
   const [transcript, setTranscript] = useState<TranscriptLine[]>([]);
   // Track how many transcript lines have been saved to the database
   const [lastSavedTranscriptIndex, setLastSavedTranscriptIndex] = useState(0);
+  // Session data for date indicators
+  const [currentSessionData, setCurrentSessionData] = useState<{
+    id: string;
+    status: string;
+    created_at: string;
+    recording_started_at?: string;
+    recording_ended_at?: string;
+    finalized_at?: string;
+  } | null>(null);
   const [sessionDuration, setSessionDuration] = useState(0);
   const [cumulativeDuration, setCumulativeDuration] = useState(0); // Total duration across all recording sessions
   const [recordingStartTime, setRecordingStartTime] = useState<number | null>(null); // Track when current recording started
@@ -229,7 +239,9 @@ export default function App() {
     remainingTime,
     checkUsageLimit,
     resetSession: resetMinuteTracking,
-    error: minuteTrackingError
+    error: minuteTrackingError,
+    startTracking,
+    stopTracking,
   } = useMinuteTracking({
     sessionId: conversationId,
     isRecording: conversationState === 'recording',
@@ -375,6 +387,16 @@ export default function App() {
       const response = await authenticatedFetch(`/api/sessions/${sessionId}`, session);
       if (response.ok) {
         const sessionData = await response.json();
+        
+        // Store session data for date indicators
+        setCurrentSessionData({
+          id: sessionData.id,
+          status: sessionData.status,
+          created_at: sessionData.created_at,
+          recording_started_at: sessionData.recording_started_at,
+          recording_ended_at: sessionData.recording_ended_at,
+          finalized_at: sessionData.finalized_at
+        });
         
         // Set the conversation details - backend data takes precedence
         setConversationTitle(sessionData.title || 'Untitled Conversation');
@@ -1624,6 +1646,7 @@ export default function App() {
 
       await Promise.all([startMyRecording(), startThemRecording()]);
 
+      startTracking();
       setLoadedSummary(null);
       setConversationState('recording');
       // Reset transcript length trackers for new recording session
@@ -1641,7 +1664,8 @@ export default function App() {
     }
   };
 
-  const handleStopRecording = () => {
+  const handleStopRecording = async () => {
+    await stopTracking();
     stopMyRecording();
     stopThemRecording();
     disconnectMy();
@@ -1655,9 +1679,11 @@ export default function App() {
     }
   };
 
-  const handlePauseRecording = () => {
+  const handlePauseRecording = async () => {
     console.log('⏸️ Pausing recording and disconnecting from Deepgram...');
     
+    await stopTracking();
+
     // Stop the recording and disconnect from Deepgram
     stopMyRecording();
     stopThemRecording();
@@ -1703,6 +1729,7 @@ export default function App() {
       // Resume recording
       await Promise.all([startMyRecording(), startThemRecording()]);
 
+      startTracking();
       setLoadedSummary(null);
       setConversationState('recording');
       // Reset length trackers so new transcript is captured after resume
@@ -1954,7 +1981,7 @@ export default function App() {
     });
 
     // First stop the recording
-    handleStopRecording();
+    await handleStopRecording();
     
     // Set to summarizing state to trigger the beautiful processing animation
     setIsSummarizing(true);
@@ -2271,8 +2298,23 @@ export default function App() {
                           </span>
                         )}
                       </div>
-                      {/* Tab Visibility Protection Indicator */}
-                      {conversationState === 'recording' && (
+                    </div>
+                    
+                    {/* Conversation Date Indicator */}
+                    {currentSessionData && (
+                      <div className="mt-1">
+                        <ConversationHeaderDate 
+                          session={currentSessionData} 
+                          className="text-muted-foreground"
+                        />
+                      </div>
+                    )}
+                  </div>
+                  
+                  {/* Status Indicators */}
+                  <div className="flex items-center gap-2">
+                    {/* Tab Visibility Protection Indicator */}
+                    {conversationState === 'recording' && (
                         <div className="flex items-center gap-1 text-xs text-green-600 bg-green-50 dark:bg-green-900/20 px-2 py-1 rounded-full border border-green-200 dark:border-green-800" title="Recording protected from tab switches">
                           <ShieldCheck className="w-3 h-3" />
                           <span className="hidden sm:inline">Protected</span>

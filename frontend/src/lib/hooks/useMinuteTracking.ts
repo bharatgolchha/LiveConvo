@@ -279,11 +279,19 @@ export function useMinuteTracking({
     // Track any remaining seconds as a partial minute
     if (secondsInCurrentMinute.current > 0 && sessionId) {
       console.log(`⏰ Recording stopped, tracking partial minute: ${secondsInCurrentMinute.current} seconds`);
-      trackMinute(secondsInCurrentMinute.current);
+      const promise = trackMinute(secondsInCurrentMinute.current);
+      
+      // Reset counters immediately
+      recordingStartTime.current = null;
+      secondsInCurrentMinute.current = 0;
+      
+      return promise;
     }
 
+    // Reset counters even if not tracking
     recordingStartTime.current = null;
     secondsInCurrentMinute.current = 0;
+    return Promise.resolve(null); // Return a resolved promise
   }, [sessionId, trackMinute]);
 
   // Reset session tracking
@@ -347,19 +355,6 @@ export function useMinuteTracking({
     }
   }, [authSession?.access_token]); // Only react to auth token changes
 
-  // Handle recording state changes
-  useEffect(() => {
-    if (isRecording) {
-      startTracking();
-    } else {
-      stopTracking();
-    }
-
-    return () => {
-      stopTracking();
-    };
-  }, [isRecording]); // Only depend on isRecording to prevent excessive calls
-
   // Format time display
   const formatSessionTime = useCallback(() => {
     const minutes = Math.floor(state.currentSessionSeconds / 60);
@@ -391,6 +386,8 @@ export function useMinuteTracking({
     checkUsageLimit,
     resetSession,
     getCurrentMonthUsage,
+    startTracking,
+    stopTracking,
     
     // Utils
     isOverLimit: state.monthlyMinutesUsed >= state.monthlyMinutesLimit,

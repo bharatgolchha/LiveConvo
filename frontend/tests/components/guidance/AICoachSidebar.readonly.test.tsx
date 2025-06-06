@@ -43,6 +43,8 @@ describe('AICoachSidebar - Read Only Mode', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    // Mock scrollIntoView
+    Element.prototype.scrollIntoView = jest.fn();
   });
 
   describe('when viewing a completed conversation', () => {
@@ -54,8 +56,8 @@ describe('AICoachSidebar - Read Only Mode', () => {
     it('should show read-only badge in header', () => {
       render(<AICoachSidebar {...completedProps} />);
       
-      expect(screen.getByText('Read Only')).toBeInTheDocument();
-      expect(screen.getByText('AI Coach')).toBeInTheDocument();
+      expect(screen.getByText('Viewing Completed')).toBeInTheDocument();
+      expect(screen.getByText('AI Advisor')).toBeInTheDocument();
     });
 
     it('should show completed message when no messages', () => {
@@ -65,52 +67,43 @@ describe('AICoachSidebar - Read Only Mode', () => {
       expect(screen.getByText('Ask questions or get insights about what happened')).toBeInTheDocument();
     });
 
-    it('should disable guidance chip buttons', () => {
+    it('should enable guidance chip buttons for analysis', () => {
       render(<AICoachSidebar {...completedProps} />);
       
       const chipButtons = screen.getAllByRole('button').filter(btn => 
-        btn.textContent?.includes('What to ask') || 
-        btn.textContent?.includes('How am I doing')
+        btn.textContent?.includes('Key objective') || 
+        btn.textContent?.includes('Discovery questions') ||
+        btn.textContent?.includes('Build rapport')
       );
       
       chipButtons.forEach(button => {
-        expect(button).toBeDisabled();
-        expect(button).toHaveClass('opacity-50', 'cursor-not-allowed');
+        expect(button).not.toBeDisabled();
+        expect(button).not.toHaveClass('opacity-50', 'cursor-not-allowed');
       });
     });
 
-    it('should show read-only message instead of input area', () => {
+    it('should show analysis placeholder in input area', () => {
       render(<AICoachSidebar {...completedProps} />);
       
-      expect(screen.getByText('This conversation has ended')).toBeInTheDocument();
+      expect(screen.getByPlaceholderText(/Analyze this completed conversation/)).toBeInTheDocument();
       expect(screen.queryByPlaceholderText(/Ask the AI coach/)).not.toBeInTheDocument();
     });
 
-    it('should show toast when trying to send message', () => {
-      const { rerender } = render(<AICoachSidebar {...completedProps} />);
+    it('should allow sending analysis messages', () => {
+      render(<AICoachSidebar {...completedProps} />);
       
-      // First set some message text in ready state
-      const readyProps = { ...defaultProps, conversationState: 'ready' as const };
-      rerender(<AICoachSidebar {...readyProps} />);
+      const textarea = screen.getByPlaceholderText(/Analyze this completed conversation/);
+      fireEvent.change(textarea, { target: { value: 'What was the key objective?' } });
       
-      const textarea = screen.getByPlaceholderText(/Ask the AI coach/);
-      fireEvent.change(textarea, { target: { value: 'Test message' } });
+      // Find the send button by its styling and content (empty button with icon)
+      const sendButton = screen.getByRole('button', { name: '' });
+      expect(sendButton).not.toBeDisabled();
       
-      // Then switch to completed state
-      rerender(<AICoachSidebar {...completedProps} />);
+      fireEvent.click(sendButton);
       
-      // Try to send message (if somehow the UI allowed it)
-      const sendButton = screen.queryByRole('button', { name: /send/i });
-      if (sendButton) {
-        fireEvent.click(sendButton);
-        
-        expect(toast.info).toHaveBeenCalledWith(
-          'This conversation has ended',
-          expect.objectContaining({
-            description: 'You cannot send messages to completed conversations'
-          })
-        );
-      }
+      expect(defaultProps.onSendMessage).toHaveBeenCalledWith(
+        expect.stringContaining('What was the key objective?')
+      );
     });
 
     it('should disable refresh chips button', () => {
@@ -160,10 +153,10 @@ describe('AICoachSidebar - Read Only Mode', () => {
         render(<AICoachSidebar {...activeProps} />);
         
         // Should not show read-only badge
-        expect(screen.queryByText('Read Only')).not.toBeInTheDocument();
+        expect(screen.queryByText('Viewing Completed')).not.toBeInTheDocument();
         
-        // Should show input area
-        expect(screen.getByPlaceholderText(/Ask the AI coach/)).toBeInTheDocument();
+        // Should show input area (different placeholder based on context)
+        expect(screen.getByPlaceholderText(/Ask the AI.*anything/)).toBeInTheDocument();
         
         // Guidance chips should be enabled
         const chipButtons = screen.getAllByRole('button').filter(btn => 

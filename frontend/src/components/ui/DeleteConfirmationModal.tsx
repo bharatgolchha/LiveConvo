@@ -95,20 +95,6 @@ export const DeleteConfirmationModal: React.FC<DeleteConfirmationModalProps> = (
                   </div>
                 )}
 
-                <div className="bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded-lg p-4 mb-6">
-                  <div className="flex items-start gap-3">
-                    <AlertTriangle className="w-5 h-5 text-amber-600 dark:text-amber-400 mt-0.5 flex-shrink-0" />
-                    <div>
-                      <h3 className="font-medium text-amber-900 dark:text-amber-100 mb-1">
-                        Important Notice
-                      </h3>
-                      <p className="text-sm text-amber-700 dark:text-amber-300">
-                        This action will hide the conversation from your dashboard. You can contact support if you need to recover it later.
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
                 {/* Actions */}
                 <div className="flex flex-col sm:flex-row gap-3">
                   <Button

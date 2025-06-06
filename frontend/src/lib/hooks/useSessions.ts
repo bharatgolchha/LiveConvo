@@ -13,6 +13,7 @@ export interface Session {
   total_words_spoken?: number;
   recording_started_at?: string;
   recording_ended_at?: string;
+  finalized_at?: string;
   duration?: number;
   wordCount?: number;
   lastActivity?: string;
@@ -54,7 +55,7 @@ export interface SessionsHookReturn {
   pagination: SessionsResponse['pagination'] | null;
   fetchSessions: (filters?: SessionFilters) => Promise<void>;
   updateSession: (id: string, updates: Partial<Session>) => Promise<Session | null>;
-  deleteSession: (id: string) => Promise<boolean>;
+  deleteSession: (id: string, hard?: boolean) => Promise<boolean>;
   createSession: (data: { 
     title: string; 
     conversation_type: string; 
@@ -196,9 +197,9 @@ export function useSessions(): SessionsHookReturn {
   }, [user, authLoading, handleApiError, setSessionExpiredMessage]);
 
   /**
-   * Delete a session (soft delete)
+   * Delete a session (now with hard delete support)
    */
-  const deleteSession = useCallback(async (id: string): Promise<boolean> => {
+  const deleteSession = useCallback(async (id: string, hard: boolean = false): Promise<boolean> => {
     if (!user || authLoading) {
       return false;
     }
@@ -209,7 +210,9 @@ export function useSessions(): SessionsHookReturn {
         headers['Authorization'] = `Bearer ${session.access_token}`
       }
 
-      const response = await fetch(`/api/sessions/${id}`, {
+      const url = hard ? `/api/sessions/${id}?hard=true` : `/api/sessions/${id}`;
+
+      const response = await fetch(url, {
         method: 'DELETE',
         headers,
       })
