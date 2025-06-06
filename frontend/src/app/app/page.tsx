@@ -386,7 +386,7 @@ export default function App() {
     try {
       const response = await authenticatedFetch(`/api/sessions/${sessionId}`, session);
       if (response.ok) {
-        const sessionData = await response.json();
+        const { session: sessionData } = await response.json();
         
         // Store session data for date indicators
         setCurrentSessionData({
@@ -440,6 +440,10 @@ export default function App() {
         hasLoadedFromStorage.current = true;
         
         // Load transcript if available
+        console.log('📋 Session status check for transcript:', {
+          status: sessionData.status,
+          shouldLoadTranscript: sessionData.status === 'completed' || sessionData.status === 'active'
+        });
         if (sessionData.status === 'completed' || sessionData.status === 'active') {
           loadSessionTranscript(sessionId);
         }
@@ -455,12 +459,18 @@ export default function App() {
 
   // Load session transcript
   const loadSessionTranscript = async (sessionId: string) => {
-    if (!session || authLoading) return;
+    console.log('🔄 Loading transcript for session:', sessionId, { session: !!session, authLoading });
+    if (!session || authLoading) {
+      console.log('⏸️ Skipping transcript load - no session or still loading');
+      return;
+    }
     
     try {
+      console.log('📡 Fetching transcript from API...');
       const response = await authenticatedFetch(`/api/sessions/${sessionId}/transcript`, session);
       if (response.ok) {
         const transcriptData = await response.json();
+        console.log('Transcript data received:', transcriptData);
         
         // Convert transcript data to TranscriptLine format
         const formattedTranscript = transcriptData.transcripts.map((item: any, index: number) => ({
@@ -472,6 +482,10 @@ export default function App() {
         }));
         
         setTranscript(formattedTranscript);
+      } else {
+        console.error('Failed to load transcript:', response.status, response.statusText);
+        const errorData = await response.text();
+        console.error('Error details:', errorData);
       }
     } catch (error) {
       console.error('Error loading session transcript:', error);
@@ -2004,12 +2018,29 @@ export default function App() {
       
       // Generate and save final summary to database
       if (conversationId && session) {
+        // Additional validation to ensure we have required data
+        if (!session.access_token) {
+          console.error('❌ No access token available in session');
+          setErrorMessage('Authentication issue. Please refresh and try again.');
+          return;
+        }
+        
+        if (transcript.length === 0) {
+          console.warn('⚠️ No transcript available for finalization');
+          setErrorMessage('No conversation content to finalize.');
+          return;
+        }
+        
         try {
           console.log('🔄 Calling finalize API...', {
             url: `/api/sessions/${conversationId}/finalize`,
             method: 'POST',
             hasAuthToken: !!session.access_token,
-            tokenPreview: session.access_token?.substring(0, 20) + '...'
+            tokenPreview: session.access_token?.substring(0, 20) + '...',
+            conversationId,
+            transcriptLength: transcript.length,
+            conversationType,
+            conversationTitle
           });
 
           const requestBody = {
@@ -2030,10 +2061,22 @@ export default function App() {
             hasPersonalContext: !!requestBody.personalContext
           });
 
-          const response = await authenticatedFetch(`/api/sessions/${conversationId}/finalize`, session, {
-            method: 'POST',
-            body: JSON.stringify(requestBody)
-          });
+          console.log('🚀 Making authenticated fetch request...');
+          let response;
+          try {
+            response = await authenticatedFetch(`/api/sessions/${conversationId}/finalize`, session, {
+              method: 'POST',
+              body: JSON.stringify(requestBody)
+            });
+            console.log('📡 Fetch completed, response received');
+          } catch (fetchError) {
+            console.error('❌ Network error during fetch:', {
+              error: fetchError,
+              message: fetchError instanceof Error ? fetchError.message : 'Unknown fetch error',
+              type: fetchError instanceof Error ? fetchError.constructor.name : typeof fetchError
+            });
+            throw fetchError; // Re-throw to be handled by outer catch
+          }
 
           console.log('📥 Finalize API response:', {
             status: response.status,
@@ -2066,7 +2109,12 @@ export default function App() {
             }
           }
         } catch (finalSummaryError) {
-          console.error('❌ Error generating final summary:', finalSummaryError);
+          console.error('❌ Error generating final summary:', {
+            error: finalSummaryError,
+            message: finalSummaryError instanceof Error ? finalSummaryError.message : 'Unknown error',
+            type: finalSummaryError instanceof Error ? finalSummaryError.constructor.name : typeof finalSummaryError,
+            stack: finalSummaryError instanceof Error ? finalSummaryError.stack : 'No stack trace'
+          });
           // Continue with process even if final summary fails
         }
       } else {
@@ -2315,18 +2363,17 @@ export default function App() {
                   <div className="flex items-center gap-2">
                     {/* Tab Visibility Protection Indicator */}
                     {conversationState === 'recording' && (
-                        <div className="flex items-center gap-1 text-xs text-green-600 bg-green-50 dark:bg-green-900/20 px-2 py-1 rounded-full border border-green-200 dark:border-green-800" title="Recording protected from tab switches">
-                          <ShieldCheck className="w-3 h-3" />
-                          <span className="hidden sm:inline">Protected</span>
-                        </div>
-                      )}
-                      {wasRecordingBeforeHidden && conversationState === 'paused' && (
-                        <div className="flex items-center gap-1 text-xs text-amber-600 bg-amber-50 dark:bg-amber-900/20 px-2 py-1 rounded-full border border-amber-200 dark:border-amber-800" title="Paused due to tab switch - click Resume to continue">
-                          <RefreshCw className="w-3 h-3" />
-                          <span className="hidden sm:inline">Tab Return</span>
-                        </div>
-                      )}
-                    </div>
+                      <div className="flex items-center gap-1 text-xs text-green-600 bg-green-50 dark:bg-green-900/20 px-2 py-1 rounded-full border border-green-200 dark:border-green-800" title="Recording protected from tab switches">
+                        <ShieldCheck className="w-3 h-3" />
+                        <span className="hidden sm:inline">Protected</span>
+                      </div>
+                    )}
+                    {wasRecordingBeforeHidden && conversationState === 'paused' && (
+                      <div className="flex items-center gap-1 text-xs text-amber-600 bg-amber-50 dark:bg-amber-900/20 px-2 py-1 rounded-full border border-amber-200 dark:border-amber-800" title="Paused due to tab switch - click Resume to continue">
+                        <RefreshCw className="w-3 h-3" />
+                        <span className="hidden sm:inline">Tab Return</span>
+                      </div>
+                    )}
                   </div>
                   
                   {/* Enhanced Recording Controls */}

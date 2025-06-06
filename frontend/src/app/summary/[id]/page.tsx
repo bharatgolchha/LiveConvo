@@ -132,11 +132,18 @@ export default function SummaryPage() {
       const transcriptData = transcriptResponse.ok ? await transcriptResponse.json() : { data: [] };
 
       // Check if there's a final summary in the database
+      console.log('🔍 Summary page debug:', {
+        hasSummaries: !!sessionDataResponse.summaries,
+        summariesLength: sessionDataResponse.summaries?.length || 0,
+        summariesData: sessionDataResponse.summaries
+      });
+
       let finalSummary = null;
       let enhancedData = null;
       if (sessionDataResponse.summaries && sessionDataResponse.summaries.length > 0) {
         // Use the most recent summary
         finalSummary = sessionDataResponse.summaries[sessionDataResponse.summaries.length - 1];
+        console.log('✅ Found final summary:', finalSummary);
         
         // Parse structured notes if available
         if (finalSummary.structured_notes) {
@@ -147,6 +154,8 @@ export default function SummaryPage() {
             console.error('Failed to parse structured notes:', e);
           }
         }
+      } else {
+        console.log('⚠️ No summaries found in session data');
       }
 
       // Create comprehensive summary data

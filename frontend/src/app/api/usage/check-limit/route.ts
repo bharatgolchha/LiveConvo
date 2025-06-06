@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
+import { supabase, createServerSupabaseClient } from '@/lib/supabase';
 
 /**
  * GET /api/usage/check-limit - Check if user can continue recording based on plan limits
@@ -25,8 +25,9 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Get user's current organization
-    const { data: userData, error: userError } = await supabase
+    // Get user's current organization using service role client (bypasses RLS)
+    const serviceClient = createServerSupabaseClient();
+    const { data: userData, error: userError } = await serviceClient
       .from('users')
       .select('current_organization_id')
       .eq('id', user.id)

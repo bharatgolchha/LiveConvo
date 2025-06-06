@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
+import { supabase, createServerSupabaseClient, createAuthenticatedSupabaseClient } from '@/lib/supabase';
 
 /**
  * POST /api/sessions/[id]/context - Save context data for a session
@@ -13,10 +13,21 @@ export async function POST(
     const body = await request.json();
     const { text_context, context_metadata } = body;
 
-    // Get current user from Supabase auth
+    // Get current user from Supabase auth using the access token
     const authHeader = request.headers.get('authorization');
     const token = authHeader?.split(' ')[1];
-    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+    
+    if (!token) {
+      return NextResponse.json(
+        { error: 'Unauthorized', message: 'Please sign in to save context' },
+        { status: 401 }
+      );
+    }
+    
+    // Create authenticated client with user's token
+    const authClient = createAuthenticatedSupabaseClient(token);
+    
+    const { data: { user }, error: authError } = await authClient.auth.getUser();
     
     if (authError || !user) {
       return NextResponse.json(
@@ -25,8 +36,9 @@ export async function POST(
       );
     }
 
-    // Get user's current organization
-    const { data: userData, error: userError } = await supabase
+    // Get user's current organization using service role client (bypasses RLS)
+    const serviceClient = createServerSupabaseClient();
+    const { data: userData, error: userError } = await serviceClient
       .from('users')
       .select('current_organization_id')
       .eq('id', user.id)
@@ -39,8 +51,8 @@ export async function POST(
       );
     }
 
-    // Verify session belongs to user's organization
-    const { data: session, error: sessionError } = await supabase
+    // Verify session belongs to user's organization using authenticated client
+    const { data: session, error: sessionError } = await authClient
       .from('sessions')
       .select('id, organization_id')
       .eq('id', sessionId)
@@ -54,8 +66,8 @@ export async function POST(
       );
     }
 
-    // Check if context already exists
-    const { data: existingContext } = await supabase
+    // Check if context already exists using authenticated client
+    const { data: existingContext } = await authClient
       .from('session_context')
       .select('id')
       .eq('session_id', sessionId)
@@ -63,8 +75,8 @@ export async function POST(
 
     let contextData;
     if (existingContext) {
-      // Update existing context
-      const { data, error } = await supabase
+      // Update existing context using authenticated client
+      const { data, error } = await authClient
         .from('session_context')
         .update({
           text_context,
@@ -84,8 +96,8 @@ export async function POST(
       }
       contextData = data;
     } else {
-      // Create new context
-      const { data, error } = await supabase
+      // Create new context using authenticated client
+      const { data, error } = await authClient
         .from('session_context')
         .insert({
           session_id: sessionId,
@@ -131,10 +143,21 @@ export async function GET(
   try {
     const { id: sessionId } = await params;
 
-    // Get current user from Supabase auth
+    // Get current user from Supabase auth using the access token
     const authHeader = request.headers.get('authorization');
     const token = authHeader?.split(' ')[1];
-    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+    
+    if (!token) {
+      return NextResponse.json(
+        { error: 'Unauthorized', message: 'Please sign in to view context' },
+        { status: 401 }
+      );
+    }
+    
+    // Create authenticated client with user's token
+    const authClient = createAuthenticatedSupabaseClient(token);
+    
+    const { data: { user }, error: authError } = await authClient.auth.getUser();
     
     if (authError || !user) {
       return NextResponse.json(
@@ -143,8 +166,9 @@ export async function GET(
       );
     }
 
-    // Get user's current organization
-    const { data: userData, error: userError } = await supabase
+    // Get user's current organization using service role client (bypasses RLS)
+    const serviceClient = createServerSupabaseClient();
+    const { data: userData, error: userError } = await serviceClient
       .from('users')
       .select('current_organization_id')
       .eq('id', user.id)
@@ -157,8 +181,8 @@ export async function GET(
       );
     }
 
-    // Get context for the session
-    const { data: context, error } = await supabase
+    // Get context for the session using authenticated client
+    const { data: context, error } = await authClient
       .from('session_context')
       .select('*')
       .eq('session_id', sessionId)

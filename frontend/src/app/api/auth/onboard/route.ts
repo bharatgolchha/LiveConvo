@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
+import { supabase, createServerSupabaseClient } from '@/lib/supabase';
 
 /**
  * POST /api/auth/onboard - Handle user onboarding
@@ -38,8 +38,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Check if user exists in users table, create if not
-    let { data: existingUser } = await supabase
+    // Use service role client for administrative operations
+    const serviceClient = createServerSupabaseClient();
+    
+    // Check if user exists in users table
+    let { data: existingUser } = await serviceClient
       .from('users')
       .select('has_completed_onboarding, current_organization_id, full_name')
       .eq('id', user.id)
@@ -47,38 +50,13 @@ export async function POST(request: NextRequest) {
 
     console.log('👤 Existing user query result:', { existingUser });
 
-    // If user doesn't exist in users table, create them
+    // If user doesn't exist, return error (they should have been created by the trigger)
     if (!existingUser) {
-      console.log('🔨 Creating user record for:', user.id, user.email);
-      console.log('🔨 User metadata:', user.user_metadata);
-      
-      const userInsertData = {
-        id: user.id,
-        email: user.email,
-        full_name: user.user_metadata?.full_name || user.email?.split('@')[0] || 'User',
-        has_completed_onboarding: false,
-        has_completed_organization_setup: false,
-        is_active: true
-      };
-      console.log('🔨 Insert data:', userInsertData);
-      
-      const { data: newUser, error: createUserError } = await supabase
-        .from('users')
-        .insert(userInsertData)
-        .select('has_completed_onboarding, current_organization_id, full_name')
-        .single();
-
-      if (createUserError) {
-        console.error('❌ Failed to create user record:', createUserError);
-        console.error('❌ Detailed error:', JSON.stringify(createUserError, null, 2));
-        return NextResponse.json(
-          { error: 'Database error', message: 'Failed to create user profile' },
-          { status: 500 }
-        );
-      }
-      
-      existingUser = newUser;
-      console.log('✅ Created user record:', existingUser);
+      console.error('❌ User record not found for:', user.id);
+      return NextResponse.json(
+        { error: 'Database error', message: 'User profile not found. Please try signing in again.' },
+        { status: 500 }
+      );
     }
 
     if (existingUser?.has_completed_onboarding) {
@@ -89,7 +67,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Get the free plan
-    const { data: freePlan, error: planError } = await supabase
+    const { data: freePlan, error: planError } = await serviceClient
       .from('plans')
       .select('*')
       .eq('name', 'individual_free')
@@ -102,7 +80,7 @@ export async function POST(request: NextRequest) {
       console.error('Free plan not found:', planError);
       
       // Check what plans are available
-      const { data: allPlans } = await supabase
+      const { data: allPlans } = await serviceClient
         .from('plans')
         .select('*');
       console.log('📋 All available plans:', allPlans);
@@ -130,7 +108,7 @@ export async function POST(request: NextRequest) {
     
     // Ensure slug is unique
     while (true) {
-      const { data: existingOrg } = await supabase
+      const { data: existingOrg } = await serviceClient
         .from('organizations')
         .select('id')
         .eq('slug', organizationSlug)
@@ -142,7 +120,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Create organization
-    const { data: organization, error: orgError } = await supabase
+    const { data: organization, error: orgError } = await serviceClient
       .from('organizations')
       .insert({
         name: defaultOrgName,
@@ -166,7 +144,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Create organization membership with owner role
-    const { data: membership, error: membershipError } = await supabase
+    const { data: membership, error: membershipError } = await serviceClient
       .from('organization_members')
       .insert({
         organization_id: organization.id,
@@ -182,7 +160,7 @@ export async function POST(request: NextRequest) {
     if (membershipError) {
       console.error('Membership creation error:', membershipError);
       // Clean up organization if membership fails
-      await supabase.from('organizations').delete().eq('id', organization.id);
+      await serviceClient.from('organizations').delete().eq('id', organization.id);
       return NextResponse.json(
         { error: 'Database error', message: 'Failed to create organization membership' },
         { status: 500 }
@@ -190,7 +168,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Create subscription for the organization
-    const { data: subscription, error: subscriptionError } = await supabase
+    const { data: subscription, error: subscriptionError } = await serviceClient
       .from('subscriptions')
       .insert({
         organization_id: organization.id,
@@ -207,8 +185,8 @@ export async function POST(request: NextRequest) {
     if (subscriptionError) {
       console.error('Subscription creation error:', subscriptionError);
       // Clean up organization and membership if subscription fails
-      await supabase.from('organization_members').delete().eq('id', membership.id);
-      await supabase.from('organizations').delete().eq('id', organization.id);
+      await serviceClient.from('organization_members').delete().eq('id', membership.id);
+      await serviceClient.from('organizations').delete().eq('id', organization.id);
       return NextResponse.json(
         { error: 'Database error', message: 'Failed to create subscription' },
         { status: 500 }
@@ -216,7 +194,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Update user to mark onboarding as complete and set current organization
-    const { data: updatedUser, error: userUpdateError } = await supabase
+    const { data: updatedUser, error: userUpdateError } = await serviceClient
       .from('users')
       .update({
         has_completed_onboarding: true,

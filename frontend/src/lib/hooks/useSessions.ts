@@ -19,6 +19,7 @@ export interface Session {
   lastActivity?: string;
   hasSummary?: boolean;
   linkedConversationsCount?: number;
+  linkedConversations?: Array<{ id: string, title: string }>;
   summaries?: Array<{
     id: string;
     generation_status: string;

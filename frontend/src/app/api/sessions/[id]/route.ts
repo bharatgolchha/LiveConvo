@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
+import { supabase, createServerSupabaseClient, createAuthenticatedSupabaseClient } from '@/lib/supabase';
 
 /**
  * GET /api/sessions/[id] - Get session details with transcripts and summaries
@@ -23,22 +23,28 @@ export async function GET(
       );
     }
 
-    const { data: session, error } = await supabase
+    // Get user's current organization using service role client (bypasses RLS)
+    const serviceClient = createServerSupabaseClient();
+    const { data: userData, error: userError } = await serviceClient
+      .from('users')
+      .select('current_organization_id')
+      .eq('id', user.id)
+      .single();
+
+    if (userError || !userData?.current_organization_id) {
+      return NextResponse.json(
+        { error: 'Setup required', message: 'Please complete onboarding first' },
+        { status: 400 }
+      );
+    }
+
+    // Create authenticated client with user's token for RLS
+    const authClient = createAuthenticatedSupabaseClient(token);
+
+    const { data: session, error } = await authClient
       .from('sessions')
       .select(`
         *,
-        summaries(
-          id,
-          title,
-          tldr,
-          key_decisions,
-          action_items,
-          follow_up_questions,
-          conversation_highlights,
-          structured_notes,
-          generation_status,
-          created_at
-        ),
         transcripts(
           id,
           content,
@@ -51,10 +57,22 @@ export async function GET(
           content,
           guidance_type,
           created_at
+        ),
+        summaries(
+          id,
+          title,
+          tldr,
+          key_decisions,
+          action_items,
+          follow_up_questions,
+          conversation_highlights,
+          structured_notes,
+          generation_status,
+          created_at
         )
       `)
       .eq('id', sessionId)
-      .eq('user_id', user.id)
+      .eq('organization_id', userData.current_organization_id)
       .is('deleted_at', null)
       .single();
 
@@ -107,6 +125,24 @@ export async function PATCH(
       );
     }
 
+    // Get user's current organization using service role client (bypasses RLS)
+    const serviceClient = createServerSupabaseClient();
+    const { data: userData, error: userError } = await serviceClient
+      .from('users')
+      .select('current_organization_id')
+      .eq('id', user.id)
+      .single();
+
+    if (userError || !userData?.current_organization_id) {
+      return NextResponse.json(
+        { error: 'Setup required', message: 'Please complete onboarding first' },
+        { status: 400 }
+      );
+    }
+
+    // Create authenticated client with user's token for RLS
+    const authClient = createAuthenticatedSupabaseClient(token);
+
     // Extract allowed fields for update
     const allowedFields = [
       'title',
@@ -129,11 +165,11 @@ export async function PATCH(
     // Add updated timestamp
     updateData.updated_at = new Date().toISOString();
 
-    const { data: session, error } = await supabase
+    const { data: session, error } = await authClient
       .from('sessions')
       .update(updateData)
       .eq('id', sessionId)
-      .eq('user_id', user.id)
+      .eq('organization_id', userData.current_organization_id)
       .select()
       .single();
 
@@ -189,16 +225,34 @@ export async function DELETE(
       );
     }
 
+    // Get user's current organization using service role client (bypasses RLS)
+    const serviceClient = createServerSupabaseClient();
+    const { data: userData, error: userError } = await serviceClient
+      .from('users')
+      .select('current_organization_id')
+      .eq('id', user.id)
+      .single();
+
+    if (userError || !userData?.current_organization_id) {
+      return NextResponse.json(
+        { error: 'Setup required', message: 'Please complete onboarding first' },
+        { status: 400 }
+      );
+    }
+
+    // Create authenticated client with user's token for RLS
+    const authClient = createAuthenticatedSupabaseClient(token);
+
     let result;
     let message;
 
     if (hardDelete) {
       // Hard delete - permanently remove from database
-      const { data: session, error } = await supabase
+      const { data: session, error } = await authClient
         .from('sessions')
         .delete()
         .eq('id', sessionId)
-        .eq('user_id', user.id)
+        .eq('organization_id', userData.current_organization_id)
         .is('deleted_at', null)  // Only allow deleting non-deleted sessions
         .select()
         .single();
@@ -215,14 +269,14 @@ export async function DELETE(
       message = 'Session permanently deleted';
     } else {
       // Soft delete - set deleted_at timestamp
-      const { data: session, error } = await supabase
+      const { data: session, error } = await authClient
         .from('sessions')
         .update({ 
           deleted_at: new Date().toISOString(),
           updated_at: new Date().toISOString()
         })
         .eq('id', sessionId)
-        .eq('user_id', user.id)
+        .eq('organization_id', userData.current_organization_id)
         .is('deleted_at', null)  // Only allow deleting non-deleted sessions
         .select()
         .single();

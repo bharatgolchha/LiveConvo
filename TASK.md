@@ -4,6 +4,33 @@
 
 ### 🚀 New Features
 
+- [x] **🔗 Fix Dashboard Linked Conversations Display** (2025-06-06) 🆕 **JUST COMPLETED**
+  - **Issue**: Dashboard showed how many times a conversation was referenced by others, but user wanted to see how many previous conversations are linked TO each conversation
+  - **Request**: Reverse the logic to show linked previous conversations with hover details
+  - **Solution Implemented**:
+    - ✅ **Reversed Logic**: Changed API to show how many previous conversations each session uses as context
+      - Updated `getLinkedConversations()` function to check each session's own `selectedPreviousConversations`
+      - Changed from counting references to counting linked context conversations
+    - ✅ **Enhanced Data Structure**: API now returns both count and conversation details
+      - Added `linkedConversations` array with `{ id, title }` objects
+      - Maintains backward compatibility with `linkedConversationsCount`
+    - ✅ **Hover Functionality**: Added beautiful hover tooltip showing linked conversation titles
+      - Displays "Previous conversations used as context:" header
+      - Lists numbered conversation titles in tooltip
+      - Modern design with proper positioning and arrow
+    - ✅ **Updated Text**: Changed "Linked to X conversations" to "Linked to X previous conversations" for clarity
+  - **Technical Implementation**:
+    - Updated `frontend/src/app/api/sessions/route.ts` getLinkedConversations function
+    - Enhanced Session type in `useSessions.ts` to include `linkedConversations` array
+    - Added hover tooltip UI component in dashboard with proper styling
+    - Uses group-hover pattern for clean interaction without JavaScript events
+  - **User Experience**:
+    - Now shows meaningful information about conversation context relationships
+    - Hover reveals which specific conversations were used as context
+    - Clear visual indication with chain link icon and primary color
+    - Tooltip prevents text overflow with proper truncation
+  - **Status**: ✅ COMPLETED - Dashboard now correctly shows linked previous conversations with hover details
+
 - [ ] **🚀 Deploy LiveConvo to Vercel** (2025-01-30) 🆕 **IN PROGRESS**
   - **Request**: Set up production deployment on Vercel with proper environment configuration
   - **Strategy**: Deploy with current VoiceConvo Dev database, upgrade to separate environments later
