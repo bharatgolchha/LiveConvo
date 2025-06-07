@@ -10,14 +10,14 @@ export interface TranscriptLine {
 }
 
 export interface ConversationSummary {
-  tldr?: string;
-  keyPoints?: string[];
-  actionItems?: string[];
-  decisions?: string[];
-  nextSteps?: string[];
-  topics?: string[];
-  sentiment?: 'positive' | 'negative' | 'neutral';
-  progressStatus?: 'just_started' | 'building_momentum' | 'making_progress' | 'wrapping_up';
+  tldr: string;
+  keyPoints: string[];
+  actionItems: string[];
+  decisions: string[];
+  nextSteps: string[];
+  topics: string[];
+  sentiment: 'positive' | 'negative' | 'neutral';
+  progressStatus: 'just_started' | 'building_momentum' | 'making_progress' | 'wrapping_up';
 }
 
 export interface SessionFile {

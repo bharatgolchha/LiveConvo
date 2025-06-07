@@ -83,7 +83,7 @@ export default function DemoPage() {
               <div>
                 <h3 className="font-semibold mb-3">Variants</h3>
                 <div className="flex flex-wrap gap-2">
-                  <Button variant="default">Default</Button>
+                  <Button variant="primary">Default</Button>
                   <Button variant="secondary">Secondary</Button>
                   <Button variant="outline">Outline</Button>
                   <Button variant="ghost">Ghost</Button>
