@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { toast } from 'sonner';
+import { Session } from '@supabase/supabase-js';
 
 
 
@@ -36,6 +37,7 @@ interface UseRealtimeSummaryProps {
   isRecording: boolean;
   isPaused?: boolean; // Add isPaused to differentiate from stopped
   refreshIntervalMs?: number; // Default 45 seconds
+  session?: Session | null; // Supabase session for authentication
 }
 
 export function useRealtimeSummary({
@@ -44,7 +46,8 @@ export function useRealtimeSummary({
   conversationType = 'general',
   isRecording,
   isPaused = false,
-  refreshIntervalMs = 45000
+  refreshIntervalMs = 45000,
+  session
 }: UseRealtimeSummaryProps) {
   const [summary, setSummary] = useState<ConversationSummary | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -133,11 +136,18 @@ export function useRealtimeSummary({
         return;
       }
 
+      const headers: HeadersInit = {
+        'Content-Type': 'application/json',
+      };
+      
+      // Add authorization header if session is available
+      if (session?.access_token) {
+        headers['Authorization'] = `Bearer ${session.access_token}`;
+      }
+
       const response = await fetch('/api/summary', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers,
         body: JSON.stringify({
           transcript,
           sessionId,
@@ -218,7 +228,7 @@ export function useRealtimeSummary({
       isGenerating.current = false;
       setIsLoading(false);
     }
-  }, [transcript, sessionId, conversationType, isRecording, isPaused]);
+  }, [transcript, sessionId, conversationType, isRecording, isPaused, session]);
 
   // Auto-refresh effect
   useEffect(() => {

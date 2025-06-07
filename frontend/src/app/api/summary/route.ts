@@ -44,6 +44,40 @@ export async function POST(request: NextRequest) {
   try {
     const { transcript, sessionId, conversationType } = await request.json();
 
+    // Get current user from Supabase auth using the access token
+    const authHeader = request.headers.get('authorization');
+    const token = authHeader?.split(' ')[1];
+    
+    if (!token) {
+      return NextResponse.json(
+        { error: 'Unauthorized', message: 'Please sign in to generate summaries' },
+        { status: 401 }
+      );
+    }
+    
+    // Create authenticated client with user's token
+    const { createClient } = require('@supabase/supabase-js');
+    const authClient = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        global: {
+          headers: {
+            Authorization: `Bearer ${token}`
+          }
+        }
+      }
+    );
+    
+    const { data: { user }, error: authError } = await authClient.auth.getUser();
+    
+    if (authError || !user) {
+      return NextResponse.json(
+        { error: 'Unauthorized', message: 'Please sign in to generate summaries' },
+        { status: 401 }
+      );
+    }
+
     const apiKey = process.env.OPENROUTER_API_KEY;
     if (!apiKey) {
       return NextResponse.json(
@@ -193,7 +227,7 @@ Focus on extracting concrete, actionable information. Return only valid JSON.`;
       topics: Array.isArray(summaryData.topics) ? summaryData.topics : ['General'],
       sentiment: ['positive', 'negative', 'neutral'].includes(summaryData.sentiment) ? summaryData.sentiment : 'neutral',
       progressStatus: ['just_started', 'building_momentum', 'making_progress', 'wrapping_up'].includes(summaryData.progressStatus) ? summaryData.progressStatus : 'building_momentum',
-      suggestedChecklistItems: Array.isArray(summaryData.suggestedChecklistItems) ? summaryData.suggestedChecklistItems.filter(item => 
+      suggestedChecklistItems: Array.isArray(summaryData.suggestedChecklistItems) ? summaryData.suggestedChecklistItems.filter((item: any) => 
         item && 
         typeof item.text === 'string' && 
         ['high', 'medium', 'low'].includes(item.priority) &&
