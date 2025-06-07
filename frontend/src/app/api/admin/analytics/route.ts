@@ -119,13 +119,13 @@ export async function GET(request: NextRequest) {
       .gte('created_at', startDate.toISOString());
 
     // Aggregate by user
-    const userMetrics = topUserSessions?.reduce((acc, session) => {
+    const userMetrics = topUserSessions?.reduce((acc, session: any) => {
       const userId = session.user_id;
       if (!acc[userId]) {
         acc[userId] = {
           id: userId,
-          email: session.users.email,
-          organizationId: session.users.current_organization_id,
+          email: session.users?.email || 'Unknown',
+          organizationId: session.users?.current_organization_id || null,
           sessions: 0,
           audioMinutes: 0
         };
