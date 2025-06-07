@@ -55,6 +55,10 @@ interface AICoachSidebarProps {
   sessionId?: string;
   onAddToChecklist?: (text: string) => Promise<void>;
   authToken?: string;
+  
+  // Usage limits
+  canRecord?: boolean;
+  minutesRemaining?: number;
 }
 
 // Helper function to parse context from user messages and extract just the message
@@ -113,7 +117,9 @@ export default function AICoachSidebar({
   conversationState,
   sessionId,
   onAddToChecklist,
-  authToken
+  authToken,
+  canRecord = true,
+  minutesRemaining = 0
 }: AICoachSidebarProps) {
   // Detect if we're viewing a finalized/completed conversation
   const isViewingFinalized = conversationState === 'completed';
@@ -1263,6 +1269,8 @@ Example format for each chip: {"text": "🔥 Build rapport", "prompt": "How can 
                         className={`text-xs h-8 bg-card hover:bg-accent border-border justify-start ${
                           dynamicChips.length > 0 ? 'ring-1 ring-blue-200 dark:ring-blue-800' : ''
                         }`}
+                        disabled={!canRecord || minutesRemaining <= 0}
+                        title={!canRecord || minutesRemaining <= 0 ? "No minutes remaining. Please upgrade your plan." : help.prompt}
                       >
                         {help.text}
                       </Button>
@@ -1278,6 +1286,8 @@ Example format for each chip: {"text": "🔥 Build rapport", "prompt": "How can 
                         className={`text-xs h-7 bg-card hover:bg-accent border-border justify-start ${
                           dynamicChips.length > 0 ? 'ring-1 ring-blue-200 dark:ring-blue-800' : ''
                         }`}
+                        disabled={!canRecord || minutesRemaining <= 0}
+                        title={!canRecord || minutesRemaining <= 0 ? "No minutes remaining. Please upgrade your plan." : help.prompt}
                       >
                         {help.text}
                       </Button>
@@ -1294,7 +1304,9 @@ Example format for each chip: {"text": "🔥 Build rapport", "prompt": "How can 
                   value={newMessage}
                   onChange={(e) => setNewMessage(e.target.value)}
                   onKeyPress={handleKeyPress}
-                  placeholder={isViewingFinalized
+                  placeholder={!canRecord || minutesRemaining <= 0
+                    ? "No minutes remaining. Please upgrade your plan."
+                    : isViewingFinalized
                     ? `Analyze this completed ${contextSummary?.conversationType || 'conversation'}...`
                     : (contextSummary 
                         ? `Ask about your ${contextSummary.conversationType} (${isLiveConversation ? 'live' : 'planning'})...`
@@ -1303,13 +1315,14 @@ Example format for each chip: {"text": "🔥 Build rapport", "prompt": "How can 
                   }
                   className="flex-1 min-h-[40px] max-h-[120px] resize-none"
                   rows={1}
-                  disabled={isAIThinking}
+                  disabled={isAIThinking || !canRecord || minutesRemaining <= 0}
                 />
                 <Button
                   onClick={handleSendMessage}
-                  disabled={!newMessage.trim() || isAIThinking}
+                  disabled={!newMessage.trim() || isAIThinking || !canRecord || minutesRemaining <= 0}
                   size="sm"
                   className="px-4"
+                  title={!canRecord || minutesRemaining <= 0 ? "No minutes remaining. Please upgrade your plan." : "Send message"}
                 >
                   {isAIThinking ? (
                     <Loader2 className="h-4 w-4 animate-spin" />

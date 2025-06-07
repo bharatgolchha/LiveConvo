@@ -242,6 +242,8 @@ export default function App() {
     error: minuteTrackingError,
     startTracking,
     stopTracking,
+    canRecord,
+    minutesRemaining,
   } = useMinuteTracking({
     sessionId: conversationId,
     isRecording: conversationState === 'recording',
@@ -2207,7 +2209,18 @@ export default function App() {
       return <Button onClick={handlePauseRecording} size="lg" className="px-8 bg-warning hover:bg-warning/90 text-warning-foreground"><PauseCircle className="w-5 h-5 mr-2" />Pause</Button>;
     }
     if (conversationState === 'paused') {
-      return <Button onClick={handleResumeRecording} size="lg" className="px-8 bg-primary hover:bg-primary/90 text-primary-foreground"><Play className="w-5 h-5 mr-2" />Resume</Button>;
+      return (
+        <Button 
+          onClick={handleResumeRecording} 
+          size="lg" 
+          className="px-8 bg-primary hover:bg-primary/90 text-primary-foreground"
+          disabled={!canRecord || minutesRemaining <= 0}
+          title={!canRecord || minutesRemaining <= 0 ? "No minutes remaining. Please upgrade your plan." : "Resume recording"}
+        >
+          <Play className="w-5 h-5 mr-2" />
+          Resume
+        </Button>
+      );
     }
     if (conversationState === 'completed' || conversationState === 'error') {
       return <Button onClick={handleResetSession} size="lg" className="px-8 bg-secondary hover:bg-secondary/90 text-secondary-foreground"><RotateCcw className="w-5 h-5 mr-2" />New Session</Button>;
@@ -2429,6 +2442,8 @@ export default function App() {
                           onClick={handleResumeRecording}
                           size="md" 
                           className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold"
+                          disabled={!canRecord || minutesRemaining <= 0}
+                          title={!canRecord || minutesRemaining <= 0 ? "No minutes remaining. Please upgrade your plan." : "Resume recording"}
                         >
                           <Play className="w-4 h-4 mr-2" />
                           Resume
@@ -2603,6 +2618,8 @@ export default function App() {
             conversationState={conversationState}
             sessionId={conversationId || undefined}
             authToken={session?.access_token}
+            canRecord={canRecord}
+            minutesRemaining={minutesRemaining}
             onAddToChecklist={async (text: string) => {
               // Add to checklist
               if (!conversationId) {
