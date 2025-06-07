@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
+import { createServerSupabaseClient, createAuthenticatedSupabaseClient } from '@/lib/supabase';
 
 /**
  * POST /api/usage/track-minute - Track a minute of usage for billing
@@ -37,7 +37,17 @@ export async function POST(request: NextRequest) {
     // Get current user from Supabase auth
     const authHeader = request.headers.get('authorization');
     const token = authHeader?.split(' ')[1];
-    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+    
+    if (!token) {
+      return NextResponse.json(
+        { error: 'Unauthorized', message: 'Please sign in to track usage' },
+        { status: 401 }
+      );
+    }
+    
+    // Create authenticated client for user validation
+    const authSupabase = createAuthenticatedSupabaseClient(token);
+    const { data: { user }, error: authError } = await authSupabase.auth.getUser();
     
     if (authError || !user) {
       return NextResponse.json(
@@ -45,6 +55,9 @@ export async function POST(request: NextRequest) {
         { status: 401 }
       );
     }
+    
+    // Use service role client for database operations to bypass RLS
+    const supabase = createServerSupabaseClient();
 
     // Get user's current organization
     const { data: userData, error: userError } = await supabase

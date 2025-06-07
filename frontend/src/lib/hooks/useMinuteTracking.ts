@@ -21,7 +21,7 @@ interface UseMinuteTrackingProps {
 
 export function useMinuteTracking({
   sessionId,
-  isRecording,
+  isRecording, // Used for external tracking, not internal logic
   onLimitReached,
   onApproachingLimit
 }: UseMinuteTrackingProps) {
@@ -211,15 +211,10 @@ export function useMinuteTracking({
       setError('Failed to track usage');
       return null;
     }
-  }, [authSession, sessionId, state.monthlyMinutesLimit, onLimitReached]);
+  }, [authSession, sessionId, onLimitReached]);
 
   // Start recording timer
   const startTracking = useCallback(() => {
-    if (!isRecording) {
-      console.log('⏹️ Not recording, skipping startTracking');
-      return;
-    }
-    
     if (intervalRef.current) {
       console.log('⏸️ Already tracking, skipping startTracking');
       return;
@@ -267,7 +262,7 @@ export function useMinuteTracking({
         };
       });
     }, 1000);
-  }, [isRecording, trackMinute]);
+  }, [trackMinute, sessionId, authSession?.access_token]);
 
   // Stop recording timer
   const stopTracking = useCallback(() => {
@@ -344,15 +339,19 @@ export function useMinuteTracking({
   }, [authSession]);
 
   // Initialize and check limits on mount and when auth changes
+  const hasCheckedRef = useRef(false);
   useEffect(() => {
-    if (authSession?.access_token) {
+    if (authSession?.access_token && !hasCheckedRef.current) {
       console.log('🔑 Auth token available, checking usage limits...');
+      hasCheckedRef.current = true;
       checkUsageLimit();
       getCurrentMonthUsage();
       setError(null); // Clear any auth-related errors
-    } else {
+    } else if (!authSession?.access_token) {
       console.log('⏳ Waiting for auth token...');
+      hasCheckedRef.current = false;
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authSession?.access_token]); // Only react to auth token changes
 
   // Format time display

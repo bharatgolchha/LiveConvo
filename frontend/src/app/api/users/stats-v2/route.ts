@@ -59,8 +59,8 @@ export async function GET(request: NextRequest) {
     const currentDay = now.getDate();
     const daysRemainingInMonth = daysInMonth - currentDay;
 
-    // Check monthly usage from cache
-    const { data: monthlyUsage, error: usageError } = await supabase
+    // Check monthly usage from cache using service client to bypass RLS
+    const { data: monthlyUsage, error: usageError } = await serviceClient
       .from('monthly_usage_cache')
       .select('total_minutes_used, total_seconds_used')
       .eq('user_id', user.id)
@@ -71,8 +71,8 @@ export async function GET(request: NextRequest) {
     const monthlyMinutesUsed = monthlyUsage?.total_minutes_used || 0;
     const monthlySecondsUsed = monthlyUsage?.total_seconds_used || 0;
 
-    // Get usage limits using the database function
-    const { data: limits, error: limitsError } = await supabase
+    // Get usage limits using the database function with service client
+    const { data: limits, error: limitsError } = await serviceClient
       .rpc('check_usage_limit', {
         p_user_id: user.id,
         p_organization_id: userData.current_organization_id
@@ -94,8 +94,8 @@ export async function GET(request: NextRequest) {
     const averageDailyUsage = currentDay > 0 ? Math.round(monthlyMinutesUsed / currentDay) : 0;
     const projectedMonthlyUsage = Math.round(averageDailyUsage * daysInMonth);
 
-    // Get session statistics
-    const { data: sessionStats, error: sessionStatsError } = await supabase
+    // Get session statistics using service client
+    const { data: sessionStats, error: sessionStatsError } = await serviceClient
       .from('sessions')
       .select('status, recording_duration_seconds, created_at')
       .eq('organization_id', userData.current_organization_id)
@@ -139,7 +139,7 @@ export async function GET(request: NextRequest) {
     // Convert minutes used to hours for backward compatibility
     const monthlyAudioHours = Math.round((monthlyMinutesUsed / 60) * 10) / 10;
 
-    return NextResponse.json({
+    const responseData = {
       // Minute-based usage (primary)
       monthlyMinutesUsed,
       monthlyMinutesLimit,
@@ -179,7 +179,9 @@ export async function GET(request: NextRequest) {
       // Metadata
       currentMonth,
       lastUpdated: new Date().toISOString()
-    });
+    };
+
+    return NextResponse.json(responseData);
 
   } catch (error) {
     console.error('User stats V2 API error:', error);

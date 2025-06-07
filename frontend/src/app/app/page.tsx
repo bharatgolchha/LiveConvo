@@ -291,6 +291,23 @@ export default function App() {
     isCurrentlyRecordingRef.current = (conversationState as string) === 'recording';
   }, [conversationState]);
 
+  // Automatically start/stop minute tracking based on conversation state
+  const prevConversationStateRef = useRef<ConversationState | null>(null);
+  useEffect(() => {
+    // Only trigger if conversation state actually changed
+    if (prevConversationStateRef.current !== conversationState) {
+      if (conversationState === 'recording' && prevConversationStateRef.current !== 'recording') {
+        console.log('📊 Starting minute tracking (conversation state changed to recording)');
+        startTracking();
+      } else if ((conversationState === 'paused' || conversationState === 'completed') && 
+                 (prevConversationStateRef.current === 'recording')) {
+        console.log('⏸️ Stopping minute tracking (conversation state changed from recording)');
+        stopTracking();
+      }
+      prevConversationStateRef.current = conversationState;
+    }
+  }, [conversationState, startTracking, stopTracking]);
+
   // Timer to update session duration during recording - Fixed to track cumulative duration
   useEffect(() => {
     let interval: NodeJS.Timeout;
@@ -1660,7 +1677,6 @@ export default function App() {
 
       await Promise.all([startMyRecording(), startThemRecording()]);
 
-      startTracking();
       setLoadedSummary(null);
       setConversationState('recording');
       // Reset transcript length trackers for new recording session
@@ -1679,7 +1695,6 @@ export default function App() {
   };
 
   const handleStopRecording = async () => {
-    await stopTracking();
     stopMyRecording();
     stopThemRecording();
     disconnectMy();
@@ -1695,8 +1710,6 @@ export default function App() {
 
   const handlePauseRecording = async () => {
     console.log('⏸️ Pausing recording and disconnecting from Deepgram...');
-    
-    await stopTracking();
 
     // Stop the recording and disconnect from Deepgram
     stopMyRecording();
@@ -1743,7 +1756,6 @@ export default function App() {
       // Resume recording
       await Promise.all([startMyRecording(), startThemRecording()]);
 
-      startTracking();
       setLoadedSummary(null);
       setConversationState('recording');
       // Reset length trackers so new transcript is captured after resume
