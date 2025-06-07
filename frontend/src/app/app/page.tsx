@@ -58,7 +58,8 @@ import { cn } from '@/lib/utils';
 import { updateTalkStats, TalkStats } from '@/lib/transcriptUtils';
 import { FloatingChatGuidance } from '@/components/guidance/FloatingChatGuidance';
 
-import { useSessions, Session } from '@/lib/hooks/useSessions';
+import { useSessions, Session as LocalSession } from '@/lib/hooks/useSessions';
+import type { Session as SupabaseSession } from '@supabase/supabase-js';
 import { GuidanceChip, GuidanceType } from '@/components/guidance/GuidanceChip';
 import { useAuth } from '@/contexts/AuthContext';
 import { authenticatedFetch } from '@/lib/api';
@@ -95,7 +96,7 @@ type ConversationSummary = ConversationSummaryType;
 const saveTranscriptToDatabase = async (
   sessionId: string,
   transcriptLines: TranscriptLine[],
-  authSession: Session | null,
+  authSession: SupabaseSession | null,
   lastSavedIndex = 0,
   retryCount = 0
 ) : Promise<number> => {
@@ -165,7 +166,7 @@ const saveTranscriptToDatabase = async (
 const saveTranscriptNow = async (
   sessionId: string,
   transcriptLines: TranscriptLine[],
-  authSession: Session | null,
+  authSession: SupabaseSession | null,
   lastSavedIndex: number
 ): Promise<number> => {
   if (!sessionId || !transcriptLines || transcriptLines.length === 0 || !authSession) {
@@ -180,7 +181,7 @@ const saveTranscriptNow = async (
 
 
 
-const saveSummaryToDatabase = async (sessionId: string, summary: ConversationSummary, authSession: Session | null) => {
+const saveSummaryToDatabase = async (sessionId: string, summary: ConversationSummary, authSession: SupabaseSession | null) => {
   try {
     const response = await authenticatedFetch(`/api/sessions/${sessionId}`, authSession, {
       method: 'PATCH',

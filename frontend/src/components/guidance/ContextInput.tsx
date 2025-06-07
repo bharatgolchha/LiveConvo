@@ -132,7 +132,7 @@ export const ContextInput: React.FC<ContextInputProps> = ({
                 exit={{ opacity: 0, y: -10 }}
                 className="group"
               >
-                <Card padding="sm" className="bg-blue-50 border-blue-200">
+                <Card className="bg-blue-50 border-blue-200 p-4">
                   <div className="flex items-start justify-between gap-2">
                     <div className="flex-1 min-w-0">
                       <p className="text-sm text-gray-800 leading-relaxed">

@@ -4,21 +4,24 @@ import { cn } from '@/lib/utils';
 /**
  * Button component with multiple variants and sizes.
  */
-interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
-  children: React.ReactNode;
+export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
+  children?: React.ReactNode;
+  /** Optional icon displayed before the children */
+  icon?: React.ReactNode;
   variant?: 'primary' | 'secondary' | 'ghost' | 'outline' | 'destructive' | 'link';
   size?: 'sm' | 'md' | 'lg';
   loading?: boolean;
 }
 
-export const Button: React.FC<ButtonProps> = ({ 
-  children, 
-  className, 
+export const Button: React.FC<ButtonProps> = ({
+  children,
+  icon,
+  className,
   variant = 'primary',
   size = 'md',
   disabled,
   loading = false,
-  ...props 
+  ...props
 }) => {
   const variants = {
     primary: 'bg-app-primary hover:bg-app-primary-dark text-white border-transparent',
@@ -53,7 +56,10 @@ export const Button: React.FC<ButtonProps> = ({
           {children}
         </div>
       ) : (
-        children
+        <>
+          {icon && <span className="mr-2">{icon}</span>}
+          {children}
+        </>
       )}
     </button>
   );

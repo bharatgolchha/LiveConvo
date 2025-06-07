@@ -96,9 +96,9 @@ export default function DemoPage() {
                 <h3 className="font-semibold mb-3">Sizes</h3>
                 <div className="flex flex-wrap items-center gap-2">
                   <Button size="sm">Small</Button>
-                  <Button size="default">Default</Button>
+                  <Button size="md">Default</Button>
                   <Button size="lg">Large</Button>
-                  <Button size="icon"><Heart className="h-4 w-4" /></Button>
+                  <Button size="sm" icon={<Heart className="h-4 w-4" />} />
                 </div>
               </div>
 

@@ -2,7 +2,7 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { AlertCircle, ExternalLink, Zap, Clock } from 'lucide-react';
 import { Button } from '../ui/Button';
-import { Card } from '../ui/Card';
+import { Card, CardHeader, CardContent } from '../ui/Card';
 
 interface RealtimeApiInfoProps {
   onUseDemoMode?: () => void;
@@ -12,16 +12,15 @@ export const RealtimeApiInfo: React.FC<RealtimeApiInfoProps> = ({
   onUseDemoMode
 }) => {
   return (
-    <Card
-      header={
+    <Card className="max-w-2xl">
+      <CardHeader>
         <div className="flex items-center gap-2">
           <AlertCircle className="w-5 h-5 text-amber-600" />
           <span className="font-semibold">OpenAI Realtime API Status</span>
         </div>
-      }
-      className="max-w-2xl"
-    >
-      <div className="space-y-6">
+      </CardHeader>
+      <CardContent>
+        <div className="space-y-6">
         {/* Status Info */}
         <div className="p-4 bg-amber-50 rounded-lg border border-amber-200">
           <div className="flex items-start gap-3">
@@ -92,7 +91,8 @@ export const RealtimeApiInfo: React.FC<RealtimeApiInfoProps> = ({
           <p>• WebRTC-based local speech recognition</p>
           <p>• Integration with other speech-to-text providers</p>
         </div>
-      </div>
+        </div>
+      </CardContent>
     </Card>
   );
-}; 
+};

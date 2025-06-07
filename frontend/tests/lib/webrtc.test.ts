@@ -32,7 +32,7 @@ describe('WebRTC Transcription', () => {
     jest.clearAllMocks()
     
     // Mock global WebRTC APIs
-    ;(global as any).RTCPeerConnection = jest.fn(() => mockRTCPeerConnection)
+    ;(global as any).RTCPeerConnection = jest.fn(() => mockRTCPeerConnection) as any
     
     // Setup default mock implementations
     mockRTCPeerConnection.createOffer.mockResolvedValue({ 
@@ -109,10 +109,10 @@ describe('WebRTC Transcription', () => {
     it('should handle multiple audio tracks', () => {
       const connection = new RTCPeerConnection()
       const tracks = [
-        { kind: 'audio', id: 'track-1' },
-        { kind: 'audio', id: 'track-2' }
+        { kind: 'audio', id: 'track-1' } as any,
+        { kind: 'audio', id: 'track-2' } as any
       ]
-      const stream = { id: 'stream-1' }
+      const stream = { id: 'stream-1' } as any
       
       tracks.forEach(track => connection.addTrack(track, stream))
       
@@ -208,7 +208,7 @@ describe('WebRTC Transcription', () => {
       const error = new Error('WebRTC not supported')
       global.RTCPeerConnection = jest.fn(() => {
         throw error
-      })
+      }) as any
       
       expect(() => new RTCPeerConnection()).toThrow('WebRTC not supported')
     })
