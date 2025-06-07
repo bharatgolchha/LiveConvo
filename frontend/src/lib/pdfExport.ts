@@ -10,7 +10,11 @@ interface ExportOptions {
       keyPoints?: string[];
       decisions?: string[];
       actionItems?: string[];
-      insights?: any[];
+      insights?: Array<{
+        observation: string;
+        evidence?: string;
+        recommendation?: string;
+      }>;
       coachingRecommendations?: string[];
     };
     transcript_lines?: Array<{
@@ -231,7 +235,7 @@ export async function generatePDF(options: ExportOptions) {
     html += `
       <div class="section">
         <div class="section-title">Key Insights</div>
-        ${session.summary.insights.map((insight: any) => {
+        ${session.summary.insights.map((insight) => {
           if (typeof insight === 'string') {
             return `<div class="list-item">${insight}</div>`;
           }

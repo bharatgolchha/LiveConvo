@@ -3,6 +3,7 @@ import { Geist, Geist_Mono, Poppins } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { ThemeProvider } from "@/contexts/ThemeContext";
+import { AuthErrorBoundary } from "@/components/auth/AuthErrorBoundary";
 import { Toaster } from "sonner";
 
 const geistSans = Geist({
@@ -36,23 +37,25 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} ${poppins.variable} antialiased`}
       >
-        <ThemeProvider defaultTheme="system" storageKey="liveprompt-theme">
-          <AuthProvider>
-            {children}
-            <Toaster 
-              position="top-right"
-              toastOptions={{
-                classNames: {
-                  toast: 'bg-background border-border',
-                  title: 'text-foreground',
-                  description: 'text-muted-foreground',
-                  actionButton: 'bg-primary text-primary-foreground',
-                  cancelButton: 'bg-muted text-muted-foreground',
-                }
-              }}
-            />
-          </AuthProvider>
-        </ThemeProvider>
+        <AuthErrorBoundary>
+          <ThemeProvider defaultTheme="system" storageKey="liveprompt-theme">
+            <AuthProvider>
+              {children}
+              <Toaster 
+                position="top-right"
+                toastOptions={{
+                  classNames: {
+                    toast: 'bg-background border-border',
+                    title: 'text-foreground',
+                    description: 'text-muted-foreground',
+                    actionButton: 'bg-primary text-primary-foreground',
+                    cancelButton: 'bg-muted text-muted-foreground',
+                  }
+                }}
+              />
+            </AuthProvider>
+          </ThemeProvider>
+        </AuthErrorBoundary>
       </body>
     </html>
   );

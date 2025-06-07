@@ -128,7 +128,11 @@ export class WebRTCTranscriptionService {
         console.log('🎛️ Multiple audio tracks detected, mixing them...');
         
         // Create an audio context to mix the tracks
-        const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+        const AudioContextConstructor = window.AudioContext || (window as typeof window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+        if (!AudioContextConstructor) {
+          throw new Error('AudioContext not supported');
+        }
+        const audioContext = new AudioContextConstructor();
         const destination = audioContext.createMediaStreamDestination();
         
         // Add each track to the mixer

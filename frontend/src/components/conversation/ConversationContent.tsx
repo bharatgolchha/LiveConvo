@@ -930,7 +930,7 @@ export const ConversationContent: React.FC<ConversationContentProps> = ({
                     </div>
                     <div>
                       <h3 className="text-lg font-semibold text-cyan-900 dark:text-cyan-100">Topic Discussion</h3>
-                      <p className="text-sm text-cyan-700 dark:text-cyan-300">"{selectedTopic}"</p>
+                      <p className="text-sm text-cyan-700 dark:text-cyan-300">&quot;{selectedTopic}&quot;</p>
                     </div>
                   </div>
                   <Button
@@ -956,7 +956,7 @@ export const ConversationContent: React.FC<ConversationContentProps> = ({
                         </div>
                       </div>
                       <h4 className="text-lg font-semibold text-foreground mb-2">Analyzing Discussion</h4>
-                      <p className="text-muted-foreground">AI is summarizing what was said about "{selectedTopic}"...</p>
+                      <p className="text-muted-foreground">AI is summarizing what was said about &quot;{selectedTopic}&quot;...</p>
                     </div>
                   </div>
                 ) : topicSummary ? (

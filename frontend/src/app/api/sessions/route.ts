@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabase, createServerSupabaseClient, createAuthenticatedSupabaseClient } from '@/lib/supabase';
+import type { SessionData, SessionContext, LinkedConversation, LinkedConversationsData } from '@/types/api';
 
 /**
  * GET /api/sessions - Fetch user sessions/conversations
@@ -267,7 +268,7 @@ export async function POST(request: NextRequest) {
 /**
  * Get linked conversations data for sessions (how many previous conversations each session has linked)
  */
-async function getLinkedConversations(sessionIds: string[], organizationId: string, authClient: any): Promise<Map<string, { count: number, conversations: Array<{ id: string, title: string }> }>> {
+async function getLinkedConversations(sessionIds: string[], organizationId: string, authClient: ReturnType<typeof createAuthenticatedSupabaseClient>): Promise<Map<string, LinkedConversationsData>> {
   try {
     // Get session context data for the requested sessions
     const { data: contextData, error } = await authClient
@@ -282,21 +283,21 @@ async function getLinkedConversations(sessionIds: string[], organizationId: stri
       return new Map();
     }
 
-    const linkedData = new Map<string, { count: number, conversations: Array<{ id: string, title: string }> }>();
+    const linkedData = new Map<string, LinkedConversationsData>();
 
     // Initialize all session IDs with empty data
     sessionIds.forEach(id => linkedData.set(id, { count: 0, conversations: [] }));
 
     // Get all unique previous conversation IDs to fetch their titles
     const allPreviousIds = new Set<string>();
-    contextData?.forEach(context => {
+    contextData?.forEach((context: SessionContext) => {
       if (context.context_metadata?.selectedPreviousConversations && Array.isArray(context.context_metadata.selectedPreviousConversations)) {
         context.context_metadata.selectedPreviousConversations.forEach((id: string) => allPreviousIds.add(id));
       }
     });
 
     // Fetch titles for all previous conversations
-    let conversationTitles = new Map<string, string>();
+    const conversationTitles = new Map<string, string>();
     if (allPreviousIds.size > 0) {
       const { data: sessionTitles, error: titlesError } = await authClient
         .from('sessions')
@@ -311,10 +312,10 @@ async function getLinkedConversations(sessionIds: string[], organizationId: stri
     }
 
     // Process each session's linked conversations
-    contextData?.forEach(context => {
+    contextData?.forEach((context: SessionContext) => {
       if (context.context_metadata?.selectedPreviousConversations && Array.isArray(context.context_metadata.selectedPreviousConversations)) {
         const selectedIds = context.context_metadata.selectedPreviousConversations;
-        const conversations = selectedIds.map((id: string) => ({
+        const conversations: LinkedConversation[] = selectedIds.map((id: string) => ({
           id,
           title: conversationTitles.get(id) || 'Untitled Conversation'
         }));
@@ -336,7 +337,7 @@ async function getLinkedConversations(sessionIds: string[], organizationId: stri
 /**
  * Calculate last activity timestamp for a session
  */
-function calculateLastActivity(session: any): string {
+function calculateLastActivity(session: Pick<SessionData, 'recording_ended_at' | 'recording_started_at' | 'updated_at' | 'created_at'>): string {
   const now = new Date();
   const updatedAt = new Date(session.updated_at);
   const diffMs = now.getTime() - updatedAt.getTime();

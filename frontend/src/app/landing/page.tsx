@@ -346,7 +346,7 @@ export default function LandingPage() {
                     {testimonial.badge}
                   </span>
                 </div>
-                <p className="font-medium mb-4 pr-20" style={{ color: '#ffffff' }}>"{testimonial.quote}"</p>
+                <p className="font-medium mb-4 pr-20" style={{ color: '#ffffff' }}>&quot;{testimonial.quote}&quot;</p>
                 <div className="flex items-center gap-3">
                   <img 
                     src={testimonial.image} 

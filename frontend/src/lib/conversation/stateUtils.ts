@@ -18,6 +18,18 @@ import {
   Settings2 
 } from 'lucide-react';
 
+export interface SavedConversationState {
+  conversationState: ConversationState;
+  sessionDuration: number;
+  transcript: TranscriptLine[];
+  talkStats: TalkStats;
+  conversationType: string;
+  conversationTitle: string;
+  textContext: string;
+  selectedPreviousConversations?: string[];
+  updatedAt?: string;
+}
+
 /**
  * Get display text, color, and icon for conversation state.
  */
@@ -107,7 +119,7 @@ export const saveConversationState = (
 /**
  * Load conversation state from localStorage.
  */
-export const loadConversationState = (conversationId: string): any | null => {
+export const loadConversationState = (conversationId: string): SavedConversationState | null => {
   if (typeof window === 'undefined') return null;
 
   try {
@@ -118,7 +130,7 @@ export const loadConversationState = (conversationId: string): any | null => {
     
     // Convert transcript timestamps back to Date objects
     if (parsed.transcript) {
-      parsed.transcript = parsed.transcript.map((line: any) => ({
+      parsed.transcript = parsed.transcript.map((line: TranscriptLine) => ({
         ...line,
         timestamp: new Date(line.timestamp)
       }));

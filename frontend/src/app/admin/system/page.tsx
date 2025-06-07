@@ -12,7 +12,7 @@ interface SystemLog {
   context: string;
   message: string;
   user_id?: string;
-  metadata?: any;
+  metadata?: Record<string, unknown>;
 }
 
 interface SystemHealth {

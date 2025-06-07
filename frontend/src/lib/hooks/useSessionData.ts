@@ -17,11 +17,19 @@ export interface SessionDocument {
   updated_at: string;
 }
 
+export interface SessionContextMetadata {
+  conversation_type?: string;
+  created_from?: string;
+  has_files?: boolean;
+  selectedPreviousConversations?: string[];
+  [key: string]: unknown;
+}
+
 export interface SessionContext {
   id: string;
   session_id: string;
   text_context?: string;
-  context_metadata?: any;
+  context_metadata?: SessionContextMetadata;
   processing_status: string;
   created_at: string;
   updated_at: string;
@@ -39,7 +47,7 @@ export interface SessionDataHookReturn {
   context: SessionContext | null;
   contextLoading: boolean;
   contextError: string | null;
-  saveContext: (sessionId: string, textContext: string, metadata?: any) => Promise<SessionContext>;
+  saveContext: (sessionId: string, textContext: string, metadata?: SessionContextMetadata) => Promise<SessionContext>;
   fetchContext: (sessionId: string) => Promise<void>;
   
   // OCR
@@ -166,7 +174,7 @@ export function useSessionData(): SessionDataHookReturn {
   /**
    * Save context data for a session
    */
-  const saveContext = useCallback(async (sessionId: string, textContext: string, metadata?: any): Promise<SessionContext> => {
+  const saveContext = useCallback(async (sessionId: string, textContext: string, metadata?: SessionContextMetadata): Promise<SessionContext> => {
     if (!user || !session?.access_token) {
       throw new Error('Authentication required');
     }

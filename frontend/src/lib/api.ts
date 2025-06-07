@@ -29,7 +29,7 @@ export async function authenticatedFetch(
  * Utility function to make authenticated API requests with JSON response
  * Automatically includes the Bearer token and parses JSON response
  */
-export async function authenticatedFetchJson<T = any>(
+export async function authenticatedFetchJson<T = unknown>(
   url: string,
   session: Session | null,
   options: RequestInit = {}

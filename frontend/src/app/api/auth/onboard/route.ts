@@ -42,7 +42,7 @@ export async function POST(request: NextRequest) {
     const serviceClient = createServerSupabaseClient();
     
     // Check if user exists in users table
-    let { data: existingUser } = await serviceClient
+    const { data: existingUser } = await serviceClient
       .from('users')
       .select('has_completed_onboarding, current_organization_id, full_name')
       .eq('id', user.id)

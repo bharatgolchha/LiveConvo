@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { Card } from '@/components/ui/Card';
-import { format, startOfWeek, eachDayOfInterval, subDays } from 'date-fns';
+import { format } from 'date-fns';
 import { adminFetch } from '@/lib/adminApi';
 
 interface AnalyticsData {
@@ -35,10 +35,6 @@ export default function AdminAnalyticsPage() {
   const [loading, setLoading] = useState(true);
   const [timeRange, setTimeRange] = useState('week');
 
-  useEffect(() => {
-    fetchAnalytics();
-  }, [timeRange]);
-
   const fetchAnalytics = async () => {
     try {
       const data = await adminFetch(`/api/admin/analytics?range=${timeRange}`);
@@ -49,6 +45,10 @@ export default function AdminAnalyticsPage() {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    fetchAnalytics();
+  }, [timeRange]);
 
   if (loading) {
     return (

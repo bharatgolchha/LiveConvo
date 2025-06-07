@@ -49,17 +49,52 @@ interface SessionSummary {
     tldr: string;
     sentiment?: string;
     topics?: string[];
-    insights?: any[];
+    insights?: Array<{
+      observation: string;
+      evidence?: string;
+      recommendation?: string;
+    }>;
     missedOpportunities?: string[];
     successfulMoments?: string[];
     followUpQuestions?: string[];
-    conversationDynamics?: any;
-    effectivenessMetrics?: any;
+    conversationDynamics?: {
+      rapport_level?: string;
+      engagement_quality?: string;
+      dominant_speaker?: string;
+      pace?: string;
+      tone?: string;
+    };
+    effectivenessMetrics?: {
+      objective_achievement?: number;
+      communication_clarity?: number;
+      participant_satisfaction?: number;
+      overall_success?: number;
+    };
     coachingRecommendations?: string[];
-    performanceAnalysis?: any;
-    conversationPatterns?: any;
-    keyTechniquesUsed?: any[];
-    followUpStrategy?: any;
+    performanceAnalysis?: {
+      strengths?: string[];
+      areas_for_improvement?: string[];
+      communication_effectiveness?: number;
+      goal_achievement?: number;
+      listening_quality?: number;
+      question_effectiveness?: number;
+    };
+    conversationPatterns?: {
+      opening_effectiveness?: string;
+      flow_management?: string;
+      closing_quality?: string;
+      energy_levels?: string;
+    };
+    keyTechniquesUsed?: Array<{
+      technique: string;
+      example?: string;
+      effectiveness?: string;
+    }>;
+    followUpStrategy?: {
+      immediate_actions?: string[];
+      short_term?: string[];
+      long_term?: string[];
+    };
     successIndicators?: string[];
     riskFactors?: string[];
   };
@@ -772,7 +807,7 @@ export default function SummaryPage() {
                     <div key={index} className="border-l-2 border-amber-500 pl-4">
                       <p className="font-medium text-foreground mb-1">{insight.observation}</p>
                       {insight.evidence && (
-                        <p className="text-sm text-muted-foreground italic mb-2">"{insight.evidence}"</p>
+                        <p className="text-sm text-muted-foreground italic mb-2">&quot;{insight.evidence}&quot;</p>
                       )}
                       {insight.recommendation && (
                         <p className="text-sm text-amber-600 dark:text-amber-400">

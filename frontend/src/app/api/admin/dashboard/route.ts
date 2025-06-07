@@ -1,5 +1,6 @@
 import { NextResponse, NextRequest } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import type { Subscription, WaitlistEntry, WaitlistStats } from '@/types/api';
 
 export async function GET(request: NextRequest) {
   try {
@@ -118,8 +119,8 @@ export async function GET(request: NextRequest) {
     // Group users by plan
     const subscriptions = subscriptionsResult.data || [];
     const planCounts = subscriptions
-      .filter((sub: any) => sub.status === 'active')
-      .reduce((acc: Record<string, number>, sub: any) => {
+      .filter((sub: Subscription) => sub.status === 'active')
+      .reduce((acc: Record<string, number>, sub: Subscription) => {
         const planName = sub.plans?.display_name || sub.plan_type || 'Free';
         acc[planName] = (acc[planName] || 0) + 1;
         return acc;
@@ -143,11 +144,11 @@ export async function GET(request: NextRequest) {
 
     // Calculate waitlist statistics
     const waitlistEntries = waitlistResult.data || [];
-    const waitlistStats = waitlistEntries.reduce((acc, entry: any) => {
+    const waitlistStats = waitlistEntries.reduce((acc, entry: WaitlistEntry) => {
       acc.total += 1;
       acc[entry.status] = (acc[entry.status] || 0) + 1;
       return acc;
-    }, { total: 0, pending: 0, approved: 0, rejected: 0, invited: 0 } as Record<string, number>);
+    }, { total: 0, pending: 0, approved: 0, rejected: 0, invited: 0 } as WaitlistStats);
 
     return NextResponse.json({
       totalUsers,

@@ -33,27 +33,6 @@ export const ChecklistTab: React.FC<ChecklistTabProps> = ({
   const [isGenerating, setIsGenerating] = useState(false);
   const [hasGenerated, setHasGenerated] = useState(false);
 
-  // Check if user is authenticated
-  if (!authToken) {
-    return (
-      <div className="h-full flex flex-col items-center justify-center gap-4">
-        <div className="text-center">
-          <CheckSquare className="h-12 w-12 mx-auto mb-4 opacity-50" />
-          <p className="text-lg font-medium mb-2">Authentication Required</p>
-          <p className="text-sm text-muted-foreground mb-4">
-            Please log in to access your checklist
-          </p>
-          <Button 
-            onClick={() => window.location.href = '/auth/login'} 
-            variant="outline"
-          >
-            Go to Login
-          </Button>
-        </div>
-      </div>
-    );
-  }
-
   // Fetch checklist items
   const fetchItems = async () => {
     try {
@@ -271,6 +250,27 @@ export const ChecklistTab: React.FC<ChecklistTabProps> = ({
     hasTranscript: !!transcript,
     shouldShowButton
   });
+
+  // Check if user is authenticated
+  if (!authToken) {
+    return (
+      <div className="h-full flex flex-col items-center justify-center gap-4">
+        <div className="text-center">
+          <CheckSquare className="h-12 w-12 mx-auto mb-4 opacity-50" />
+          <p className="text-lg font-medium mb-2">Authentication Required</p>
+          <p className="text-sm text-muted-foreground mb-4">
+            Please log in to access your checklist
+          </p>
+          <Button 
+            onClick={() => window.location.href = '/auth/login'} 
+            variant="outline"
+          >
+            Go to Login
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   if (loading) {
     return (

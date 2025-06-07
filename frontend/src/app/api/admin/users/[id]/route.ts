@@ -1,5 +1,6 @@
 import { NextResponse, NextRequest } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import type { UserSession } from '@/types/api';
 
 export async function GET(
   request: NextRequest,
@@ -104,15 +105,15 @@ export async function GET(
             display_name
           )
         `)
-        .eq('organization_id', (orgMember.organizations as any).id)
+        .eq('organization_id', (orgMember.organizations as { id: string; name: string }).id)
         .eq('status', 'active')
         .limit(1)
         .single();
 
       organization = {
-        id: (orgMember.organizations as any).id,
-        name: (orgMember.organizations as any).name,
-        current_plan: (subscription?.plans as any)?.display_name || subscription?.plan_type || 'Free'
+        id: (orgMember.organizations as { id: string; name: string }).id,
+        name: (orgMember.organizations as { id: string; name: string }).name,
+        current_plan: (subscription?.plans as { display_name: string })?.display_name || subscription?.plan_type || 'Free'
       };
     }
 
@@ -127,10 +128,10 @@ export async function GET(
       .eq('user_id', userId);
 
     const totalSessions = sessionStats?.length || 0;
-    const totalAudioMinutes = sessionStats?.reduce((acc, session) => 
-      acc + ((session as any).recording_duration_seconds || 0), 0) / 60 || 0;
+    const totalAudioMinutes = sessionStats?.reduce((acc, session: UserSession) => 
+      acc + ((session.recording_duration_seconds || 0)), 0) / 60 || 0;
     const lastSessionAt = sessionStats && sessionStats.length > 0 
-      ? sessionStats.sort((a, b) => new Date((b as any).created_at).getTime() - new Date((a as any).created_at).getTime())[0]?.created_at
+      ? sessionStats.sort((a: UserSession, b: UserSession) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())[0]?.created_at
       : null;
 
     // Fetch recent sessions (last 10)

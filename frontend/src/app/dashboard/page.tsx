@@ -33,6 +33,7 @@ import { DeleteConfirmationModal } from '@/components/ui/DeleteConfirmationModal
 import { PricingModal } from '@/components/ui/PricingModal';
 import { SettingsPanel } from '@/components/settings/SettingsPanel';
 import { ConversationListDate } from '@/components/ui/ConversationDateIndicator';
+import type { ConversationConfig } from '@/types/app';
 
 // Types (using Session from useSessions hook)
 
@@ -598,7 +599,7 @@ const EmptyState: React.FC<{ onNewConversation: () => void }> = ({ onNewConversa
 const NewConversationModal: React.FC<{
   isOpen: boolean;
   onClose: () => void;
-  onStart: (config: any) => void;
+  onStart: (config: ConversationConfig) => void;
   sessions?: Session[];
 }> = ({ isOpen, onClose, onStart, sessions = [] }) => {
   const [step, setStep] = useState(1);
@@ -1327,7 +1328,7 @@ const DashboardPage: React.FC = () => {
     setShowNewConversationModal(true);
   };
 
-  const handleStartConversation = async (config: any) => {
+  const handleStartConversation = async (config: ConversationConfig) => {
     try {
       // Create a new session with context data
       const newSession = await createSession({

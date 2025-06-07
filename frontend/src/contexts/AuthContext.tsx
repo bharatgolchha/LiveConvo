@@ -40,9 +40,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Get initial session
     const getInitialSession = async () => {
       try {
-        const { data: { session: initialSession } } = await supabase.auth.getSession()
-        setSession(initialSession)
-        setUser(initialSession?.user ?? null)
+        const { data: { session: initialSession }, error } = await supabase.auth.getSession()
+        
+        if (error) {
+          console.error('Error getting session:', error)
+          // Check if it's a refresh token error
+          if (error.message?.includes('Refresh Token') || error.message?.includes('refresh token')) {
+            setSessionExpiredMessage('Your session has expired. Please sign in again.')
+            // Clear any invalid stored session
+            await supabase.auth.signOut()
+          }
+        } else {
+          setSession(initialSession)
+          setUser(initialSession?.user ?? null)
+        }
       } catch (error) {
         console.error('Error getting session:', error)
         // setUser and setSession remain null
@@ -57,14 +68,32 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, currentSession) => {
         // setLoading(true) // Optional: indicate loading during auth state change
+        
+        // Handle different auth events
+        if (event === 'TOKEN_REFRESHED') {
+          console.log('Token refreshed successfully')
+          setSessionExpiredMessage(null)
+        } else if (event === 'SIGNED_OUT') {
+          console.log('User signed out')
+          setSessionExpiredMessage(null)
+        } else if (event === 'USER_UPDATED') {
+          console.log('User updated')
+        }
+        
+        // Handle session errors
+        if (!currentSession && (event === 'TOKEN_REFRESHED' || event === 'SIGNED_IN')) {
+          // This suggests a token refresh failure
+          console.error('Session refresh failed')
+          setSessionExpiredMessage('Your session has expired. Please sign in again.')
+        }
+        
         setSession(currentSession)
         setUser(currentSession?.user ?? null)
         if (!currentSession) {
-          // If user explicitly signs out or session becomes null,
-          // this is not necessarily an "expired" session from an API call perspective.
-          // We might want to clear the message, or let API call failures handle it.
-          // For now, clearing it here ensures a clean state on logout.
-          setSessionExpiredMessage(null)
+          // Clear expired message on proper logout
+          if (event === 'SIGNED_OUT') {
+            setSessionExpiredMessage(null)
+          }
         }
         setLoading(false) // Auth state change processed
       }
@@ -75,7 +104,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signUp = async (email: string, password: string, fullName: string) => {
     if (!isSupabaseConfigured) {
-      return { error: { message: 'Authentication not configured. Please set up Supabase credentials.' } as any }
+      return { error: { message: 'Authentication not configured. Please set up Supabase credentials.' } as AuthError }
     }
     try {
       const { error } = await supabase.auth.signUp({
@@ -89,13 +118,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       })
       return { error }
     } catch (error) {
-      return { error: { message: 'Authentication service unavailable' } as any }
+      return { error: { message: 'Authentication service unavailable' } as AuthError }
     }
   }
 
   const signIn = async (email: string, password: string) => {
     if (!isSupabaseConfigured) {
-      return { error: { message: 'Authentication not configured. Please set up Supabase credentials.' } as any }
+      return { error: { message: 'Authentication not configured. Please set up Supabase credentials.' } as AuthError }
     }
     try {
       const { error } = await supabase.auth.signInWithPassword({
@@ -107,13 +136,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
       return { error }
     } catch (error) {
-      return { error: { message: 'Authentication service unavailable' } as any }
+      return { error: { message: 'Authentication service unavailable' } as AuthError }
     }
   }
 
   const signInWithGoogle = async () => {
     if (!isSupabaseConfigured) {
-      return { error: { message: 'Authentication not configured. Please set up Supabase credentials.' } as any }
+      return { error: { message: 'Authentication not configured. Please set up Supabase credentials.' } as AuthError }
     }
     try {
       const { error } = await supabase.auth.signInWithOAuth({
@@ -124,7 +153,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       })
       return { error }
     } catch (error) {
-      return { error: { message: 'Authentication service unavailable' } as any }
+      return { error: { message: 'Authentication service unavailable' } as AuthError }
     }
   }
 
@@ -142,7 +171,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return { error }
     } catch (error) {
       setSessionExpiredMessage(null)
-      return { error: { message: 'Sign out failed' } as any }
+      return { error: { message: 'Sign out failed' } as AuthError }
     }
   }
 
