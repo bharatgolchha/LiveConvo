@@ -128,13 +128,13 @@ export async function GET(request: NextRequest) {
       };
     }
     
-    const userMetrics = topUserSessions?.reduce((acc, session: SessionWithUser) => {
+    const userMetrics = topUserSessions?.reduce((acc, session) => {
       const userId = session.user_id;
       if (!acc[userId]) {
         acc[userId] = {
           id: userId,
-          email: session.users.email || 'Unknown',
-          organizationId: session.users.current_organization_id || null,
+          email: (session as SessionWithUser).users?.email || 'Unknown',
+          organizationId: (session as SessionWithUser).users?.current_organization_id || null,
           sessions: 0,
           audioMinutes: 0
         };
