@@ -2357,21 +2357,21 @@ function AppContent() {
     <div className={cn("h-screen flex flex-col overflow-hidden", isFullscreen ? 'h-screen overflow-hidden' : '')}>
       {/* Header */}
       {!isFullscreen && (
-        <header className="bg-card/95 backdrop-blur-md border-b border-border shadow-lg z-40 flex-shrink-0">
-          <div className="px-4 sm:px-6 lg:px-8 py-4">
+        <header className="bg-card/95 backdrop-blur-md border-b border-border shadow-sm z-40 flex-shrink-0">
+          <div className="px-4 sm:px-6 lg:px-8 py-2">
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-6">
+              <div className="flex items-center gap-4">
                 <Link href="/dashboard" className="flex items-center gap-2 text-muted-foreground hover:text-primary transition-colors group">
                   <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
                   <span className="text-sm font-medium">Dashboard</span>
                 </Link>
 
-                <div className="h-6 w-px bg-border"></div>
+                <div className="h-4 w-px bg-border"></div>
 
-                <div className="flex items-center gap-4">
+                <div className="flex items-center gap-3">
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-3">
-                      <h1 className="font-bold text-foreground text-xl truncate leading-tight" title={conversationTitle}>
+                      <h1 className="font-semibold text-foreground text-lg truncate leading-tight" title={conversationTitle}>
                         {conversationTitle}
                       </h1>
                       <div className={cn("flex items-center gap-1 text-xs font-medium px-2 py-1 rounded-full", stateColorClass)}>
@@ -2384,16 +2384,6 @@ function AppContent() {
                         )}
                       </div>
                     </div>
-                    
-                    {/* Conversation Date Indicator */}
-                    {currentSessionData && (
-                      <div className="mt-1">
-                        <ConversationHeaderDate 
-                          session={currentSessionData} 
-                          className="text-muted-foreground"
-                        />
-                      </div>
-                    )}
                   </div>
                   
                   {/* Status Indicators */}
@@ -2414,14 +2404,14 @@ function AppContent() {
                   </div>
                   
                   {/* Enhanced Recording Controls */}
-                  <div className="hidden sm:flex items-center gap-3 ml-6">
+                  <div className="hidden sm:flex items-center gap-2 ml-4">
                     {(conversationState === 'setup' || conversationState === 'ready') && (
                       <Button 
                         onClick={conversationState === 'setup' ? () => { if (textContext) addUserContext(textContext); setConversationState('ready'); } : handleInitiateRecording}
-                        size="md" 
-                        className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold px-6"
+                        size="sm" 
+                        className="bg-primary hover:bg-primary/90 text-primary-foreground font-medium px-4"
                       >
-                        <Mic className="w-4 h-4 mr-2" />
+                        <Mic className="w-4 h-4 mr-1.5" />
                         {conversationState === 'setup' ? 'Get Ready' : 'Start Recording'}
                       </Button>
                     )}
@@ -2430,19 +2420,19 @@ function AppContent() {
                       <>
                         <Button 
                           onClick={handlePauseRecording}
-                          size="md" 
+                          size="sm" 
                           variant="outline"
-                          className="border-2 border-warning text-warning hover:bg-warning/10 font-semibold"
+                          className="border-warning text-warning hover:bg-warning/10 font-medium"
                         >
-                          <PauseCircle className="w-4 h-4 mr-2" />
+                          <PauseCircle className="w-4 h-4 mr-1.5" />
                           Pause
                         </Button>
                         <Button 
                           onClick={handleEndConversationAndFinalize}
-                          size="md" 
-                          className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold"
+                          size="sm" 
+                          className="bg-primary hover:bg-primary/90 text-primary-foreground font-medium"
                         >
-                          <FileText className="w-4 h-4 mr-2" />
+                          <FileText className="w-4 h-4 mr-1.5" />
                           End & Finalize
                         </Button>
                       </>
@@ -2452,20 +2442,20 @@ function AppContent() {
                       <>
                         <Button 
                           onClick={handleResumeRecording}
-                          size="md" 
-                          className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold"
+                          size="sm" 
+                          className="bg-primary hover:bg-primary/90 text-primary-foreground font-medium"
                           disabled={!canRecord || minutesRemaining <= 0}
                           title={!canRecord || minutesRemaining <= 0 ? "No minutes remaining. Please upgrade your plan." : "Resume recording"}
                         >
-                          <Play className="w-4 h-4 mr-2" />
+                          <Play className="w-4 h-4 mr-1.5" />
                           Resume
                         </Button>
                         <Button 
                           onClick={handleEndConversationAndFinalize}
-                          size="md" 
-                          className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold"
+                          size="sm" 
+                          className="bg-primary hover:bg-primary/90 text-primary-foreground font-medium"
                         >
-                          <FileText className="w-4 h-4 mr-2" />
+                          <FileText className="w-4 h-4 mr-1.5" />
                           End & Finalize
                         </Button>
                       </>
@@ -2490,16 +2480,16 @@ function AppContent() {
               </div>
             
               <div className="flex items-center gap-2">
-                <Button variant="ghost" size="sm" onClick={() => setShowContextPanel(!showContextPanel)} title={showContextPanel ? "Hide Setup & Context" : "Show Setup & Context"} className="hover:bg-accent/80 p-2 rounded-lg">
-                  <Settings2 className="w-5 h-5" />
+                <Button variant="ghost" size="sm" onClick={() => setShowContextPanel(!showContextPanel)} title={showContextPanel ? "Hide Setup & Context" : "Show Setup & Context"} className="hover:bg-accent/80 p-1.5 rounded-lg">
+                  <Settings2 className="w-4 h-4" />
                 </Button>
-                <Button variant="ghost" size="sm" onClick={() => setShowTranscriptModal(true)} title="View Transcript" className="hover:bg-accent/80 p-2 rounded-lg">
-                  <FileText className="w-5 h-5" />
+                <Button variant="ghost" size="sm" onClick={() => setShowTranscriptModal(true)} title="View Transcript" className="hover:bg-accent/80 p-1.5 rounded-lg">
+                  <FileText className="w-4 h-4" />
                 </Button>
-                <div className="h-6 w-px bg-border mx-1"></div>
+                <div className="h-4 w-px bg-border mx-1"></div>
                 <ThemeToggle />
-                <Button variant="ghost" size="sm" title="User Settings" className="hover:bg-accent/80 p-2 rounded-lg">
-                  <User className="w-5 h-5" />
+                <Button variant="ghost" size="sm" title="User Settings" className="hover:bg-accent/80 p-1.5 rounded-lg">
+                  <User className="w-4 h-4" />
                 </Button>
               </div>
             </div>

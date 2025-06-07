@@ -1465,8 +1465,8 @@ Example format for each chip: {"text": "🔥 Build rapport", "prompt": "How can 
         className="fixed z-40 cursor-col-resize group transition-all duration-200 ease-in-out"
         onMouseDown={handleMouseDown}
         style={{
-          top: "68px",
-          height: "calc(100vh - 68px)",
+          top: "56px",
+          height: "calc(100vh - 56px)",
           width: "4px",
           right: isCollapsed ? `${COLLAPSED_WIDTH - 2}px` : `${width - 2}px`,
         }}
@@ -1486,8 +1486,8 @@ Example format for each chip: {"text": "🔥 Build rapport", "prompt": "How can 
           isExpanded ? "z-50" : ""
         }`}
         style={{
-          top: "68px", // Align perfectly with header
-          height: "calc(100vh - 68px)", // Adjust height accordingly
+          top: "56px", // Align perfectly with header
+          height: "calc(100vh - 56px)", // Adjust height accordingly
           width: isExpanded
             ? "100vw"
             : isCollapsed
