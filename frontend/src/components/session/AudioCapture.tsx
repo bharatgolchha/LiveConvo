@@ -247,7 +247,7 @@ export const AudioCapture: React.FC<AudioCaptureProps> = ({
             </Button>
             <Button
               onClick={stopRecording}
-              variant="danger"
+              variant="destructive"
               icon={<Square className="w-4 h-4" />}
             >
               Stop

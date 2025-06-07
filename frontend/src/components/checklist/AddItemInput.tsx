@@ -36,7 +36,7 @@ export const AddItemInput: React.FC<AddItemInputProps> = ({
     }
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLFormElement>) => {
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
       e.preventDefault();
       handleSubmit(e);

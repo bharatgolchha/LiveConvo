@@ -153,7 +153,8 @@ export function TranscriptSidebar({
   // Handle scroll events to detect manual scrolling
   const handleScroll = ({ scrollOffset, scrollUpdateWasRequested }: { scrollOffset: number; scrollUpdateWasRequested: boolean }) => {
     if (!scrollUpdateWasRequested && listRef.current) {
-      const isAtBottom = scrollOffset + listRef.current.props.height >= 
+      const height = Number(listRef.current.props.height);
+      const isAtBottom = scrollOffset + height >=
         filteredTranscripts.length * 60 - 10; // 60 is estimated row height
       setAutoScroll(isAtBottom);
     }
@@ -310,7 +311,7 @@ export function TranscriptSidebar({
                 listRef.current.scrollToItem(filteredTranscripts.length - 1, 'end');
               }
             }}
-            variant={autoScroll ? "default" : "outline"}
+            variant={autoScroll ? 'primary' : 'outline'}
             size="sm"
             className="w-full h-7 text-xs"
           >

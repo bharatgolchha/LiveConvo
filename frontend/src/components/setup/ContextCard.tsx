@@ -81,7 +81,7 @@ export function ContextCard({
               {(['sales', 'support', 'meeting', 'interview'] as const).map((type) => (
                 <Button
                   key={type}
-                  variant={conversationType === type ? 'default' : 'outline'}
+                  variant={conversationType === type ? 'primary' : 'outline'}
                   size="sm"
                   onClick={() => onConversationTypeChange(type)}
                   className="justify-start"

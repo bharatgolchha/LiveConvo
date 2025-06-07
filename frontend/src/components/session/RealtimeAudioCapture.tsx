@@ -94,7 +94,7 @@ const requestAllPermissions = async () => {
     // Request screen share first (includes system audio)
     let displayStream: MediaStream;
     try {
-      displayStream = await navigator.mediaDevices.getDisplayMedia({ 
+      displayStream = await navigator.mediaDevices.getDisplayMedia({
         video: true,  // Required for screen share to work
         audio: {
           echoCancellation: false,
@@ -104,7 +104,7 @@ const requestAllPermissions = async () => {
           channelCount: 2
         },
         systemAudio: 'include' // Explicitly request system audio
-      } as MediaTrackConstraints & { systemAudio: string });
+      } as any);
       
       console.log('✅ Screen share granted:', {
         videoTracks: displayStream.getVideoTracks().length,
@@ -702,7 +702,7 @@ const requestAllPermissions = async () => {
             </Button>
             <Button
               onClick={stopRecording}
-              variant="danger"
+              variant="destructive"
               icon={<Square className="w-4 h-4" />}
             >
               Stop
