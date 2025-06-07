@@ -2569,7 +2569,7 @@ export default function App() {
                 </div>
                 <h2 className="text-3xl font-bold text-foreground mb-3">Let&apos;s Get Started</h2>
                 <p className="text-muted-foreground mb-8 text-lg">
-                  Configure your conversation title, type, and add any context on the left panel. Then, click "Get Ready".
+                  Configure your conversation title, type, and add any context on the left panel. Then, click &quot;Get Ready&quot;.
                 </p>
                 <MainActionButton />
               </motion.div>

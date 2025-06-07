@@ -139,7 +139,7 @@ export const FileUpload: React.FC<FileUploadProps> = ({
     const extension = fileName.split('.').pop()?.toLowerCase();
     
     if (['jpg', 'jpeg', 'png'].includes(extension || '')) {
-      return <Image className="w-5 h-5 text-blue-500" />;
+      return <Image className="w-5 h-5 text-blue-500" alt="Image file" />;
     } else if (['pdf'].includes(extension || '')) {
       return <FileText className="w-5 h-5 text-red-500" />;
     } else if (['docx', 'doc'].includes(extension || '')) {

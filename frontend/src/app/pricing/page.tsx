@@ -513,7 +513,7 @@ export default function PricingPage() {
               Can I change plans anytime?
             </h3>
             <p className="text-muted-foreground leading-relaxed">
-              Yes, you can upgrade or downgrade your plan at any time. Changes take effect immediately, and we'll prorate any charges or credits.
+              Yes, you can upgrade or downgrade your plan at any time. Changes take effect immediately, and we&apos;ll prorate any charges or credits.
             </p>
           </motion.div>
           <motion.div

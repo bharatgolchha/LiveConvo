@@ -2,21 +2,22 @@
  * Centralized auth error handling utilities
  */
 
-export const isRefreshTokenError = (error: any): boolean => {
+export const isRefreshTokenError = (error: unknown): boolean => {
   if (!error) return false;
   
-  const errorMessage = error.message || error.error || '';
-  const errorCode = error.code || '';
+  const err = error as { message?: string; error?: string; code?: string; status?: number };
+  const errorMessage = err.message || err.error || '';
+  const errorCode = err.code || '';
   
   return (
     errorMessage.toLowerCase().includes('refresh token') ||
     errorMessage.toLowerCase().includes('invalid refresh token') ||
     errorCode === 'invalid_refresh_token' ||
-    error.status === 401
+    err.status === 401
   );
 };
 
-export const handleAuthError = (error: any): void => {
+export const handleAuthError = (error: unknown): void => {
   if (isRefreshTokenError(error)) {
     console.error('Refresh token error detected:', error);
     

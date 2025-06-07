@@ -60,8 +60,8 @@ export const ApiKeySetup: React.FC<ApiKeySetupProps> = ({
             <div>
               <h4 className="font-medium text-blue-900 mb-1">Live Transcription Setup</h4>
               <p className="text-sm text-blue-700">
-                To enable real-time speech-to-text, you'll need an OpenAI API key. 
-                Without it, we'll use a demo mode with simulated transcripts.
+                To enable real-time speech-to-text, you&apos;ll need an OpenAI API key. 
+                Without it, we&apos;ll use a demo mode with simulated transcripts.
               </p>
             </div>
           </div>
@@ -96,7 +96,7 @@ export const ApiKeySetup: React.FC<ApiKeySetupProps> = ({
             <div className="flex-1">
               <h4 className="font-medium text-gray-900 mb-1">Enter your API key</h4>
               <p className="text-sm text-gray-600 mb-3">
-                Paste your OpenAI API key below. It should start with "sk-".
+                Paste your OpenAI API key below. It should start with &quot;sk-&quot;.
               </p>
               
               <div className="space-y-3">

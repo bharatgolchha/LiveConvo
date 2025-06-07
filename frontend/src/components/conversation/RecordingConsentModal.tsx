@@ -65,7 +65,7 @@ export const RecordingConsentModal: React.FC<RecordingConsentModalProps> = ({
                 <div className="space-y-2">
                   <h2 className="text-2xl font-bold text-foreground">Ready to Record?</h2>
                   <p className="text-muted-foreground text-lg max-w-md mx-auto">
-                    You'll need to share your tab and grant microphone access to capture both sides of the conversation.
+                    You&apos;ll need to share your tab and grant microphone access to capture both sides of the conversation.
                   </p>
                 </div>
               </div>

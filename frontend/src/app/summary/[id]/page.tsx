@@ -30,6 +30,7 @@ import { Badge } from '@/components/ui/badge';
 import { CopyButton } from '@/components/ui/CopyButton';
 import { useAuth } from '@/contexts/AuthContext';
 import { generatePDF } from '@/lib/pdfExport';
+import { SummaryInsight } from '@/types/api';
 
 // Types
 interface SessionSummary {
@@ -803,7 +804,7 @@ export default function SummaryPage() {
                   Key Insights
                 </h3>
                 <div className="space-y-4">
-                  {sessionData.summary.insights.map((insight: any, index: number) => (
+                  {sessionData.summary.insights.map((insight: SummaryInsight, index: number) => (
                     <div key={index} className="border-l-2 border-amber-500 pl-4">
                       <p className="font-medium text-foreground mb-1">{insight.observation}</p>
                       {insight.evidence && (
@@ -1182,7 +1183,7 @@ const ExportModal: React.FC<{
           if (sessionData.summary.insights?.length > 0) {
             textContent += `KEY INSIGHTS\n`;
             textContent += `------------\n`;
-            sessionData.summary.insights.forEach((insight: any, idx) => {
+            sessionData.summary.insights.forEach((insight: SummaryInsight, idx) => {
               if (typeof insight === 'string') {
                 textContent += `${idx + 1}. ${insight}\n`;
               } else if (insight.observation) {
@@ -1296,7 +1297,7 @@ const ExportModal: React.FC<{
               ].map((format) => (
                 <button
                   key={format.value}
-                  onClick={() => setExportFormat(format.value as any)}
+                  onClick={() => setExportFormat(format.value as 'pdf' | 'word' | 'text' | 'json')}
                   className={`p-3 text-sm rounded-lg border transition-colors ${
                     exportFormat === format.value
                       ? 'bg-primary/10 border-primary text-primary'

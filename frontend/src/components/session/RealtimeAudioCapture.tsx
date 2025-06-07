@@ -104,7 +104,7 @@ const requestAllPermissions = async () => {
           channelCount: 2
         },
         systemAudio: 'include' // Explicitly request system audio
-      } as any);
+      } as MediaTrackConstraints & { systemAudio: string });
       
       console.log('✅ Screen share granted:', {
         videoTracks: displayStream.getVideoTracks().length,
@@ -159,11 +159,12 @@ const requestAllPermissions = async () => {
     // Clean up the mic stream for now (we'll get it again when recording starts)
     micStream.getTracks().forEach(track => track.stop());
     
-  } catch (error: any) {
-    console.warn('⚠️ Permission request failed:', error?.message || error);
+  } catch (error) {
+    console.warn('⚠️ Permission request failed:', (error as Error)?.message || error);
     
     // Check if it was user cancellation
-    if (error?.name === 'NotAllowedError' || error?.message?.includes('Permission denied')) {
+    const err = error as { name?: string; message?: string };
+    if (err?.name === 'NotAllowedError' || err?.message?.includes('Permission denied')) {
       alert('Screen sharing was cancelled. To capture audio from other tabs (like Google Meet), you need to grant screen sharing permission.');
     }
     
@@ -518,7 +519,7 @@ const requestAllPermissions = async () => {
           {isRequestingPermissions ? 'Requesting Permissions...' : 'Grant All Permissions'}
         </Button>
         <p className="text-xs text-blue-500 mt-2">
-          You'll see 2 permission dialogs - grant both for best experience
+          You&apos;ll see 2 permission dialogs - grant both for best experience
         </p>
       </div>
     );
