@@ -307,7 +307,7 @@ async function extractTextFromFile(file: File, buffer: ArrayBuffer): Promise<str
     if (fileType === 'application/pdf' || fileName.endsWith('.pdf')) {
       try {
         // Dynamic import for pdf-parse
-        const pdfParse = (await import('pdf-parse')).default;
+        const pdfParse = (await import('pdf-parse' as any)).default;
         const data = await pdfParse(Buffer.from(buffer));
         return data.text || '[PDF contains no extractable text]';
       } catch (error) {
