@@ -119,7 +119,16 @@ export async function GET(request: NextRequest) {
       .gte('created_at', startDate.toISOString());
 
     // Aggregate by user
-    const userMetrics = topUserSessions?.reduce((acc, session: any) => {
+    interface SessionWithUser {
+      user_id: string;
+      total_audio_seconds?: number;
+      users?: {
+        email?: string;
+        current_organization_id?: string;
+      };
+    }
+    
+    const userMetrics = topUserSessions?.reduce((acc, session: SessionWithUser) => {
       const userId = session.user_id;
       if (!acc[userId]) {
         acc[userId] = {
