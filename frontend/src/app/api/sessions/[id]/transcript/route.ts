@@ -160,6 +160,52 @@ export async function POST(
     const pathSessionId = params.id;
     const body = await request.json();
 
+    // Get current user from Supabase auth
+    const authHeader = request.headers.get('authorization');
+    const token = authHeader?.split(' ')[1];
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+    
+    if (authError || !user) {
+      return NextResponse.json(
+        { error: 'Unauthorized', message: 'Please sign in to save transcript' },
+        { status: 401 }
+      );
+    }
+
+    // Get user's current organization using service role client (bypasses RLS)
+    const serviceClient = createServerSupabaseClient();
+    const { data: userData, error: userError } = await serviceClient
+      .from('users')
+      .select('current_organization_id')
+      .eq('id', user.id)
+      .single();
+
+    if (userError || !userData?.current_organization_id) {
+      return NextResponse.json(
+        { error: 'Setup required', message: 'Please complete onboarding first' },
+        { status: 400 }
+      );
+    }
+
+    // Verify session belongs to user's organization
+    const { data: session, error: sessionError } = await serviceClient
+      .from('sessions')
+      .select('id, organization_id')
+      .eq('id', pathSessionId)
+      .eq('organization_id', userData.current_organization_id)
+      .is('deleted_at', null)
+      .single();
+
+    if (sessionError || !session) {
+      return NextResponse.json(
+        { error: 'Not found', message: 'Session not found or access denied' },
+        { status: 404 }
+      );
+    }
+
+    // Create authenticated client with user's token for RLS
+    const authClient = createAuthenticatedSupabaseClient(token);
+
     // Support both old format (array) and new format (batch object)
     const isOldFormat = Array.isArray(body);
     const batchData = isOldFormat ? { lines: body } : body;
@@ -185,7 +231,7 @@ export async function POST(
     // Get the current max sequence number if not provided
     let currentSequence = lastSequenceNumber;
     if (currentSequence === undefined) {
-      const { data: maxSeq } = await supabase
+      const { data: maxSeq } = await authClient
         .from('transcripts')
         .select('sequence_number')
         .eq('session_id', pathSessionId)
@@ -210,7 +256,7 @@ export async function POST(
     for (let i = 0; i < transcriptLinesToInsert.length; i += BATCH_SIZE) {
       const batch = transcriptLinesToInsert.slice(i, i + BATCH_SIZE);
       
-      const { data, error } = await supabase
+      const { data, error } = await authClient
         .from('transcripts')
         .upsert(batch, {
           onConflict: 'session_id,sequence_number',
@@ -230,7 +276,7 @@ export async function POST(
     }
 
     // Get current session word count
-    const { data: sessionData } = await supabase
+    const { data: sessionData } = await authClient
       .from('sessions')
       .select('total_words_spoken')
       .eq('id', pathSessionId)
@@ -240,7 +286,7 @@ export async function POST(
     const newWords = lines.reduce((sum, line) => sum + line.content.split(' ').length, 0);
 
     // Update session with latest transcript info
-    await supabase
+    await authClient
       .from('sessions')
       .update({ 
         updated_at: new Date().toISOString(),
