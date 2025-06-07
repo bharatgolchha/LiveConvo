@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
@@ -115,10 +116,12 @@ export default function LandingPage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             <Link href="/" className="flex items-center gap-2">
-              <img 
+              <Image 
                 src="https://ucvfgfbjcrxbzppwjpuu.supabase.co/storage/v1/object/public/images//dark.png"
                 alt="liveprompt.ai logo"
-                className="w-8 h-8 object-contain"
+                width={32}
+                height={32}
+                className="object-contain"
               />
               <span className="text-xl font-bold" style={{ fontFamily: 'var(--font-poppins)', color: '#ffffff' }}>liveprompt.ai</span>
             </Link>
@@ -341,12 +344,13 @@ export default function LandingPage() {
                 </div>
                 <p className="font-medium mb-4 pr-20" style={{ color: '#ffffff' }}>&ldquo;{testimonial.quote}&rdquo;</p>
                 <div className="flex items-center gap-3">
-                  <img 
+                  <Image 
                     src={testimonial.image} 
                     alt={testimonial.name}
-                    className="w-10 h-10 rounded-full object-cover"
+                    width={40}
+                    height={40}
+                    className="rounded-full object-cover"
                     style={{ border: '2px solid #4b5563' }}
-                    loading="lazy"
                   />
                   <div>
                     <p className="text-sm font-medium" style={{ color: '#ffffff' }}>{testimonial.name}</p>
@@ -563,10 +567,12 @@ export default function LandingPage() {
           <div className="flex flex-col md:flex-row justify-between items-center gap-8">
             <div>
               <div className="flex items-center gap-2 mb-2">
-                <img 
+                <Image 
                   src="https://ucvfgfbjcrxbzppwjpuu.supabase.co/storage/v1/object/public/images//dark.png"
                   alt="liveprompt.ai logo"
-                  className="w-8 h-8 object-contain"
+                  width={32}
+                  height={32}
+                  className="object-contain"
                 />
                 <span className="text-xl font-bold" style={{ fontFamily: 'var(--font-poppins)', color: '#ffffff' }}>liveprompt.ai</span>
               </div>
