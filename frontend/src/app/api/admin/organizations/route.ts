@@ -163,7 +163,7 @@ export async function GET(request: NextRequest) {
           )
         `)
         .in('organization_id', orgIds);
-      memberships = (membershipData as OrganizationMembership[]) || [];
+      memberships = (membershipData as unknown as OrganizationMembership[]) || [];
 
       // Fetch current month usage for each organization
       const currentMonth = new Date().toISOString().slice(0, 7);
@@ -199,7 +199,7 @@ export async function GET(request: NextRequest) {
           )
         `)
         .in('organization_id', orgIds);
-      subscriptions = (subscriptionData as OrganizationSubscription[]) || [];
+      subscriptions = (subscriptionData as unknown as OrganizationSubscription[]) || [];
     }
 
     // Group members by organization
