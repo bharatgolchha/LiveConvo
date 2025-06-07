@@ -1,6 +1,6 @@
 import { renderHook, act } from '@testing-library/react';
 import { useChatGuidance } from '@/lib/useChatGuidance';
-import { buildChatPrompt } from '@/app/api/chat-guidance/route';
+import { buildChatPrompt } from '@/lib/chatPromptBuilder';
 
 // Mock fetch for API calls
 global.fetch = jest.fn();

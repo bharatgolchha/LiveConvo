@@ -71,7 +71,7 @@ export const updateTalkStatsFromTranscript = (
   newText: string,
   speaker: 'ME' | 'THEM'
 ): TalkStats => {
-  const wordCount = newText.trim().split(/\s+/).filter(word => word.length > 0).length;
+  const wordCount = newText.trim().split(/\s+/).filter((word: string) => word.length > 0).length;
   
   if (speaker === 'ME') {
     return {

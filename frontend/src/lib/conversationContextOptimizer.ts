@@ -53,18 +53,21 @@ export function buildOptimizedContext(
   }
   
   // Only include key points if they're concise (limit to 3)
-  if (summary.key_points?.length > 0) {
-    const topPoints = summary.key_points.slice(0, 3);
+  if (summary.conversation_highlights && summary.conversation_highlights.length > 0) {
+    const topPoints = summary.conversation_highlights.slice(0, 3);
     context += `Key Points: ${topPoints.join('; ')}\n`;
   }
   
   // Only include open action items (not completed ones)
-  if (summary.action_items?.length > 0) {
+  if (summary.action_items && summary.action_items.length > 0) {
     const openItems = summary.action_items
-      .filter((item: { text: string; completed: boolean }) => !item.completed)
+      .filter((item: any) => {
+        if (typeof item === 'string') return true; // Include all string items
+        return typeof item === 'object' && !item.completed; // Only include uncompleted object items
+      })
       .slice(0, 3);
     if (openItems.length > 0) {
-      context += `Open Actions: ${openItems.map((item: { text: string; completed: boolean }) => 
+      context += `Open Actions: ${openItems.map((item: any) => 
         typeof item === 'string' ? item : item.text
       ).join('; ')}\n`;
     }
@@ -72,8 +75,8 @@ export function buildOptimizedContext(
   
   // Only include decisions if conversation types are related
   if (currentConversationType === sessionData.conversation_type && 
-      summary.decisions?.length > 0) {
-    const relevantDecisions = summary.decisions.slice(0, 2);
+      summary.key_decisions && summary.key_decisions.length > 0) {
+    const relevantDecisions = summary.key_decisions.slice(0, 2);
     context += `Prior Decisions: ${relevantDecisions.join('; ')}\n`;
   }
   

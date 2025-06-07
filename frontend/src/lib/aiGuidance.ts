@@ -1,3 +1,4 @@
+import * as React from 'react';
 import { config } from './config';
 
 /**
@@ -150,12 +151,12 @@ export class AIGuidanceEngine {
       
       return suggestions.map((suggestion) => ({
         id: Math.random().toString(36).substring(7),
-        type: suggestion.type || 'suggest',
+        type: (suggestion.type as 'ask' | 'clarify' | 'avoid' | 'suggest' | 'warn') || 'suggest',
         message: suggestion.message || 'No message provided',
         confidence: Math.min(Math.max(suggestion.confidence || 50, 0), 100),
         reasoning: suggestion.reasoning || 'No reasoning provided',
         timestamp: new Date(),
-        priority: suggestion.priority || 'medium'
+        priority: (suggestion.priority as 'low' | 'medium' | 'high') || 'medium'
       }));
       
     } catch (error) {
@@ -269,5 +270,4 @@ export function useAIGuidance() {
   };
 }
 
-// Import React for the hook
-import React from 'react'; 
+ 

@@ -46,6 +46,14 @@ export async function GET(
     // Get current user from Supabase auth
     const authHeader = request.headers.get('authorization');
     const token = authHeader?.split(' ')[1];
+    
+    if (!token) {
+      return NextResponse.json(
+        { error: 'Unauthorized', message: 'No authorization token provided' },
+        { status: 401 }
+      );
+    }
+    
     const { data: { user }, error: authError } = await supabase.auth.getUser(token);
     
     if (authError || !user) {
@@ -163,6 +171,14 @@ export async function POST(
     // Get current user from Supabase auth
     const authHeader = request.headers.get('authorization');
     const token = authHeader?.split(' ')[1];
+    
+    if (!token) {
+      return NextResponse.json(
+        { error: 'Unauthorized', message: 'No authorization token provided' },
+        { status: 401 }
+      );
+    }
+    
     const { data: { user }, error: authError } = await supabase.auth.getUser(token);
     
     if (authError || !user) {

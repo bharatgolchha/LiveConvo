@@ -73,6 +73,7 @@ export interface TranscriptData {
   start_time_seconds: number;
   created_at: string;
   type?: 'final' | 'interim';
+  confidence_score?: number;
 }
 
 export interface LocalStorageData {
