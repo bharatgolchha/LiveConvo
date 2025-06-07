@@ -29,6 +29,14 @@ export async function GET(request: NextRequest) {
     // Get current user from Supabase auth using the access token
     const authHeader = request.headers.get('authorization');
     const token = authHeader?.split(' ')[1];
+    
+    if (!token) {
+      return NextResponse.json(
+        { error: 'Unauthorized', message: 'No access token provided' },
+        { status: 401 }
+      );
+    }
+    
     const { data: { user }, error: authError } = await supabase.auth.getUser(token);
     
     if (authError || !user) {
@@ -339,7 +347,7 @@ async function getLinkedConversations(sessionIds: string[], organizationId: stri
  */
 function calculateLastActivity(session: Pick<SessionData, 'recording_ended_at' | 'recording_started_at' | 'updated_at' | 'created_at'>): string {
   const now = new Date();
-  const updatedAt = new Date(session.updated_at);
+  const updatedAt = new Date(session.updated_at || session.created_at);
   const diffMs = now.getTime() - updatedAt.getTime();
   
   const diffMinutes = Math.floor(diffMs / (1000 * 60));

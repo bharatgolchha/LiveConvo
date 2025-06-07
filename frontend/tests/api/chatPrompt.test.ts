@@ -1,4 +1,4 @@
-import { buildChatPrompt } from '@/app/api/chat-guidance/route';
+import { buildChatPrompt } from '@/lib/chatPromptBuilder';
 
 describe('buildChatPrompt', () => {
   const baseMessage = 'What next?';

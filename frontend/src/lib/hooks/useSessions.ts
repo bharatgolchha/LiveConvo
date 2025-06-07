@@ -150,7 +150,7 @@ export function useSessions(): SessionsHookReturn {
     setError(errorMessage);
     console.error(`Session ${operation} error:`, err);
     if (response && response.status === 401 && user) {
-      response.json().then(errorData => {
+      response.json().then((errorData: any) => {
         setSessionExpiredMessage(errorData.message || `Your session expired during ${operation}. Please sign in again.`);
       }).catch(() => {
         setSessionExpiredMessage(`Your session expired during ${operation}. Please sign in again.`);

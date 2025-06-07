@@ -1,5 +1,5 @@
 import React from 'react';
-import { createClient, LiveTranscriptionEvents, LiveTranscription } from '@deepgram/sdk';
+import { createClient, LiveTranscriptionEvents } from '@deepgram/sdk';
 
 /**
  * Deepgram streaming transcription service for live audio processing
@@ -64,7 +64,7 @@ interface DeepgramError {
 
 export class DeepgramTranscriptionService {
   private deepgram: ReturnType<typeof createClient> | null = null;
-  private connection: LiveTranscription | null = null; // LiveTranscription connection
+  private connection: any | null = null; // LiveTranscription connection
   private audioContext: AudioContext | null = null;
   private mediaRecorder: MediaRecorder | null = null;
   private isConnected = false;
@@ -436,8 +436,8 @@ export class DeepgramTranscriptionService {
           errorMessage = err;
         } else if (err?.message) {
           errorMessage = err.message;
-        } else if (err?.error) {
-          errorMessage = typeof err.error === 'string' ? err.error : JSON.stringify(err.error);
+        } else if (err && typeof err === 'object') {
+          errorMessage = JSON.stringify(err);
         }
         
         clearTimeout(connectionTimeout);

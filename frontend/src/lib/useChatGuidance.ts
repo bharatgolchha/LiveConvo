@@ -94,7 +94,7 @@ export function useChatGuidance({
   const addMessage = useCallback((message: Omit<ChatMessage, 'id' | 'timestamp'>) => {
     const newMessage: ChatMessage = {
       ...message,
-      id: `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      id: `msg_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`,
       timestamp: new Date(),
       // User messages are automatically read, AI/auto-guidance messages start as unread
       read: message.type === 'user' ? true : false

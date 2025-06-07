@@ -122,7 +122,7 @@ describe('ChecklistRecommendations', () => {
   });
 
   it('shows loading state when adding item', async () => {
-    const mockOnAddItem = jest.fn(() => new Promise(resolve => setTimeout(resolve, 100)));
+    const mockOnAddItem = jest.fn(() => new Promise<void>(resolve => setTimeout(resolve, 100)));
 
     render(
       <ChecklistRecommendations

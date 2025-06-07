@@ -52,7 +52,7 @@ import { ThemeToggle } from '@/components/ui/ThemeToggle';
 import Link from 'next/link';
 import { useAIGuidance, ContextDocument, GuidanceRequest } from '@/lib/aiGuidance';
 import { useTranscription } from '@/lib/useTranscription';
-import { useRealtimeSummary, ConversationSummary } from '@/lib/useRealtimeSummary';
+import { useRealtimeSummary } from '@/lib/useRealtimeSummary';
 import { useChatGuidance } from '@/lib/useChatGuidance';
 import { cn } from '@/lib/utils';
 import { updateTalkStats, TalkStats } from '@/lib/transcriptUtils';
@@ -95,7 +95,7 @@ type ConversationSummary = ConversationSummaryType;
 const saveTranscriptToDatabase = async (
   sessionId: string,
   transcriptLines: TranscriptLine[],
-  session: SessionDataFull,
+  authSession: Session | null,
   lastSavedIndex = 0,
   retryCount = 0
 ) : Promise<number> => {
@@ -122,7 +122,7 @@ const saveTranscriptToDatabase = async (
       client_id: line.id || `${Date.now()}-${lastSavedIndex + index}`
     }));
 
-    const response = await authenticatedFetch(`/api/sessions/${sessionId}/transcript`, session, {
+    const response = await authenticatedFetch(`/api/sessions/${sessionId}/transcript`, authSession, {
       method: 'POST',
       body: JSON.stringify(transcriptData)
     });
@@ -135,7 +135,7 @@ const saveTranscriptToDatabase = async (
       if (retryCount < 3) {
         console.log(`🔄 Retrying transcript save (attempt ${retryCount + 1}/3)...`);
         setTimeout(() => {
-          saveTranscriptToDatabase(sessionId, transcriptLines, session, lastSavedIndex, retryCount + 1);
+          saveTranscriptToDatabase(sessionId, transcriptLines, authSession, lastSavedIndex, retryCount + 1);
         }, 1000 * (retryCount + 1)); // Exponential backoff
       } else {
         console.error('❌ Failed to save transcript after 3 retries');
@@ -151,7 +151,7 @@ const saveTranscriptToDatabase = async (
     if (retryCount < 3) {
       console.log(`🔄 Retrying transcript save due to error (attempt ${retryCount + 1}/3)...`);
       setTimeout(() => {
-        saveTranscriptToDatabase(sessionId, transcriptLines, session, lastSavedIndex, retryCount + 1);
+        saveTranscriptToDatabase(sessionId, transcriptLines, authSession, lastSavedIndex, retryCount + 1);
       }, 1000 * (retryCount + 1));
     } else {
       console.error('❌ Failed to save transcript after 3 retries due to errors');
@@ -165,24 +165,24 @@ const saveTranscriptToDatabase = async (
 const saveTranscriptNow = async (
   sessionId: string,
   transcriptLines: TranscriptLine[],
-  session: SessionDataFull,
+  authSession: Session | null,
   lastSavedIndex: number
 ): Promise<number> => {
-  if (!sessionId || !transcriptLines || transcriptLines.length === 0 || !session) {
+  if (!sessionId || !transcriptLines || transcriptLines.length === 0 || !authSession) {
     console.log('⚠️ Cannot save transcript - missing required data');
     return lastSavedIndex; // Return current index if save fails
   }
 
   console.log('🚀 Manual transcript save triggered');
-  const newIndex = await saveTranscriptToDatabase(sessionId, transcriptLines, session, lastSavedIndex);
+  const newIndex = await saveTranscriptToDatabase(sessionId, transcriptLines, authSession, lastSavedIndex);
   return newIndex || lastSavedIndex; // Fallback to current index if undefined
 };
 
 
 
-const saveSummaryToDatabase = async (sessionId: string, summary: ConversationSummary, session: SessionDataFull) => {
+const saveSummaryToDatabase = async (sessionId: string, summary: ConversationSummary, authSession: Session | null) => {
   try {
-    const response = await authenticatedFetch(`/api/sessions/${sessionId}`, session, {
+    const response = await authenticatedFetch(`/api/sessions/${sessionId}`, authSession, {
       method: 'PATCH',
       body: JSON.stringify({
         realtime_summary_cache: summary
@@ -1302,7 +1302,7 @@ export default function App() {
           // Load cached summary from database if available
           if (sessionData.realtime_summary_cache) {
             try {
-              const cachedSummary: ConversationSummary = typeof sessionData.realtime_summary_cache === 'string'
+              const cachedSummary: any = typeof sessionData.realtime_summary_cache === 'string'
                 ? JSON.parse(sessionData.realtime_summary_cache)
                 : sessionData.realtime_summary_cache;
               

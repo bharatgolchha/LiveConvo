@@ -59,16 +59,19 @@ export async function GET(request: NextRequest) {
       .single();
 
     if (!userSubError && userSubscription && userSubscription.plans) {
-      console.log('Found user subscription:', userSubscription.plans.name);
-      return NextResponse.json({
-        plan: {
-          name: userSubscription.plans.name,
-          displayName: userSubscription.plans.display_name,
-          type: userSubscription.plans.plan_type,
-          priceMonthly: userSubscription.plans.price_monthly,
-          priceYearly: userSubscription.plans.price_yearly
-        }
-      });
+      const plan = Array.isArray(userSubscription.plans) ? userSubscription.plans[0] : userSubscription.plans;
+      console.log('Found user subscription:', plan?.name);
+      if (plan) {
+        return NextResponse.json({
+          plan: {
+            name: plan.name,
+            displayName: plan.display_name,
+            type: plan.plan_type,
+            priceMonthly: plan.price_monthly,
+            priceYearly: plan.price_yearly
+          }
+        });
+      }
     }
 
     // If no individual subscription, check organization subscription
@@ -92,16 +95,19 @@ export async function GET(request: NextRequest) {
         .single();
 
       if (!orgSubError && orgSubscription && orgSubscription.plans) {
-        console.log('Found organization subscription:', orgSubscription.plans.name);
-        return NextResponse.json({
-          plan: {
-            name: orgSubscription.plans.name,
-            displayName: orgSubscription.plans.display_name,
-            type: orgSubscription.plans.plan_type,
-            priceMonthly: orgSubscription.plans.price_monthly,
-            priceYearly: orgSubscription.plans.price_yearly
-          }
-        });
+        const plan = Array.isArray(orgSubscription.plans) ? orgSubscription.plans[0] : orgSubscription.plans;
+        console.log('Found organization subscription:', plan?.name);
+        if (plan) {
+          return NextResponse.json({
+            plan: {
+              name: plan.name,
+              displayName: plan.display_name,
+              type: plan.plan_type,
+              priceMonthly: plan.price_monthly,
+              priceYearly: plan.price_yearly
+            }
+          });
+        }
       }
     }
 

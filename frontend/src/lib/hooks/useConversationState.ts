@@ -20,12 +20,11 @@ import {
 } from '@/lib/conversation/stateUtils';
 import { 
   saveTranscriptToDatabase, 
-  saveTimelineToDatabase, 
   saveSummaryToDatabase 
 } from '@/lib/conversation/databaseOperations';
 import { useAuth } from '@/contexts/AuthContext';
 import { Session } from '@/lib/hooks/useSessions';
-import { ConversationSummary, TimelineEvent } from '@/lib/useRealtimeSummary';
+import { ConversationSummary } from '@/lib/useRealtimeSummary';
 
 interface UseConversationStateReturn {
   // Core state
@@ -61,7 +60,7 @@ interface UseConversationStateReturn {
   togglePreviousConversation: (session: Session) => void;
   
   // Database operations
-  saveToDatabase: (sessionId: string, summary?: ConversationSummary, timeline?: TimelineEvent[]) => Promise<void>;
+  saveToDatabase: (sessionId: string, summary?: ConversationSummary, timeline?: any[]) => Promise<void>;
   
   // Utilities
   conversationId: string | null;
@@ -147,7 +146,7 @@ export const useConversationState = (): UseConversationStateReturn => {
   const saveToDatabase = useCallback(async (
     sessionId: string, 
     summary?: ConversationSummary, 
-    timeline?: TimelineEvent[]
+    timeline?: any[]
   ) => {
     if (!session) return;
 
@@ -157,10 +156,10 @@ export const useConversationState = (): UseConversationStateReturn => {
         await saveTranscriptToDatabase(sessionId, transcript, session);
       }
 
-      // Save timeline if provided
-      if (timeline && timeline.length > 0) {
-        await saveTimelineToDatabase(sessionId, timeline, session);
-      }
+      // Save timeline if provided - TODO: implement timeline saving
+      // if (timeline && timeline.length > 0) {
+      //   await saveTimelineToDatabase(sessionId, timeline, session);
+      // }
 
       // Save summary if provided
       if (summary) {
@@ -219,9 +218,10 @@ export const useConversationState = (): UseConversationStateReturn => {
         if (savedState.conversationType || savedState.conversationTitle || savedState.textContext) {
           setConfig(prev => ({
             ...prev,
-            conversationType: savedState.conversationType || prev.conversationType,
+            conversationType: (savedState.conversationType as ConversationType) || prev.conversationType,
             conversationTitle: savedState.conversationTitle || prev.conversationTitle,
-            textContext: savedState.textContext || prev.textContext
+            textContext: savedState.textContext || prev.textContext,
+            uploadedFiles: prev.uploadedFiles
           }));
         }
         if (savedState.conversationState) {

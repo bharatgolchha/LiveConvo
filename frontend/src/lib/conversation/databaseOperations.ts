@@ -5,7 +5,7 @@
 import { authenticatedFetch } from '@/lib/api';
 import { TranscriptLine } from '@/types/conversation';
 import { ConversationSummary } from '@/lib/useRealtimeSummary';
-import type { SessionDataFull } from '@/types/app';
+import { Session } from '@supabase/supabase-js';
 
 /**
  * Save transcript lines to the database.
@@ -13,7 +13,7 @@ import type { SessionDataFull } from '@/types/app';
 export const saveTranscriptToDatabase = async (
   sessionId: string, 
   transcriptLines: TranscriptLine[], 
-  session: SessionDataFull | null
+  session: Session | null
 ): Promise<void> => {
   try {
     const transcriptData = transcriptLines.map((line, index) => ({
@@ -47,7 +47,7 @@ export const saveTranscriptToDatabase = async (
 export const saveSummaryToDatabase = async (
   sessionId: string, 
   summary: ConversationSummary, 
-  session: SessionDataFull | null
+  session: Session | null
 ): Promise<void> => {
   try {
     const response = await authenticatedFetch(`/api/sessions/${sessionId}`, session, {
