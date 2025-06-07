@@ -130,8 +130,8 @@ export async function GET(
       .eq('user_id', userId);
 
     const totalSessions = sessionStats?.length || 0;
-    const totalAudioMinutes = sessionStats?.reduce((acc, session: UserSession) => 
-      acc + ((session.recording_duration_seconds || 0)), 0) / 60 || 0;
+    const totalAudioMinutes = (sessionStats?.reduce((acc, session: UserSession) => 
+      acc + ((session.recording_duration_seconds || 0)), 0) || 0) / 60;
     const lastSessionAt = sessionStats && sessionStats.length > 0 
       ? sessionStats.sort((a: UserSession, b: UserSession) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())[0]?.created_at
       : null;
