@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, Suspense } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { toast } from 'sonner';
@@ -198,7 +198,7 @@ const saveSummaryToDatabase = async (sessionId: string, summary: ConversationSum
   }
 };
 
-export default function App() {
+function AppContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const conversationId = searchParams.get('cid');
@@ -2682,5 +2682,20 @@ export default function App() {
         conversationTitle={conversationTitle}
       />
     </div>
+  );
+}
+
+export default function App() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-8 h-8 border-2 border-app-primary border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-muted-foreground">Loading conversation...</p>
+        </div>
+      </div>
+    }>
+      <AppContent />
+    </Suspense>
   );
 } 
