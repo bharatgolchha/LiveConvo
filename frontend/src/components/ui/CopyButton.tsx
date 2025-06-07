@@ -2,14 +2,11 @@
 
 import React, { useState } from 'react';
 import { Check, Copy } from 'lucide-react';
-import { Button } from './Button';
+import { Button, type ButtonProps } from './Button';
 import { cn } from '@/lib/utils';
 
-interface CopyButtonProps {
+interface CopyButtonProps extends Omit<ButtonProps, 'children' | 'icon'> {
   text: string;
-  className?: string;
-  variant?: 'default' | 'ghost' | 'outline';
-  size?: 'sm' | 'default' | 'lg';
   showLabel?: boolean;
 }
 
