@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase';
+import { createAuthenticatedSupabaseClient } from '@/lib/supabase';
 import crypto from 'crypto';
 
 export async function POST(request: NextRequest) {
@@ -18,7 +18,7 @@ export async function POST(request: NextRequest) {
     }
     
     const token = authHeader.replace('Bearer ', '');
-    const supabase = createClient();
+    const supabase = createAuthenticatedSupabaseClient(token);
     
     // Verify user is authenticated
     const { data: { user }, error: authError } = await supabase.auth.getUser(token);
