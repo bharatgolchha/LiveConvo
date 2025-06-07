@@ -42,10 +42,20 @@ interface ParsedContext {
 
 export async function POST(request: NextRequest) {
   try {
+    const body = await request.json();
+    
+    // Validate required fields
+    if (!body.message) {
+      return NextResponse.json(
+        { error: 'Message is required' },
+        { status: 400 }
+      );
+    }
+    
     const { 
       message, 
-      transcript, 
-      chatHistory, 
+      transcript = '', 
+      chatHistory = [], 
       conversationType, 
       sessionId,
       textContext,
@@ -54,7 +64,7 @@ export async function POST(request: NextRequest) {
       uploadedFiles,
       selectedPreviousConversations,
       personalContext
-    }: ChatRequest = await request.json();
+    }: ChatRequest = body;
 
     // Debug logging for personal context
     console.log('🔍 Chat API Debug:', {
@@ -188,8 +198,16 @@ export async function POST(request: NextRequest) {
 
   } catch (error) {
     console.error('Chat guidance API error:', error);
+    console.error('Error details:', {
+      name: error instanceof Error ? error.name : 'Unknown',
+      message: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined
+    });
     return NextResponse.json(
-      { error: 'Failed to generate chat response' },
+      { 
+        error: 'Failed to generate chat response',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      },
       { status: 500 }
     );
   }

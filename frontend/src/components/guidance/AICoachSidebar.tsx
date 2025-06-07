@@ -199,8 +199,9 @@ Example format for each chip: {"text": "🔥 Build rapport", "prompt": "How can 
             conversationType: contextSummary?.conversationType || "general",
             textContext: contextSummary?.textContext || conversationContext,
             conversationTitle: contextSummary?.conversationTitle,
+            transcript: "", // Add required transcript field
+            chatHistory: [], // Add required chatHistory field
             summary: "",
-
             uploadedFiles: contextSummary?.uploadedFiles
               ? contextSummary.uploadedFiles.map((f) => ({
                   name: f.name,
@@ -298,11 +299,14 @@ Example format for each chip: {"text": "🔥 Build rapport", "prompt": "How can 
             setDynamicChips(getDefaultQuickHelp());
           }
         } else {
-          console.error(
-            "API request failed:",
-            response.status,
-            response.statusText,
-          );
+          console.error("API request failed:", response.status, response.statusText);
+          // Parse error response body if available
+          try {
+            const errorData = await response.json();
+            console.error("Error details:", errorData);
+          } catch (e) {
+            // Unable to parse error response
+          }
           setDynamicChips(getDefaultQuickHelp());
         }
       } catch (error) {
@@ -313,7 +317,7 @@ Example format for each chip: {"text": "🔥 Build rapport", "prompt": "How can 
         setIsGeneratingChips(false);
       }
     },
-    [contextSummary?.conversationType],
+    [contextSummary],
   );
 
   const getContextAwareQuickHelp = () => {
