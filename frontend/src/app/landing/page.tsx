@@ -5,23 +5,16 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
-  Mic, 
-  MessageSquare, 
   FileText, 
   CheckCircle2, 
   ArrowRight, 
-  Play,
   Clock,
-  Zap,
   ChevronDown,
   Check,
-  Copy,
   Users,
   Shield,
   Briefcase,
   PhoneCall,
-  Star,
-  UserCheck,
   Mail,
   MessageCircle
 } from 'lucide-react';
@@ -247,7 +240,7 @@ export default function LandingPage() {
                           <span className="text-green-100 text-sm font-semibold">AI Coach</span>
                         </div>
                         <p className="text-green-50 text-sm">
-                          "Ask about their budget range"
+                          &ldquo;Ask about their budget range&rdquo;
                         </p>
                       </motion.div>
                     </div>
@@ -315,7 +308,7 @@ export default function LandingPage() {
                           <span className="text-amber-100 text-sm font-semibold">Next Question</span>
                         </div>
                         <p className="text-amber-50 text-sm">
-                          "What specific challenges did you face?"
+                          &ldquo;What specific challenges did you face?&rdquo;
                         </p>
                       </motion.div>
                     </div>
@@ -346,7 +339,7 @@ export default function LandingPage() {
                     {testimonial.badge}
                   </span>
                 </div>
-                <p className="font-medium mb-4 pr-20" style={{ color: '#ffffff' }}>&quot;{testimonial.quote}&quot;</p>
+                <p className="font-medium mb-4 pr-20" style={{ color: '#ffffff' }}>&ldquo;{testimonial.quote}&rdquo;</p>
                 <div className="flex items-center gap-3">
                   <img 
                     src={testimonial.image} 
@@ -528,7 +521,7 @@ export default function LandingPage() {
               </div>
               <h3 className="text-2xl font-bold mb-4" style={{ color: '#ffffff' }}>Application Submitted!</h3>
               <p className="mb-6" style={{ color: '#d1d5db' }}>
-                Thanks for your interest! We'll review your application and get back to you within 3-5 business days.
+                Thanks for your interest! We&apos;ll review your application and get back to you within 3-5 business days.
               </p>
               <div className="inline-flex items-center gap-2 text-sm" style={{ color: '#4ade80' }}>
                 <Mail className="w-4 h-4" />
