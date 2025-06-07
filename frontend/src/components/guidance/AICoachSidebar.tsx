@@ -1049,51 +1049,29 @@ Example format for each chip: {"text": "🔥 Build rapport", "prompt": "How can 
 
   return (
     <>
-      {/* Resize Handle - Enhanced Design */}
+      {/* Resize Handle - Minimal Design */}
       <div
         ref={resizeRef}
-        className={`fixed z-40 cursor-col-resize group transition-all duration-300 ease-in-out ${
-          isResizing ? 'scale-x-150' : 'hover:scale-x-125'
-        }`}
+        className="fixed z-40 cursor-col-resize group transition-all duration-200 ease-in-out"
         onMouseDown={handleMouseDown}
         style={{ 
-          top: '80px',
-          height: 'calc(100vh - 80px)',
-          width: '6px',
-          right: isCollapsed ? `${COLLAPSED_WIDTH - 3}px` : `${width - 3}px` 
+          top: '68px',
+          height: 'calc(100vh - 68px)',
+          width: '4px',
+          right: isCollapsed ? `${COLLAPSED_WIDTH - 2}px` : `${width - 2}px` 
         }}
       >
-        {/* Main resize handle with gradient */}
+        {/* Main resize handle - minimal */}
         <div 
-          className={`h-full w-full relative overflow-hidden transition-all duration-300 ${
+          className={`h-full w-full transition-all duration-200 rounded-sm ${
             isResizing 
-              ? 'bg-gradient-to-b from-blue-500 via-purple-500 to-blue-500 shadow-lg shadow-blue-500/20' 
-              : 'bg-gradient-to-b from-gray-300 via-gray-400 to-gray-300 dark:from-gray-600 dark:via-gray-500 dark:to-gray-600 group-hover:from-blue-400 group-hover:via-purple-400 group-hover:to-blue-400 group-hover:shadow-md group-hover:shadow-blue-400/10'
+              ? 'bg-border' 
+              : 'bg-border/60 group-hover:bg-border'
           }`}
-          style={{ borderRadius: '3px' }}
         >
-          {/* Subtle pattern overlay */}
-          <div className="absolute inset-0 opacity-20">
-            <div className="h-full w-full bg-gradient-to-b from-transparent via-white to-transparent dark:via-white/10" />
-          </div>
-          
-          {/* Draggable indicator dots */}
-          <div className="absolute inset-0 flex flex-col items-center justify-center space-y-1 opacity-60 group-hover:opacity-100 transition-opacity">
-            <div className="w-1 h-1 bg-white rounded-full shadow-sm" />
-            <div className="w-1 h-1 bg-white rounded-full shadow-sm" />
-            <div className="w-1 h-1 bg-white rounded-full shadow-sm" />
-          </div>
-          
-          {/* Animated shimmer effect on hover */}
-          <div className={`absolute inset-0 transition-opacity duration-500 ${
-            isResizing || 'group-hover:animate-pulse'
-          }`}>
-            <div className="h-full w-full bg-gradient-to-b from-transparent via-white/20 to-transparent animate-pulse" />
-          </div>
+
         </div>
-        
-        {/* Extended hover area for easier grabbing */}
-        <div className="absolute inset-y-0 -left-2 -right-2 pointer-events-auto" />
+
       </div>
 
       {/* Sidebar */}
@@ -1103,8 +1081,8 @@ Example format for each chip: {"text": "🔥 Build rapport", "prompt": "How can 
           isExpanded ? 'z-50' : ''
         }`}
         style={{ 
-          top: '80px', // Increase buffer to ensure no overlap
-          height: 'calc(100vh - 80px)', // Adjust height accordingly
+          top: '68px', // Align perfectly with header
+          height: 'calc(100vh - 68px)', // Adjust height accordingly
           width: isExpanded ? '100vw' : isCollapsed ? `${COLLAPSED_WIDTH}px` : `${width}px`,
           maxWidth: isExpanded ? '100vw' : `${MAX_WIDTH}px`
         }}
@@ -1112,7 +1090,7 @@ Example format for each chip: {"text": "🔥 Build rapport", "prompt": "How can 
         {!isCollapsed && (
           <>
             {/* Compact Control Bar */}
-            <div className="flex items-center justify-between px-3 pt-3 pb-3 bg-muted/30 border-b border-border">
+            <div className="flex items-center justify-between px-3 pt-3 pb-3 bg-muted/30 border-b border-border/30">
               <div className="flex items-center gap-2">
                 <UserCheck className="h-4 w-4 text-muted-foreground" />
                 <span className="text-sm font-medium text-foreground">AI Advisor</span>
@@ -1201,7 +1179,7 @@ Example format for each chip: {"text": "🔥 Build rapport", "prompt": "How can 
             </div>
 
             {/* Quick Help Actions */}
-            <div className="flex-shrink-0 p-4 border-t border-border bg-muted/30">
+            <div className="flex-shrink-0 p-4 border-t border-border/30 bg-muted/30">
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-2">
                   <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
@@ -1298,7 +1276,7 @@ Example format for each chip: {"text": "🔥 Build rapport", "prompt": "How can 
             </div>
 
             {/* Message Input */}
-            <div className="p-4 border-t border-border bg-card">
+            <div className="p-4 border-t border-border/30 bg-card">
               <div className="flex gap-2">
                 <Textarea
                   value={newMessage}

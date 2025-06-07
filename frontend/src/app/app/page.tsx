@@ -750,7 +750,8 @@ export default function App() {
     isRecording: conversationState === 'recording' && !loadedSummary, // Don't auto-generate if we have DB data
     // Treat completed sessions like paused so summary data is retained
     isPaused: conversationState === 'paused' || conversationState === 'completed',
-    refreshIntervalMs: 45000 // 45 seconds
+    refreshIntervalMs: 45000, // 45 seconds
+    session: session // Add session for authentication
   });
 
 
