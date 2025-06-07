@@ -295,7 +295,7 @@ PREVIOUS CONVERSATION CONTEXT:
 - Provide continuity by acknowledging past interactions and progress`;
 }
 
-export function buildChatPrompt(message: string, transcript: string, chatHistory: ChatMessage[], conversationType?: string, conversationTitle?: string, textContext?: string, summary?: { tldr?: string; key_points?: string[]; sentiment?: string }, uploadedFiles?: Array<{ name: string; type: string; size: number }>, selectedPreviousConversations?: string[], personalContext?: string): string {
+function buildChatPrompt(message: string, transcript: string, chatHistory: ChatMessage[], conversationType?: string, conversationTitle?: string, textContext?: string, summary?: { tldr?: string; key_points?: string[]; sentiment?: string }, uploadedFiles?: Array<{ name: string; type: string; size: number }>, selectedPreviousConversations?: string[], personalContext?: string): string {
   // Detect if user is in live conversation or preparation mode
   const hasActiveTranscript = transcript && transcript.trim().length > 0;
   const isLiveConversation = hasActiveTranscript || message.toLowerCase().includes('they') || message.toLowerCase().includes('currently') || message.toLowerCase().includes('right now');
