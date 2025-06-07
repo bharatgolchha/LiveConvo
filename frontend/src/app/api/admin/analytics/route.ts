@@ -122,7 +122,7 @@ export async function GET(request: NextRequest) {
     interface SessionWithUser {
       user_id: string;
       total_audio_seconds?: number;
-      users?: {
+      users: {
         email?: string;
         current_organization_id?: string;
       };
@@ -133,8 +133,8 @@ export async function GET(request: NextRequest) {
       if (!acc[userId]) {
         acc[userId] = {
           id: userId,
-          email: session.users?.email || 'Unknown',
-          organizationId: session.users?.current_organization_id || null,
+          email: session.users.email || 'Unknown',
+          organizationId: session.users.current_organization_id || null,
           sessions: 0,
           audioMinutes: 0
         };
