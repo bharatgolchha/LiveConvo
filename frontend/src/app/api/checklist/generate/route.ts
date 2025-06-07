@@ -118,9 +118,9 @@ export async function POST(request: NextRequest) {
       
       // Validate and clean the items
       const validItems = checklistItems
-        .filter(item => item.text && item.text.trim().length > 0)
+        .filter((item: any) => item.text && item.text.trim().length > 0)
         .slice(0, 5) // Max 5 items
-        .map(item => ({
+        .map((item: any) => ({
           text: item.text.trim().substring(0, 100),
           priority: ['high', 'medium', 'low'].includes(item.priority) ? item.priority : 'medium',
           type: ['preparation', 'followup', 'research', 'decision', 'action'].includes(item.type) ? item.type : 'action'
