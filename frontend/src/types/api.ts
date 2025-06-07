@@ -229,8 +229,8 @@ export interface SummaryResponse {
 
 export interface SummaryInsight {
   observation: string;
-  evidence: string;
-  recommendation: string;
+  evidence?: string;
+  recommendation?: string;
 }
 
 export interface SummaryActionItem {

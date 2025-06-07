@@ -1180,10 +1180,11 @@ const ExportModal: React.FC<{
             textContent += '\n';
           }
           
-          if (sessionData.summary.insights?.length > 0) {
+          const insights = sessionData.summary.insights;
+          if (insights && insights.length > 0) {
             textContent += `KEY INSIGHTS\n`;
             textContent += `------------\n`;
-            sessionData.summary.insights.forEach((insight, idx) => {
+            insights.forEach((insight, idx) => {
               if (typeof insight === 'string') {
                 textContent += `${idx + 1}. ${insight}\n`;
               } else if (insight.observation) {
@@ -1196,28 +1197,31 @@ const ExportModal: React.FC<{
             textContent += '\n';
           }
           
-          if (sessionData.summary.followUpQuestions?.length > 0) {
+          const followUps = sessionData.summary.followUpQuestions;
+          if (followUps && followUps.length > 0) {
             textContent += `FOLLOW-UP QUESTIONS\n`;
             textContent += `------------------\n`;
-            sessionData.summary.followUpQuestions?.forEach((question, idx) => {
+            followUps.forEach((question, idx) => {
               textContent += `${idx + 1}. ${question}\n`;
             });
             textContent += '\n';
           }
           
-          if (sessionData.summary.successfulMoments?.length > 0) {
+          const successful = sessionData.summary.successfulMoments;
+          if (successful && successful.length > 0) {
             textContent += `SUCCESSFUL MOMENTS\n`;
             textContent += `-----------------\n`;
-            sessionData.summary.successfulMoments?.forEach((moment, idx) => {
+            successful.forEach((moment, idx) => {
               textContent += `${idx + 1}. ${moment}\n`;
             });
             textContent += '\n';
           }
           
-          if (sessionData.summary.coachingRecommendations?.length > 0) {
+          const coaching = sessionData.summary.coachingRecommendations;
+          if (coaching && coaching.length > 0) {
             textContent += `COACHING RECOMMENDATIONS\n`;
             textContent += `-----------------------\n`;
-            sessionData.summary.coachingRecommendations?.forEach((rec, idx) => {
+            coaching.forEach((rec, idx) => {
               textContent += `${idx + 1}. ${rec}\n`;
             });
             textContent += '\n';
