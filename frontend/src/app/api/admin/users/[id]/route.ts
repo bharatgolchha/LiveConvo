@@ -95,6 +95,8 @@ export async function GET(
       .single();
 
     if (orgMember && orgMember.organizations) {
+      const orgData = orgMember.organizations as unknown as { id: string; name: string };
+      
       // Get subscription info for the organization
       const { data: subscription } = await adminClient
         .from('subscriptions')
@@ -105,14 +107,14 @@ export async function GET(
             display_name
           )
         `)
-        .eq('organization_id', (orgMember.organizations as { id: string }).id)
+        .eq('organization_id', orgData.id)
         .eq('status', 'active')
         .limit(1)
         .single();
 
       organization = {
-        id: (orgMember.organizations as { id: string; name: string }).id,
-        name: (orgMember.organizations as { id: string; name: string }).name,
+        id: orgData.id,
+        name: orgData.name,
         current_plan: (subscription?.plans as { display_name?: string })?.display_name || subscription?.plan_type || 'Free'
       };
     }
