@@ -12,7 +12,6 @@ import {
   Shield,
   Mail,
   MessageCircle,
-  Star,
   UserCheck,
   Zap,
   ChevronDown,
