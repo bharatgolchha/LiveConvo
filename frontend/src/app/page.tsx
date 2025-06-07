@@ -113,29 +113,6 @@ export default function LandingPage() {
     }
   ];
 
-  const perks = [
-    {
-      icon: <Star className="w-6 h-6" />,
-      title: 'Free Beta Access',
-      description: 'Full platform access during testing period'
-    },
-    {
-      icon: <UserCheck className="w-6 h-6" />,
-      title: 'Direct Founder Access',
-      description: 'Weekly feedback sessions and feature requests'
-    },
-    {
-      icon: <Zap className="w-6 h-6" />,
-      title: 'Priority Features',
-      description: 'Your use cases drive our development roadmap'
-    },
-    {
-      icon: <Shield className="w-6 h-6" />,
-      title: 'Grandfather Pricing',
-      description: 'Lock in special rates before public launch'
-    }
-  ];
-
   return (
     <div className="min-h-screen" style={{ background: 'linear-gradient(to bottom, #030712, #111827)' }}>
       {/* Header */}
