@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { Card } from '@/components/ui/Card';
 import { adminFetch } from '@/lib/adminApi';
 
@@ -152,12 +153,12 @@ export default function AdminDashboard() {
             <h3 className="text-lg font-medium text-gray-900 dark:text-white">
               Beta Waitlist
             </h3>
-            <a
+            <Link
               href="/admin/waitlist"
               className="text-sm text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
             >
               Manage →
-            </a>
+            </Link>
           </div>
           <div className="space-y-3">
             <div className="flex justify-between items-center">
@@ -202,30 +203,30 @@ export default function AdminDashboard() {
           Quick Actions
         </h3>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          <a
+          <Link
             href="/admin/users"
             className="px-4 py-2 text-center text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700"
           >
             Manage Users
-          </a>
-          <a
+          </Link>
+          <Link
             href="/admin/organizations"
             className="px-4 py-2 text-center text-sm font-medium text-white bg-green-600 rounded-md hover:bg-green-700"
           >
             Manage Organizations
-          </a>
-          <a
+          </Link>
+          <Link
             href="/admin/waitlist"
             className="px-4 py-2 text-center text-sm font-medium text-white bg-orange-600 rounded-md hover:bg-orange-700"
           >
             Manage Waitlist
-          </a>
-          <a
+          </Link>
+          <Link
             href="/admin/system"
             className="px-4 py-2 text-center text-sm font-medium text-white bg-purple-600 rounded-md hover:bg-purple-700"
           >
             System Logs
-          </a>
+          </Link>
         </div>
       </Card>
     </div>

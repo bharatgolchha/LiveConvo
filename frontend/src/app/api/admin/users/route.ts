@@ -1,5 +1,6 @@
 import { NextResponse, NextRequest } from 'next/server';
 import { supabase } from '@/lib/supabase';
+import type { Organization, SessionData } from '@/types/api';
 
 export async function GET(request: NextRequest) {
   try {
@@ -42,7 +43,7 @@ export async function GET(request: NextRequest) {
 
     // Fetch organizations for users who have one
     const orgIds = [...new Set(users?.map(u => u.current_organization_id).filter(Boolean) || [])];
-    let organizations: any[] = [];
+    let organizations: Organization[] = [];
     
     if (orgIds.length > 0) {
       const { data } = await supabase
@@ -54,7 +55,7 @@ export async function GET(request: NextRequest) {
 
     // Fetch user statistics
     const userIds = users?.map(u => u.id) || [];
-    let sessions: any[] = [];
+    let sessions: Pick<SessionData, 'user_id' | 'total_audio_seconds'>[] = [];
     
     if (userIds.length > 0) {
       const { data } = await supabase
@@ -68,7 +69,7 @@ export async function GET(request: NextRequest) {
     const orgMap = organizations?.reduce((acc, org) => {
       acc[org.id] = org;
       return acc;
-    }, {} as Record<string, any>) || {};
+    }, {} as Record<string, Organization>) || {};
 
     // Calculate stats for each user
     const userStats = sessions?.reduce((acc, session) => {

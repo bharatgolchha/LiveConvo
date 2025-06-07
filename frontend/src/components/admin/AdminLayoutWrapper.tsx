@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
 import { ThemeProvider } from '@/contexts/ThemeContext';
 
@@ -16,7 +17,7 @@ export default function AdminLayoutWrapper({
 
   useEffect(() => {
     checkAdminAccess();
-  }, []);
+  }, [router]);
 
   const checkAdminAccess = async () => {
     try {
@@ -72,51 +73,51 @@ export default function AdminLayoutWrapper({
                   </h1>
                 </div>
                 <div className="hidden sm:ml-6 sm:flex sm:space-x-8">
-                  <a
+                  <Link
                     href="/admin"
                     className="border-b-2 border-transparent hover:border-gray-300 dark:hover:border-gray-600 text-gray-900 dark:text-gray-300 inline-flex items-center px-1 pt-1 text-sm font-medium"
                   >
                     Overview
-                  </a>
-                  <a
+                  </Link>
+                  <Link
                     href="/admin/users"
                     className="border-b-2 border-transparent hover:border-gray-300 dark:hover:border-gray-600 text-gray-900 dark:text-gray-300 inline-flex items-center px-1 pt-1 text-sm font-medium"
                   >
                     Users
-                  </a>
-                  <a
+                  </Link>
+                  <Link
                     href="/admin/organizations"
                     className="border-b-2 border-transparent hover:border-gray-300 dark:hover:border-gray-600 text-gray-900 dark:text-gray-300 inline-flex items-center px-1 pt-1 text-sm font-medium"
                   >
                     Organizations
-                  </a>
-                  <a
+                  </Link>
+                  <Link
                     href="/admin/waitlist"
                     className="border-b-2 border-transparent hover:border-gray-300 dark:hover:border-gray-600 text-gray-900 dark:text-gray-300 inline-flex items-center px-1 pt-1 text-sm font-medium"
                   >
                     Waitlist
-                  </a>
-                  <a
+                  </Link>
+                  <Link
                     href="/admin/analytics"
                     className="border-b-2 border-transparent hover:border-gray-300 dark:hover:border-gray-600 text-gray-900 dark:text-gray-300 inline-flex items-center px-1 pt-1 text-sm font-medium"
                   >
                     Analytics
-                  </a>
-                  <a
+                  </Link>
+                  <Link
                     href="/admin/system"
                     className="border-b-2 border-transparent hover:border-gray-300 dark:hover:border-gray-600 text-gray-900 dark:text-gray-300 inline-flex items-center px-1 pt-1 text-sm font-medium"
                   >
                     System
-                  </a>
+                  </Link>
                 </div>
               </div>
               <div className="flex items-center">
-                <a
+                <Link
                   href="/dashboard"
                   className="text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200"
                 >
                   Back to Dashboard
-                </a>
+                </Link>
               </div>
             </div>
           </div>

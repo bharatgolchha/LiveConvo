@@ -67,7 +67,7 @@ interface SetupModalProps {
   handleResetSession: () => void;
   
   // Stats
-  transcript: any[];
+  transcript: Array<{ speaker: string; text: string }> | [];
   sessionDuration: number;
 }
 
@@ -281,7 +281,7 @@ export const SetupModal: React.FC<SetupModalProps> = ({
               ].map(({ id, label, icon: Icon, badge }) => (
                 <button
                   key={id}
-                  onClick={() => setActiveTab(id as any)}
+                  onClick={() => setActiveTab(id as 'setup' | 'files' | 'previous')}
                   className={cn(
                     "flex-1 flex items-center justify-center gap-3 px-6 py-4 text-sm font-medium transition-all relative min-h-[60px]",
                     activeTab === id

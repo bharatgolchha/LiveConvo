@@ -61,7 +61,7 @@ export interface SessionsHookReturn {
     title: string; 
     conversation_type: string; 
     selected_template_id?: string;
-    context?: { text?: string; metadata?: any }
+    context?: { text?: string; metadata?: Record<string, unknown> }
   }) => Promise<Session | null>;
   refreshSessions: () => Promise<void>;
 }
@@ -145,7 +145,7 @@ export function useSessions(): SessionsHookReturn {
   /**
    * Generic error handler for PATCH, DELETE, POST
    */
-  const handleApiError = useCallback((err: any, operation: string, response?: Response) => {
+  const handleApiError = useCallback((err: unknown, operation: string, response?: Response) => {
     const errorMessage = err instanceof Error ? err.message : `Failed to ${operation} session`;
     setError(errorMessage);
     console.error(`Session ${operation} error:`, err);
@@ -243,7 +243,7 @@ export function useSessions(): SessionsHookReturn {
     title: string; 
     conversation_type: string; 
     selected_template_id?: string;
-    context?: { text?: string; metadata?: any }
+    context?: { text?: string; metadata?: Record<string, unknown> }
   }): Promise<Session | null> => {
     if (!user || authLoading) {
       return null;

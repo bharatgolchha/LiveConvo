@@ -25,6 +25,16 @@ export interface GuidanceSuggestion {
   priority: 'low' | 'medium' | 'high';
 }
 
+interface AIGuidanceResponse {
+  suggestions: Array<{
+    type?: string;
+    message?: string;
+    confidence?: number;
+    reasoning?: string;
+    priority?: string;
+  }>;
+}
+
 export interface ContextDocument {
   id: string;
   name: string;
@@ -134,11 +144,11 @@ export class AIGuidanceEngine {
   /**
    * Parse the AI response into guidance suggestions
    */
-  private parseGuidanceResponse(data: any): GuidanceSuggestion[] {
+  private parseGuidanceResponse(data: AIGuidanceResponse): GuidanceSuggestion[] {
     try {
       const suggestions = data.suggestions || [];
       
-      return suggestions.map((suggestion: any) => ({
+      return suggestions.map((suggestion) => ({
         id: Math.random().toString(36).substring(7),
         type: suggestion.type || 'suggest',
         message: suggestion.message || 'No message provided',

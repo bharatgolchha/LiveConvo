@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import type { RealtimeSummary, SuggestedChecklistItem, SummaryResponse } from '@/types/api';
 
 const getContextSpecificGuidelines = (conversationType: string) => {
   switch (conversationType) {
@@ -56,7 +57,7 @@ export async function POST(request: NextRequest) {
     }
     
     // Create authenticated client with user's token
-    const { createClient } = require('@supabase/supabase-js');
+    const { createClient } = await import('@supabase/supabase-js');
     const authClient = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -218,7 +219,7 @@ Focus on extracting concrete, actionable information. Return only valid JSON.`;
     }
     
     // Validate and ensure all required fields exist
-    const validatedSummary = {
+    const validatedSummary: RealtimeSummary = {
       tldr: summaryData.tldr || 'No summary available',
       keyPoints: Array.isArray(summaryData.keyPoints) ? summaryData.keyPoints : [],
       decisions: Array.isArray(summaryData.decisions) ? summaryData.decisions : [],
@@ -227,11 +228,11 @@ Focus on extracting concrete, actionable information. Return only valid JSON.`;
       topics: Array.isArray(summaryData.topics) ? summaryData.topics : ['General'],
       sentiment: ['positive', 'negative', 'neutral'].includes(summaryData.sentiment) ? summaryData.sentiment : 'neutral',
       progressStatus: ['just_started', 'building_momentum', 'making_progress', 'wrapping_up'].includes(summaryData.progressStatus) ? summaryData.progressStatus : 'building_momentum',
-      suggestedChecklistItems: Array.isArray(summaryData.suggestedChecklistItems) ? summaryData.suggestedChecklistItems.filter((item: any) => 
+      suggestedChecklistItems: Array.isArray(summaryData.suggestedChecklistItems) ? summaryData.suggestedChecklistItems.filter((item: SuggestedChecklistItem) => 
         item && 
         typeof item.text === 'string' && 
-        ['high', 'medium', 'low'].includes(item.priority) &&
-        ['preparation', 'followup', 'research', 'decision', 'action'].includes(item.type) &&
+        (['high', 'medium', 'low'] as const).includes(item.priority) &&
+        (['preparation', 'followup', 'research', 'decision', 'action'] as const).includes(item.type) &&
         typeof item.relevance === 'number' && 
         item.relevance >= 0 && 
         item.relevance <= 100
@@ -239,7 +240,7 @@ Focus on extracting concrete, actionable information. Return only valid JSON.`;
     };
     
     // Return in the expected format for useRealtimeSummary hook
-    const responseData = {
+    const responseData: SummaryResponse = {
       summary: validatedSummary,
       generatedAt: new Date().toISOString(),
       sessionId

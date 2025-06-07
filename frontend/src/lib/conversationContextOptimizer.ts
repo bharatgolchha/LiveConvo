@@ -1,6 +1,23 @@
 // Optimized context loading for previous conversations
 // Based on the schema analysis, we should only load essential data for AI context
 
+import type { SessionDataFull } from '@/types/app';
+
+interface SessionWithSummary extends SessionDataFull {
+  summaries?: Array<{
+    tldr?: string;
+    key_decisions?: string[];
+    action_items?: Array<{ text: string; completed: boolean }> | string[];
+    follow_up_questions?: string[];
+    conversation_highlights?: string[];
+    structured_notes?: string;
+  }>;
+  prep_checklist?: Array<{
+    text: string;
+    completed: boolean;
+  }>;
+}
+
 export interface OptimizedConversationContext {
   sessionId: string;
   title: string;
@@ -17,7 +34,7 @@ export interface OptimizedConversationContext {
 }
 
 export function buildOptimizedContext(
-  sessionData: any,
+  sessionData: SessionWithSummary,
   currentConversationType?: string
 ): string {
   const summary = sessionData.summaries?.[0];
@@ -44,10 +61,10 @@ export function buildOptimizedContext(
   // Only include open action items (not completed ones)
   if (summary.action_items?.length > 0) {
     const openItems = summary.action_items
-      .filter((item: any) => !item.completed)
+      .filter((item: { text: string; completed: boolean }) => !item.completed)
       .slice(0, 3);
     if (openItems.length > 0) {
-      context += `Open Actions: ${openItems.map((item: any) => 
+      context += `Open Actions: ${openItems.map((item: { text: string; completed: boolean }) => 
         typeof item === 'string' ? item : item.text
       ).join('; ')}\n`;
     }
@@ -90,7 +107,7 @@ export function getRequiredFields(
 
 // Calculate relevance score to prioritize which conversations to load
 export function calculateRelevanceScore(
-  sessionData: any,
+  sessionData: SessionWithSummary,
   currentConversationType: string,
   daysSinceConversation: number
 ): number {
@@ -110,7 +127,8 @@ export function calculateRelevanceScore(
   
   // Has open action items
   const summary = sessionData.summaries?.[0];
-  if (summary?.action_items?.some((item: any) => !item.completed)) {
+  if (summary?.action_items?.some((item) => 
+    typeof item === 'object' && 'completed' in item && !item.completed)) {
     score += 20;
   }
   

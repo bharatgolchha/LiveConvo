@@ -8,10 +8,29 @@ interface OnboardingData {
 
 interface OnboardingResponse {
   message: string;
-  user: any;
-  organization: any;
-  membership: any;
-  subscription: any;
+  user: {
+    id: string;
+    email: string;
+    current_organization_id?: string;
+    full_name?: string;
+  };
+  organization: {
+    id: string;
+    name: string;
+    display_name?: string;
+    slug?: string;
+  };
+  membership: {
+    user_id: string;
+    organization_id: string;
+    role: string;
+  };
+  subscription: {
+    id: string;
+    organization_id: string;
+    plan_type: string;
+    status: string;
+  };
 }
 
 interface UseOnboardingReturn {

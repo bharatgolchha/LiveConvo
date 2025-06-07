@@ -70,6 +70,14 @@ import { useSessionData, SessionDocument } from '@/lib/hooks/useSessionData';
 import { useMinuteTracking } from '@/lib/hooks/useMinuteTracking';
 import { RecordingConsentModal } from '@/components/conversation/RecordingConsentModal';
 import { ConversationHeaderDate } from '@/components/ui/ConversationDateIndicator';
+import type { SessionDataFull, ConversationSummary as ConversationSummaryType, TranscriptData, LocalStorageData, SessionFile } from '@/types/app';
+
+// Type assertion for getDisplayMedia support
+declare global {
+  interface MediaDevices {
+    getDisplayMedia(constraints?: { audio?: boolean | MediaTrackConstraints; video?: boolean | MediaTrackConstraints }): Promise<MediaStream>;
+  }
+}
 
 interface TranscriptLine {
   id: string;
@@ -81,11 +89,13 @@ interface TranscriptLine {
 
 type ConversationState = 'setup' | 'ready' | 'recording' | 'paused' | 'processing' | 'completed' | 'error';
 
+type ConversationSummary = ConversationSummaryType;
+
 // Database saving functions - Enhanced for reliability and duplicate prevention
 const saveTranscriptToDatabase = async (
   sessionId: string,
   transcriptLines: TranscriptLine[],
-  session: any,
+  session: SessionDataFull,
   lastSavedIndex = 0,
   retryCount = 0
 ) : Promise<number> => {
@@ -155,7 +165,7 @@ const saveTranscriptToDatabase = async (
 const saveTranscriptNow = async (
   sessionId: string,
   transcriptLines: TranscriptLine[],
-  session: any,
+  session: SessionDataFull,
   lastSavedIndex: number
 ): Promise<number> => {
   if (!sessionId || !transcriptLines || transcriptLines.length === 0 || !session) {
@@ -170,7 +180,7 @@ const saveTranscriptNow = async (
 
 
 
-const saveSummaryToDatabase = async (sessionId: string, summary: ConversationSummary, session: any) => {
+const saveSummaryToDatabase = async (sessionId: string, summary: ConversationSummary, session: SessionDataFull) => {
   try {
     const response = await authenticatedFetch(`/api/sessions/${sessionId}`, session, {
       method: 'PATCH',
@@ -370,7 +380,7 @@ export default function App() {
           // Only restore transcript and other non-state data from localStorage
           // The actual conversation state will come from the backend
           if (parsed.transcript) {
-            const restoredTranscript = (parsed.transcript as any[]).map((line, index) => ({
+            const restoredTranscript = (parsed.transcript as TranscriptLine[]).map((line, index) => ({
               ...line,
               // Regenerate IDs to ensure uniqueness when restoring from localStorage
               id: `restored-${conversationId}-${index}-${Date.now()}`,
@@ -492,7 +502,7 @@ export default function App() {
         console.log('Transcript data received:', transcriptData);
         
         // Convert transcript data to TranscriptLine format
-        const formattedTranscript = transcriptData.transcripts.map((item: any, index: number) => ({
+        const formattedTranscript = transcriptData.transcripts.map((item: TranscriptData, index: number) => ({
           id: `loaded-${sessionId}-${index}-${Date.now()}`,
           text: item.content,
           timestamp: new Date(item.created_at),
@@ -985,7 +995,7 @@ export default function App() {
 
       const updateSessionStatus = async () => {
         try {
-          const sessionData: any = {
+          const sessionData: Partial<SessionDataFull> = {
             status: conversationState === 'recording' ? 'active' : 'completed'
           };
 
@@ -1115,7 +1125,7 @@ export default function App() {
               // This is tricky as File objects can't be directly stringified/parsed from localStorage.
               // For a real app, you'd store file metadata and retrieve actual files from a server or IndexedDB.
               // For now, we'll just set the names if they exist for UI, but actual File objects won't be restored.
-              const restoredFiles = (config.context.files as any[])
+              const restoredFiles = (config.context.files as SessionFile[])
                 .map(f => f.name ? new File([], f.name, {type: f.type || 'application/octet-stream'}) : null)
                 .filter(f => f !== null) as File[];
               setUploadedFiles(restoredFiles);
@@ -1250,7 +1260,7 @@ export default function App() {
               if (transcriptResponse.ok) {
                 const transcriptData = await transcriptResponse.json();
                 if (transcriptData.data && Array.isArray(transcriptData.data) && transcriptData.data.length > 0) {
-                  const loadedTranscript: TranscriptLine[] = transcriptData.data.map((line: any, index: number) => ({
+                  const loadedTranscript: TranscriptLine[] = transcriptData.data.map((line: TranscriptData, index: number) => ({
                     // Always use index-based ID to ensure uniqueness when loading from DB
                     id: `loaded-${conversationId}-${index}-${Date.now()}`,
                     text: line.content || '',
@@ -1292,7 +1302,7 @@ export default function App() {
           // Load cached summary from database if available
           if (sessionData.realtime_summary_cache) {
             try {
-              const cachedSummary: any = typeof sessionData.realtime_summary_cache === 'string'
+              const cachedSummary: ConversationSummary = typeof sessionData.realtime_summary_cache === 'string'
                 ? JSON.parse(sessionData.realtime_summary_cache)
                 : sessionData.realtime_summary_cache;
               
@@ -1658,9 +1668,9 @@ export default function App() {
 
       // Capture system audio for remote speaker
       let systemStream: MediaStream | null = null;
-      if (navigator.mediaDevices && (navigator.mediaDevices as any).getDisplayMedia) {
+      if (navigator.mediaDevices && navigator.mediaDevices.getDisplayMedia) {
         try {
-          const displayStream = await (navigator.mediaDevices as any).getDisplayMedia({ audio: true, video: true });
+          const displayStream = await navigator.mediaDevices.getDisplayMedia({ audio: true, video: true });
           systemStream = new MediaStream(displayStream.getAudioTracks());
           // Stop video tracks immediately
           displayStream.getVideoTracks().forEach((track: MediaStreamTrack) => track.stop());
@@ -1734,9 +1744,9 @@ export default function App() {
 
       // Capture system audio for remote speaker if we don't have it preserved
       let systemStream: MediaStream | null = systemAudioStream;
-      if (!systemStream && navigator.mediaDevices && (navigator.mediaDevices as any).getDisplayMedia) {
+      if (!systemStream && navigator.mediaDevices && navigator.mediaDevices.getDisplayMedia) {
         try {
-          const displayStream = await (navigator.mediaDevices as any).getDisplayMedia({ audio: true, video: true });
+          const displayStream = await navigator.mediaDevices.getDisplayMedia({ audio: true, video: true });
           systemStream = new MediaStream(displayStream.getAudioTracks());
           // Stop video tracks immediately
           displayStream.getVideoTracks().forEach((track: MediaStreamTrack) => track.stop());
@@ -2557,7 +2567,7 @@ export default function App() {
                 <div className="w-24 h-24 bg-app-info-light rounded-full flex items-center justify-center mx-auto mb-6 ring-4 ring-app-info/20">
                   <Settings2 className="w-12 h-12 text-app-info" />
                 </div>
-                <h2 className="text-3xl font-bold text-foreground mb-3">Let's Get Started</h2>
+                <h2 className="text-3xl font-bold text-foreground mb-3">Let&apos;s Get Started</h2>
                 <p className="text-muted-foreground mb-8 text-lg">
                   Configure your conversation title, type, and add any context on the left panel. Then, click "Get Ready".
                 </p>

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import type { ChecklistGenerationItem, PreviousSession } from '@/types/api'
 
 export async function POST(request: NextRequest) {
   try {
@@ -57,7 +58,7 @@ export async function POST(request: NextRequest) {
         .eq('user_id', user.id)
 
       if (!sessionsError && previousSessions) {
-        previousConversationContext = previousSessions
+        previousConversationContext = (previousSessions as PreviousSession[])
           .map(s => `- ${s.title} (${s.conversation_type}): ${s.context?.text || 'No context'}`)
           .join('\n')
       }
@@ -181,13 +182,13 @@ ${transcript ? `\nCurrent Conversation Transcript:\n${transcript}` : ''}
       const checklistItems = parsedContent.items || []
       
       // Validate and clean the items
-      const validItems = checklistItems
-        .filter((item: any) => item.text && item.text.trim().length > 0)
+      const validItems: ChecklistGenerationItem[] = checklistItems
+        .filter((item: ChecklistGenerationItem) => item.text && item.text.trim().length > 0)
         .slice(0, 10) // Max 10 items
-        .map((item: any) => ({
+        .map((item: ChecklistGenerationItem) => ({
           text: item.text.trim().substring(0, 100),
-          priority: ['high', 'medium', 'low'].includes(item.priority) ? item.priority : 'medium',
-          type: ['preparation', 'followup', 'research', 'decision', 'action'].includes(item.type) ? item.type : 'action'
+          priority: (['high', 'medium', 'low'] as const).includes(item.priority) ? item.priority : 'medium',
+          type: (['preparation', 'followup', 'research', 'decision', 'action'] as const).includes(item.type) ? item.type : 'action'
         }))
 
       // Save the generated items to the database
@@ -198,7 +199,7 @@ ${transcript ? `\nCurrent Conversation Transcript:\n${transcript}` : ''}
         const { data, error: insertError } = await supabase
           .from('prep_checklist')
           .insert(
-            validItems.map((item: any) => ({
+            validItems.map((item: ChecklistGenerationItem) => ({
               session_id: sessionId,
               created_by: user.id,
               text: item.text,

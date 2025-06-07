@@ -52,7 +52,16 @@ interface UseChatGuidanceProps {
   // Enhanced context
   textContext?: string;
   conversationTitle?: string;
-  summary?: any; // ConversationSummary type
+  summary?: {
+    tldr?: string;
+    keyPoints?: string[];
+    actionItems?: string[];
+    decisions?: string[];
+    nextSteps?: string[];
+    topics?: string[];
+    sentiment?: string;
+    progressStatus?: string;
+  };
   uploadedFiles?: File[];
   selectedPreviousConversations?: string[];
   personalContext?: string;

@@ -1,5 +1,12 @@
 import { NextResponse, NextRequest } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import type { 
+  OrganizationMember, 
+  OrganizationMembership, 
+  OrganizationSubscription, 
+  OrganizationUsage,
+  OrganizationWithDetails 
+} from '@/types/api';
 
 export async function GET(request: NextRequest) {
   try {
@@ -137,10 +144,10 @@ export async function GET(request: NextRequest) {
 
     // Fetch organization members
     const orgIds = organizations?.map(o => o.id) || [];
-    let memberships: any[] = [];
-    let usageData: any[] = [];
-    let sessions: any[] = [];
-    let subscriptions: any[] = [];
+    let memberships: OrganizationMembership[] = [];
+    let usageData: OrganizationUsage[] = [];
+    let sessions: { organization_id: string }[] = [];
+    let subscriptions: OrganizationSubscription[] = [];
 
     if (orgIds.length > 0) {
       // Fetch organization members
@@ -207,7 +214,7 @@ export async function GET(request: NextRequest) {
         role: membership.role
       });
       return acc;
-    }, {} as Record<string, any[]>);
+    }, {} as Record<string, OrganizationMember[]>);
 
     // Group usage by organization
     const usageByOrg = usageData?.reduce((acc, usage) => {
@@ -225,7 +232,7 @@ export async function GET(request: NextRequest) {
     const subscriptionsByOrg = subscriptions?.reduce((acc, sub) => {
       acc[sub.organization_id] = sub;
       return acc;
-    }, {} as Record<string, any>);
+    }, {} as Record<string, OrganizationSubscription>);
 
     // Combine all data
     const organizationsWithDetails = organizations?.map(org => {

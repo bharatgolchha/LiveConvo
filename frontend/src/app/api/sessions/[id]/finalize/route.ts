@@ -1,6 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabase';
+import type { 
+  EnhancedSummary, 
+  FinalizationData, 
+  SummaryInsight,
+  SummaryActionItem,
+  SummaryDecision 
+} from '@/types/api';
 
 const openrouterApiKey = process.env.OPENROUTER_API_KEY;
 
@@ -139,7 +146,7 @@ export async function POST(
       follow_up_questions: summary.next_steps || [], // Map next_steps to follow_up_questions
       conversation_highlights: [
         ...summary.key_points || [],
-        ...(summary.insights?.map((i: any) => i.observation) || []),
+        ...(summary.insights?.map((i: SummaryInsight) => i.observation) || []),
         ...(summary.successful_moments || [])
       ], // Combine all highlights
       full_transcript: transcriptText,
@@ -261,7 +268,7 @@ function buildFullContext(textContext?: string, personalContext?: string, upload
   return fullContext || 'No additional context provided.';
 }
 
-async function generateFinalSummary(transcript: string, conversationType?: string, fullContext?: string) {
+async function generateFinalSummary(transcript: string, conversationType?: string, fullContext?: string): Promise<EnhancedSummary> {
   const typeSpecificPrompts = {
     sales: `Pay special attention to:
 - Customer pain points and needs identified
@@ -468,10 +475,10 @@ Remember:
   return {
     tldr: summary.tldr,
     key_points: summary.key_points || [],
-    action_items: summary.action_items?.map((item: any) => 
+    action_items: summary.action_items?.map((item: string | SummaryActionItem) => 
       typeof item === 'string' ? item : `${item.task} (${item.owner}) - ${item.timeline}`
     ) || [],
-    outcomes: summary.decisions_made?.map((d: any) => d.decision) || [],
+    outcomes: summary.decisions_made?.map((d: SummaryDecision) => d.decision) || [],
     next_steps: summary.follow_up_questions || [],
     insights: summary.insights || [],
     missed_opportunities: summary.missed_opportunities || [],
@@ -482,7 +489,7 @@ Remember:
   };
 }
 
-async function generateFinalizationData(transcript: string, context: string, conversationType?: string, summary?: any) {
+async function generateFinalizationData(transcript: string, context: string, conversationType?: string, summary?: EnhancedSummary): Promise<FinalizationData> {
   const systemPrompt = `You are an expert conversation coach providing deep analysis and actionable recommendations.
 
 Analyze the conversation for patterns, techniques, and opportunities.

@@ -1145,7 +1145,7 @@ Example format for each chip: {"text": "🔥 Build rapport", "prompt": "How can 
                   ) : (
                     <>
                       <p className="text-sm">Start recording to get AI guidance</p>
-                      <p className="text-xs mt-2">I'll provide real-time coaching and feedback</p>
+                      <p className="text-xs mt-2">I&apos;ll provide real-time coaching and feedback</p>
                     </>
                   )}
                   

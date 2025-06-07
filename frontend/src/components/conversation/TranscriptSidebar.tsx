@@ -151,7 +151,7 @@ export function TranscriptSidebar({
   };
 
   // Handle scroll events to detect manual scrolling
-  const handleScroll = ({ scrollOffset, scrollUpdateWasRequested }: any) => {
+  const handleScroll = ({ scrollOffset, scrollUpdateWasRequested }: { scrollOffset: number; scrollUpdateWasRequested: boolean }) => {
     if (!scrollUpdateWasRequested && listRef.current) {
       const isAtBottom = scrollOffset + listRef.current.props.height >= 
         filteredTranscripts.length * 60 - 10; // 60 is estimated row height

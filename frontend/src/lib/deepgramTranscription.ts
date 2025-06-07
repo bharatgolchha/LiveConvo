@@ -1,5 +1,5 @@
 import React from 'react';
-import { createClient, LiveTranscriptionEvents } from '@deepgram/sdk';
+import { createClient, LiveTranscriptionEvents, LiveTranscription } from '@deepgram/sdk';
 
 /**
  * Deepgram streaming transcription service for live audio processing
@@ -30,9 +30,41 @@ interface DeepgramConfig {
   vadEvents?: boolean;
 }
 
+interface DeepgramTranscriptData {
+  channel?: {
+    alternatives?: Array<{
+      transcript: string;
+      confidence?: number;
+      words?: Array<{
+        word: string;
+        start: number;
+        end: number;
+        confidence: number;
+      }>;
+    }>;
+  };
+  is_final?: boolean;
+  speech_final?: boolean;
+  from_finalize?: boolean;
+}
+
+interface DeepgramMetadata {
+  request_id?: string;
+  model_info?: {
+    name: string;
+    version: string;
+  };
+}
+
+interface DeepgramError {
+  type: string;
+  message: string;
+  code?: string;
+}
+
 export class DeepgramTranscriptionService {
   private deepgram: ReturnType<typeof createClient> | null = null;
-  private connection: any = null; // LiveTranscription connection
+  private connection: LiveTranscription | null = null; // LiveTranscription connection
   private audioContext: AudioContext | null = null;
   private mediaRecorder: MediaRecorder | null = null;
   private isConnected = false;
@@ -369,7 +401,7 @@ export class DeepgramTranscriptionService {
         this.emit({ type: 'disconnected', timestamp: new Date() });
       });
 
-      this.connection.on(LiveTranscriptionEvents.Transcript, (data: any) => {
+      this.connection.on(LiveTranscriptionEvents.Transcript, (data: DeepgramTranscriptData) => {
         // Only log raw data in verbose mode
         if (this.verboseLogging) {
           console.log('📝 Raw Deepgram result:', data);
@@ -390,13 +422,13 @@ export class DeepgramTranscriptionService {
         }
       });
 
-      this.connection.on(LiveTranscriptionEvents.Metadata, (data: any) => {
+      this.connection.on(LiveTranscriptionEvents.Metadata, (data: DeepgramMetadata) => {
         if (this.verboseLogging) {
           console.log('📊 Deepgram metadata:', data);
         }
       });
 
-      this.connection.on(LiveTranscriptionEvents.Error, (err: any) => {
+      this.connection.on(LiveTranscriptionEvents.Error, (err: DeepgramError) => {
         console.error('🚨 Deepgram error:', err);
         let errorMessage = 'Unknown Deepgram error';
         

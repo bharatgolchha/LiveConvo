@@ -5,6 +5,7 @@
 import { authenticatedFetch } from '@/lib/api';
 import { TranscriptLine } from '@/types/conversation';
 import { ConversationSummary } from '@/lib/useRealtimeSummary';
+import type { SessionDataFull } from '@/types/app';
 
 /**
  * Save transcript lines to the database.
@@ -12,7 +13,7 @@ import { ConversationSummary } from '@/lib/useRealtimeSummary';
 export const saveTranscriptToDatabase = async (
   sessionId: string, 
   transcriptLines: TranscriptLine[], 
-  session: any
+  session: SessionDataFull | null
 ): Promise<void> => {
   try {
     const transcriptData = transcriptLines.map((line, index) => ({
@@ -46,7 +47,7 @@ export const saveTranscriptToDatabase = async (
 export const saveSummaryToDatabase = async (
   sessionId: string, 
   summary: ConversationSummary, 
-  session: any
+  session: SessionDataFull | null
 ): Promise<void> => {
   try {
     const response = await authenticatedFetch(`/api/sessions/${sessionId}`, session, {

@@ -1,6 +1,7 @@
 import { NextResponse, NextRequest } from 'next/server';
 import { supabase } from '@/lib/supabase';
 import { subDays, format } from 'date-fns';
+import type { UserMetric, TopUser } from '@/types/api';
 
 export async function GET(request: NextRequest) {
   try {
@@ -132,7 +133,7 @@ export async function GET(request: NextRequest) {
       acc[userId].sessions += 1;
       acc[userId].audioMinutes += (session.total_audio_seconds || 0) / 60;
       return acc;
-    }, {} as Record<string, any>) || {};
+    }, {} as Record<string, UserMetric>) || {};
 
     // Get organization names
     const topUsersData = Object.values(userMetrics);

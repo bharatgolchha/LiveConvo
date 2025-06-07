@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerSupabaseClient, createAuthenticatedSupabaseClient } from '@/lib/supabase';
+import type { CurrentMonthUsage, UsageLimitData } from '@/types/api';
 
 /**
  * GET /api/usage/current-month - Get current month usage statistics
@@ -105,7 +106,7 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const limitData = limits?.[0] || {
+    const limitData: UsageLimitData = limits?.[0] || {
       minutes_limit: 0,
       minutes_remaining: 0,
       percentage_used: 0
@@ -116,7 +117,7 @@ export async function GET(request: NextRequest) {
     const projectedMonthlyUsage = Math.round(averageDailyUsage * daysInMonth);
 
     // Base response
-    const response: any = {
+    const response: CurrentMonthUsage = {
       minutes_used: minutesUsed,
       seconds_used: secondsUsed,
       minutes_limit: limitData.minutes_limit,
