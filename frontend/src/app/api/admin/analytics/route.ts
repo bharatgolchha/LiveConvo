@@ -160,7 +160,7 @@ export async function GET(request: NextRequest) {
     const topUsers = topUsersData
       .map(u => ({
         ...u,
-        organization: orgMap[u.organizationId] || 'No Organization'
+        organization: u.organizationId ? (orgMap[u.organizationId] || 'No Organization') : 'No Organization'
       }))
       .sort((a, b) => b.sessions - a.sessions)
       .slice(0, 5);
