@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabase, createServerSupabaseClient } from '@/lib/supabase';
+import { createServerSupabaseClient, createAuthenticatedSupabaseClient } from '@/lib/supabase';
 
 /**
  * GET /api/usage/current-month - Get current month usage statistics
@@ -25,7 +25,17 @@ export async function GET(request: NextRequest) {
     // Get current user from Supabase auth
     const authHeader = request.headers.get('authorization');
     const token = authHeader?.split(' ')[1];
-    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+    
+    if (!token) {
+      return NextResponse.json(
+        { error: 'Unauthorized', message: 'Please sign in to view usage' },
+        { status: 401 }
+      );
+    }
+    
+    // Create authenticated client for user validation
+    const authSupabase = createAuthenticatedSupabaseClient(token);
+    const { data: { user }, error: authError } = await authSupabase.auth.getUser();
     
     if (authError || !user) {
       return NextResponse.json(
@@ -60,8 +70,8 @@ export async function GET(request: NextRequest) {
     const daysPassed = currentDate.getDate();
     const daysRemaining = daysInMonth - daysPassed;
 
-    // Get monthly usage from cache
-    const { data: monthlyUsage, error: usageError } = await supabase
+    // Get monthly usage from cache using service client
+    const { data: monthlyUsage, error: usageError } = await serviceClient
       .from('monthly_usage_cache')
       .select('total_minutes_used, total_seconds_used')
       .eq('user_id', user.id)
@@ -80,8 +90,8 @@ export async function GET(request: NextRequest) {
     const minutesUsed = monthlyUsage?.total_minutes_used || 0;
     const secondsUsed = monthlyUsage?.total_seconds_used || 0;
 
-    // Get usage limits
-    const { data: limits, error: limitsError } = await supabase
+    // Get usage limits using service client
+    const { data: limits, error: limitsError } = await serviceClient
       .rpc('check_usage_limit', {
         p_user_id: user.id,
         p_organization_id: userData.current_organization_id
@@ -122,7 +132,7 @@ export async function GET(request: NextRequest) {
 
     // Add daily breakdown if requested
     if (detailed) {
-      const { data: dailyUsage, error: dailyError } = await supabase
+      const { data: dailyUsage, error: dailyError } = await serviceClient
         .rpc('get_usage_details', {
           p_user_id: user.id,
           p_organization_id: userData.current_organization_id,
