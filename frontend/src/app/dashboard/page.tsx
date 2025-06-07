@@ -1340,16 +1340,17 @@ const DashboardPage: React.FC = () => {
           metadata: {
             conversation_type: config.conversationType,
             created_from: 'dashboard',
-            has_files: config.context?.files?.length > 0
+            has_files: !!(config.context?.files && config.context.files.length > 0)
           }
         } : undefined
       });
       
       if (newSession) {
         // Upload files if any were provided
-        if (config.context?.files && config.context.files.length > 0) {
+        const files = config.context?.files;
+        if (files && files.length > 0) {
           try {
-            await uploadDocuments(newSession.id, config.context.files);
+            await uploadDocuments(newSession.id, files);
             console.log('✅ Files uploaded successfully for session:', newSession.id);
           } catch (error) {
             console.error('❌ Failed to upload files:', error);
