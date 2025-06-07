@@ -1183,7 +1183,7 @@ const ExportModal: React.FC<{
           if (sessionData.summary.insights?.length > 0) {
             textContent += `KEY INSIGHTS\n`;
             textContent += `------------\n`;
-            sessionData.summary.insights.forEach((insight: SummaryInsight, idx) => {
+            sessionData.summary.insights.forEach((insight, idx) => {
               if (typeof insight === 'string') {
                 textContent += `${idx + 1}. ${insight}\n`;
               } else if (insight.observation) {
@@ -1199,7 +1199,7 @@ const ExportModal: React.FC<{
           if (sessionData.summary.followUpQuestions?.length > 0) {
             textContent += `FOLLOW-UP QUESTIONS\n`;
             textContent += `------------------\n`;
-            sessionData.summary.followUpQuestions.forEach((question, idx) => {
+            sessionData.summary.followUpQuestions?.forEach((question, idx) => {
               textContent += `${idx + 1}. ${question}\n`;
             });
             textContent += '\n';
@@ -1208,7 +1208,7 @@ const ExportModal: React.FC<{
           if (sessionData.summary.successfulMoments?.length > 0) {
             textContent += `SUCCESSFUL MOMENTS\n`;
             textContent += `-----------------\n`;
-            sessionData.summary.successfulMoments.forEach((moment, idx) => {
+            sessionData.summary.successfulMoments?.forEach((moment, idx) => {
               textContent += `${idx + 1}. ${moment}\n`;
             });
             textContent += '\n';
@@ -1217,7 +1217,7 @@ const ExportModal: React.FC<{
           if (sessionData.summary.coachingRecommendations?.length > 0) {
             textContent += `COACHING RECOMMENDATIONS\n`;
             textContent += `-----------------------\n`;
-            sessionData.summary.coachingRecommendations.forEach((rec, idx) => {
+            sessionData.summary.coachingRecommendations?.forEach((rec, idx) => {
               textContent += `${idx + 1}. ${rec}\n`;
             });
             textContent += '\n';
@@ -1548,7 +1548,7 @@ const ShareModal: React.FC<{
               
               <Button
                 variant="outline"
-                onClick={onGenerateLink}
+                onClick={() => onGenerateLink()}
                 className="w-full"
               >
                 Generate New Link
