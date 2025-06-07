@@ -48,7 +48,9 @@
     "zod": "^3.25.30",
     "autoprefixer": "^10.4.21",
     "postcss": "^8.5.3",
-    "tailwindcss": "^3.4.17"
+    "tailwindcss": "^3.4.17",
+    "eslint": "^9",
+    "eslint-config-next": "^15.4.0-canary.51"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",
@@ -59,8 +61,6 @@
     "@types/pdf-parse": "^1.1.5",
     "@types/react": "^19",
     "@types/react-dom": "^19",
-    "eslint": "^9",
-    "eslint-config-next": "^15.4.0-canary.51",
     "jest": "^29.7.0",
     "jest-environment-jsdom": "^29.7.0",
     "ts-jest": "^29.3.4",
