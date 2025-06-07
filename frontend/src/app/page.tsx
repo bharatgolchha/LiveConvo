@@ -2,29 +2,25 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useTheme } from '@/contexts/ThemeContext';
 import { 
-  Mic, 
-  MessageSquare, 
-  FileText, 
-  CheckCircle2, 
-  ArrowRight, 
-  Play,
-  Clock,
-  Zap,
-  ChevronDown,
+  ArrowRight,
   Check,
-  Copy,
-  Users,
+  CheckCircle2,
   Shield,
-  Briefcase,
-  PhoneCall,
+  Mail,
+  MessageCircle,
   Star,
   UserCheck,
-  Mail,
-  MessageCircle
+  Zap,
+  ChevronDown,
+  Clock,
+  FileText,
+  Briefcase,
+  Users,
+  PhoneCall
 } from 'lucide-react';
 
 export default function LandingPage() {
@@ -85,7 +81,7 @@ export default function LandingPage() {
       image: "https://images.unsplash.com/photo-1494790108755-2616b612b120?w=150&h=150&fit=crop&crop=face"
     },
     {
-      quote: "As a hiring manager, this catches things I miss. It suggested follow-up questions that revealed a candidate wasn&apos;t a good fit. Saved us months of pain.",
+      quote: "As a hiring manager, this catches things I miss. It suggested follow-up questions that revealed a candidate wasn't a good fit. Saved us months of pain.",
       name: "David Park",
       role: "VP of Engineering", 
       company: "TechFlow",
@@ -96,47 +92,47 @@ export default function LandingPage() {
 
   const faqs = [
     {
-      question: &apos;How do I get selected for early access?&apos;,
-      answer: &apos;We review applications weekly and prioritize users who can provide detailed feedback. Sales professionals, consultants, and hiring managers get priority.&apos;
+      question: 'How do I get selected for early access?',
+      answer: 'We review applications weekly and prioritize users who can provide detailed feedback. Sales professionals, consultants, and hiring managers get priority.'
     },
     {
-      question: &apos;Will my prospect hear anything?&apos;,
-      answer: &apos;Completely silent to others. Only you see the cues on your screen.&apos;
+      question: 'Will my prospect hear anything?',
+      answer: 'Completely silent to others. Only you see the cues on your screen.'
     },
     {
-      question: &apos;What languages do you support?&apos;,
-      answer: &apos;English, Spanish, French, German, and Portuguese with 95%+ accuracy.&apos;
+      question: 'What languages do you support?',
+      answer: 'English, Spanish, French, German, and Portuguese with 95%+ accuracy.'
     },
     {
-      question: &apos;How secure is my data?&apos;,
-      answer: &apos;Bank-level encryption, SOC 2 compliant, zero data retention after processing.&apos;
+      question: 'How secure is my data?',
+      answer: 'Bank-level encryption, SOC 2 compliant, zero data retention after processing.'
     },
     {
-      question: &apos;What happens after the beta period?&apos;,
-      answer: &apos;Beta testers get grandfather pricing and continued priority support when we launch publicly.&apos;
+      question: 'What happens after the beta period?',
+      answer: 'Beta testers get grandfather pricing and continued priority support when we launch publicly.'
     }
   ];
 
   const perks = [
     {
       icon: <Star className="w-6 h-6" />,
-      title: &apos;Free Beta Access&apos;,
-      description: &apos;Full platform access during testing period&apos;
+      title: 'Free Beta Access',
+      description: 'Full platform access during testing period'
     },
     {
       icon: <UserCheck className="w-6 h-6" />,
-      title: &apos;Direct Founder Access&apos;,
-      description: &apos;Weekly feedback sessions and feature requests&apos;
+      title: 'Direct Founder Access',
+      description: 'Weekly feedback sessions and feature requests'
     },
     {
       icon: <Zap className="w-6 h-6" />,
-      title: &apos;Priority Features&apos;,
-      description: &apos;Your use cases drive our development roadmap&apos;
+      title: 'Priority Features',
+      description: 'Your use cases drive our development roadmap'
     },
     {
       icon: <Shield className="w-6 h-6" />,
-      title: &apos;Grandfather Pricing&apos;,
-      description: &apos;Lock in special rates before public launch&apos;
+      title: 'Grandfather Pricing',
+      description: 'Lock in special rates before public launch'
     }
   ];
 
@@ -147,10 +143,12 @@ export default function LandingPage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             <Link href="/" className="flex items-center gap-2">
-              <img 
+              <Image 
                 src="https://ucvfgfbjcrxbzppwjpuu.supabase.co/storage/v1/object/public/images//dark.png"
                 alt="liveprompt.ai logo"
-                className="w-8 h-8 object-contain"
+                width={32}
+                height={32}
+                className="object-contain"
               />
               <span className="text-xl font-bold" style={{ fontFamily: 'var(--font-poppins)', color: '#ffffff' }}>liveprompt.ai</span>
             </Link>
@@ -348,11 +346,12 @@ export default function LandingPage() {
                 
                 {/* Screenshot */}
                 <div className="relative">
-                  <img 
+                  <Image 
                     src="https://ucvfgfbjcrxbzppwjpuu.supabase.co/storage/v1/object/public/images//Screenshot%202025-06-04%20at%2010.42.34%20PM.png"
                     alt="liveprompt.ai Beta Dashboard - Real-time cues as you speak"
+                    width={1200}
+                    height={800}
                     className="w-full h-auto"
-                    loading="lazy"
                   />
                 </div>
               </div>
@@ -435,18 +434,18 @@ export default function LandingPage() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             {[
               {
-                title: &apos;Real-Time Cues&apos;,
-                description: &apos;Objection handling & next-best-question prompts under 2s.&apos;,
+                title: 'Real-Time Cues',
+                description: 'Objection handling & next-best-question prompts under 2s.',
                 icon: <Zap className="w-8 h-8" />
               },
               {
-                title: &apos;Smart Summaries&apos;, 
-                description: &apos;Action items & CRM-ready bullet points in your inbox 30 sec after hang-up.&apos;,
+                title: 'Smart Summaries', 
+                description: 'Action items & CRM-ready bullet points in your inbox 30 sec after hang-up.',
                 icon: <FileText className="w-8 h-8" />
               },
               {
-                title: &apos;Plug-&-Play&apos;,
-                description: &apos;Works in any browser tab; no Zoom plug-in hell.&apos;,
+                title: 'Plug-&-Play',
+                description: 'Works in any browser tab; no Zoom plug-in hell.',
                 icon: <CheckCircle2 className="w-8 h-8" />
               }
             ].map((item, index) => (
@@ -637,7 +636,7 @@ export default function LandingPage() {
               Works seamlessly with your favorite platforms
             </h2>
             <p className="text-lg max-w-2xl mx-auto" style={{ color: '#d1d5db' }}>
-              No plugins or extensions needed. Just start your meeting and we'll handle the rest.
+              No plugins or extensions needed. Just start your meeting and we&apos;ll handle the rest.
             </p>
           </div>
 
@@ -660,7 +659,7 @@ export default function LandingPage() {
               </div>
               <h3 className="text-xl font-bold mb-3 text-white">Google Meet</h3>
               <p className="text-gray-300 mb-6">
-                Optimized for Google Meet's interface and audio system
+                Optimized for Google Meet&apos;s interface and audio system
               </p>
               <div className="flex items-center justify-center gap-2 text-sm text-green-400">
                 <CheckCircle2 className="w-4 h-4" />
@@ -721,23 +720,23 @@ export default function LandingPage() {
           <div className="space-y-20">
             {[
               {
-                title: &apos;Stop winging discovery calls.&apos;,
-                subtitle: &apos;SaaS Sales&apos;,
-                description: &apos;Get real-time prompts for qualifying questions, objection handling, and next steps.&apos;,
+                title: 'Stop winging discovery calls.',
+                subtitle: 'SaaS Sales',
+                description: 'Get real-time prompts for qualifying questions, objection handling, and next steps.',
                 icon: <Briefcase className="w-12 h-12" />,
                 reverse: false
               },
               {
-                title: &apos;Bill for insights, not note-taking.&apos;,
-                subtitle: &apos;Consulting & Coaching&apos;, 
-                description: &apos;Focus on your client while AI captures action items and key decisions.&apos;,
+                title: 'Bill for insights, not note-taking.',
+                subtitle: 'Consulting & Coaching', 
+                description: 'Focus on your client while AI captures action items and key decisions.',
                 icon: <Users className="w-12 h-12" />,
                 reverse: true
               },
               {
-                title: &apos;Spot red flags live—not after.&apos;,
-                subtitle: &apos;Interviews & Hiring&apos;,
-                description: &apos;Get prompted for follow-up questions when candidates give incomplete answers.&apos;,
+                title: 'Spot red flags live—not after.',
+                subtitle: 'Interviews & Hiring',
+                description: 'Get prompted for follow-up questions when candidates give incomplete answers.',
                 icon: <PhoneCall className="w-12 h-12" />,
                 reverse: false
               }
@@ -879,12 +878,13 @@ export default function LandingPage() {
                 </div>
                 <p className="font-medium mb-4 pr-20" style={{ color: '#ffffff' }}>&quot;{testimonial.quote}&quot;</p>
                 <div className="flex items-center gap-3">
-                  <img 
+                  <Image 
                     src={testimonial.image} 
                     alt={testimonial.name}
-                    className="w-10 h-10 rounded-full object-cover"
+                    width={40}
+                    height={40}
+                    className="rounded-full object-cover"
                     style={{ border: '2px solid #4b5563' }}
-                    loading="lazy"
                   />
                   <div>
                     <p className="text-sm font-medium" style={{ color: '#ffffff' }}>{testimonial.name}</p>
@@ -1103,10 +1103,12 @@ export default function LandingPage() {
           <div className="flex flex-col md:flex-row justify-between items-center gap-8">
             <div>
               <div className="flex items-center gap-2 mb-2">
-                <img 
+                <Image 
                   src="https://ucvfgfbjcrxbzppwjpuu.supabase.co/storage/v1/object/public/images//dark.png"
                   alt="liveprompt.ai logo"
-                  className="w-8 h-8 object-contain"
+                  width={32}
+                  height={32}
+                  className="object-contain"
                 />
                 <span className="text-xl font-bold" style={{ fontFamily: 'var(--font-poppins)', color: '#ffffff' }}>liveprompt.ai</span>
               </div>
