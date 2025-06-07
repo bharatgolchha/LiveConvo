@@ -54,8 +54,8 @@ export default function ChangePasswordPage() {
         router.push('/settings');
       }, 2000);
 
-    } catch (err: any) {
-      setError(err.message || 'Failed to change password');
+    } catch (err) {
+      setError((err as Error).message || 'Failed to change password');
     } finally {
       setLoading(false);
     }

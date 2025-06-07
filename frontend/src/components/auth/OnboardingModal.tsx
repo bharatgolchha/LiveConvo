@@ -89,7 +89,7 @@ export function OnboardingModal({ isOpen, onClose, onComplete }: OnboardingModal
                   Welcome to liveprompt.ai!
                 </h1>
                 <p className="text-muted-foreground">
-                  Let's set up your workspace to get you started with AI-powered conversations.
+                  Let&apos;s set up your workspace to get you started with AI-powered conversations.
                 </p>
               </div>
 

@@ -30,7 +30,7 @@ export const RealtimeApiInfo: React.FC<RealtimeApiInfoProps> = ({
               <h4 className="font-medium text-amber-900 mb-1">Limited Beta Access</h4>
               <p className="text-sm text-amber-700">
                 The OpenAI Realtime API is currently in limited beta and requires special access. 
-                Most users don't have access yet, which is why the connection gets stuck on "Connecting..."
+                Most users don&apos;t have access yet, which is why the connection gets stuck on &quot;Connecting...&quot;
               </p>
             </div>
           </div>
@@ -69,7 +69,7 @@ export const RealtimeApiInfo: React.FC<RealtimeApiInfoProps> = ({
                 <div className="flex-1">
                   <h5 className="font-medium text-gray-900 mb-1">Request Realtime API Access</h5>
                   <p className="text-sm text-gray-600 mb-3">
-                    Apply for beta access to the OpenAI Realtime API through OpenAI's official channels.
+                    Apply for beta access to the OpenAI Realtime API through OpenAI&apos;s official channels.
                   </p>
                   <Button
                     variant="outline"

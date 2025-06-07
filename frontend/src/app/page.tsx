@@ -85,7 +85,7 @@ export default function LandingPage() {
       image: "https://images.unsplash.com/photo-1494790108755-2616b612b120?w=150&h=150&fit=crop&crop=face"
     },
     {
-      quote: "As a hiring manager, this catches things I miss. It suggested follow-up questions that revealed a candidate wasn't a good fit. Saved us months of pain.",
+      quote: "As a hiring manager, this catches things I miss. It suggested follow-up questions that revealed a candidate wasn&apos;t a good fit. Saved us months of pain.",
       name: "David Park",
       role: "VP of Engineering", 
       company: "TechFlow",
@@ -96,47 +96,47 @@ export default function LandingPage() {
 
   const faqs = [
     {
-      question: 'How do I get selected for early access?',
-      answer: 'We review applications weekly and prioritize users who can provide detailed feedback. Sales professionals, consultants, and hiring managers get priority.'
+      question: &apos;How do I get selected for early access?&apos;,
+      answer: &apos;We review applications weekly and prioritize users who can provide detailed feedback. Sales professionals, consultants, and hiring managers get priority.&apos;
     },
     {
-      question: 'Will my prospect hear anything?',
-      answer: 'Completely silent to others. Only you see the cues on your screen.'
+      question: &apos;Will my prospect hear anything?&apos;,
+      answer: &apos;Completely silent to others. Only you see the cues on your screen.&apos;
     },
     {
-      question: 'What languages do you support?',
-      answer: 'English, Spanish, French, German, and Portuguese with 95%+ accuracy.'
+      question: &apos;What languages do you support?&apos;,
+      answer: &apos;English, Spanish, French, German, and Portuguese with 95%+ accuracy.&apos;
     },
     {
-      question: 'How secure is my data?',
-      answer: 'Bank-level encryption, SOC 2 compliant, zero data retention after processing.'
+      question: &apos;How secure is my data?&apos;,
+      answer: &apos;Bank-level encryption, SOC 2 compliant, zero data retention after processing.&apos;
     },
     {
-      question: 'What happens after the beta period?',
-      answer: 'Beta testers get grandfather pricing and continued priority support when we launch publicly.'
+      question: &apos;What happens after the beta period?&apos;,
+      answer: &apos;Beta testers get grandfather pricing and continued priority support when we launch publicly.&apos;
     }
   ];
 
   const perks = [
     {
       icon: <Star className="w-6 h-6" />,
-      title: 'Free Beta Access',
-      description: 'Full platform access during testing period'
+      title: &apos;Free Beta Access&apos;,
+      description: &apos;Full platform access during testing period&apos;
     },
     {
       icon: <UserCheck className="w-6 h-6" />,
-      title: 'Direct Founder Access',
-      description: 'Weekly feedback sessions and feature requests'
+      title: &apos;Direct Founder Access&apos;,
+      description: &apos;Weekly feedback sessions and feature requests&apos;
     },
     {
       icon: <Zap className="w-6 h-6" />,
-      title: 'Priority Features',
-      description: 'Your use cases drive our development roadmap'
+      title: &apos;Priority Features&apos;,
+      description: &apos;Your use cases drive our development roadmap&apos;
     },
     {
       icon: <Shield className="w-6 h-6" />,
-      title: 'Grandfather Pricing',
-      description: 'Lock in special rates before public launch'
+      title: &apos;Grandfather Pricing&apos;,
+      description: &apos;Lock in special rates before public launch&apos;
     }
   ];
 
@@ -391,7 +391,7 @@ export default function LandingPage() {
                   Get real-time suggestions for objection handling, next questions, and conversation flow.
                 </p>
                 <div className="text-xs text-green-300 bg-green-900/20 rounded p-2">
-                  💡 "Ask about their workflow challenges"
+                  💡 &quot;Ask about their workflow challenges&quot;
                 </div>
               </div>
 
@@ -435,18 +435,18 @@ export default function LandingPage() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             {[
               {
-                title: 'Real-Time Cues',
-                description: 'Objection handling & next-best-question prompts under 2s.',
+                title: &apos;Real-Time Cues&apos;,
+                description: &apos;Objection handling & next-best-question prompts under 2s.&apos;,
                 icon: <Zap className="w-8 h-8" />
               },
               {
-                title: 'Smart Summaries', 
-                description: 'Action items & CRM-ready bullet points in your inbox 30 sec after hang-up.',
+                title: &apos;Smart Summaries&apos;, 
+                description: &apos;Action items & CRM-ready bullet points in your inbox 30 sec after hang-up.&apos;,
                 icon: <FileText className="w-8 h-8" />
               },
               {
-                title: 'Plug-&-Play',
-                description: 'Works in any browser tab; no Zoom plug-in hell.',
+                title: &apos;Plug-&-Play&apos;,
+                description: &apos;Works in any browser tab; no Zoom plug-in hell.&apos;,
                 icon: <CheckCircle2 className="w-8 h-8" />
               }
             ].map((item, index) => (
@@ -721,23 +721,23 @@ export default function LandingPage() {
           <div className="space-y-20">
             {[
               {
-                title: 'Stop winging discovery calls.',
-                subtitle: 'SaaS Sales',
-                description: 'Get real-time prompts for qualifying questions, objection handling, and next steps.',
+                title: &apos;Stop winging discovery calls.&apos;,
+                subtitle: &apos;SaaS Sales&apos;,
+                description: &apos;Get real-time prompts for qualifying questions, objection handling, and next steps.&apos;,
                 icon: <Briefcase className="w-12 h-12" />,
                 reverse: false
               },
               {
-                title: 'Bill for insights, not note-taking.',
-                subtitle: 'Consulting & Coaching', 
-                description: 'Focus on your client while AI captures action items and key decisions.',
+                title: &apos;Bill for insights, not note-taking.&apos;,
+                subtitle: &apos;Consulting & Coaching&apos;, 
+                description: &apos;Focus on your client while AI captures action items and key decisions.&apos;,
                 icon: <Users className="w-12 h-12" />,
                 reverse: true
               },
               {
-                title: 'Spot red flags live—not after.',
-                subtitle: 'Interviews & Hiring',
-                description: 'Get prompted for follow-up questions when candidates give incomplete answers.',
+                title: &apos;Spot red flags live—not after.&apos;,
+                subtitle: &apos;Interviews & Hiring&apos;,
+                description: &apos;Get prompted for follow-up questions when candidates give incomplete answers.&apos;,
                 icon: <PhoneCall className="w-12 h-12" />,
                 reverse: false
               }
@@ -778,7 +778,7 @@ export default function LandingPage() {
                           <span className="text-green-100 text-sm font-semibold">AI Coach</span>
                         </div>
                         <p className="text-green-50 text-sm">
-                          "Ask about their budget range"
+                          &quot;Ask about their budget range&quot;
                         </p>
                       </motion.div>
                     </div>
@@ -846,7 +846,7 @@ export default function LandingPage() {
                           <span className="text-amber-100 text-sm font-semibold">Next Question</span>
                         </div>
                         <p className="text-amber-50 text-sm">
-                          "What specific challenges did you face?"
+                          &quot;What specific challenges did you face?&quot;
                         </p>
                       </motion.div>
                     </div>
@@ -1061,7 +1061,7 @@ export default function LandingPage() {
               </div>
               <h3 className="text-2xl font-bold mb-4" style={{ color: '#ffffff' }}>Application Submitted!</h3>
               <p className="mb-6" style={{ color: '#d1d5db' }}>
-                Thanks for your interest! We'll review your application and get back to you within 3-5 business days.
+                Thanks for your interest! We&apos;ll review your application and get back to you within 3-5 business days.
               </p>
               <div className="inline-flex items-center gap-2 text-sm" style={{ color: '#4ade80' }}>
                 <Mail className="w-4 h-4" />

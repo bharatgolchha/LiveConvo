@@ -768,7 +768,7 @@ const NewConversationModal: React.FC<{
                       autoFocus
                     />
                     <p className="text-sm text-muted-foreground mt-2">
-                      Don't worry, you can change this later.
+                      Don&apos;t worry, you can change this later.
                     </p>
                   </div>
                 )}
@@ -1692,7 +1692,7 @@ const DashboardPage: React.FC = () => {
                     className="mb-4"
                   >
                     <p className="text-muted-foreground">
-                      {filteredSessions.length} result{filteredSessions.length === 1 ? '' : 's'} for "{searchQuery}"
+                      {filteredSessions.length} result{filteredSessions.length === 1 ? '' : 's'} for &quot;{searchQuery}&quot;
                     </p>
                   </motion.div>
                 )}
