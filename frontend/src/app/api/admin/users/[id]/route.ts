@@ -105,7 +105,7 @@ export async function GET(
             display_name
           )
         `)
-        .eq('organization_id', (orgMember.organizations as { id: string; name: string }).id)
+        .eq('organization_id', (orgMember.organizations as { id: string }).id)
         .eq('status', 'active')
         .limit(1)
         .single();
@@ -113,7 +113,7 @@ export async function GET(
       organization = {
         id: (orgMember.organizations as { id: string; name: string }).id,
         name: (orgMember.organizations as { id: string; name: string }).name,
-        current_plan: (subscription?.plans as { display_name: string })?.display_name || subscription?.plan_type || 'Free'
+        current_plan: (subscription?.plans as { display_name?: string })?.display_name || subscription?.plan_type || 'Free'
       };
     }
 
