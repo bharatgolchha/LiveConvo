@@ -1,6 +1,15 @@
 import { NextResponse, NextRequest } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
-import type { Subscription, WaitlistEntry, WaitlistStats } from '@/types/api';
+import type { WaitlistEntry, WaitlistStats } from '@/types/api';
+
+interface SubscriptionWithPlan {
+  plan_type: string;
+  status: string;
+  plans: {
+    name: string;
+    display_name: string;
+  } | null;
+}
 
 export async function GET(request: NextRequest) {
   try {
@@ -119,15 +128,15 @@ export async function GET(request: NextRequest) {
     // Group users by plan
     const subscriptions = subscriptionsResult.data || [];
     const planCounts = subscriptions
-      .filter((sub: Subscription) => sub.status === 'active')
-      .reduce((acc: Record<string, number>, sub: Subscription) => {
-        const planName = sub.plans?.display_name || sub.plan_type || 'Free';
+      .filter((sub) => sub.status === 'active')
+      .reduce((acc: Record<string, number>, sub) => {
+        const planName = (sub as { plans?: { display_name?: string } }).plans?.display_name || sub.plan_type || 'Free';
         acc[planName] = (acc[planName] || 0) + 1;
         return acc;
       }, {} as Record<string, number>);
 
     // Add free users (users without active subscriptions)
-    const freeUsers = Math.max(0, totalUsers - subscriptions.filter(s => s.status === 'active').length);
+    const freeUsers = Math.max(0, totalUsers - subscriptions.filter((s) => s.status === 'active').length);
     if (freeUsers > 0) {
       planCounts['Free'] = freeUsers;
     }
