@@ -437,7 +437,7 @@ export default function PricingPage() {
                         ? 'bg-gradient-to-r from-primary to-primary/90 hover:from-primary/90 hover:to-primary shadow-lg hover:shadow-xl hover:-translate-y-0.5' 
                         : 'hover:shadow-md hover:-translate-y-0.5'
                     }`}
-                    variant={plan.display.isFeatured ? 'default' : 'outline'}
+                    variant={plan.display.isFeatured ? 'primary' : 'outline'}
                     disabled={currentUserPlan === plan.slug}
                   >
                     {currentUserPlan === plan.slug ? 'Current Plan' :
