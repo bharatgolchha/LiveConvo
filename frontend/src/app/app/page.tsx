@@ -71,6 +71,7 @@ import { useSessionData, SessionDocument } from '@/lib/hooks/useSessionData';
 import { useMinuteTracking } from '@/lib/hooks/useMinuteTracking';
 import { RecordingConsentModal } from '@/components/conversation/RecordingConsentModal';
 import { ConversationHeaderDate } from '@/components/ui/ConversationDateIndicator';
+import { LoadingModal } from '@/components/ui/LoadingModal';
 import type { SessionDataFull, ConversationSummary as ConversationSummaryType, TranscriptData, LocalStorageData, SessionFile } from '@/types/app';
 
 // Type assertion for getDisplayMedia support
@@ -944,6 +945,44 @@ function AppContent() {
     }
   }, [conversationState, conversationId, transcript.length, session, lastSavedTranscriptIndex]);
 
+  // Cleanup effect - Save transcripts when component unmounts
+  useEffect(() => {
+    return () => {
+      // Save any pending transcripts when component unmounts
+      if (conversationState === 'recording' || conversationState === 'paused') {
+        if (conversationId && transcript.length > 0 && session && transcript.length > lastSavedTranscriptIndex) {
+          console.log('🚨 Component unmounting - saving pending transcripts');
+          // Use beacon API for more reliable saving during navigation
+          const unsavedLines = transcript.slice(lastSavedTranscriptIndex);
+          const data = JSON.stringify({
+            session_id: conversationId,
+            transcript_lines: unsavedLines.map((line, index) => ({
+              sequence_number: lastSavedTranscriptIndex + index,
+              speaker: line.speaker,
+              text: line.text,
+              timestamp: line.timestamp
+            }))
+          });
+          
+          // Try beacon API first (survives navigation)
+          if (navigator.sendBeacon) {
+            const blob = new Blob([data], { type: 'application/json' });
+            navigator.sendBeacon(`/api/sessions/${conversationId}/transcript`, blob);
+          } else {
+            // Fallback to synchronous XHR (deprecated but works)
+            const xhr = new XMLHttpRequest();
+            xhr.open('POST', `/api/sessions/${conversationId}/transcript`, false); // false = synchronous
+            xhr.setRequestHeader('Content-Type', 'application/json');
+            if (session.access_token) {
+              xhr.setRequestHeader('Authorization', `Bearer ${session.access_token}`);
+            }
+            xhr.send(data);
+          }
+        }
+      }
+    };
+  }, [conversationState, conversationId, transcript, session, lastSavedTranscriptIndex]);
+
   // Smart save on high activity - save immediately when we get a burst of new content
   useEffect(() => {
     if (conversationState === 'recording' && conversationId && transcript.length > 0) {
@@ -1727,6 +1766,17 @@ function AppContent() {
 
   const handlePauseRecording = async () => {
     console.log('⏸️ Pausing recording and disconnecting from Deepgram...');
+
+    // Save transcript immediately before pausing
+    if (conversationId && transcript.length > lastSavedTranscriptIndex && session) {
+      console.log('💾 Saving transcript before pause');
+      try {
+        const newIndex = await saveTranscriptNow(conversationId, transcript, session, lastSavedTranscriptIndex);
+        setLastSavedTranscriptIndex(newIndex);
+      } catch (error) {
+        console.error('Failed to save transcript before pause:', error);
+      }
+    }
 
     // Stop the recording and disconnect from Deepgram
     stopMyRecording();
@@ -2676,6 +2726,14 @@ function AppContent() {
         transcript={transcript}
         sessionDuration={sessionDuration}
         conversationTitle={conversationTitle}
+      />
+
+      {/* Loading Modal */}
+      <LoadingModal
+        isOpen={isLoadingFromSession}
+        title={conversationTitle && conversationTitle !== 'Untitled Conversation' ? conversationTitle : undefined}
+        description={conversationId ? "Loading your session" : "Preparing your workspace"}
+        isNewSession={!conversationId}
       />
     </div>
   );

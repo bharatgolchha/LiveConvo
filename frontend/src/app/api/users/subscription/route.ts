@@ -23,14 +23,11 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Get active subscription
+    // Get active subscription using the optimized view
     const { data: subscriptionData, error: subscriptionError } = await supabase
-      .from('subscriptions')
+      .from('active_user_subscriptions')
       .select('*')
       .eq('user_id', user.id)
-      .eq('status', 'active')
-      .order('created_at', { ascending: false })
-      .limit(1)
       .maybeSingle();
 
     if (subscriptionError) {
@@ -44,20 +41,7 @@ export async function GET(request: NextRequest) {
     // Debug log to see the structure
     console.log('Subscription data:', JSON.stringify(subscriptionData, null, 2));
 
-    // If subscription exists, fetch the plan details separately
-    let planData = null;
-    if (subscriptionData && subscriptionData.plan_id) {
-      const { data: plan, error: planError } = await supabase
-        .from('plans')
-        .select('name, display_name, price_monthly, price_yearly, monthly_audio_hours_limit, max_sessions_per_month')
-        .eq('id', subscriptionData.plan_id)
-        .single();
-      
-      if (!planError && plan) {
-        planData = plan;
-      }
-      console.log('Plan data:', JSON.stringify(planData, null, 2));
-    }
+    // Plan data is already included in the view, no need to fetch separately
 
     // If no active subscription found, return default free plan
     if (!subscriptionData) {
@@ -119,11 +103,11 @@ export async function GET(request: NextRequest) {
 
     const response = {
       plan: {
-        name: planData?.name || 'individual_free',
-        displayName: planData?.display_name || 'Free',
+        name: subscriptionData.plan_name || 'individual_free',
+        displayName: subscriptionData.plan_display_name || 'Free',
         pricing: {
-          monthly: planData?.price_monthly ? parseFloat(planData.price_monthly) : null,
-          yearly: planData?.price_yearly ? parseFloat(planData.price_yearly) : null,
+          monthly: subscriptionData.price_monthly ? parseFloat(subscriptionData.price_monthly) : null,
+          yearly: subscriptionData.price_yearly ? parseFloat(subscriptionData.price_yearly) : null,
         }
       },
       subscription: {
@@ -135,9 +119,9 @@ export async function GET(request: NextRequest) {
       },
       usage: {
         currentAudioHours: totalAudioHours,
-        limitAudioHours: planData?.monthly_audio_hours_limit,
+        limitAudioHours: subscriptionData.plan_audio_hours_limit,
         currentSessions: sessionCount || 0,
-        limitSessions: planData?.max_sessions_per_month,
+        limitSessions: subscriptionData.max_sessions_per_month,
       }
     };
 

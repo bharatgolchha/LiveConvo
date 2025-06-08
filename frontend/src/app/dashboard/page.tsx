@@ -34,6 +34,7 @@ import { DeleteConfirmationModal } from '@/components/ui/DeleteConfirmationModal
 import { PricingModal } from '@/components/ui/PricingModal';
 import { SettingsPanel } from '@/components/settings/SettingsPanel';
 import { ConversationListDate } from '@/components/ui/ConversationDateIndicator';
+import { LoadingModal } from '@/components/ui/LoadingModal';
 import type { ConversationConfig } from '@/types/app';
 
 // Types (using Session from useSessions hook)
@@ -577,31 +578,64 @@ const ConversationInboxItem: React.FC<{
 
 const EmptyState: React.FC<{ onNewConversation: () => void }> = ({ onNewConversation }) => (
   <motion.div 
-    initial={{ opacity: 0, scale: 0.95 }}
-    animate={{ opacity: 1, scale: 1 }}
-    className="flex flex-col items-center justify-center min-h-[400px] text-center"
+    initial={{ opacity: 0, y: 20 }}
+    animate={{ opacity: 1, y: 0 }}
+    transition={{ duration: 0.5, ease: "easeOut" }}
+    className="flex flex-col items-center justify-center min-h-[500px] text-center px-6"
   >
-    <div className="w-24 h-24 bg-app-primary/10 rounded-full flex items-center justify-center mb-6">
-      <MicrophoneIcon className="w-12 h-12 text-app-primary" />
+    {/* Simplified Icon Container */}
+    <div className="relative mb-8">
+      <div className="w-20 h-20 bg-gradient-to-br from-app-primary/15 to-app-primary/5 rounded-2xl flex items-center justify-center border border-app-primary/10">
+        <MicrophoneIcon className="w-9 h-9 text-app-primary" />
+      </div>
+      {/* Subtle pulse indicator */}
+      <div className="absolute -inset-1 bg-app-primary/20 rounded-2xl opacity-0 animate-pulse" style={{ animationDuration: '3s' }} />
     </div>
     
-    <h2 className="text-2xl font-semibold mb-4 text-foreground">Ready for your first conversation?</h2>
-    <p className="text-muted-foreground mb-8 max-w-md">
-      Start a new session and experience AI-powered conversation guidance in real-time.
-    </p>
+    {/* Refined Typography */}
+    <div className="space-y-3 mb-10 max-w-lg">
+      <h2 className="text-3xl font-bold text-foreground tracking-tight">
+        Start your first conversation
+      </h2>
+      <p className="text-muted-foreground text-lg leading-relaxed">
+        Experience AI-powered conversation guidance that adapts to your style in real-time.
+      </p>
+    </div>
     
-    <div className="space-y-4">
+    {/* Streamlined Actions */}
+    <div className="flex flex-col sm:flex-row items-center gap-4">
       <Button 
         variant="primary"
         size="lg" 
         onClick={onNewConversation}
+        className="px-8 py-4 text-base font-semibold bg-app-primary hover:bg-app-primary-dark shadow-lg hover:shadow-xl transition-all duration-200 hover:-translate-y-0.5"
       >
         <PlusIcon className="w-5 h-5 mr-2" />
-        Start Your First Conversation
+        Start Conversation
       </Button>
-      <Button variant="ghost" size="lg">
-        Take a Quick Tour
+      <Button 
+        variant="ghost" 
+        size="lg"
+        className="px-6 py-4 text-base text-muted-foreground hover:text-foreground transition-colors duration-200"
+      >
+        Learn more
       </Button>
+    </div>
+
+    {/* Subtle feature hints */}
+    <div className="mt-12 flex items-center justify-center gap-8 text-sm text-muted-foreground">
+      <div className="flex items-center gap-2">
+        <div className="w-2 h-2 rounded-full bg-app-success" />
+        <span>Real-time guidance</span>
+      </div>
+      <div className="flex items-center gap-2">
+        <div className="w-2 h-2 rounded-full bg-app-primary" />
+        <span>Smart insights</span>
+      </div>
+      <div className="flex items-center gap-2">
+        <div className="w-2 h-2 rounded-full bg-app-warning" />
+        <span>Instant summaries</span>
+      </div>
     </div>
   </motion.div>
 );
@@ -1273,6 +1307,9 @@ const DashboardPage: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedSessions, setSelectedSessions] = useState<Set<string>>(new Set());
   const [isPricingModalOpen, setIsPricingModalOpen] = useState(false);
+  const [isNavigating, setIsNavigating] = useState(false);
+  const [navigationSessionTitle, setNavigationSessionTitle] = useState('');
+  const [isNewSession, setIsNewSession] = useState(false);
 
   // Get sessions and stats from hooks
   const { 
@@ -1360,6 +1397,10 @@ const DashboardPage: React.FC = () => {
 
   const handleStartConversation = async (config: ConversationConfig) => {
     try {
+      setIsNavigating(true);
+      setNavigationSessionTitle(config.title);
+      setIsNewSession(true);
+      
       // Create a new session with context data
       const newSession = await createSession({
         title: config.title,
@@ -1404,9 +1445,14 @@ const DashboardPage: React.FC = () => {
           // Navigate to the conversation page with the session ID
           window.location.href = `/app?cid=${newSession.id}`;
         }
+      } else {
+        setIsNavigating(false);
+        setIsNewSession(false);
       }
     } catch (error) {
       console.error('❌ Failed to create conversation:', error);
+      setIsNavigating(false);
+      setIsNewSession(false);
       // TODO: Show error toast to user
     }
   };
@@ -1415,6 +1461,9 @@ const DashboardPage: React.FC = () => {
     // Find the session to get its details
     const session = sessions.find(s => s.id === sessionId);
     if (session && typeof window !== 'undefined') {
+      setIsNavigating(true);
+      setNavigationSessionTitle(session.title);
+      setIsNewSession(false);
       // For completed sessions, just navigate without storing resuming config
       if (session.status === 'completed') {
         // Clear any existing localStorage state for completed sessions
@@ -1887,6 +1936,14 @@ const DashboardPage: React.FC = () => {
         title="Delete Multiple Conversations"
         description={`Are you sure you want to permanently delete ${bulkDeleteModal.count} conversation${bulkDeleteModal.count === 1 ? '' : 's'}? This action cannot be undone.`}
         isLoading={bulkDeleteModal.isLoading}
+      />
+
+      {/* Navigation Loading Modal */}
+      <LoadingModal
+        isOpen={isNavigating}
+        title={navigationSessionTitle || (isNewSession ? "Starting conversation" : "Loading conversation")}
+        description={isNewSession ? "Setting up your session" : "Please wait a moment"}
+        isNewSession={isNewSession}
       />
     </div>
   );
