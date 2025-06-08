@@ -126,16 +126,35 @@ function LoginContent() {
           >
             <div className="flex items-center text-blue-100">
               <div className="w-2 h-2 bg-blue-300 rounded-full mr-4"></div>
-              <span>Real-time conversation analysis</span>
+              <span>Real-time AI suggestions during conversations</span>
             </div>
             <div className="flex items-center text-blue-100">
               <div className="w-2 h-2 bg-purple-300 rounded-full mr-4"></div>
-              <span>AI-powered insights and coaching</span>
+              <span>Instant meeting summaries & action items</span>
             </div>
             <div className="flex items-center text-blue-100">
               <div className="w-2 h-2 bg-blue-300 rounded-full mr-4"></div>
-              <span>Secure and private conversations</span>
+              <span>Your data stays private - never used for AI training</span>
             </div>
+            <div className="flex items-center text-blue-100">
+              <div className="w-2 h-2 bg-purple-300 rounded-full mr-4"></div>
+              <span>Works with any video conferencing tool</span>
+            </div>
+          </motion.div>
+          
+          {/* Add compelling call-out */}
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.8, delay: 0.6 }}
+            className="mt-12 bg-white/10 backdrop-blur-sm rounded-lg p-6 border border-white/20"
+          >
+            <p className="text-blue-100 text-lg font-medium mb-2">
+              🚀 Ready to level up?
+            </p>
+            <p className="text-blue-200/90 text-sm">
+              Your AI conversation coach is waiting. Pick up where you left off and make every conversation count.
+            </p>
           </motion.div>
         </div>
       </div>

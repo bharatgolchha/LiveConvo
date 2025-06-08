@@ -115,6 +115,13 @@ export function useSessions(): SessionsHookReturn {
         if (response.status === 401 && user) {
           setSessionExpiredMessage(errorData.message || 'Your session for sessions has expired. Please sign in again.');
         }
+        // Don't throw error for onboarding - let dashboard handle it
+        if (response.status === 400 && errorData.error === 'Setup required') {
+          setError(errorData.message || 'Please complete onboarding first');
+          setSessions([]);
+          setLoading(false);
+          return;
+        }
         throw new Error(errorData.message || 'Failed to fetch sessions');
       }
 

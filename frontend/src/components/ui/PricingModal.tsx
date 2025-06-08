@@ -18,6 +18,10 @@ interface PricingPlan {
     yearly: number | null;
     currency: string;
   };
+  stripe: {
+    monthlyPriceId: string | null;
+    yearlyPriceId: string | null;
+  };
   limits: {
     monthlyAudioHours: number | null;
     maxDocumentsPerSession: number;
@@ -118,14 +122,65 @@ export const PricingModal: React.FC<PricingModalProps> = ({ isOpen, onClose }) =
     return Math.round(savings);
   };
 
-  const handleSelectPlan = (plan: PricingPlan) => {
-    onClose(); // Close modal first
-    
+  const handleSelectPlan = async (plan: PricingPlan) => {
     if (plan.slug === 'individual_free') {
+      onClose();
       router.push('/auth/signup');
-    } else if (plan.slug === 'org_enterprise') {
+      return;
+    }
+    
+    if (plan.slug === 'org_enterprise') {
+      onClose();
       router.push('/contact');
-    } else {
+      return;
+    }
+
+    // For Pro plan - initiate Stripe checkout
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        onClose();
+        router.push(`/auth/signup?plan=${plan.slug}&billing=${billingPeriod}`);
+        return;
+      }
+
+      // Get the appropriate price ID based on billing period
+      const priceId = billingPeriod === 'monthly' 
+        ? plan.stripe?.monthlyPriceId 
+        : plan.stripe?.yearlyPriceId;
+
+      if (!priceId) {
+        console.error('No price ID found for plan:', plan.slug);
+        return;
+      }
+
+      // Create checkout session
+      const response = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/create-checkout-session`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`
+        },
+        body: JSON.stringify({
+          priceId: priceId,
+          userId: session.user.id,
+          billingCycle: billingPeriod
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to create checkout session');
+      }
+
+      const { url } = await response.json();
+      
+      // Redirect to Stripe checkout
+      window.location.href = url;
+      
+    } catch (error) {
+      console.error('Error creating checkout session:', error);
+      // Fallback to signup page
+      onClose();
       router.push(`/auth/signup?plan=${plan.slug}&billing=${billingPeriod}`);
     }
   };
@@ -278,7 +333,9 @@ export const PricingModal: React.FC<PricingModalProps> = ({ isOpen, onClose }) =
                             <Check className="w-3 h-3 text-primary flex-shrink-0" />
                             <span>
                               {plan.limits.monthlyAudioHours
-                                ? `${plan.limits.monthlyAudioHours} hours/month`
+                                ? plan.limits.monthlyAudioHours < 1 
+                                  ? `${plan.limits.monthlyAudioHours * 60} minutes/month`
+                                  : `${plan.limits.monthlyAudioHours} hours/month`
                                 : 'Unlimited hours'}
                             </span>
                           </div>

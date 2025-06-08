@@ -207,6 +207,7 @@ function AppContent() {
   // Core State
   const [conversationState, setConversationState] = useState<ConversationState>('setup');
   const [isSummarizing, setIsSummarizing] = useState(false); // New state for End & Finalize animation
+  const [isFinalized, setIsFinalized] = useState(false); // Track if finalization is complete
   const [transcript, setTranscript] = useState<TranscriptLine[]>([]);
   // Track how many transcript lines have been saved to the database
   const [lastSavedTranscriptIndex, setLastSavedTranscriptIndex] = useState(0);
@@ -450,6 +451,7 @@ function AppContent() {
         if (sessionData.status === 'completed') {
           console.log('🔍 Loading completed session:', sessionId);
           setConversationState('completed');
+          setIsFinalized(true); // Mark as finalized when loading completed session
           setSessionDuration(sessionData.recording_duration_seconds || 0);
           setCumulativeDuration(sessionData.recording_duration_seconds || 0);
           // Clear any stale localStorage state for completed sessions
@@ -1231,6 +1233,7 @@ function AppContent() {
           if (!isCurrentlyRecordingRef.current) {
             if (sessionData.status === 'completed') {
               setConversationState('completed');
+              setIsFinalized(true); // Mark as finalized when loading completed session
               console.log('DB Load: Session is completed. Setting state to "completed".');
             } else if (sessionData.status === 'active') {
               // An 'active' session from DB means it was recording elsewhere or previously.
@@ -2157,6 +2160,7 @@ function AppContent() {
       // Set to completed state
       setConversationState('completed');
       setIsSummarizing(false);
+      setIsFinalized(true); // Mark as finalized
       
       // Redirect to the summary page to show the final report
       if (conversationId) {
@@ -2178,6 +2182,7 @@ function AppContent() {
       setErrorMessage('Failed to generate final report. The recording has been stopped.');
       setConversationState('completed'); // Still show as completed even if summary fails
       setIsSummarizing(false); // End the summarizing animation even on error
+      setIsFinalized(true); // Mark as finalized even on error to allow navigation
     }
   };
 
@@ -2463,7 +2468,7 @@ function AppContent() {
                     
                     {(conversationState === 'completed' || conversationState === 'error') && (
                       <>
-                        {conversationId && conversationState === 'completed' && (
+                        {conversationId && conversationState === 'completed' && isFinalized && (
                           <Button 
                             onClick={() => router.push(`/summary/${conversationId}`)}
                             size="md" 

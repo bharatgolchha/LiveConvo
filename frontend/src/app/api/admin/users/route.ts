@@ -1,5 +1,5 @@
 import { NextResponse, NextRequest } from 'next/server';
-import { supabase } from '@/lib/supabase';
+import { createServerSupabaseClient } from '@/lib/supabase';
 import type { Organization, SessionData } from '@/types/api';
 
 export async function GET(request: NextRequest) {
@@ -8,8 +8,10 @@ export async function GET(request: NextRequest) {
     // Check if user is authenticated
     const authHeader = request.headers.get('authorization');
     const token = authHeader?.split(' ')[1];
-    const { data: { user } } = await supabase.auth.getUser(token);
-    if (!user) {
+    const supabase = createServerSupabaseClient();
+    
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+    if (authError || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 

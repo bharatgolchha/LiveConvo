@@ -29,6 +29,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useSessions, type Session } from '@/lib/hooks/useSessions';
 import { useUserStats, defaultStats } from '@/lib/hooks/useUserStats';
 import { useSessionData } from '@/lib/hooks/useSessionData';
+import { useSubscription } from '@/lib/hooks/useSubscription';
 import { DeleteConfirmationModal } from '@/components/ui/DeleteConfirmationModal';
 import { PricingModal } from '@/components/ui/PricingModal';
 import { SettingsPanel } from '@/components/settings/SettingsPanel';
@@ -229,7 +230,8 @@ const DashboardSidebar: React.FC<{
   ];
 
   // Calculate usage percentage
-  const usagePercentage = Math.min(
+  const isUnlimited = usageStats.monthlyMinutesLimit === null || usageStats.monthlyMinutesLimit === undefined;
+  const usagePercentage = isUnlimited ? 0 : Math.min(
     (usageStats.monthlyMinutesLimit || 600) > 0 
       ? ((usageStats.monthlyMinutesUsed || 0) / (usageStats.monthlyMinutesLimit || 600)) * 100 
       : 0, 
@@ -273,25 +275,33 @@ const DashboardSidebar: React.FC<{
             <div className="flex justify-between text-sm mb-1">
               <span className="text-muted-foreground">Usage</span>
               <span className="font-medium">
-                {formatMinutes(usageStats.monthlyMinutesUsed || 0)} / {formatMinutes(usageStats.monthlyMinutesLimit || 600)}
+                {formatMinutes(usageStats.monthlyMinutesUsed || 0)}
+                {usageStats.monthlyMinutesLimit === null || usageStats.monthlyMinutesLimit === undefined 
+                  ? ' (Unlimited)' 
+                  : ` / ${formatMinutes(usageStats.monthlyMinutesLimit)}`
+                }
               </span>
             </div>
-            <div className="w-full bg-muted rounded-full h-2">
-              <div 
-                className={`h-2 rounded-full ${
-                  usagePercentage > 80 
-                    ? 'bg-red-500' 
-                    : usagePercentage > 60 
-                    ? 'bg-yellow-500'
-                    : 'bg-app-primary'
-                }`}
-                style={{ width: `${usagePercentage}%` }}
-              />
-            </div>
-            {usageStats.minutesRemaining !== undefined && usageStats.minutesRemaining < 60 && (
-              <p className="text-xs text-warning mt-1">
-                Only {formatMinutes(usageStats.minutesRemaining)} remaining
-              </p>
+            {!isUnlimited && (
+              <>
+                <div className="w-full bg-muted rounded-full h-2">
+                  <div 
+                    className={`h-2 rounded-full ${
+                      usagePercentage > 80 
+                        ? 'bg-red-500' 
+                        : usagePercentage > 60 
+                        ? 'bg-yellow-500'
+                        : 'bg-app-primary'
+                    }`}
+                    style={{ width: `${usagePercentage}%` }}
+                  />
+                </div>
+                {usageStats.minutesRemaining !== undefined && usageStats.minutesRemaining < 60 && (
+                  <p className="text-xs text-warning mt-1">
+                    Only {formatMinutes(usageStats.minutesRemaining)} remaining
+                  </p>
+                )}
+              </>
             )}
           </div>
 
@@ -1289,6 +1299,14 @@ const DashboardPage: React.FC = () => {
     contextLoading 
   } = useSessionData();
 
+  // Get subscription data
+  const {
+    subscription,
+    loading: subscriptionLoading,
+    error: subscriptionError,
+    planType
+  } = useSubscription();
+
   // Get auth session for API calls
   const { session: authSession } = useAuth();
 
@@ -1296,8 +1314,20 @@ const DashboardPage: React.FC = () => {
   const currentUser: User = {
     name: user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'User',
     email: user?.email || '',
-    plan: 'free' // TODO: Get actual plan from subscription
+    plan: planType
   };
+
+  // Debug subscription status
+  useEffect(() => {
+    if (subscription) {
+      console.log('Dashboard - Subscription loaded:', {
+        plan: subscription.plan.name,
+        displayName: subscription.plan.displayName,
+        status: subscription.subscription.status,
+        planType
+      });
+    }
+  }, [subscription, planType]);
 
   // Check if user needs onboarding
   useEffect(() => {

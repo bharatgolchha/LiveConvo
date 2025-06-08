@@ -1,5 +1,5 @@
 import { NextResponse, NextRequest } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { createServerSupabaseClient } from '@/lib/supabase';
 import type { 
   OrganizationMember, 
   OrganizationMembership, 
@@ -10,117 +10,29 @@ import type {
 
 export async function GET(request: NextRequest) {
   try {
-    // Get environment variables
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-    const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-    console.log('Environment check:', {
-      hasUrl: !!supabaseUrl,
-      hasAnonKey: !!supabaseAnonKey,
-      hasServiceKey: !!supabaseServiceRoleKey,
-      url: supabaseUrl ? supabaseUrl.substring(0, 30) + '...' : 'undefined'
-    });
-
-    if (!supabaseUrl || !supabaseAnonKey) {
-      console.error('Missing Supabase environment variables');
-      return NextResponse.json({ 
-        error: 'Server configuration error', 
-        details: 'Missing Supabase configuration' 
-      }, { status: 500 });
-    }
-
-    // Create client for user authentication
-    const authClient = createClient(supabaseUrl, supabaseAnonKey);
-
-    let user = null;
-    
-    // Try Bearer token first (from adminFetch)
+    // Check if user is authenticated
     const authHeader = request.headers.get('authorization');
-    if (authHeader?.startsWith('Bearer ')) {
-      const token = authHeader.split(' ')[1];
-      console.log('Using Bearer token auth');
-      
-      try {
-        const { data: { user: tokenUser }, error } = await authClient.auth.getUser(token);
-        if (!error && tokenUser) {
-          user = tokenUser;
-          console.log('Bearer token auth successful for:', tokenUser.email);
-        } else {
-          console.log('Bearer token auth failed:', error);
-        }
-      } catch (e) {
-        console.log('Bearer token auth error:', e);
-      }
-    }
+    const token = authHeader?.split(' ')[1];
+    const supabase = createServerSupabaseClient();
     
-    // Fallback to cookie auth if no bearer token
-    if (!user) {
-      const cookieHeader = request.headers.get('cookie');
-      console.log('Fallback to cookie auth, cookie present:', !!cookieHeader);
-      
-      if (cookieHeader) {
-        try {
-          // Extract access token from cookies if present
-          const cookies = cookieHeader.split(';').reduce((acc, cookie) => {
-            const [key, value] = cookie.trim().split('=');
-            acc[key] = value;
-            return acc;
-          }, {} as Record<string, string>);
-          
-          const accessToken = cookies['sb-access-token'] || cookies['supabase-auth-token'];
-          
-          if (accessToken) {
-            const { data: { user: tokenUser }, error } = await authClient.auth.getUser(accessToken);
-            if (!error && tokenUser) {
-              user = tokenUser;
-              console.log('Cookie auth successful for:', tokenUser.email);
-            }
-          }
-        } catch (e) {
-          console.log('Cookie auth failed:', e);
-        }
-      }
-    }
-
-    if (!user) {
-      console.log('No authenticated user found');
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+    if (authError || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    console.log('Authenticated user:', user.id, user.email);
-
-    // Create admin client (use service role if available, otherwise anon key)
-    const adminClient = supabaseServiceRoleKey 
-      ? createClient(supabaseUrl, supabaseServiceRoleKey, {
-          auth: { autoRefreshToken: false, persistSession: false }
-        })
-      : authClient;
-
     // Check if user is admin
-    const { data: userData, error: userError } = await adminClient
+    const { data: userData } = await supabase
       .from('users')
       .select('is_admin')
       .eq('id', user.id)
       .single();
 
-    console.log('User admin check:', { userData, userError });
-
-    if (userError) {
-      console.error('Error checking admin status:', userError);
-      return NextResponse.json({ 
-        error: 'Error checking permissions', 
-        details: userError.message 
-      }, { status: 500 });
-    }
-
     if (!userData?.is_admin) {
-      console.log('User is not admin');
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
     // Fetch all organizations with subscription information
-    const { data: organizations, error } = await adminClient
+    const { data: organizations, error } = await supabase
       .from('organizations')
       .select(`
         id,
@@ -140,7 +52,6 @@ export async function GET(request: NextRequest) {
       throw error;
     }
 
-    console.log('Found organizations:', organizations?.length || 0);
 
     // Fetch organization members
     const orgIds = organizations?.map(o => o.id) || [];
@@ -151,7 +62,7 @@ export async function GET(request: NextRequest) {
 
     if (orgIds.length > 0) {
       // Fetch organization members
-      const { data: membershipData } = await adminClient
+      const { data: membershipData } = await supabase
         .from('organization_members')
         .select(`
           organization_id,
@@ -167,7 +78,7 @@ export async function GET(request: NextRequest) {
 
       // Fetch current month usage for each organization
       const currentMonth = new Date().toISOString().slice(0, 7);
-      const { data: usage } = await adminClient
+      const { data: usage } = await supabase
         .from('monthly_usage_cache')
         .select('organization_id, total_minutes_used')
         .eq('month_year', currentMonth)
@@ -175,14 +86,14 @@ export async function GET(request: NextRequest) {
       usageData = usage || [];
 
       // Fetch total sessions per organization
-      const { data: sessionData } = await adminClient
+      const { data: sessionData } = await supabase
         .from('sessions')
         .select('organization_id')
         .in('organization_id', orgIds);
       sessions = sessionData || [];
 
       // Fetch subscription information
-      const { data: subscriptionData } = await adminClient
+      const { data: subscriptionData } = await supabase
         .from('subscriptions')
         .select(`
           organization_id,
@@ -255,7 +166,6 @@ export async function GET(request: NextRequest) {
       };
     });
 
-    console.log('Returning organizations with details:', organizationsWithDetails?.length || 0);
     return NextResponse.json(organizationsWithDetails);
 
   } catch (error) {

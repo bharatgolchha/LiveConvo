@@ -35,7 +35,7 @@ export async function GET() {
         yearlyPriceId: plan.stripe_price_id_yearly
       },
       limits: {
-        monthlyAudioHours: plan.monthly_audio_hours_limit,
+        monthlyAudioHours: plan.monthly_audio_minutes_limit ? plan.monthly_audio_minutes_limit / 60 : plan.monthly_audio_hours_limit,
         maxDocumentsPerSession: plan.max_documents_per_session,
         maxFileSizeMb: plan.max_file_size_mb,
         maxSessionsPerMonth: plan.max_sessions_per_month,
