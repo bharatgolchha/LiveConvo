@@ -381,7 +381,9 @@ export default function PricingPage() {
                       </div>
                       <span className="text-sm font-medium">
                         {plan.limits.monthlyAudioHours
-                          ? `${plan.limits.monthlyAudioHours} ${plan.limits.monthlyAudioHours === 1 ? 'hour' : 'hours'}/month`
+                          ? plan.limits.monthlyAudioHours < 1 
+                            ? `${plan.limits.monthlyAudioHours * 60} minutes/month`
+                            : `${plan.limits.monthlyAudioHours} ${plan.limits.monthlyAudioHours === 1 ? 'hour' : 'hours'}/month`
                           : 'Unlimited audio hours'}
                       </span>
                     </div>

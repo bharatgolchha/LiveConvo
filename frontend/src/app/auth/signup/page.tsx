@@ -202,20 +202,35 @@ export default function SignUpPage() {
           >
             <div className="flex items-center text-green-100">
               <Check className="w-5 h-5 text-green-300 mr-4" />
-              <span>Free to start, no credit card required</span>
+              <span>Real-time AI suggestions during conversations</span>
             </div>
             <div className="flex items-center text-green-100">
               <Check className="w-5 h-5 text-blue-300 mr-4" />
-              <span>Advanced AI-powered analytics</span>
+              <span>Instant meeting summaries & action items</span>
             </div>
             <div className="flex items-center text-green-100">
               <Check className="w-5 h-5 text-green-300 mr-4" />
-              <span>Enterprise-grade security & privacy</span>
+              <span>Your data stays private - never used for AI training</span>
             </div>
             <div className="flex items-center text-green-100">
               <Check className="w-5 h-5 text-blue-300 mr-4" />
-              <span>24/7 support and training resources</span>
+              <span>Works with any video conferencing tool</span>
             </div>
+          </motion.div>
+          
+          {/* Add compelling call-out */}
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.8, delay: 0.6 }}
+            className="mt-12 bg-white/10 backdrop-blur-sm rounded-lg p-6 border border-white/20"
+          >
+            <p className="text-green-100 text-lg font-medium mb-2">
+              ✨ Currently in exclusive beta
+            </p>
+            <p className="text-green-200/90 text-sm">
+              Join early adopters who are transforming their professional conversations with AI-powered real-time coaching.
+            </p>
           </motion.div>
         </div>
       </div>

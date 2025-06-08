@@ -1,5 +1,5 @@
 import { NextResponse, NextRequest } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { createServerSupabaseClient } from '@/lib/supabase';
 import type { WaitlistEntry, WaitlistStats } from '@/types/api';
 
 interface SubscriptionWithPlan {
@@ -13,51 +13,18 @@ interface SubscriptionWithPlan {
 
 export async function GET(request: NextRequest) {
   try {
-    // Get environment variables
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-    const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-    if (!supabaseUrl || !supabaseAnonKey) {
-      return NextResponse.json({ 
-        error: 'Server configuration error', 
-        details: 'Missing Supabase configuration' 
-      }, { status: 500 });
-    }
-
-    // Create client for user authentication
-    const authClient = createClient(supabaseUrl, supabaseAnonKey);
-
-    let user = null;
-    
-    // Try Bearer token first (from adminFetch)
+    // Check if user is authenticated
     const authHeader = request.headers.get('authorization');
-    if (authHeader?.startsWith('Bearer ')) {
-      const token = authHeader.split(' ')[1];
-      
-      try {
-        const { data: { user: tokenUser }, error } = await authClient.auth.getUser(token);
-        if (!error && tokenUser) {
-          user = tokenUser;
-        }
-      } catch (e) {
-        console.log('Bearer token auth error:', e);
-      }
-    }
-
-    if (!user) {
+    const token = authHeader?.split(' ')[1];
+    const supabase = createServerSupabaseClient();
+    
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+    if (authError || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Create admin client
-    const adminClient = supabaseServiceRoleKey 
-      ? createClient(supabaseUrl, supabaseServiceRoleKey, {
-          auth: { autoRefreshToken: false, persistSession: false }
-        })
-      : authClient;
-
     // Check if user is admin
-    const { data: userData } = await adminClient
+    const { data: userData } = await supabase
       .from('users')
       .select('is_admin')
       .eq('id', user.id)
@@ -77,22 +44,22 @@ export async function GET(request: NextRequest) {
       waitlistResult
     ] = await Promise.all([
       // Total users
-      adminClient
+      supabase
         .from('users')
         .select('id', { count: 'exact', head: true }),
       
       // Total organizations
-      adminClient
+      supabase
         .from('organizations')
         .select('id', { count: 'exact', head: true }),
       
       // Total sessions and recording duration
-      adminClient
+      supabase
         .from('sessions')
         .select('id, recording_duration_seconds'),
       
       // Users by plan (from subscriptions)
-      adminClient
+      supabase
         .from('subscriptions')
         .select(`
           plan_type,
@@ -104,13 +71,13 @@ export async function GET(request: NextRequest) {
         `),
       
       // Active users today
-      adminClient
+      supabase
         .from('users')
         .select('id', { count: 'exact', head: true })
         .gte('last_login_at', new Date(new Date().setHours(0, 0, 0, 0)).toISOString()),
       
       // Waitlist statistics
-      adminClient
+      supabase
         .from('beta_waitlist')
         .select('id, status')
     ]);

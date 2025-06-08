@@ -31,6 +31,50 @@
     - Tooltip prevents text overflow with proper truncation
   - **Status**: ✅ COMPLETED - Dashboard now correctly shows linked previous conversations with hover details
 
+- [ ] **💳 Set Up Stripe Integration with Supabase Edge Functions** (2025-01-30) 🆕 **IN PROGRESS**
+  - **Request**: Implement Stripe subscription billing for Pro plan using Supabase Edge Functions
+  - **Strategy**: Focus only on Pro plan ($29/month, $290/year) with Edge Functions architecture
+  - **Implementation Progress**:
+    - ✅ **Created Stripe Pro Product**: `prod_SSMQpSGAstcxB3` - LiveConvo Pro
+    - ✅ **Deployed 3 Edge Functions**:
+      - `stripe-webhooks` - Handles subscription lifecycle events
+      - `create-checkout-session` - Creates Stripe checkout sessions  
+      - `create-portal-session` - Creates billing portal sessions
+    - ✅ **Created Setup Documentation**: Comprehensive `stripeSetup.md` guide
+    - ✅ **Created Price Creation Script**: `create_stripe_prices.sh` for recurring prices
+    - ✅ **Created Recurring Prices**: Monthly and yearly subscription prices
+      - Monthly: `price_1RXa5S2eW0vYydurJ8nlepOf` ($29/month)
+      - Yearly: `price_1RXa5Z2eW0vYydurC5gLjswF` ($290/year)
+    - ✅ **Updated Database**: Added Stripe price IDs to plans table
+    - ✅ **Cleaned Up Old Code**: Removed outdated Vercel API routes and documentation
+      - Deleted `/api/stripe/create-checkout-session` route
+      - Deleted `/api/stripe/create-portal-session` route  
+      - Deleted `/api/webhooks/stripe` route
+      - Removed outdated documentation files
+    - ✅ **Updated Frontend Components**: Migrated to Edge Functions
+      - Updated `SubscriptionManager.tsx` to use Edge Function portal sessions
+      - Updated `PricingModal.tsx` to use Edge Function checkout sessions
+      - All frontend now calls Supabase Edge Functions instead of local API routes
+    - ✅ **Configured Edge Functions Secrets**: All environment variables set
+      - `STRIPE_SECRET_KEY` - For Stripe API operations
+      - `STRIPE_WEBHOOK_SECRET` - For webhook signature verification
+      - `STRIPE_PRO_MONTHLY_PRICE_ID` - Monthly subscription price
+      - `STRIPE_PRO_YEARLY_PRICE_ID` - Yearly subscription price
+      - Supabase variables auto-provided (`SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`)
+    - ❌ **Next**: Archive old Stripe products (6 products found)
+  - **Architecture Benefits**: 
+    - Direct database access without additional auth
+    - Perfect webhook handling with low latency
+    - Consolidated infrastructure within Supabase ecosystem
+    - Automatic scaling for payment events
+  - **Technical Details**:
+    - Using TypeScript Edge Functions with Stripe SDK v14.21.0
+    - Webhook endpoint: `https://ucvfgfbjcrxbzppwjpuu.supabase.co/functions/v1/stripe-webhooks`
+    - Database integration with users, subscriptions, and usage_tracking tables
+    - JWT verification enabled for security
+  - **Pro Plan Features**: Unlimited audio hours, real-time guidance, 50 guidance requests/session, gpt-4o-mini access
+  - **Status**: 🔄 IN PROGRESS - Edge Functions deployed, need to create recurring prices and integrate frontend
+
 - [ ] **🚀 Deploy LiveConvo to Vercel** (2025-01-30) 🆕 **IN PROGRESS**
   - **Request**: Set up production deployment on Vercel with proper environment configuration
   - **Strategy**: Deploy with current VoiceConvo Dev database, upgrade to separate environments later
@@ -1509,3 +1553,46 @@ None currently identified - all major issues have been resolved or moved to acti
     - [x] Added date indicator to /app page header showing conversation timeline
     - [x] Integrated with Supabase MCP to verify database schema and date fields
   - **Status**: ✅ COMPLETED - Conversation date indicators now show on both dashboard and /app page with smart formatting
+
+# LiveConvo Task Management
+
+## Active Tasks
+
+### 2025-01-19: Stripe Integration Setup - Pro Plan Only
+**Status**: 🔄 IN PROGRESS  
+**Priority**: HIGH  
+**Description**: Begin Stripe integration focusing on Pro plan only, clean up existing products, create recurring prices.
+
+**Progress**:
+- ✅ Connected to Supabase (project: ucvfgfbjcrxbzppwjpuu) 
+- ✅ Analyzed database schema - Pro plan exists with correct pricing ($29/month, $290/year)
+- ✅ Created comprehensive `stripeSetup.md` documentation
+- ✅ Created new Stripe product: "LiveConvo Pro" (prod_SSMQpSGAstcxB3)
+- ✅ Created automated setup script `create_stripe_prices.sh`
+- ✅ Created quick start guide `README_STRIPE_SETUP.md`
+- ✅ **RAN SCRIPT**: Created recurring prices (monthly: price_1RXRsB2eW0vYydurzeyniXAp, yearly: price_1RXRsC2eW0vYydurUMGRZuxp)
+- ✅ **UPDATED DATABASE**: Pro plan now has valid Stripe price IDs
+- ✅ **IMPLEMENTED PAYMENT FLOW**: Complete Stripe integration with checkout, webhooks, and subscription management
+
+**Next Actions**:
+1. ✅ ~~Run setup script~~ - COMPLETED
+2. ✅ ~~Update database~~ - COMPLETED  
+3. ✅ ~~Implement backend payment routes~~ - COMPLETED
+4. ✅ ~~Update frontend pricing components~~ - COMPLETED
+5. ✅ ~~Set up webhook handling~~ - COMPLETED
+6. **NEXT**: Set up environment variables and test complete subscription flow
+7. **NEXT**: Deploy to staging and configure Stripe webhooks
+8. **NEXT**: Test end-to-end payment flow
+
+**Files Created/Modified**: 
+- `stripeSetup.md` - Complete setup documentation
+- `create_stripe_prices.sh` - Automated setup script ⭐
+- `README_STRIPE_SETUP.md` - Quick start guide ⭐
+- `implementation_roadmap.md` - Implementation guide ⭐
+- `frontend/src/app/api/stripe/create-checkout-session/route.ts` - Checkout API ⭐
+- `frontend/src/app/api/webhooks/stripe/route.ts` - Webhook handler ⭐
+- `frontend/src/app/api/stripe/create-portal-session/route.ts` - Customer portal ⭐
+- `frontend/src/app/api/users/subscription/route.ts` - Subscription data API ⭐
+- `frontend/src/components/ui/PricingModal.tsx` - Updated with Stripe integration ⭐
+- `frontend/src/components/settings/SubscriptionManager.tsx` - Subscription management UI ⭐
+- `TASK.md` (updated)

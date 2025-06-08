@@ -7,12 +7,14 @@ import { Card } from '@/components/ui/Card';
 import { ThemeToggle } from '@/components/ui/ThemeToggle';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useUserStats } from '@/lib/hooks/useUserStats';
+import { SubscriptionManager } from './SubscriptionManager';
 import { 
   UserIcon, 
   PaintBrushIcon, 
   ChartBarIcon, 
   ShieldCheckIcon,
-  DocumentTextIcon 
+  DocumentTextIcon,
+  CreditCardIcon
 } from '@heroicons/react/24/outline';
 
 interface SettingsPanelProps {
@@ -157,8 +159,12 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ onSessionsDeleted 
         <p className="text-muted-foreground mt-2">Manage your account settings and preferences</p>
       </div>
 
-      <Tabs defaultValue="personal" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-5">
+      <Tabs defaultValue="subscription" className="space-y-6">
+        <TabsList className="grid w-full grid-cols-6">
+          <TabsTrigger value="subscription" className="flex items-center gap-2">
+            <CreditCardIcon className="w-4 h-4" />
+            <span className="hidden sm:inline">Billing</span>
+          </TabsTrigger>
           <TabsTrigger value="personal" className="flex items-center gap-2">
             <DocumentTextIcon className="w-4 h-4" />
             <span className="hidden sm:inline">Personal</span>
@@ -180,6 +186,11 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ onSessionsDeleted 
             <span className="hidden sm:inline">Privacy</span>
           </TabsTrigger>
         </TabsList>
+
+        {/* Subscription Tab */}
+        <TabsContent value="subscription" className="space-y-4">
+          <SubscriptionManager />
+        </TabsContent>
 
         {/* Personal Context Tab */}
         <TabsContent value="personal" className="space-y-4">
@@ -294,7 +305,12 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ onSessionsDeleted 
                       <div className="flex justify-between text-sm mb-1">
                         <span className="text-muted-foreground">Audio Time</span>
                         <span className="font-medium">
-                          {formatUsage(stats.monthlySecondsUsed || 0)} / 10 hours
+                          {formatUsage(stats.monthlySecondsUsed || 0)}
+                          {stats.monthlyAudioLimit !== null 
+                            ? ` / ${stats.monthlyAudioLimit < 1 
+                                ? `${stats.monthlyAudioLimit * 60} min` 
+                                : `${stats.monthlyAudioLimit} hr`}`
+                            : ' (Unlimited)'}
                         </span>
                       </div>
                       <div className="w-full bg-gray-200 rounded-full h-2">

@@ -186,6 +186,9 @@ CREATE TABLE users (
     is_email_verified BOOLEAN DEFAULT FALSE,
     is_admin BOOLEAN DEFAULT FALSE, -- Admin privileges flag
     
+    -- Stripe Integration
+    stripe_customer_id VARCHAR(255) UNIQUE, -- Stripe customer ID for billing
+    
     -- Timestamps
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,

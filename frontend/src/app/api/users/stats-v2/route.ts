@@ -50,14 +50,23 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Get current month details
+    // Get current billing period
+    const { data: billingPeriod, error: periodError } = await serviceClient
+      .rpc('get_user_billing_period', {
+        p_user_id: user.id,
+        p_organization_id: userData.current_organization_id
+      });
+
+    const periodData = billingPeriod?.[0];
+    const periodKey = periodData?.period_key || new Date().toISOString().slice(0, 7);
+    const periodStart = periodData?.period_start ? new Date(periodData.period_start) : new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+    const periodEnd = periodData?.period_end ? new Date(periodData.period_end) : new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0);
+    
+    // Calculate days in period and remaining
     const now = new Date();
-    const currentMonth = now.toISOString().slice(0, 7); // YYYY-MM
-    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-    const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-    const daysInMonth = monthEnd.getDate();
-    const currentDay = now.getDate();
-    const daysRemainingInMonth = daysInMonth - currentDay;
+    const totalDaysInPeriod = Math.ceil((periodEnd.getTime() - periodStart.getTime()) / (1000 * 60 * 60 * 24));
+    const daysElapsed = Math.ceil((now.getTime() - periodStart.getTime()) / (1000 * 60 * 60 * 24));
+    const daysRemainingInPeriod = Math.max(0, totalDaysInPeriod - daysElapsed);
 
     // Check monthly usage from cache using service client to bypass RLS
     const { data: monthlyUsage, error: usageError } = await serviceClient
@@ -65,7 +74,7 @@ export async function GET(request: NextRequest) {
       .select('total_minutes_used, total_seconds_used')
       .eq('user_id', user.id)
       .eq('organization_id', userData.current_organization_id)
-      .eq('month_year', currentMonth)
+      .eq('month_year', periodKey)
       .single();
 
     const monthlyMinutesUsed = monthlyUsage?.total_minutes_used || 0;
@@ -73,7 +82,7 @@ export async function GET(request: NextRequest) {
 
     // Get usage limits using the database function with service client
     const { data: limits, error: limitsError } = await serviceClient
-      .rpc('check_usage_limit', {
+      .rpc('check_usage_limit_v2', {
         p_user_id: user.id,
         p_organization_id: userData.current_organization_id
       });
@@ -85,14 +94,15 @@ export async function GET(request: NextRequest) {
     const limitData = limits?.[0] || {
       can_record: true,
       minutes_used: 0,
-      minutes_limit: 600, // Default 10 hours
-      minutes_remaining: 600,
-      percentage_used: 0
+      minutes_limit: 30, // Default 30 minutes (free plan)
+      minutes_remaining: 30,
+      percentage_used: 0,
+      is_unlimited: false
     };
 
     // Calculate average and projected usage
-    const averageDailyUsage = currentDay > 0 ? Math.round(monthlyMinutesUsed / currentDay) : 0;
-    const projectedMonthlyUsage = Math.round(averageDailyUsage * daysInMonth);
+    const averageDailyUsage = daysElapsed > 0 ? Math.round(monthlyMinutesUsed / daysElapsed) : 0;
+    const projectedMonthlyUsage = Math.round(averageDailyUsage * totalDaysInPeriod);
 
     // Get session statistics using service client
     const { data: sessionStats, error: sessionStatsError } = await serviceClient
@@ -132,9 +142,12 @@ export async function GET(request: NextRequest) {
       new Date(s.created_at) >= last30Days
     ).length;
 
+    // Handle unlimited plans
+    const isUnlimited = limitData.is_unlimited || limitData.minutes_limit >= 999999;
+    
     // Convert hours limit to minutes for consistency
-    const monthlyMinutesLimit = limitData.minutes_limit;
-    const monthlyHoursLimit = Math.round((monthlyMinutesLimit / 60) * 10) / 10;
+    const monthlyMinutesLimit = isUnlimited ? null : limitData.minutes_limit;
+    const monthlyHoursLimit = isUnlimited ? null : Math.round((limitData.minutes_limit / 60) * 10) / 10;
 
     // Convert minutes used to hours for backward compatibility
     const monthlyAudioHours = Math.round((monthlyMinutesUsed / 60) * 10) / 10;
@@ -151,13 +164,14 @@ export async function GET(request: NextRequest) {
       monthlyAudioLimit: monthlyHoursLimit,
       
       // Usage analysis
-      usagePercentage: limitData.percentage_used,
-      canRecord: limitData.can_record,
-      isApproachingLimit: limitData.minutes_remaining <= 60 && limitData.minutes_remaining > 0,
-      isOverLimit: monthlyMinutesUsed >= monthlyMinutesLimit,
+      usagePercentage: isUnlimited ? 0 : limitData.percentage_used,
+      canRecord: isUnlimited ? true : limitData.can_record,
+      isApproachingLimit: isUnlimited ? false : (limitData.minutes_remaining <= 60 && limitData.minutes_remaining > 0),
+      isOverLimit: isUnlimited ? false : (monthlyMinutesUsed >= limitData.minutes_limit),
+      isUnlimited,
       
       // Projections
-      daysRemainingInMonth,
+      daysRemainingInMonth: daysRemainingInPeriod,
       averageDailyUsage,
       projectedMonthlyUsage,
       
@@ -177,7 +191,9 @@ export async function GET(request: NextRequest) {
       sessionsLast30Days,
       
       // Metadata
-      currentMonth,
+      currentMonth: periodKey,
+      billingPeriodStart: periodStart.toISOString(),
+      billingPeriodEnd: periodEnd.toISOString(),
       lastUpdated: new Date().toISOString()
     };
 

@@ -1,5 +1,5 @@
 import { NextResponse, NextRequest } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { createServerSupabaseClient } from '@/lib/supabase';
 import type { UserSession } from '@/types/api';
 
 export async function GET(
@@ -9,52 +9,29 @@ export async function GET(
   try {
     const { id: userId } = await params;
     
-    // Get environment variables
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-    const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-    if (!supabaseUrl || !supabaseAnonKey) {
-      return NextResponse.json({ 
-        error: 'Server configuration error', 
-        details: 'Missing Supabase configuration' 
-      }, { status: 500 });
-    }
-
-    // Create client for user authentication
-    const authClient = createClient(supabaseUrl, supabaseAnonKey);
-
-    let user = null;
+    // Check if user is authenticated
     const authHeader = request.headers.get('authorization');
+    const token = authHeader?.split(' ')[1];
+    const supabase = createServerSupabaseClient();
     
-    if (authHeader?.startsWith('Bearer ')) {
-      const token = authHeader.split(' ')[1];
-      const { data: { user: authUser } } = await authClient.auth.getUser(token);
-      user = authUser;
-    }
-
-    if (!user) {
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+    if (authError || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     // Check if user is admin
-    const { data: userData, error: userError } = await authClient
+    const { data: userData } = await supabase
       .from('users')
       .select('is_admin')
       .eq('id', user.id)
       .single();
 
-    if (userError || !userData?.is_admin) {
+    if (!userData?.is_admin) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
-    // Use service role key if available, otherwise use auth client
-    const adminClient = supabaseServiceRoleKey 
-      ? createClient(supabaseUrl, supabaseServiceRoleKey)
-      : authClient;
-
     // Fetch user details
-    const { data: userDetails, error: userDetailsError } = await adminClient
+    const { data: userDetails, error: userDetailsError } = await supabase
       .from('users')
       .select(`
         id,
@@ -82,7 +59,7 @@ export async function GET(
 
     // Fetch organization info
     let organization = null;
-    const { data: orgMember } = await adminClient
+    const { data: orgMember } = await supabase
       .from('organization_members')
       .select(`
         organizations!inner(
@@ -98,7 +75,7 @@ export async function GET(
       const orgData = orgMember.organizations as unknown as { id: string; name: string };
       
       // Get subscription info for the organization
-      const { data: subscription } = await adminClient
+      const { data: subscription } = await supabase
         .from('subscriptions')
         .select(`
           plan_type,
@@ -120,7 +97,7 @@ export async function GET(
     }
 
     // Fetch user statistics
-    const { data: sessionStats } = await adminClient
+    const { data: sessionStats } = await supabase
       .from('sessions')
       .select(`
         id,
@@ -137,7 +114,7 @@ export async function GET(
       : null;
 
     // Fetch recent sessions (last 10)
-    const { data: recentSessions } = await adminClient
+    const { data: recentSessions } = await supabase
       .from('sessions')
       .select(`
         id,

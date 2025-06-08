@@ -292,7 +292,12 @@ export default function SettingsPage() {
                         <div className="flex justify-between text-sm mb-1">
                           <span className="text-muted-foreground">Audio Time</span>
                           <span className="font-medium">
-                            {formatUsage(stats.monthlySecondsUsed || 0)} / 10 hours
+                            {formatUsage(stats.monthlySecondsUsed || 0)}
+                            {stats.monthlyAudioLimit !== null 
+                              ? ` / ${stats.monthlyAudioLimit < 1 
+                                  ? `${stats.monthlyAudioLimit * 60} min` 
+                                  : `${stats.monthlyAudioLimit} hr`}`
+                              : ' (Unlimited)'}
                           </span>
                         </div>
                         <div className="w-full bg-gray-200 rounded-full h-2">
