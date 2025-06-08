@@ -84,7 +84,7 @@ export const ConversationHeader: React.FC<ConversationHeaderProps> = ({
       <LoadingModal
         isOpen={isSavingAndNavigating}
         title="Saving your conversation"
-        message="Please wait while we save your transcript..."
+        description="Please wait while we save your transcript..."
       />
       <header className="flex-shrink-0 bg-background border-b border-border shadow-md z-40">
         <div className="px-6 py-4">
