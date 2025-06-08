@@ -2003,6 +2003,7 @@ function AppContent() {
     setConversationTitle('New Conversation');
     setConversationType('sales');
     setErrorMessage(null);
+    setIsFinalized(false);
     
     // Cleanup system audio stream
     if (systemAudioStream) {

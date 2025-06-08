@@ -3,9 +3,10 @@ import { createServerSupabaseClient } from '@/lib/supabase';
 
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const authHeader = request.headers.get('authorization');
     if (!authHeader) {
       return NextResponse.json(
@@ -60,7 +61,7 @@ export async function PATCH(
     const { error: updateError } = await supabase
       .from('beta_waitlist')
       .update(updateData)
-      .eq('id', params.id);
+      .eq('id', id);
 
     if (updateError) {
       console.error('Error updating waitlist entry:', updateError);
@@ -76,7 +77,7 @@ export async function PATCH(
       const { data: waitlistEntry } = await supabase
         .from('beta_waitlist')
         .select('email')
-        .eq('id', params.id)
+        .eq('id', id)
         .single();
 
       if (waitlistEntry?.email) {
