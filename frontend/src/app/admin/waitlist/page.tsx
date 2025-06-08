@@ -220,7 +220,7 @@ export default function AdminWaitlistPage() {
             {(['all', 'pending', 'approved', 'rejected'] as const).map((status) => (
               <Button
                 key={status}
-                variant={filter === status ? 'default' : 'outline'}
+                variant={filter === status ? 'primary' : 'outline'}
                 size="sm"
                 onClick={() => setFilter(status)}
               >

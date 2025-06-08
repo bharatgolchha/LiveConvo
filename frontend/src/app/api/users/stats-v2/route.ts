@@ -57,10 +57,49 @@ export async function GET(request: NextRequest) {
         p_organization_id: userData.current_organization_id
       });
 
+    if (periodError) {
+      console.error('Error getting billing period:', periodError);
+    }
+
+    let periodKey: string;
+    let periodStart: Date;
+    let periodEnd: Date;
+
     const periodData = billingPeriod?.[0];
-    const periodKey = periodData?.period_key || new Date().toISOString().slice(0, 7);
-    const periodStart = periodData?.period_start ? new Date(periodData.period_start) : new Date(new Date().getFullYear(), new Date().getMonth(), 1);
-    const periodEnd = periodData?.period_end ? new Date(periodData.period_end) : new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0);
+    
+    // If we have billing period data, use it
+    if (periodData?.period_start && periodData?.period_end) {
+      periodKey = periodData.period_key;
+      periodStart = new Date(periodData.period_start);
+      periodEnd = new Date(periodData.period_end);
+    } else {
+      // Fallback: Try to get subscription data for accurate billing period
+      const { data: subscription } = await serviceClient
+        .from('subscriptions')
+        .select('current_period_start, current_period_end, status')
+        .eq('organization_id', userData.current_organization_id)
+        .eq('status', 'active')
+        .single();
+
+      if (subscription?.current_period_start && subscription?.current_period_end) {
+        // Use subscription billing period
+        periodStart = new Date(subscription.current_period_start);
+        periodEnd = new Date(subscription.current_period_end);
+        periodKey = periodStart.toISOString().slice(0, 7);
+      } else {
+        // Final fallback: Use current calendar month
+        const now = new Date();
+        periodStart = new Date(now.getFullYear(), now.getMonth(), 1);
+        periodEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+        periodKey = now.toISOString().slice(0, 7);
+        
+        // Log this fallback scenario
+        console.warn('Using calendar month fallback for billing period', {
+          userId: user.id,
+          organizationId: userData.current_organization_id
+        });
+      }
+    }
     
     // Calculate days in period and remaining
     const now = new Date();
@@ -69,7 +108,7 @@ export async function GET(request: NextRequest) {
     const daysRemainingInPeriod = Math.max(0, totalDaysInPeriod - daysElapsed);
 
     // Check monthly usage from cache using service client to bypass RLS
-    const { data: monthlyUsage, error: usageError } = await serviceClient
+    const { data: monthlyUsage } = await serviceClient
       .from('monthly_usage_cache')
       .select('total_minutes_used, total_seconds_used')
       .eq('user_id', user.id)
@@ -102,7 +141,9 @@ export async function GET(request: NextRequest) {
 
     // Calculate average and projected usage
     const averageDailyUsage = daysElapsed > 0 ? Math.round(monthlyMinutesUsed / daysElapsed) : 0;
-    const projectedMonthlyUsage = Math.round(averageDailyUsage * totalDaysInPeriod);
+    const projectedMonthlyUsage = daysElapsed > 0 && totalDaysInPeriod > 0 
+      ? Math.round(averageDailyUsage * totalDaysInPeriod) 
+      : monthlyMinutesUsed;
 
     // Get session statistics using service client
     const { data: sessionStats, error: sessionStatsError } = await serviceClient
