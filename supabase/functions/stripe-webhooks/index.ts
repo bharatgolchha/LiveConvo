@@ -63,7 +63,9 @@ Deno.serve(async (req: Request) => {
 
     // Process the event
     try {
-      if (event.type === 'customer.subscription.created' || event.type === 'customer.subscription.updated') {
+      // Handle subscription events
+      if (event.type === 'customer.subscription.created' || 
+          event.type === 'customer.subscription.updated') {
         const subscription = event.data.object;
         console.log('Processing subscription:', subscription.id);
         console.log('Customer ID:', subscription.customer);
@@ -213,6 +215,18 @@ Deno.serve(async (req: Request) => {
         // If updating, use existing ID
         if (existingData) {
           subscriptionData.id = existingData.id;
+          delete subscriptionData.created_at; // Don't update created_at on updates
+        } else {
+          // Cancel any existing subscriptions without stripe_subscription_id for this user
+          await supabase
+            .from('subscriptions')
+            .update({ 
+              status: 'canceled',
+              canceled_at: new Date().toISOString(),
+              updated_at: new Date().toISOString()
+            })
+            .eq('user_id', userData.id)
+            .is('stripe_subscription_id', null);
         }
         
         const { data: subData, error: subError } = await supabase
@@ -235,6 +249,146 @@ Deno.serve(async (req: Request) => {
         }
         
         console.log('Subscription created/updated:', subData);
+        
+        // Sync organization member limits (trigger should handle this, but be explicit)
+        if (subscription.status === 'active' && userData.current_organization_id) {
+          console.log('Syncing organization member limits...');
+          
+          // Get plan details
+          const { data: planData, error: planError } = await supabase
+            .from('plans')
+            .select('monthly_audio_hours_limit')
+            .eq('id', planId)
+            .single();
+            
+          if (planData && !planError) {
+            // Update organization member limits
+            const { error: memberUpdateError } = await supabase
+              .from('organization_members')
+              .update({ 
+                monthly_audio_hours_limit: planData.monthly_audio_hours_limit,
+                updated_at: new Date().toISOString()
+              })
+              .eq('user_id', userData.id)
+              .eq('organization_id', userData.current_organization_id);
+              
+            if (memberUpdateError) {
+              console.error('Failed to update organization member limits:', memberUpdateError);
+            } else {
+              console.log('Organization member limits updated to:', planData.monthly_audio_hours_limit, 'hours');
+            }
+            
+            // Update organization limits
+            const { error: orgUpdateError } = await supabase
+              .from('organizations')
+              .update({ 
+                monthly_audio_hours_limit: planData.monthly_audio_hours_limit,
+                updated_at: new Date().toISOString()
+              })
+              .eq('id', userData.current_organization_id);
+              
+            if (orgUpdateError) {
+              console.error('Failed to update organization limits:', orgUpdateError);
+            }
+          }
+        }
+        
+        return new Response(JSON.stringify({ 
+          received: true, 
+          event_type: event.type,
+          subscription_id: subscription.id 
+        }), {
+          headers: { 'Content-Type': 'application/json', ...corsHeaders },
+          status: 200,
+        });
+      }
+      
+      // Handle payment success events
+      if (event.type === 'invoice.payment_succeeded') {
+        const invoice = event.data.object;
+        console.log('Processing payment success for invoice:', invoice.id);
+        console.log('Subscription ID:', invoice.subscription);
+        
+        if (invoice.subscription) {
+          // Update subscription status to active
+          const { error: updateError } = await supabase
+            .from('subscriptions')
+            .update({ 
+              status: 'active',
+              updated_at: new Date().toISOString()
+            })
+            .eq('stripe_subscription_id', invoice.subscription);
+            
+          if (updateError) {
+            console.error('Failed to update subscription status:', updateError);
+          } else {
+            console.log('Subscription marked as active');
+          }
+        }
+        
+        return new Response(JSON.stringify({ 
+          received: true, 
+          event_type: event.type,
+          invoice_id: invoice.id 
+        }), {
+          headers: { 'Content-Type': 'application/json', ...corsHeaders },
+          status: 200,
+        });
+      }
+      
+      // Handle checkout session completed
+      if (event.type === 'checkout.session.completed') {
+        const session = event.data.object;
+        console.log('Processing checkout completion:', session.id);
+        console.log('Subscription ID:', session.subscription);
+        
+        if (session.subscription && session.payment_status === 'paid') {
+          // Update subscription status to active
+          const { error: updateError } = await supabase
+            .from('subscriptions')
+            .update({ 
+              status: 'active',
+              updated_at: new Date().toISOString()
+            })
+            .eq('stripe_subscription_id', session.subscription);
+            
+          if (updateError) {
+            console.error('Failed to update subscription status:', updateError);
+          } else {
+            console.log('Subscription marked as active after checkout');
+          }
+        }
+        
+        return new Response(JSON.stringify({ 
+          received: true, 
+          event_type: event.type,
+          session_id: session.id 
+        }), {
+          headers: { 'Content-Type': 'application/json', ...corsHeaders },
+          status: 200,
+        });
+      }
+      
+      // Handle subscription deletion/cancellation
+      if (event.type === 'customer.subscription.deleted') {
+        const subscription = event.data.object;
+        console.log('Processing subscription cancellation:', subscription.id);
+        
+        // Update subscription status to canceled
+        const { error: updateError } = await supabase
+          .from('subscriptions')
+          .update({ 
+            status: 'canceled',
+            canceled_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          })
+          .eq('stripe_subscription_id', subscription.id);
+          
+        if (updateError) {
+          console.error('Failed to update subscription status:', updateError);
+        } else {
+          console.log('Subscription marked as canceled');
+        }
         
         return new Response(JSON.stringify({ 
           received: true, 

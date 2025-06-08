@@ -138,6 +138,14 @@ export async function GET(request: NextRequest) {
       percentage_used: 0,
       is_unlimited: false
     };
+    
+    // Debug logging
+    console.log('Usage limit check for user:', {
+      userId: user.id,
+      organizationId: userData.current_organization_id,
+      limitData,
+      monthlyMinutesUsed
+    });
 
     // Calculate average and projected usage
     const averageDailyUsage = daysElapsed > 0 ? Math.round(monthlyMinutesUsed / daysElapsed) : 0;
@@ -238,7 +246,13 @@ export async function GET(request: NextRequest) {
       lastUpdated: new Date().toISOString()
     };
 
-    return NextResponse.json(responseData);
+    return NextResponse.json(responseData, {
+      headers: {
+        'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+        'Pragma': 'no-cache',
+        'Expires': '0',
+      }
+    });
 
   } catch (error) {
     console.error('User stats V2 API error:', error);

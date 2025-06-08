@@ -4,7 +4,7 @@
 
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { 
   ArrowLeft,
@@ -23,6 +23,7 @@ import {
   SidebarClose
 } from 'lucide-react';
 import Link from 'next/link';
+import { LoadingModal } from '@/components/ui/LoadingModal';
 
 import { Button } from '@/components/ui/Button';
 import { ThemeToggle } from '@/components/ui/ThemeToggle';
@@ -70,6 +71,7 @@ export const ConversationHeader: React.FC<ConversationHeaderProps> = ({
   onToggleContextPanel,
   onGenerateGuidance
 }) => {
+  const [isSavingAndNavigating, setIsSavingAndNavigating] = useState(false);
   const stateInfo = getStateInfo(conversationState);
   const { text: stateText, color: stateColorClass, icon: StateIcon } = stateInfo;
 
@@ -78,17 +80,39 @@ export const ConversationHeader: React.FC<ConversationHeaderProps> = ({
   }
 
   return (
-    <header className="flex-shrink-0 bg-background border-b border-border shadow-md z-40">
-      <div className="px-6 py-4">
-        <div className="flex items-center justify-between">
-          {/* Left Section - Navigation and Title */}
-          <div className="flex items-center gap-4">
-            <Link href="/dashboard">
-              <Button variant="ghost" size="sm" className="hover:bg-accent">
+    <>
+      <LoadingModal
+        isOpen={isSavingAndNavigating}
+        title="Saving your conversation"
+        message="Please wait while we save your transcript..."
+      />
+      <header className="flex-shrink-0 bg-background border-b border-border shadow-md z-40">
+        <div className="px-6 py-4">
+          <div className="flex items-center justify-between">
+            {/* Left Section - Navigation and Title */}
+            <div className="flex items-center gap-4">
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                className="hover:bg-accent"
+                onClick={async (e) => {
+                  if (conversationState === 'recording') {
+                    e.preventDefault();
+                    if (window.confirm('You have an active recording. Are you sure you want to leave? Your transcript will be saved.')) {
+                      setIsSavingAndNavigating(true);
+                      // Give the cleanup effect time to save
+                      setTimeout(() => {
+                        window.location.href = '/dashboard';
+                      }, 500);
+                    }
+                  } else {
+                    window.location.href = '/dashboard';
+                  }
+                }}
+              >
                 <ArrowLeft className="w-4 h-4 mr-2" />
                 Dashboard
               </Button>
-            </Link>
             
             <div className="border-l border-border h-6" />
             
@@ -244,5 +268,6 @@ export const ConversationHeader: React.FC<ConversationHeaderProps> = ({
         </div>
       </div>
     </header>
+    </>
   );
 }; 
