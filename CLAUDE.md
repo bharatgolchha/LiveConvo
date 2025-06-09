@@ -301,6 +301,19 @@ This is useful for development and testing without external services.
 - Large file uploads may timeout
 - Some UI animations may lag on slower devices
 
+## Active Refactoring
+
+### App Page Refactoring (In Progress)
+The main app page (`frontend/src/app/app/page.tsx`) is currently being refactored from a 2,757-line monolithic component into a modular structure. 
+
+**Tracking Document**: `pageRefactor.md` - Contains a detailed checklist of refactoring tasks that will be marked as completed during the process.
+
+**Goals**:
+- Reduce main component to ~500-700 lines
+- Extract 6+ custom hooks for state management
+- Create 4+ new service modules for database operations
+- Improve testability and maintainability
+
 ---
 
 **Note**: This guide is designed to help AI assistants understand and work with the liveprompt.ai codebase effectively. Always refer to the actual code for the most up-to-date implementation details.

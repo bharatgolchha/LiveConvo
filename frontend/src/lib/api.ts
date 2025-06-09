@@ -19,10 +19,20 @@ export async function authenticatedFetch(
     headers['Authorization'] = `Bearer ${session.access_token}`;
   }
 
-  return fetch(url, {
-    ...options,
-    headers,
-  });
+  try {
+    return await fetch(url, {
+      ...options,
+      headers,
+    });
+  } catch (error) {
+    // Handle aborted requests gracefully
+    if (error instanceof DOMException && error.name === 'AbortError') {
+      console.log('Request aborted:', url);
+      throw error;
+    }
+    // Re-throw other errors
+    throw error;
+  }
 }
 
 /**

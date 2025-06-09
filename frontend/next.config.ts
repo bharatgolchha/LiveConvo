@@ -18,6 +18,10 @@ const nextConfig: NextConfig = {
       },
     ],
   },
+  // Force app directory
+  experimental: {
+    appDir: true,
+  },
 };
 
 export default nextConfig;
