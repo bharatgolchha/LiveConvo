@@ -5,6 +5,7 @@ import { AuthProvider } from "@/contexts/AuthContext";
 import { ThemeProvider } from "@/contexts/ThemeContext";
 import { AuthErrorBoundary } from "@/components/auth/AuthErrorBoundary";
 import { Toaster } from "sonner";
+import { BrowserCompatibilityNotice } from "@/components/ui/BrowserCompatibilityNotice";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -40,6 +41,7 @@ export default function RootLayout({
         <AuthErrorBoundary>
           <ThemeProvider defaultTheme="system" storageKey="liveprompt-theme">
             <AuthProvider>
+              <BrowserCompatibilityNotice />
               {children}
               <Toaster 
                 position="top-right"

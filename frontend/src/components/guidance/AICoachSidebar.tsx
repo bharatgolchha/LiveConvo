@@ -22,6 +22,11 @@ import {
   Shield,
   Calendar,
   ChevronDown,
+  Heart,
+  Compass,
+  FileQuestion,
+  FileText,
+  Zap,
 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Textarea } from "@/components/ui/textarea";
@@ -32,6 +37,18 @@ import rehypeHighlight from "rehype-highlight";
 import "highlight.js/styles/github.css";
 import { toast } from "sonner";
 
+interface SmartSuggestion {
+  type: 'response' | 'action' | 'question' | 'followup' | 'objection' | 'timing' | 'emotional-intelligence' | 'redirect' | 'clarification' | 'summarize' | 'confidence-boost';
+  content: string;
+  priority: 'high' | 'medium' | 'low';
+  timing: 'immediate' | 'soon' | 'later';
+  metadata?: {
+    reason?: string;  // Why this suggestion is being made
+    successRate?: number;  // Success rate percentage (0-100)
+    estimatedTime?: string;  // Time estimate (e.g., "30 seconds", "2 minutes")
+  };
+}
+
 interface ChatMessage {
   id: string;
   type: "user" | "ai" | "auto-guidance" | "system";
@@ -41,6 +58,8 @@ interface ChatMessage {
     confidence?: number;
     suggestions?: string[];
     actionable?: boolean;
+    suggestedActions?: string[];
+    smartSuggestion?: SmartSuggestion;
   };
 }
 
@@ -212,6 +231,9 @@ Example format for each chip: {"text": "🔥 Build rapport", "prompt": "How can 
             selectedPreviousConversations:
               contextSummary?.selectedPreviousConversations || [],
             personalContext: contextSummary?.personalContext,
+            // Recording state for chip generation (chips don't need smart suggestions)
+            isRecording: false,
+            transcriptLength: 0,
           }),
         });
 
@@ -1005,7 +1027,7 @@ Example format for each chip: {"text": "🔥 Build rapport", "prompt": "How can 
     switch (type) {
       case "response":
         return {
-          icon: <MessageCircle className="h-3 w-3" />,
+          icon: <MessageCircle className="h-4 w-4" />,
           label: "Suggested Response",
           description: "Say this",
           color: "amber",
@@ -1017,7 +1039,7 @@ Example format for each chip: {"text": "🔥 Build rapport", "prompt": "How can 
         };
       case "action":
         return {
-          icon: <Target className="h-3 w-3" />,
+          icon: <Target className="h-4 w-4" />,
           label: "Suggested Action",
           description: "Do this",
           color: "blue",
@@ -1029,7 +1051,7 @@ Example format for each chip: {"text": "🔥 Build rapport", "prompt": "How can 
         };
       case "question":
         return {
-          icon: <HelpCircle className="h-3 w-3" />,
+          icon: <HelpCircle className="h-4 w-4" />,
           label: "Suggested Question",
           description: "Ask this",
           color: "green",
@@ -1041,7 +1063,7 @@ Example format for each chip: {"text": "🔥 Build rapport", "prompt": "How can 
         };
       case "followup":
         return {
-          icon: <Calendar className="h-3 w-3" />,
+          icon: <Calendar className="h-4 w-4" />,
           label: "Follow-up Action",
           description: "Next step",
           color: "purple",
@@ -1053,7 +1075,7 @@ Example format for each chip: {"text": "🔥 Build rapport", "prompt": "How can 
         };
       case "objection":
         return {
-          icon: <Shield className="h-3 w-3" />,
+          icon: <Shield className="h-4 w-4" />,
           label: "Objection Handler",
           description: "Handle this",
           color: "red",
@@ -1065,7 +1087,7 @@ Example format for each chip: {"text": "🔥 Build rapport", "prompt": "How can 
         };
       case "timing":
         return {
-          icon: <Clock className="h-3 w-3" />,
+          icon: <Clock className="h-4 w-4" />,
           label: "Timing Suggestion",
           description: "When to act",
           color: "slate",
@@ -1075,9 +1097,69 @@ Example format for each chip: {"text": "🔥 Build rapport", "prompt": "How can 
           buttonGradient:
             "from-slate-500 to-gray-500 hover:from-slate-600 hover:to-gray-600 dark:from-slate-600 dark:to-gray-600 dark:hover:from-slate-700 dark:hover:to-gray-700",
         };
+      case "emotional-intelligence":
+        return {
+          icon: <Heart className="h-4 w-4" />,
+          label: "Emotional Intelligence",
+          description: "Empathy response",
+          color: "pink",
+          bgGradient:
+            "from-pink-50 via-rose-50 to-red-50 dark:from-pink-950/30 dark:via-rose-950/30 dark:to-red-950/30",
+          border: "border-pink-200 dark:border-pink-700",
+          buttonGradient:
+            "from-pink-500 to-rose-500 hover:from-pink-600 hover:to-rose-600 dark:from-pink-600 dark:to-rose-600 dark:hover:from-pink-700 dark:hover:to-rose-700",
+        };
+      case "redirect":
+        return {
+          icon: <Compass className="h-4 w-4" />,
+          label: "Redirect Conversation",
+          description: "Refocus topic",
+          color: "indigo",
+          bgGradient:
+            "from-indigo-50 via-blue-50 to-purple-50 dark:from-indigo-950/30 dark:via-blue-950/30 dark:to-purple-950/30",
+          border: "border-indigo-200 dark:border-indigo-700",
+          buttonGradient:
+            "from-indigo-500 to-blue-500 hover:from-indigo-600 hover:to-blue-600 dark:from-indigo-600 dark:to-blue-600 dark:hover:from-indigo-700 dark:hover:to-blue-700",
+        };
+      case "clarification":
+        return {
+          icon: <FileQuestion className="h-4 w-4" />,
+          label: "Seek Clarification",
+          description: "Clear ambiguity",
+          color: "cyan",
+          bgGradient:
+            "from-cyan-50 via-teal-50 to-emerald-50 dark:from-cyan-950/30 dark:via-teal-950/30 dark:to-emerald-950/30",
+          border: "border-cyan-200 dark:border-cyan-700",
+          buttonGradient:
+            "from-cyan-500 to-teal-500 hover:from-cyan-600 hover:to-teal-600 dark:from-cyan-600 dark:to-teal-600 dark:hover:from-cyan-700 dark:hover:to-teal-700",
+        };
+      case "summarize":
+        return {
+          icon: <FileText className="h-4 w-4" />,
+          label: "Summarize Progress",
+          description: "Recap points",
+          color: "emerald",
+          bgGradient:
+            "from-emerald-50 via-green-50 to-teal-50 dark:from-emerald-950/30 dark:via-green-950/30 dark:to-teal-950/30",
+          border: "border-emerald-200 dark:border-emerald-700",
+          buttonGradient:
+            "from-emerald-500 to-green-500 hover:from-emerald-600 hover:to-green-600 dark:from-emerald-600 dark:to-green-600 dark:hover:from-emerald-700 dark:hover:to-green-700",
+        };
+      case "confidence-boost":
+        return {
+          icon: <Zap className="h-4 w-4" />,
+          label: "Confidence Boost",
+          description: "Encouragement",
+          color: "yellow",
+          bgGradient:
+            "from-yellow-50 via-amber-50 to-orange-50 dark:from-yellow-950/30 dark:via-amber-950/30 dark:to-orange-950/30",
+          border: "border-yellow-200 dark:border-yellow-700",
+          buttonGradient:
+            "from-yellow-500 to-amber-500 hover:from-yellow-600 hover:to-amber-600 dark:from-yellow-600 dark:to-amber-600 dark:hover:from-yellow-700 dark:hover:to-amber-700",
+        };
       default:
         return {
-          icon: <Sparkles className="h-3 w-3" />,
+          icon: <Sparkles className="h-4 w-4" />,
           label: "Suggestion",
           description: "Try this",
           color: "blue",
@@ -1427,6 +1509,76 @@ Example format for each chip: {"text": "🔥 Build rapport", "prompt": "How can 
               </div>
             )}
 
+          {/* Smart Suggestions */}
+          {message.metadata?.smartSuggestion && (
+            <div className="mt-3">
+              {(() => {
+                const suggestion = message.metadata.smartSuggestion;
+                const config = getSuggestionConfig(suggestion.type);
+                
+                const priorityColors = {
+                  high: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400",
+                  medium: "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400",
+                  low: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
+                };
+                
+                return (
+                  <div className={`bg-gradient-to-r ${config.bgGradient} ${config.border} border-2 rounded-lg p-4 shadow-md`}>
+                    <div className="flex items-start gap-3">
+                      <div className={`text-${config.color}-600 dark:text-${config.color}-400 mt-0.5`}>
+                        {config.icon}
+                      </div>
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className={`text-sm font-semibold text-${config.color}-700 dark:text-${config.color}-300`}>
+                            {config.label}
+                          </span>
+                          <span className={`text-xs px-1.5 py-0.5 rounded-full ${priorityColors[suggestion.priority]}`}>
+                            {suggestion.priority}
+                          </span>
+                          {suggestion.timing && (
+                            <span className="text-xs text-muted-foreground">
+                              • {suggestion.timing}
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-base font-bold italic text-gray-900 dark:text-gray-100 leading-relaxed">
+                          {suggestion.content}
+                        </p>
+                        
+                        {/* Metadata - Extremely Concise */}
+                        {suggestion.metadata && (
+                          <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                            {suggestion.metadata.reason && (
+                              <span className="italic">
+                                {suggestion.metadata.reason}
+                              </span>
+                            )}
+                            {suggestion.metadata.successRate !== undefined && (
+                              <span className={`font-medium ${
+                                suggestion.metadata.successRate >= 80 ? 'text-green-600 dark:text-green-400' :
+                                suggestion.metadata.successRate >= 60 ? 'text-yellow-600 dark:text-yellow-400' :
+                                'text-orange-600 dark:text-orange-400'
+                              }`}>
+                                {suggestion.metadata.successRate}%
+                              </span>
+                            )}
+                            {suggestion.metadata.estimatedTime && (
+                              <span className="flex items-center gap-1">
+                                <Clock className="h-3 w-3" />
+                                {suggestion.metadata.estimatedTime}
+                              </span>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
+            </div>
+          )}
+
           {/* Action buttons for messages */}
           {message.metadata?.suggestions &&
             message.metadata.suggestions.length > 0 && (
@@ -1536,9 +1688,9 @@ Example format for each chip: {"text": "🔥 Build rapport", "prompt": "How can 
                   title={isExpanded ? "Minimize" : "Maximize"}
                 >
                   {isExpanded ? (
-                    <Minimize2 className="h-3 w-3" />
+                    <Minimize2 className="h-4 w-4" />
                   ) : (
-                    <Maximize2 className="h-3 w-3" />
+                    <Maximize2 className="h-4 w-4" />
                   )}
                 </Button>
                 <Button
@@ -1548,7 +1700,7 @@ Example format for each chip: {"text": "🔥 Build rapport", "prompt": "How can 
                   onClick={() => setIsCollapsed(true)}
                   title="Collapse"
                 >
-                  <ChevronRight className="h-3 w-3" />
+                  <ChevronRight className="h-4 w-4" />
                 </Button>
               </div>
             </div>

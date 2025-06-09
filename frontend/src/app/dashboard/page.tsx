@@ -68,7 +68,7 @@ const DashboardHeader: React.FC<{
   const [searchQuery, setSearchQuery] = useState('');
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const { signOut } = useAuth();
-  const { theme } = useTheme();
+  const { resolvedTheme } = useTheme();
 
   const handleLogout = async () => {
     const { error } = await signOut();
@@ -104,9 +104,9 @@ const DashboardHeader: React.FC<{
         <div className="flex items-center space-x-4">
           <div className="flex items-center space-x-2">
             <img 
-              src={theme === 'dark' 
-                ? "https://ucvfgfbjcrxbzppwjpuu.supabase.co/storage/v1/object/public/images//dark.png"
-                : "https://ucvfgfbjcrxbzppwjpuu.supabase.co/storage/v1/object/public/images//light.png"
+              src={resolvedTheme === 'dark' 
+                ? "https://ucvfgfbjcrxbzppwjpuu.supabase.co/storage/v1/object/public/images/dark.png"
+                : "https://ucvfgfbjcrxbzppwjpuu.supabase.co/storage/v1/object/public/images/light.png"
               }
               alt="liveprompt.ai"
               className="w-8 h-8 object-contain"

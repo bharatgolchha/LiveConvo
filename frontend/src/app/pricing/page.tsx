@@ -68,7 +68,7 @@ export default function PricingPage() {
   const [currentUserPlan, setCurrentUserPlan] = useState<string | null>(null);
   const router = useRouter();
   const { user, signOut } = useAuth();
-  const { theme } = useTheme();
+  const { resolvedTheme } = useTheme();
 
   useEffect(() => {
     fetchPricingPlans();
@@ -178,9 +178,9 @@ export default function PricingPage() {
             {/* Logo and Title */}
             <Link href="/dashboard" className="flex items-center gap-3">
               <img 
-                src={theme === 'dark' 
-                  ? "https://ucvfgfbjcrxbzppwjpuu.supabase.co/storage/v1/object/public/images//dark.png"
-                  : "https://ucvfgfbjcrxbzppwjpuu.supabase.co/storage/v1/object/public/images//light.png"
+                src={resolvedTheme === 'dark' 
+                  ? "https://ucvfgfbjcrxbzppwjpuu.supabase.co/storage/v1/object/public/images/dark.png"
+                  : "https://ucvfgfbjcrxbzppwjpuu.supabase.co/storage/v1/object/public/images/light.png"
                 }
                 alt="liveprompt.ai"
                 className="w-8 h-8 object-contain"

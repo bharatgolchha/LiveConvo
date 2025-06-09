@@ -17,7 +17,7 @@ export function buildChatPrompt(
   conversationType?: string, 
   conversationTitle?: string, 
   textContext?: string, 
-  summary?: { tldr?: string; key_points?: string[]; sentiment?: string }, 
+  summary?: { tldr?: string; key_points?: string[]; sentiment?: string; keyPoints?: string[]; decisions?: string[]; actionItems?: string[] }, 
   uploadedFiles?: Array<{ name: string; type: string; size: number }>, 
   selectedPreviousConversations?: string[], 
   personalContext?: string
@@ -82,8 +82,10 @@ CONTEXT:
   if (summary && summary.tldr) {
     prompt += `Current Summary: ${summary.tldr}\n`;
     
-    if (summary.key_points && summary.key_points.length > 0) {
-      prompt += `Key Points: ${summary.key_points.slice(0, 3).join(', ')}\n`;
+    // Handle both keyPoints and key_points formats
+    const keyPoints = summary.keyPoints || summary.key_points;
+    if (keyPoints && keyPoints.length > 0) {
+      prompt += `Key Points: ${keyPoints.slice(0, 3).join(', ')}\n`;
     }
     
     if (summary.sentiment) {
@@ -96,10 +98,9 @@ CONTEXT:
     prompt += buildPreviousConversationsContext(selectedPreviousConversations);
   }
 
-  // Add current transcript if available
+  // Add current transcript
   if (transcript && transcript.trim()) {
-    const transcriptPreview = transcript.length > 800 ? transcript.substring(transcript.length - 800) : transcript;
-    prompt += `Current Conversation:\n${transcriptPreview}\n`;
+    prompt += `\nCurrent Conversation:\n${transcript}\n`;
   }
 
   // Add recent chat history
