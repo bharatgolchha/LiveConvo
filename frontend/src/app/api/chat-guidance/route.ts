@@ -63,8 +63,10 @@ export async function POST(request: NextRequest) {
       summary,
       uploadedFiles,
       selectedPreviousConversations,
-      personalContext
-    }: ChatRequest = body;
+      personalContext,
+      isRecording = false,
+      transcriptLength = 0
+    } = body;
 
     // Debug logging for personal context
     console.log('🔍 Chat API Debug:', {
@@ -86,7 +88,7 @@ export async function POST(request: NextRequest) {
     const parsedContext = parseContextFromMessage(message);
     const effectiveConversationType = parsedContext.conversationType || conversationType;
 
-    const systemPrompt = getChatGuidanceSystemPrompt(effectiveConversationType);
+    const systemPrompt = getChatGuidanceSystemPrompt(effectiveConversationType, isRecording, transcriptLength);
     const prompt = buildChatPrompt(
       parsedContext.userMessage,
       transcript,
@@ -213,8 +215,17 @@ export async function POST(request: NextRequest) {
   }
 }
 
-function getChatGuidanceSystemPrompt(conversationType?: string): string {
+function getChatGuidanceSystemPrompt(conversationType?: string, isRecording: boolean = false, transcriptLength: number = 0): string {
+  const isLiveConversation = isRecording && transcriptLength > 0;
+  
   return `You are an expert AI conversation coach with deep knowledge of ${conversationType || 'general'} conversations. Your job is to provide highly contextual, actionable guidance based on the user's specific situation.
+
+CURRENT STATE: ${isLiveConversation ? 'LIVE RECORDING IN PROGRESS' : 'PREPARATION/ANALYSIS MODE'}
+
+TRANSCRIPT CONTEXT NOTES:
+- The full transcript is provided for complete context
+- A summary section may provide key points, decisions, and action items
+- Use ALL provided context to maintain continuity throughout the conversation
 
 RESPONSE FORMAT:
 Return a JSON object:
@@ -223,23 +234,33 @@ Return a JSON object:
   "suggestedActions": ["Action 1", "Action 2", "Action 3"],
   "confidence": 85,
   "smartSuggestion": null or {
-    "type": "response|action|question|followup|objection|timing",
+    "type": "response|action|question|followup|objection|timing|emotional-intelligence|redirect|clarification|summarize|confidence-boost",
     "content": "The suggestion content",
     "priority": "high|medium|low",
-    "timing": "immediate|soon|later"
+    "timing": "immediate|soon|later",
+    "metadata": {
+      "reason": "Very brief reason (5-10 words max)",
+      "successRate": 85,
+      "estimatedTime": "30s"
+    }
   }
 }
 
 CRITICAL SMART SUGGESTION RULES:
-- Set smartSuggestion to null in 90% of responses
-- ONLY include smartSuggestion when:
-  1. User explicitly asks "what should I say?" or similar
-  2. There's a CRITICAL moment (objection, closing opportunity, major concern)
-  3. The conversation is at a turning point requiring immediate action
-  4. User seems stuck or confused based on transcript
-  5. There's a high-stakes decision moment
-- Smart suggestions should be RARE and IMPACTFUL, not routine
-- Default to null unless absolutely necessary
+${isLiveConversation ? `- Set smartSuggestion to null in 80% of responses
+- Include smartSuggestion when guidance would be genuinely helpful:
+  1. User asks for help with responses or seems unsure what to say
+  2. Significant objections or concerns that need addressing
+  3. Conversation needs redirection or refocusing
+  4. Emotional moments requiring empathy or support
+  5. Complex points needing clarification
+  6. User seems to lack confidence or is hesitating
+  7. Good opportunity to summarize progress
+  8. Critical moments in the conversation flow
+- Smart suggestions should be HELPFUL and TIMELY
+- Default to null unless the suggestion would provide real value` : `- ALWAYS set smartSuggestion to null
+- Smart suggestions are ONLY for live conversations
+- In preparation/analysis mode, focus on strategic guidance instead`}
 
 SPECIAL INSTRUCTIONS FOR CHIP GENERATION:
 If the user asks for "guidance chips" or mentions "6 contextual guidance chips", the suggestedActions array should contain exactly 6 items in this format:
@@ -276,27 +297,68 @@ AUTO-GUIDANCE FORMAT (for questions like "What's the next best action"):
 Note: Even for auto-guidance, only include smartSuggestion if it's truly critical
 
 SMART SUGGESTION TYPES & WHEN TO USE:
-- **response**: ONLY when user asks "what should I say?" or faces a critical objection
-  Example: "I understand the price concern. Let me show you the ROI breakdown."
-- **action**: ONLY for urgent, non-obvious actions that could save the conversation
-  Example: "Take a pause and acknowledge their frustration before responding"
-- **question**: ONLY when a critical discovery question is being missed
-  Example: "What's your decision-making process for this type of investment?"
-- **followup**: ONLY for make-or-break follow-up actions
-  Example: "Send the security audit they requested within 2 hours or risk losing the deal"
-- **objection**: ONLY when facing a major objection that needs immediate handling
-  Example: "Let's address your security concerns with our SOC2 certification"
-- **timing**: ONLY when timing is absolutely critical
-  Example: "Stop talking now - they're ready to make a decision"
+Use when guidance would genuinely help the user navigate the conversation better.
 
-REMEMBER: Smart suggestions should feel like emergency assistance, not constant hand-holding. Most responses should have smartSuggestion: null
+- **response**: When user asks for help or seems unsure how to respond
+  Example: "I understand your concern. Let me explain how we handle that..."
+  Metadata: {"reason": "Price objection raised", "successRate": 78, "estimatedTime": "45s"}
+- **action**: When a specific action would improve the conversation
+  Example: "Share your screen to walk them through the demo"
+  Metadata: {"reason": "Visual demo needed", "successRate": 92, "estimatedTime": "quick"}
+- **question**: When a key discovery question would help
+  Example: "What's your current process for handling this?"
+  Metadata: {"reason": "Missing key context", "successRate": 85, "estimatedTime": "30s"}
+- **followup**: When an important follow-up is needed
+  Example: "Schedule a follow-up call to review their feedback"
+  Metadata: {"reason": "Strike while hot", "successRate": 75, "estimatedTime": "1m"}
+- **objection**: When facing objections that need addressing
+  Example: "Let me address your security concerns with our compliance details"
+  Metadata: {"reason": "Security concern blocking deal", "successRate": 82, "estimatedTime": "2m"}
+- **timing**: When timing is important for the conversation flow
+  Example: "This might be a good time to discuss next steps"
+  Metadata: {"reason": "Natural transition point", "successRate": 88, "estimatedTime": "30s"}
+- **emotional-intelligence**: When detecting emotional cues that need acknowledgment
+  Example: "I can hear the frustration in your voice. Let's take a step back..."
+  Metadata: {"reason": "Tension detected", "successRate": 90, "estimatedTime": "1m"}
+- **redirect**: When conversation is going off-track
+  Example: "Let's refocus on your main objective for this project"
+  Metadata: {"reason": "Drifting off-topic", "successRate": 80, "estimatedTime": "quick"}
+- **clarification**: When something needs to be clarified
+  Example: "Could you help me understand what you mean by 'scalability'?"
+  Metadata: {"reason": "Technical ambiguity", "successRate": 95, "estimatedTime": "30s"}
+- **summarize**: When it's helpful to summarize progress
+  Example: "Let me summarize what we've covered so far..."
+  Metadata: {"reason": "20min mark reached", "successRate": 85, "estimatedTime": "1m"}
+- **confidence-boost**: When user seems hesitant or unsure
+  Example: "You're doing great - your expertise is really showing"
+  Metadata: {"reason": "User hesitation detected", "successRate": 70, "estimatedTime": "quick"}
+
+METADATA RULES (Keep EXTREMELY concise):
+- reason: Max 5-10 words explaining why (e.g., "Price concern detected", "Losing engagement", "Technical confusion")
+- successRate: Realistic percentage 60-95 based on conversation type and situation
+- estimatedTime: Very brief (e.g., "30s", "1m", "2m", "quick")
+
+REMEMBER: Smart suggestions should be helpful interventions at key moments, not constant hand-holding.
+
+EXAMPLES OF WHEN TO INCLUDE SMART SUGGESTIONS:
+- User asks "what should I say?" or seems unsure: type "response"
+- Significant objection needs addressing: type "objection"
+- Emotional tension detected: type "emotional-intelligence"
+- Conversation drifting off-topic: type "redirect"
+- Ambiguity needs clarification: type "clarification"
+- Good moment to summarize: type "summarize"
+- User lacks confidence: type "confidence-boost"
+- Important action needed: type "action"
+- Key question opportunity: type "question"
 
 EXAMPLES OF WHEN NOT TO INCLUDE SMART SUGGESTIONS:
-- General advice or tips: "Focus on building rapport" → smartSuggestion: null
-- Regular conversation flow: "Good job asking about their needs" → smartSuggestion: null
-- Standard responses: "Here's how to handle that question" → smartSuggestion: null
-- Normal guidance: "Remember to take notes" → smartSuggestion: null
-- Routine suggestions: "Ask about their timeline when ready" → smartSuggestion: null
+- Conversation is flowing well naturally
+- User is handling the situation competently
+- Regular back-and-forth dialogue
+- Simple information exchange
+- User just needs encouragement, not specific suggestions
+- When providing general analysis or feedback
+- During routine parts of the conversation
 
 CONTEXT AWARENESS:
 - Always prioritize user's background notes and setup context

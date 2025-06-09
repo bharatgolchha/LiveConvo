@@ -30,10 +30,15 @@ export interface ChatMessage {
 }
 
 interface SmartSuggestion {
-  type: 'response' | 'action' | 'question' | 'followup' | 'objection' | 'timing';
+  type: 'response' | 'action' | 'question' | 'followup' | 'objection' | 'timing' | 'emotional-intelligence' | 'redirect' | 'clarification' | 'summarize' | 'confidence-boost';
   content: string;
   priority: 'high' | 'medium' | 'low';
   timing: 'immediate' | 'soon' | 'later';
+  metadata?: {
+    reason?: string;  // Why this suggestion is being made
+    successRate?: number;  // Success rate percentage (0-100)
+    estimatedTime?: string;  // Time estimate (e.g., "30 seconds", "2 minutes")
+  };
 }
 
 interface ChatResponse {
@@ -65,6 +70,9 @@ interface UseChatGuidanceProps {
   uploadedFiles?: File[];
   selectedPreviousConversations?: string[];
   personalContext?: string;
+  // Recording state
+  isRecording?: boolean;
+  transcriptLength?: number;
 }
 
 export function useChatGuidance({
@@ -76,7 +84,9 @@ export function useChatGuidance({
   summary,
   uploadedFiles,
   selectedPreviousConversations,
-  personalContext
+  personalContext,
+  isRecording = false,
+  transcriptLength = 0
 }: UseChatGuidanceProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -160,7 +170,10 @@ export function useChatGuidance({
           size: f.size 
         })) : [],
         selectedPreviousConversations,
-        personalContext
+        personalContext,
+        // Recording state
+        isRecording,
+        transcriptLength
       };
       
       console.log('🔍 Chat Request Payload Debug:', {

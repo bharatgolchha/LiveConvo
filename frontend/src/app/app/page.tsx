@@ -837,10 +837,12 @@ function AppContent() {
     textContext: textContext + (previousConversationsContext ? '\n\n=== PREVIOUS CONVERSATIONS CONTEXT ===\n' + previousConversationsContext : ''),
     conversationTitle,
     summary: effectiveSummary || undefined,
-
     uploadedFiles,
     selectedPreviousConversations,
-    personalContext
+    personalContext,
+    // Recording state
+    isRecording: conversationState === 'recording',
+    transcriptLength: transcript.length
   });
 
 
@@ -1602,7 +1604,8 @@ function AppContent() {
     setConversationState('processing');
     
     try {
-      const recentTranscript = transcript.slice(-5).map(t => `${t.speaker}: ${t.text}`).join('\n');
+      // Use more transcript lines for better context
+      const recentTranscript = transcript.slice(-20).map(t => `${t.speaker}: ${t.text}`).join('\n');
       
       const guidanceRequest: GuidanceRequest = {
         transcript: recentTranscript,
