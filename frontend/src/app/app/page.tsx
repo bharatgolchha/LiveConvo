@@ -45,6 +45,8 @@ import { useMinuteTracking } from '@/lib/hooks/useMinuteTracking';
 import { RecordingConsentModal } from '@/components/conversation/RecordingConsentModal';
 import { LoadingModal } from '@/components/ui/LoadingModal';
 import type { SessionDataFull, ConversationSummary as ConversationSummaryType, TranscriptData, SessionFile } from '@/types/app';
+import { usePageVisibility } from '@/lib/hooks/usePageVisibility';
+import { useTranscriptAutoSave } from '@/lib/hooks/useTranscriptAutoSave';
 
 // Type assertion for getDisplayMedia support
 declare global {
@@ -250,9 +252,19 @@ function AppContent() {
   }, [conversationState]);
 
   // Tab visibility and page lifecycle management
-  const [wasRecordingBeforeHidden, setWasRecordingBeforeHidden] = useState(false);
-  const pageVisibilityTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const preventUnloadRef = useRef(false);
+  const { wasRecordingBeforeHidden } = usePageVisibility({ conversationState });
+
+  useTranscriptAutoSave({
+    conversationId,
+    transcript,
+    conversationState,
+    session,
+    authLoading,
+    lastSavedIndex: lastSavedTranscriptIndex,
+    setLastSavedIndex: setLastSavedTranscriptIndex,
+    saveTranscriptToDatabase,
+    saveTranscriptNow
+  });
 
   // Add a ref to track current recording state for database loading prevention
   const isCurrentlyRecordingRef = useRef(false);
@@ -472,83 +484,6 @@ function AppContent() {
     }
   };
 
-  // Handle page visibility changes to maintain recording state
-  useEffect(() => {
-    const handleVisibilityChange = () => {
-      const isVisible = !document.hidden;
-      
-      console.log(`🔍 Tab ${isVisible ? 'visible' : 'hidden'}, recording state: ${conversationState}`);
-      
-      if (!isVisible) {
-        // Tab is being hidden
-        if (conversationState === 'recording') {
-          setWasRecordingBeforeHidden(true);
-          console.log('🔍 Tab hidden while recording - maintaining state');
-          
-          // Set a timeout to pause recording only if tab stays hidden for too long (optional)
-          pageVisibilityTimeoutRef.current = setTimeout(() => {
-            if (document.hidden && conversationState === 'recording') {
-              console.log('🔍 Tab hidden for too long, pausing recording');
-              // Reference the correct function name - we'll define this later
-              // handlePauseRecording();
-            }
-          }, 300000); // 5 minutes
-        }
-      } else {
-        // Tab is becoming visible
-        console.log('🔍 Tab became visible');
-        
-        // Clear any pending pause timeout
-        if (pageVisibilityTimeoutRef.current) {
-          clearTimeout(pageVisibilityTimeoutRef.current);
-          pageVisibilityTimeoutRef.current = null;
-        }
-        
-        // If we were recording before and are now paused, offer to resume
-        if (wasRecordingBeforeHidden && conversationState === 'paused') {
-          console.log('🔍 Tab visible again, was recording before - ready to resume');
-          setWasRecordingBeforeHidden(false);
-        }
-      }
-    };
-
-    // Prevent page unload while recording
-    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
-      if (conversationState === 'recording' || preventUnloadRef.current) {
-        e.preventDefault();
-        e.returnValue = 'You have an active recording. Are you sure you want to leave?';
-        return e.returnValue;
-      }
-    };
-
-    // Prevent accidental page refresh during recording
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (conversationState === 'recording') {
-        // Prevent Ctrl+R, F5, Cmd+R
-        if ((e.ctrlKey && e.key === 'r') || 
-            (e.metaKey && e.key === 'r') || 
-            e.key === 'F5') {
-          e.preventDefault();
-          console.log('🔍 Prevented page refresh during recording');
-          return false;
-        }
-      }
-    };
-
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    window.addEventListener('beforeunload', handleBeforeUnload);
-    document.addEventListener('keydown', handleKeyDown);
-    
-    return () => {
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-      window.removeEventListener('beforeunload', handleBeforeUnload);
-      document.removeEventListener('keydown', handleKeyDown);
-      
-      if (pageVisibilityTimeoutRef.current) {
-        clearTimeout(pageVisibilityTimeoutRef.current);
-      }
-    };
-  }, [conversationState, wasRecordingBeforeHidden]);
 
   // Temporary debug logging for auth state
   useEffect(() => {
@@ -598,7 +533,6 @@ function AppContent() {
   const latestTranscript = useRef<TranscriptLine[]>([]);
   const latestTextContext = useRef('');
   const contextSaveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const previousConversationState = useRef<ConversationState | null>(null);
   
   // UI State
   const [showContextPanel, setShowContextPanel] = useState(false);
@@ -787,151 +721,6 @@ function AppContent() {
     }
   }, [conversationType, clearChat]); // Only depend on conversationType and clearChat, not chatMessages to avoid loops
 
-  // Auto-save transcript to database - Only save new lines
-  useEffect(() => {
-    if (conversationId && transcript.length > lastSavedTranscriptIndex && session && !authLoading) {
-      // Save in all active states: recording, paused, and completed
-      const shouldSave = ['recording', 'paused', 'completed'].includes(conversationState);
-
-      if (shouldSave) {
-        // Debounce time for saves (2 seconds for better batching)
-        const timeoutId = setTimeout(async () => {
-          const newSavedIndex = await saveTranscriptToDatabase(
-            conversationId,
-            transcript,
-            session,
-            lastSavedTranscriptIndex
-          );
-          setLastSavedTranscriptIndex(newSavedIndex);
-        }, 2000); // Save after 2 seconds of no changes
-
-        return () => clearTimeout(timeoutId);
-      }
-    }
-  }, [transcript, conversationId, conversationState, session, authLoading, lastSavedTranscriptIndex]);
-
-  // Immediate transcript save when conversation state changes (pause/stop/complete)
-  useEffect(() => {
-    if (previousConversationState.current && previousConversationState.current !== conversationState) {
-      // Save immediately when transitioning to these states
-      const immediateStates: ConversationState[] = ['paused', 'completed', 'error'];
-      
-      if (immediateStates.includes(conversationState) && 
-          conversationId && 
-          transcript.length > 0 && 
-          session && 
-          !authLoading) {
-        console.log(`💾 Immediate transcript save triggered by state change: ${previousConversationState.current} → ${conversationState}`);
-        saveTranscriptNow(conversationId, transcript, session, lastSavedTranscriptIndex)
-          .then(newIndex => setLastSavedTranscriptIndex(newIndex));
-      }
-    }
-    
-    previousConversationState.current = conversationState;
-  }, [conversationState, conversationId, transcript, session, authLoading]);
-
-  // Auto-save transcript with optimized batching during recording
-  useEffect(() => {
-    if (conversationState === 'recording' && conversationId && transcript.length > 0) {
-      // Smart batching: save when we have significant new content OR after time interval
-      const autoSaveInterval = setInterval(async () => {
-        const unsavedLines = transcript.length - lastSavedTranscriptIndex;
-        
-        // Only save if we have new content worth saving
-        if (unsavedLines >= 5) { // Save when we have 5+ new lines
-          try {
-            console.log(`💾 Auto-saving transcript: ${unsavedLines} new lines`);
-            const newIndex = await saveTranscriptNow(conversationId, transcript, session, lastSavedTranscriptIndex);
-            if (newIndex !== undefined) {
-              setLastSavedTranscriptIndex(newIndex);
-              // Only show toast for substantial saves to avoid spam
-              if (unsavedLines >= 10) {
-                toast.success('Auto-saved', {
-                  description: `${unsavedLines} new lines saved`,
-                  duration: 2000
-                });
-              }
-            }
-          } catch (error) {
-            console.error('❌ Auto-save failed:', error);
-            // Only show error toast occasionally to avoid spam
-            if (unsavedLines >= 20) {
-              toast.error('Auto-save failed', {
-                description: 'Your conversation is still being recorded',
-                duration: 3000
-              });
-            }
-          }
-        } else {
-          console.log(`💾 Auto-save skipped: only ${unsavedLines} new lines (need 5+)`);
-        }
-      }, 45000); // Increased interval to 45 seconds to reduce database load
-      
-      return () => clearInterval(autoSaveInterval);
-    }
-  }, [conversationState, conversationId, transcript.length, session, lastSavedTranscriptIndex]);
-
-  // Cleanup effect - Save transcripts when component unmounts
-  useEffect(() => {
-    return () => {
-      // Save any pending transcripts when component unmounts
-      if (conversationState === 'recording' || conversationState === 'paused') {
-        if (conversationId && transcript.length > 0 && session && transcript.length > lastSavedTranscriptIndex) {
-          console.log('🚨 Component unmounting - saving pending transcripts');
-          // Use beacon API for more reliable saving during navigation
-          const unsavedLines = transcript.slice(lastSavedTranscriptIndex);
-          const data = JSON.stringify({
-            session_id: conversationId,
-            transcript_lines: unsavedLines.map((line, index) => ({
-              sequence_number: lastSavedTranscriptIndex + index,
-              speaker: line.speaker,
-              text: line.text,
-              timestamp: line.timestamp
-            }))
-          });
-          
-          // Try beacon API first (survives navigation)
-          if (navigator.sendBeacon) {
-            const blob = new Blob([data], { type: 'application/json' });
-            navigator.sendBeacon(`/api/sessions/${conversationId}/transcript`, blob);
-          } else {
-            // Fallback to synchronous XHR (deprecated but works)
-            const xhr = new XMLHttpRequest();
-            xhr.open('POST', `/api/sessions/${conversationId}/transcript`, false); // false = synchronous
-            xhr.setRequestHeader('Content-Type', 'application/json');
-            if (session.access_token) {
-              xhr.setRequestHeader('Authorization', `Bearer ${session.access_token}`);
-            }
-            xhr.send(data);
-          }
-        }
-      }
-    };
-  }, [conversationState, conversationId, transcript, session, lastSavedTranscriptIndex]);
-
-  // Smart save on high activity - save immediately when we get a burst of new content
-  useEffect(() => {
-    if (conversationState === 'recording' && conversationId && transcript.length > 0) {
-      const unsavedLines = transcript.length - lastSavedTranscriptIndex;
-      
-      // Immediate save if we have 20+ unsaved lines (high activity burst)
-      if (unsavedLines >= 20) {
-        const timeoutId = setTimeout(async () => {
-          try {
-            console.log(`💾 High-activity save: ${unsavedLines} new lines`);
-            const newIndex = await saveTranscriptNow(conversationId, transcript, session, lastSavedTranscriptIndex);
-            if (newIndex !== undefined) {
-              setLastSavedTranscriptIndex(newIndex);
-            }
-          } catch (error) {
-            console.error('❌ High-activity save failed:', error);
-          }
-        }, 2000); // 2 second debounce to batch rapid additions
-        
-        return () => clearTimeout(timeoutId);
-      }
-    }
-  }, [transcript.length, conversationState, conversationId, session, lastSavedTranscriptIndex]);
 
   // Auto-save summary to database when summary changes
   useEffect(() => {
