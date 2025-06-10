@@ -10,7 +10,6 @@ import {
 } from '@/contexts';
 import { ConversationPageContent } from '@/components/conversation/ConversationPageContent';
 import { preloadConversationComponents } from '@/components/conversation/ConversationPageLazy';
-import { ServiceFactory } from '@/services/ServiceFactory';
 import { useAuth } from '@/contexts/AuthContext';
 
 // Main App Page Component (Refactored)
