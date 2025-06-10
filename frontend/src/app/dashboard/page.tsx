@@ -1443,7 +1443,7 @@ const DashboardPage: React.FC = () => {
           localStorage.setItem(`conversation_${newSession.id}`, JSON.stringify(conversationConfig));
           
           // Navigate to the conversation page with the session ID
-          window.location.href = `/app?cid=${newSession.id}`;
+          window.location.href = `/conversation?cid=${newSession.id}`;
         }
       } else {
         setIsNavigating(false);
@@ -1484,7 +1484,7 @@ const DashboardPage: React.FC = () => {
       }
       
       // Navigate to conversation page
-      window.location.href = `/app?cid=${sessionId}`;
+      window.location.href = `/conversation?cid=${sessionId}`;
     }
   };
 

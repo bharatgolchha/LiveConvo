@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { 
+  Brain, 
   MessageSquare,
   User, 
   Bell,
@@ -23,12 +24,13 @@ import {
   Minimize2,
   RotateCcw,
   UploadCloud,
+  CheckCircle,
+  XCircle,
+  PauseCircle,
+  Settings2,
   SidebarOpen,
   SidebarClose,
   RefreshCw,
-  PauseCircle,
-  Settings2,
-  XCircle,
   TrendingUp,
   CheckSquare,
   ArrowRight,
@@ -57,6 +59,7 @@ import { updateTalkStats, TalkStats } from '@/lib/transcriptUtils';
 import { FloatingChatGuidance } from '@/components/guidance/FloatingChatGuidance';
 
 import { useSessions, Session as LocalSession } from '@/lib/hooks/useSessions';
+import type { Session as SupabaseSession } from '@supabase/supabase-js';
 import { GuidanceChip, GuidanceType } from '@/components/guidance/GuidanceChip';
 import { useAuth } from '@/contexts/AuthContext';
 import { authenticatedFetch } from '@/lib/api';
@@ -70,14 +73,6 @@ import { RecordingConsentModal } from '@/components/conversation/RecordingConsen
 import { ConversationHeaderDate } from '@/components/ui/ConversationDateIndicator';
 import { LoadingModal } from '@/components/ui/LoadingModal';
 import type { SessionDataFull, ConversationSummary as ConversationSummaryType, TranscriptData, LocalStorageData, SessionFile } from '@/types/app';
-import { formatDuration } from '@/lib/conversation/formatUtils';
-import { saveTranscriptToDatabase, saveTranscriptNow, saveSummaryToDatabase } from '@/lib/conversation/databaseOperations';
-import { getStateTextAndColor, PROCESSING_ANIMATION_DURATION } from '@/lib/conversation/stateUtils';
-import { useRecordingState } from '@/lib/hooks/conversation/useRecordingState';
-import { useTranscriptManager } from '@/lib/hooks/conversation/useTranscriptManager';
-import { useConversationSession } from '@/lib/hooks/conversation/useConversationSession';
-import { useConversationUI } from '@/lib/hooks/conversation/useConversationUI';
-import { useConversationHandlers } from '@/lib/hooks/conversation/useConversationHandlers';
 
 // Type assertion for getDisplayMedia support
 declare global {
@@ -98,7 +93,111 @@ type ConversationState = 'setup' | 'ready' | 'recording' | 'paused' | 'processin
 
 type ConversationSummary = ConversationSummaryType;
 
-// Database saving functions are now imported from '@/lib/conversation/databaseOperations'
+// Database saving functions - Enhanced for reliability and duplicate prevention
+const saveTranscriptToDatabase = async (
+  sessionId: string,
+  transcriptLines: TranscriptLine[],
+  authSession: SupabaseSession | null,
+  lastSavedIndex = 0,
+  retryCount = 0
+) : Promise<number> => {
+  try {
+    // Only save new transcript lines that haven't been saved yet
+    const newLines = transcriptLines.slice(lastSavedIndex);
+
+    if (newLines.length === 0) {
+      console.log('💾 No new transcript lines to save');
+      return lastSavedIndex;
+    }
+
+    console.log(`💾 Saving ${newLines.length} new transcript lines to database (total: ${transcriptLines.length})...`);
+
+    const transcriptData = newLines.map((line, index) => ({
+      session_id: sessionId,
+      content: line.text,
+      speaker: line.speaker.toLowerCase(),
+      confidence_score: line.confidence || 0.85,
+      start_time_seconds: (lastSavedIndex + index) * 2, // Sequential timing
+      is_final: true,
+      stt_provider: 'deepgram',
+      // Add a unique identifier to prevent duplicates
+      client_id: line.id || `${Date.now()}-${lastSavedIndex + index}`
+    }));
+
+    const response = await authenticatedFetch(`/api/sessions/${sessionId}/transcript`, authSession, {
+      method: 'POST',
+      body: JSON.stringify(transcriptData)
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('Failed to save transcript:', response.status, errorText);
+      
+      // Retry logic for failed saves (up to 3 times)
+      if (retryCount < 3) {
+        console.log(`🔄 Retrying transcript save (attempt ${retryCount + 1}/3)...`);
+        setTimeout(() => {
+          saveTranscriptToDatabase(sessionId, transcriptLines, authSession, lastSavedIndex, retryCount + 1);
+        }, 1000 * (retryCount + 1)); // Exponential backoff
+      } else {
+        console.error('❌ Failed to save transcript after 3 retries');
+      }
+    } else {
+      console.log(`✅ Transcript saved successfully (${newLines.length} new lines)`);
+      return transcriptLines.length;
+    }
+  } catch (error) {
+    console.error('Error saving transcript to database:', error);
+
+    // Retry on network/connection errors
+    if (retryCount < 3) {
+      console.log(`🔄 Retrying transcript save due to error (attempt ${retryCount + 1}/3)...`);
+      setTimeout(() => {
+        saveTranscriptToDatabase(sessionId, transcriptLines, authSession, lastSavedIndex, retryCount + 1);
+      }, 1000 * (retryCount + 1));
+    } else {
+      console.error('❌ Failed to save transcript after 3 retries due to errors');
+    }
+  }
+
+  return lastSavedIndex;
+};
+
+// Manual save function for immediate transcript saving
+const saveTranscriptNow = async (
+  sessionId: string,
+  transcriptLines: TranscriptLine[],
+  authSession: SupabaseSession | null,
+  lastSavedIndex: number
+): Promise<number> => {
+  if (!sessionId || !transcriptLines || transcriptLines.length === 0 || !authSession) {
+    console.log('⚠️ Cannot save transcript - missing required data');
+    return lastSavedIndex; // Return current index if save fails
+  }
+
+  console.log('🚀 Manual transcript save triggered');
+  const newIndex = await saveTranscriptToDatabase(sessionId, transcriptLines, authSession, lastSavedIndex);
+  return newIndex || lastSavedIndex; // Fallback to current index if undefined
+};
+
+
+
+const saveSummaryToDatabase = async (sessionId: string, summary: ConversationSummary, authSession: SupabaseSession | null) => {
+  try {
+    const response = await authenticatedFetch(`/api/sessions/${sessionId}`, authSession, {
+      method: 'PATCH',
+      body: JSON.stringify({
+        realtime_summary_cache: summary
+      })
+    });
+
+    if (!response.ok) {
+      console.error('Failed to save summary cache:', await response.text());
+    }
+  } catch (error) {
+    console.error('Error saving summary to database:', error);
+  }
+};
 
 function AppContent() {
   const searchParams = useSearchParams();
@@ -132,26 +231,6 @@ function AppContent() {
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
   const [systemAudioStream, setSystemAudioStream] = useState<MediaStream | null>(null);
   const [personalContext, setPersonalContext] = useState<string>('');
-  
-  // Parallel run of recording state hook for testing
-  const recordingStateFromHook = useRecordingState({ conversationState });
-  
-  // Parallel run of transcript manager hook for testing
-  const transcriptManagerFromHook = useTranscriptManager({ 
-    conversationState, 
-    conversationId, 
-    session 
-  });
-  
-  // Parallel run of conversation session hook for testing
-  const conversationSessionFromHook = useConversationSession({
-    conversationId,
-    session,
-    authLoading
-  });
-  
-  // Parallel run of UI state hook for testing
-  const uiStateFromHook = useConversationUI();
 
   // Database-loaded data (overrides AI-generated data when available)
   const [loadedSummary, setLoadedSummary] = useState<ConversationSummary | null>(null);
@@ -1504,7 +1583,13 @@ function AppContent() {
   }, [selectedPreviousConversations, conversationId, textContext, conversationType, saveContext, session, authLoading]);
 
   // Helper Functions
-  // formatDuration is now imported from '@/lib/conversation/formatUtils'
+  const formatDuration = (seconds: number) => {
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    const secs = seconds % 60;
+    if (hours > 0) return `${hours}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+    return `${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  };
 
   // Show recording consent modal first
   const handleInitiateRecording = () => {
@@ -2124,7 +2209,7 @@ function AppContent() {
       
       // Wait for the processing animation to complete (matches the animation duration)
       // Total duration: 2000 + 1800 + 1500 + 2200 = 7500ms = 7.5 seconds
-      await new Promise(resolve => setTimeout(resolve, PROCESSING_ANIMATION_DURATION));
+      await new Promise(resolve => setTimeout(resolve, 7500));
       
       // Set to completed state
       setConversationState('completed');
@@ -2167,7 +2252,18 @@ function AppContent() {
     setLastSavedTranscriptIndex(newIndex);
   };
 
-  // getStateTextAndColor is now imported from '@/lib/conversation/stateUtils'
+  const getStateTextAndColor = (state: ConversationState): {text: string, color: string, icon?: React.ElementType} => {
+    switch (state) {
+      case 'setup': return {text: 'Setup', color: 'text-gray-500 bg-gray-100', icon: Settings2};
+      case 'ready': return {text: 'Ready', color: 'text-blue-600 bg-blue-100', icon: Play};
+      case 'recording': return {text: 'Recording', color: 'text-red-600 bg-red-100 animate-pulse', icon: Mic};
+      case 'paused': return {text: 'Paused', color: 'text-yellow-600 bg-yellow-100', icon: PauseCircle};
+      case 'processing': return {text: 'Processing', color: 'text-purple-600 bg-purple-100', icon: Brain };
+      case 'completed': return {text: 'Completed', color: 'text-green-600 bg-green-100', icon: CheckCircle};
+      case 'error': return {text: 'Error', color: 'text-red-700 bg-red-100', icon: XCircle};
+      default: return {text: 'Unknown', color: 'text-gray-500 bg-gray-100'};
+    }
+  };
 
 
 

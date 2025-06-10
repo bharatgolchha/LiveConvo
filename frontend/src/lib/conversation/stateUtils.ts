@@ -15,8 +15,10 @@ import {
   PauseCircle, 
   CheckCircle, 
   XCircle,
-  Settings2 
+  Settings2,
+  Brain 
 } from 'lucide-react';
+import type { ElementType } from 'react';
 
 export interface SavedConversationState {
   conversationState: ConversationState;
@@ -51,6 +53,31 @@ export const getStateInfo = (state: ConversationState): ConversationStateInfo =>
       return { text: 'Error', color: 'text-red-600 bg-red-100 border-red-200', icon: XCircle };
     default:
       return { text: 'Unknown', color: 'text-gray-600 bg-gray-100 border-gray-200' };
+  }
+};
+
+/**
+ * Get display text, color, and icon for conversation state - matching app page format
+ * This version uses the exact same format as the app page for compatibility
+ */
+export const getStateTextAndColor = (state: ConversationState): {text: string, color: string, icon?: React.ElementType} => {
+  switch (state) {
+    case 'setup': 
+      return { text: 'Setup', color: 'text-gray-500 bg-gray-100', icon: Settings2 };
+    case 'ready': 
+      return { text: 'Ready', color: 'text-blue-600 bg-blue-100', icon: Play };
+    case 'recording': 
+      return { text: 'Recording', color: 'text-red-600 bg-red-100 animate-pulse', icon: Mic };
+    case 'paused': 
+      return { text: 'Paused', color: 'text-yellow-600 bg-yellow-100', icon: PauseCircle };
+    case 'processing': 
+      return { text: 'Processing', color: 'text-purple-600 bg-purple-100', icon: Brain };
+    case 'completed': 
+      return { text: 'Completed', color: 'text-green-600 bg-green-100', icon: CheckCircle };
+    case 'error': 
+      return { text: 'Error', color: 'text-red-700 bg-red-100', icon: XCircle };
+    default: 
+      return { text: 'Unknown', color: 'text-gray-500 bg-gray-100' };
   }
 };
 
@@ -141,4 +168,51 @@ export const loadConversationState = (conversationId: string): SavedConversation
     console.error('Error loading conversation state:', error);
     return null;
   }
-}; 
+};
+
+/**
+ * Check if a state allows recording
+ */
+export const canStartRecording = (state: ConversationState): boolean => {
+  return state === 'ready' || state === 'paused';
+};
+
+/**
+ * Check if a state allows stopping
+ */
+export const canStopRecording = (state: ConversationState): boolean => {
+  return state === 'recording' || state === 'paused';
+};
+
+/**
+ * Check if a state allows pausing
+ */
+export const canPauseRecording = (state: ConversationState): boolean => {
+  return state === 'recording';
+};
+
+/**
+ * Check if a state allows resuming
+ */
+export const canResumeRecording = (state: ConversationState): boolean => {
+  return state === 'paused';
+};
+
+/**
+ * Check if a state is terminal (conversation ended)
+ */
+export const isTerminalState = (state: ConversationState): boolean => {
+  return state === 'completed' || state === 'error';
+};
+
+/**
+ * Check if a state is active (recording or paused)
+ */
+export const isActiveState = (state: ConversationState): boolean => {
+  return state === 'recording' || state === 'paused';
+};
+
+/**
+ * Processing animation configuration
+ */
+export const PROCESSING_ANIMATION_DURATION = 7500; // 7.5 seconds total 

@@ -3,13 +3,20 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev --turbopack",
+    "dev": "next dev",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
     "test": "jest",
     "test:watch": "jest --watch",
-    "test:coverage": "jest --coverage"
+    "test:coverage": "jest --coverage",
+    "test:header": "jest tests/components/conversation/ConversationHeader/",
+    "test:states": "jest tests/components/conversation/ConversationStates/",
+    "test:layout": "jest tests/components/conversation/ConversationLayout/",
+    "test:modals": "jest tests/components/conversation/ConversationModals/",
+    "test:components": "jest tests/components/conversation/",
+    "test:all-refactored": "jest tests/components/conversation/Conversation",
+    "test:debug": "node --inspect-brk ./node_modules/.bin/jest --runInBand"
   },
   "dependencies": {
     "@deepgram/sdk": "^4.2.0",

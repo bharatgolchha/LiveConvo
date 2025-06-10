@@ -33,8 +33,13 @@ export function LoadingModal({
     }
   }, [isOpen])
 
+  // Don't render anything if not open
+  if (!isOpen) {
+    return null
+  }
+
   return (
-    <Dialog open={isOpen}>
+    <Dialog open={true}>
       <DialogContent className="sm:max-w-sm [&>button]:hidden border-0 bg-background/95 backdrop-blur-xl">
         <DialogTitle className="sr-only">
           {title || (isNewSession ? "Starting New Session" : "Loading Session")}
@@ -126,23 +131,20 @@ export function LoadingModal({
               animate={{ opacity: 1 }}
               transition={{ delay: 0.2 }}
             >
-              <AnimatePresence mode="wait">
-                {[0, 1, 2].map((i) => (
-                  <motion.span
-                    key={i}
-                    className="inline-block w-1.5 h-1.5 mx-0.5 bg-blue-500 rounded-full"
-                    initial={{ opacity: 0, scale: 0 }}
-                    animate={{ 
-                      opacity: i < dots ? 1 : 0.3,
-                      scale: i < dots ? 1.2 : 1,
-                    }}
-                    transition={{
-                      duration: 0.3,
-                      ease: "easeInOut",
-                    }}
-                  />
-                ))}
-              </AnimatePresence>
+              {[0, 1, 2].map((i) => (
+                <motion.span
+                  key={`dot-${i}`}
+                  className="inline-block w-1.5 h-1.5 mx-0.5 bg-blue-500 rounded-full"
+                  animate={{ 
+                    opacity: i < dots ? 1 : 0.3,
+                    scale: i < dots ? 1.2 : 1,
+                  }}
+                  transition={{
+                    duration: 0.3,
+                    ease: "easeInOut",
+                  }}
+                />
+              ))}
             </motion.div>
           </div>
         </div>
