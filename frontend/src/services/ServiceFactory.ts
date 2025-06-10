@@ -54,6 +54,7 @@ export class ServiceFactory {
   getRecordingService(): RecordingService {
     return this.recordingService;
   }
+}
 
 // Convenience exports
 export const transcriptService =

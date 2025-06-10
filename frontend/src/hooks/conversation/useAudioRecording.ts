@@ -1,7 +1,7 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { toast } from 'sonner';
 import { useTranscription } from '@/lib/useTranscription';
-import { RecordingService } from '@/services/RecordingService';
+import { recordingService } from '@/services/ServiceFactory';
 import { AudioStreamState, ConversationState } from '@/types/conversation';
 
 export interface UseAudioRecordingOptions {
@@ -34,7 +34,7 @@ export function useAudioRecording({
   const [isRecording, setIsRecording] = useState(false);
   const [audioStreams, setAudioStreams] = useState<AudioStreamState>({});
   
-  const recordingServiceRef = useRef<RecordingService>(new RecordingService());
+  // Use singleton recording service from ServiceFactory
   
   // Transcription hooks for local (ME) and remote (THEM) audio
   const {
@@ -79,7 +79,7 @@ export function useAudioRecording({
   }, [theirLiveTranscript, onTranscript]);
 
   const checkPermissions = useCallback(async (): Promise<boolean> => {
-    const permission = await recordingServiceRef.current.checkMicrophonePermission();
+    const permission = await recordingService.checkMicrophonePermission();
     if (!permission.granted) {
       const error = new Error(permission.error || 'Microphone permission denied');
       onError?.(error);
@@ -100,10 +100,10 @@ export function useAudioRecording({
       if (!hasPermission) return;
 
       // Get microphone stream
-      const micStream = await recordingServiceRef.current.getMicrophoneStream();
+      const micStream = await recordingService.getMicrophoneStream();
       
       // Attempt to get system audio
-      const systemStream = await recordingServiceRef.current.getSystemAudioStream();
+      const systemStream = await recordingService.getSystemAudioStream();
       
       // Update audio streams state
       setAudioStreams({
@@ -158,7 +158,7 @@ export function useAudioRecording({
     disconnectThem();
     
     // Stop all audio streams
-    await recordingServiceRef.current.stopAllStreams();
+    await recordingService.stopAllStreams();
     
     // Update state
     setIsRecording(false);
@@ -187,9 +187,9 @@ export function useAudioRecording({
       if (!isConnected) {
         // Get streams again if needed
         if (!audioStreams.myStream) {
-          const micStream = await recordingServiceRef.current.getMicrophoneStream();
+          const micStream = await recordingService.getMicrophoneStream();
           const systemStream = audioStreams.systemAudioStream || 
-                              await recordingServiceRef.current.getSystemAudioStream();
+                              await recordingService.getSystemAudioStream();
           
           setAudioStreams({
             myStream: micStream,

@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect } from 'react';
 import { Session } from '@supabase/supabase-js';
-import { sessionService } from '@/services/SessionService';
+import { sessionService } from '@/services/ServiceFactory';
 import { ConversationSession } from '@/types/conversation';
 
 interface UseSessionListOptions {

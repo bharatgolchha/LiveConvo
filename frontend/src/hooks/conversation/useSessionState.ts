@@ -1,7 +1,7 @@
 import { useEffect, useCallback, useRef } from 'react';
 import { Session } from '@supabase/supabase-js';
 import { ConversationState, ConversationSession } from '@/types/conversation';
-import { sessionService } from '@/services/SessionService';
+import { sessionService } from '@/services/ServiceFactory';
 
 interface UseSessionStateOptions {
   conversationId: string | null;

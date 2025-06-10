@@ -2,8 +2,7 @@ import { useState, useCallback, useEffect, useRef } from 'react';
 import { Session } from '@supabase/supabase-js';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
-import { sessionService } from '@/services/SessionService';
-import { summaryService } from '@/services/SummaryService';
+import { sessionService, summaryService } from '@/services/ServiceFactory';
 import { 
   ConversationSession, 
   ConversationSummary, 

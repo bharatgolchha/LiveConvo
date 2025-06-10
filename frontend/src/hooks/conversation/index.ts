@@ -17,12 +17,8 @@ export { useConversationTranscript } from './useConversationTranscript';
 export { useSessionManagement } from './useSessionManagement';
 export { useSessionState } from './useSessionState';
 export { useSessionList } from './useSessionList';
+export { useFullSessionManagement } from './useFullSessionManagement';
+export { useOptimizedConversation } from './useOptimizedConversation';
 
-// Existing hooks
-export { useConversationHandlers } from './useConversationHandlers';
+// Conversation Session
 export { useConversationSession } from './useConversationSession';
-export { useConversationUI } from './useConversationUI';
-export { useOptimizedConversationHandlers } from './useOptimizedConversationHandlers';
-export { useOptimizedTranscriptManager } from './useOptimizedTranscriptManager';
-export { useTranscriptManager } from './useTranscriptManager';
-export { useTranscriptionIntegration } from './useTranscriptionIntegration';

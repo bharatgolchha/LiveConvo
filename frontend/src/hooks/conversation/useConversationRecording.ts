@@ -4,7 +4,7 @@ import { Session } from '@supabase/supabase-js';
 import { useAudioRecording } from './useAudioRecording';
 import { useRecordingState } from './useRecordingState';
 import { useMinuteTracking } from '@/lib/hooks/useMinuteTracking';
-import { sessionService } from '@/services/SessionService';
+import { sessionService } from '@/services/ServiceFactory';
 import { TranscriptLine, ConversationState } from '@/types/conversation';
 import { generateUniqueId } from '@/lib/utils';
 

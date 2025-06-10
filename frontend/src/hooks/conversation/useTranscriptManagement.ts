@@ -1,7 +1,7 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { Session } from '@supabase/supabase-js';
 import { TranscriptLine, TalkStats, TranscriptState } from '@/types/conversation';
-import { transcriptService } from '@/services/TranscriptService';
+import { transcriptService } from '@/services/ServiceFactory';
 import { updateTalkStats } from '@/lib/transcriptUtils';
 import { generateUniqueId } from '@/lib/utils';
 

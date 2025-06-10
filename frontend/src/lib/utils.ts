@@ -199,3 +199,33 @@ export const getConversationStatusWithDate = (session: {
       return `Created ${formatConversationDate(session.created_at, 'relative')}`;
   }
 }; 
+
+/**
+ * Format duration in milliseconds to a human-readable string
+ */
+export const formatDuration = (milliseconds: number): string => {
+  const seconds = Math.floor(milliseconds / 1000);
+  const minutes = Math.floor(seconds / 60);
+  const hours = Math.floor(minutes / 60);
+  
+  if (hours > 0) {
+    const remainingMinutes = minutes % 60;
+    return `${hours}h ${remainingMinutes}m`;
+  } else if (minutes > 0) {
+    const remainingSeconds = seconds % 60;
+    return `${minutes}m ${remainingSeconds}s`;
+  } else {
+    return `${seconds}s`;
+  }
+};
+
+/**
+ * Generate a unique ID with timestamp and random component
+ */
+let idCounter = 0;
+export const generateUniqueId = (prefix: string = 'id'): string => {
+  const timestamp = Date.now();
+  const random = Math.random().toString(36).substr(2, 9);
+  const counter = (idCounter++ % 1000).toString().padStart(3, '0');
+  return `${prefix}_${timestamp}_${random}_${counter}`;
+};

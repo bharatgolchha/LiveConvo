@@ -6,7 +6,8 @@ import {
   useConversation, 
   useTranscript, 
   useSummary, 
-  useRecording 
+  useRecording,
+  useAuth 
 } from '@/contexts';
 import { useOptimizedConversation } from '@/hooks/conversation/useOptimizedConversation';
 import { useFullSessionManagement } from '@/hooks/conversation/useFullSessionManagement';
@@ -39,10 +40,15 @@ const LoadingFallback = ({ message = 'Loading...' }: { message?: string }) => (
 
 export function ConversationPageContent() {
   const router = useRouter();
+  const { session: authSession } = useAuth();
   const conversation = useConversation();
   const transcript = useTranscript();
   const summary = useSummary();
   const recording = useRecording();
+  
+  // Get session from conversation context
+  const currentSession = conversation.session;
+  const conversationId = currentSession?.id || null;
   
   const { 
     startConversation, 
@@ -53,23 +59,29 @@ export function ConversationPageContent() {
   } = useOptimizedConversation();
   
   const {
-    session,
-    createSession,
+    sessionData,
+    createNewSession,
     updateSession,
     finalizeSession,
-    isLoading: sessionLoading
-  } = useFullSessionManagement();
+    isLoadingSession: sessionLoading
+  } = useFullSessionManagement({
+    conversationId,
+    session: authSession,
+    onError: (error) => {
+      console.error('Session management error:', error);
+      conversation.setError(error.message);
+    }
+  });
 
   // Initialize session on mount
   useEffect(() => {
-    if (!session && conversation.state === 'setup') {
-      createSession({
-        title: conversation.title || 'New Conversation',
-        conversation_type: conversation.conversationType,
-        context: conversation.textContext
-      });
+    if (!currentSession && conversation.state === 'setup') {
+      createNewSession(
+        conversation.title || 'New Conversation',
+        conversation.conversationType
+      );
     }
-  }, []);
+  }, [currentSession, conversation.state, conversation.title, conversation.conversationType, createNewSession]);
 
   // Handle state changes
   const handleStateChange = async (newState: string) => {
@@ -91,9 +103,9 @@ export function ConversationPageContent() {
         resumeConversation();
         break;
       case 'finalize':
-        if (session) {
-          await finalizeSession(session.id);
-          router.push(`/summary/${session.id}`);
+        if (currentSession) {
+          await finalizeSession();
+          router.push(`/summary/${currentSession.id}`);
         }
         break;
     }
@@ -102,8 +114,8 @@ export function ConversationPageContent() {
   // Handle configuration updates
   const handleConfigUpdate = (updates: any) => {
     updateConfiguration(updates);
-    if (session) {
-      updateSession(session.id, updates);
+    if (currentSession) {
+      updateSession(updates);
     }
   };
 
@@ -136,7 +148,7 @@ export function ConversationPageContent() {
                 onContextChange={(context) => handleConfigUpdate({ context })}
                 onFileUpload={conversation.addFile}
                 onFileRemove={conversation.removeFile}
-                onSave={() => updateSession(session?.id || '', {
+                onSave={() => currentSession && updateSession({
                   title: conversation.title,
                   context: conversation.textContext
                 })}
@@ -175,11 +187,11 @@ export function ConversationPageContent() {
                 processingMessage: 'Finalizing your conversation...'
               })}
               {...(conversation.state === 'completed' && {
-                sessionId: session?.id,
+                sessionId: currentSession?.id,
                 conversationTitle: conversation.title,
                 recordingDuration: recording.getFormattedDuration(),
                 transcriptLength: transcript.entries.length,
-                onViewSummary: () => router.push(`/summary/${session?.id}`),
+                onViewSummary: () => router.push(`/summary/${currentSession?.id}`),
                 onStartNew: () => {
                   conversation.reset();
                   recording.reset();
@@ -237,7 +249,7 @@ export function ConversationPageContent() {
                 <TabsContent value="checklist" className="h-full mt-0">
                   <Suspense fallback={<LoadingFallback message="Loading checklist..." />}>
                     <ChecklistTab
-                      sessionId={session?.id || null}
+                      sessionId={currentSession?.id || null}
                       isReadOnly={false}
                     />
                   </Suspense>
@@ -252,7 +264,7 @@ export function ConversationPageContent() {
           <aside className="w-96 border-l bg-card">
             <Suspense fallback={<LoadingFallback message="Loading AI assistant..." />}>
               <AICoachSidebar
-                conversationId={session?.id || null}
+                conversationId={currentSession?.id || null}
                 isReadOnly={false}
               />
             </Suspense>
