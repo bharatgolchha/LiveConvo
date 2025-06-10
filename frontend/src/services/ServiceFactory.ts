@@ -31,36 +31,40 @@ export class ServiceFactory {
     return ServiceFactory.instance;
   }
   
-  static getTranscriptService(): TranscriptService {
-    return ServiceFactory.getInstance().transcriptService;
+  getTranscriptService(): TranscriptService {
+    return this.transcriptService;
   }
   
-  static getSessionService(): SessionService {
-    return ServiceFactory.getInstance().sessionService;
+  getSessionService(): SessionService {
+    return this.sessionService;
   }
   
-  static getContextService(): ContextService {
-    return ServiceFactory.getInstance().contextService;
+  getContextService(): ContextService {
+    return this.contextService;
   }
   
-  static getSummaryService(): SummaryService {
-    return ServiceFactory.getInstance().summaryService;
+  getSummaryService(): SummaryService {
+    return this.summaryService;
   }
   
-  static getChecklistService(): ChecklistService {
-    return ServiceFactory.getInstance().checklistService;
+  getChecklistService(): ChecklistService {
+    return this.checklistService;
   }
   
-  static getRecordingService(): RecordingService {
-    return ServiceFactory.getInstance().recordingService;
+  getRecordingService(): RecordingService {
+    return this.recordingService;
   }
-
-export const services = ServiceFactory.getInstance();
 
 // Convenience exports
-export const transcriptService = services.getTranscriptService();
-export const sessionService = services.getSessionService();
-export const contextService = services.getContextService();
-export const summaryService = services.getSummaryService();
-export const checklistService = services.getChecklistService();
-export const recordingService = services.getRecordingService();
+export const transcriptService =
+  ServiceFactory.getInstance().getTranscriptService();
+export const sessionService =
+  ServiceFactory.getInstance().getSessionService();
+export const contextService =
+  ServiceFactory.getInstance().getContextService();
+export const summaryService =
+  ServiceFactory.getInstance().getSummaryService();
+export const checklistService =
+  ServiceFactory.getInstance().getChecklistService();
+export const recordingService =
+  ServiceFactory.getInstance().getRecordingService();
