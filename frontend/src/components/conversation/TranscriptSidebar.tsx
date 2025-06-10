@@ -20,6 +20,7 @@ import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
+import { formatDuration } from '@/lib/utils/time';
 
 interface TranscriptLine {
   id: string;
@@ -59,15 +60,6 @@ export function TranscriptSidebar({
   const [filteredTranscripts, setFilteredTranscripts] = useState(transcripts);
   const listRef = useRef<List>(null);
   const [autoScroll, setAutoScroll] = useState(true);
-
-  // Format duration
-  const formatDuration = (seconds: number) => {
-    const hours = Math.floor(seconds / 3600);
-    const minutes = Math.floor((seconds % 3600) / 60);
-    const secs = seconds % 60;
-    if (hours > 0) return `${hours}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
-    return `${minutes}:${secs.toString().padStart(2, '0')}`;
-  };
 
   // Format timestamp
   const formatTimestamp = (seconds: number) => {

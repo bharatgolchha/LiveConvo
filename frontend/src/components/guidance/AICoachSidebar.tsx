@@ -31,6 +31,7 @@ import {
 import { Button } from "@/components/ui/Button";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
+import { formatDuration } from "@/lib/utils/time";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import rehypeHighlight from "rehype-highlight";
@@ -834,12 +835,7 @@ Example format for each chip: {"text": "🔥 Build rapport", "prompt": "How can 
     };
   }, [isResizing, handleMouseMove, handleMouseUp]);
 
-  // Format session duration
-  const formatDuration = (seconds: number) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins}:${secs.toString().padStart(2, "0")}`;
-  };
+
 
   // Get status info
   const getStatusInfo = () => {

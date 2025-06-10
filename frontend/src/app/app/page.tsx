@@ -55,6 +55,7 @@ import { useTranscription } from '@/lib/useTranscription';
 import { useRealtimeSummary } from '@/lib/useRealtimeSummary';
 import { useChatGuidance } from '@/lib/useChatGuidance';
 import { cn } from '@/lib/utils';
+import { formatDuration, generateUniqueId } from '@/lib/utils/time';
 import { updateTalkStats, TalkStats } from '@/lib/transcriptUtils';
 import { FloatingChatGuidance } from '@/components/guidance/FloatingChatGuidance';
 
@@ -1583,13 +1584,7 @@ function AppContent() {
   }, [selectedPreviousConversations, conversationId, textContext, conversationType, saveContext, session, authLoading]);
 
   // Helper Functions
-  const formatDuration = (seconds: number) => {
-    const hours = Math.floor(seconds / 3600);
-    const minutes = Math.floor((seconds % 3600) / 60);
-    const secs = seconds % 60;
-    if (hours > 0) return `${hours}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
-    return `${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
-  };
+
 
   // Show recording consent modal first
   const handleInitiateRecording = () => {
@@ -1840,16 +1835,7 @@ function AppContent() {
     }
   };
 
-  // Generate unique ID with timestamp and counter to prevent duplicates
-  const generateUniqueId = (() => {
-    let counter = 0;
-    return () => {
-      const timestamp = Date.now();
-      const random = Math.random().toString(36).substring(2, 9);
-      counter = (counter + 1) % 10000;
-      return `${timestamp}-${random}-${counter}`;
-    };
-  })();
+
 
   const handleLiveTranscript = (newTranscriptText: string, speaker: 'ME' | 'THEM') => {
     if (newTranscriptText && newTranscriptText.trim().length > 0) {

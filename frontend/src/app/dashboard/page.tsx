@@ -35,6 +35,7 @@ import { PricingModal } from '@/components/ui/PricingModal';
 import { SettingsPanel } from '@/components/settings/SettingsPanel';
 import { ConversationListDate } from '@/components/ui/ConversationDateIndicator';
 import { LoadingModal } from '@/components/ui/LoadingModal';
+import { formatDuration } from '@/lib/utils/time';
 import type { ConversationConfig } from '@/types/app';
 
 // Types (using Session from useSessions hook)
@@ -354,13 +355,7 @@ const ConversationInboxItem: React.FC<{
     }
   };
 
-  const formatDuration = (seconds?: number) => {
-    if (!seconds) return null;
-    const minutes = Math.floor(seconds / 60);
-    const hours = Math.floor(minutes / 60);
-    const remainingMinutes = minutes % 60;
-    return hours > 0 ? `${hours}h ${remainingMinutes}m` : `${minutes}m`;
-  };
+
 
 
 

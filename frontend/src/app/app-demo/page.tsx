@@ -18,6 +18,7 @@ import { GuidanceType } from '@/components/guidance/GuidanceChip';
 import { useAIGuidance, ContextDocument } from '@/lib/aiGuidance';
 import { GuidanceCard } from '@/components/guidance/GuidanceCard';
 import { TranscriptCard } from '@/components/session/TranscriptCard';
+import { formatDuration } from '@/lib/utils/time';
 import { ContextCard } from '@/components/setup/ContextCard';
 
 interface TranscriptLine {
@@ -195,11 +196,7 @@ export default function AppDemo() {
     setGuidanceList(prev => prev.filter(g => g.id !== guidanceId));
   };
 
-  const formatDuration = (seconds: number) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
-  };
+
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
