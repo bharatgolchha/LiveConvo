@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Mic, MicOff, Square, Pause, Play } from 'lucide-react';
 import { Button } from '../ui/Button';
+import { formatDuration } from '@/lib/utils/time';
 
 interface AudioCaptureProps {
   onTranscript?: (text: string) => void;
@@ -154,11 +155,7 @@ export const AudioCapture: React.FC<AudioCaptureProps> = ({
     updateLevel();
   };
 
-  const formatDuration = (seconds: number) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
-  };
+
 
   if (hasPermission === false) {
     return (

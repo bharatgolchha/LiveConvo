@@ -6,6 +6,7 @@ import { X, Clock, User, Users, FileText, Download } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/badge';
+import { formatDuration } from '@/lib/utils/time';
 
 interface TranscriptLine {
   id: string;
@@ -30,13 +31,6 @@ export function TranscriptModal({
   sessionDuration,
   conversationTitle
 }: TranscriptModalProps) {
-  const formatDuration = (seconds: number) => {
-    const hours = Math.floor(seconds / 3600);
-    const minutes = Math.floor((seconds % 3600) / 60);
-    const secs = seconds % 60;
-    if (hours > 0) return `${hours}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
-    return `${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
-  };
 
   const handleExportTranscript = () => {
     const transcriptText = transcript.map(line => 

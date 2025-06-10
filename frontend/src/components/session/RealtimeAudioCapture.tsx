@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Mic, MicOff, Square, Pause, Play, Wifi, WifiOff } from 'lucide-react';
 import { Button } from '../ui/Button';
 import { useTranscription } from '@/lib/useTranscription';
+import { formatDuration } from '@/lib/utils/time';
 
 
 interface RealtimeAudioCaptureProps {
@@ -476,11 +477,7 @@ const requestAllPermissions = async () => {
     updateLevel();
   };
 
-  const formatDuration = (seconds: number) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
-  };
+
 
   const getConnectionStatus = () => {
     if (error) return { color: 'red', text: 'Error', icon: WifiOff };

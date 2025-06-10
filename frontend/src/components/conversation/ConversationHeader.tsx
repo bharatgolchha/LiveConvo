@@ -28,7 +28,8 @@ import { LoadingModal } from '@/components/ui/LoadingModal';
 import { Button } from '@/components/ui/Button';
 import { ThemeToggle } from '@/components/ui/ThemeToggle';
 import { ConversationState, TalkStats } from '@/types/conversation';
-import { getStateInfo, formatDuration } from '@/lib/conversation/stateUtils';
+import { getStateInfo } from '@/lib/conversation/stateUtils';
+import { formatDuration } from '@/lib/utils/time';
 import { cn } from '@/lib/utils';
 
 interface ConversationHeaderProps {

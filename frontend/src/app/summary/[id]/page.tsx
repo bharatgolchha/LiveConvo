@@ -29,6 +29,7 @@ import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/badge';
 import { CopyButton } from '@/components/ui/CopyButton';
 import { useAuth } from '@/contexts/AuthContext';
+import { formatDuration } from '@/lib/utils/time';
 import { generatePDF } from '@/lib/pdfExport';
 import { SummaryInsight } from '@/types/api';
 
@@ -262,11 +263,6 @@ export default function SummaryPage() {
     setIsEditing(false);
   };
 
-  const formatDuration = (seconds: number) => {
-    const minutes = Math.floor(seconds / 60);
-    const remainingSeconds = seconds % 60;
-    return `${minutes}m ${remainingSeconds}s`;
-  };
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('en-US', {
