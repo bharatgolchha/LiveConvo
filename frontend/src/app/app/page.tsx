@@ -79,6 +79,7 @@ import { MainActionButton } from '@/components/conversation/MainActionButton';
 import { SecondaryActionButton } from '@/components/conversation/SecondaryActionButton';
 import { ConversationHeaderSimple } from '@/components/conversation/ConversationHeaderSimple';
 import type { SessionDataFull, ConversationSummary as ConversationSummaryType, TranscriptData, LocalStorageData, SessionFile } from '@/types/app';
+import { conversationTypeMap } from '@/lib/conversation/conversationTypeMap';
 
 // Type assertion for getDisplayMedia support
 declare global {
@@ -388,14 +389,8 @@ function AppContent() {
         setConversationTitle(sessionData.title || 'Untitled Conversation');
         
         // Map conversation type from database format to app format
-        const dbTypeMapping: Record<string, 'sales' | 'support' | 'meeting' | 'interview'> = {
-          'sales_call': 'sales',
-          'support_call': 'support',
-          'meeting': 'meeting',
-          'interview': 'interview',
-          'consultation': 'meeting'
-        };
-        const mappedType = dbTypeMapping[sessionData.conversation_type] || 'sales';
+        const mappedType =
+          conversationTypeMap[sessionData.conversation_type] || 'sales';
         console.log('🔍 Session Type Mapping:', {
           dbType: sessionData.conversation_type,
           mappedType: mappedType
@@ -861,25 +856,7 @@ function AppContent() {
           setConversationTitle(config.title || 'New Conversation');
           
           // Map conversation type from dashboard format to app format
-          const typeMapping: Record<string, 'sales' | 'support' | 'meeting' | 'interview'> = {
-            'sales_call': 'sales',
-            'Sales Call': 'sales',
-            'Product Demo': 'sales',
-            'support_call': 'support',
-            'Support Call': 'support',
-            'Customer Support Call': 'support',
-            'meeting': 'meeting',
-            'Meeting': 'meeting',
-            'Team Standup Meeting': 'meeting',
-            'Project Meeting': 'meeting',
-            'interview': 'interview',
-            'Interview': 'interview',
-            'consultation': 'meeting',
-            'Consultation': 'meeting',
-            'Business Review': 'meeting'
-          };
-          
-          const mappedType = typeMapping[config.type] || 'sales';
+          const mappedType = conversationTypeMap[config.type] || 'sales';
           setConversationType(mappedType);
           
           // Load selected previous conversations if provided
@@ -975,24 +952,8 @@ function AppContent() {
           }
           
           if (sessionData.conversation_type) {
-            const typeMapping: Record<string, 'sales' | 'support' | 'meeting' | 'interview'> = {
-              'sales_call': 'sales',
-              'Sales Call': 'sales',
-              'Product Demo': 'sales',
-              'support_call': 'support',
-              'Support Call': 'support',
-              'Customer Support Call': 'support',
-              'meeting': 'meeting',
-              'Meeting': 'meeting',
-              'Team Standup Meeting': 'meeting',
-              'Project Meeting': 'meeting',
-              'interview': 'interview',
-              'Interview': 'interview',
-              'consultation': 'meeting',
-              'Consultation': 'meeting',
-              'Business Review': 'meeting'
-            };
-            const mappedType = typeMapping[sessionData.conversation_type] || 'sales';
+            const mappedType =
+              conversationTypeMap[sessionData.conversation_type] || 'sales';
             setConversationType(mappedType as 'sales' | 'support' | 'meeting' | 'interview');
           }
           
