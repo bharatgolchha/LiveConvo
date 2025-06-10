@@ -1,0 +1,30 @@
+/* Animation delays for pulse effect */
+.animation-delay-200 {
+  animation-delay: 200ms;
+}
+
+.animation-delay-400 {
+  animation-delay: 400ms;
+}
+
+/* Smooth transitions for transcript items */
+.transcript-item-enter {
+  opacity: 0;
+  transform: translateY(20px);
+}
+
+.transcript-item-enter-active {
+  opacity: 1;
+  transform: translateY(0);
+  transition: opacity 300ms, transform 300ms;
+}
+
+.transcript-item-exit {
+  opacity: 1;
+}
+
+.transcript-item-exit-active {
+  opacity: 0;
+  transform: translateY(-20px);
+  transition: opacity 300ms, transform 300ms;
+}

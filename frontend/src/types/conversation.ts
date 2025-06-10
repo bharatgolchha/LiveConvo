@@ -47,4 +47,67 @@ export interface ConversationStateInfo {
   text: string;
   color: string;
   icon?: React.ComponentType<{ className?: string }>;
-} 
+}
+
+// New interfaces for refactoring
+
+export interface ConversationSession {
+  id: string;
+  status: string;
+  created_at: string;
+  recording_started_at?: string;
+  recording_ended_at?: string;
+  finalized_at?: string;
+  title?: string;
+  conversation_type?: string;
+  recording_duration_seconds?: number;
+  transcripts?: DatabaseTranscriptLine[];
+  summaries?: any[];
+  realtime_summary_cache?: any;
+}
+
+export interface ConversationSummary {
+  tldr: string;
+  keyPoints: string[];
+  decisions: string[];
+  actionItems: string[];
+  nextSteps: string[];
+  topics: string[];
+  sentiment: string;
+  progressStatus: string;
+}
+
+export interface RecordingState {
+  isRecording: boolean;
+  isPaused: boolean;
+  recordingStartTime: number | null;
+  sessionDuration: number;
+  cumulativeDuration: number;
+}
+
+export interface TranscriptState {
+  transcript: TranscriptLine[];
+  lastSavedTranscriptIndex: number;
+  talkStats: TalkStats;
+}
+
+export interface ConversationContextData {
+  conversationTitle: string;
+  conversationType: ConversationType;
+  textContext: string;
+  uploadedFiles: File[];
+  selectedPreviousConversations: string[];
+  personalContext?: string;
+}
+
+export interface AudioStreamState {
+  myStream?: MediaStream;
+  theirStream?: MediaStream;
+  systemAudioStream?: MediaStream;
+}
+
+export interface ConversationError {
+  message: string;
+  code?: string;
+  timestamp: Date;
+}
