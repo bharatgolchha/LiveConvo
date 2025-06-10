@@ -45,6 +45,7 @@ import { useMinuteTracking } from '@/lib/hooks/useMinuteTracking';
 import { RecordingConsentModal } from '@/components/conversation/RecordingConsentModal';
 import { LoadingModal } from '@/components/ui/LoadingModal';
 import type { SessionDataFull, ConversationSummary as ConversationSummaryType, TranscriptData, SessionFile } from '@/types/app';
+import type { TranscriptLine, ConversationState } from '@/types/conversation';
 
 // Type assertion for getDisplayMedia support
 declare global {
@@ -52,16 +53,6 @@ declare global {
     getDisplayMedia(constraints?: { audio?: boolean | MediaTrackConstraints; video?: boolean | MediaTrackConstraints }): Promise<MediaStream>;
   }
 }
-
-interface TranscriptLine {
-  id: string;
-  text: string;
-  timestamp: Date;
-  speaker: 'ME' | 'THEM';
-  confidence?: number;
-}
-
-type ConversationState = 'setup' | 'ready' | 'recording' | 'paused' | 'processing' | 'completed' | 'error';
 
 type ConversationSummary = ConversationSummaryType;
 
