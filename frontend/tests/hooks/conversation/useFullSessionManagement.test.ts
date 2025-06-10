@@ -35,14 +35,18 @@ jest.mock('@/hooks/conversation/useSessionList', () => ({
   })),
 }));
 
+const getSessionServiceMock = jest.fn(() => ({
+  finalizeSession: jest.fn().mockResolvedValue({
+    success: true,
+    sessionId: 'session-123',
+    summary: { tldr: 'Test summary' },
+  }),
+}));
+
 jest.mock('@/services/ServiceFactory', () => ({
   ServiceFactory: {
-    getSessionService: jest.fn(() => ({
-      finalizeSession: jest.fn().mockResolvedValue({
-        success: true,
-        sessionId: 'session-123',
-        summary: { tldr: 'Test summary' },
-      }),
+    getInstance: jest.fn(() => ({
+      getSessionService: getSessionServiceMock,
     })),
   },
 }));
@@ -167,8 +171,9 @@ describe('useFullSessionManagement', () => {
       });
     });
 
-    expect(jest.requireMock('@/services/ServiceFactory').ServiceFactory.getSessionService)
-      .toHaveBeenCalled();
+    const factoryMock = jest.requireMock('@/services/ServiceFactory').ServiceFactory;
+    expect(factoryMock.getInstance).toHaveBeenCalled();
+    expect(getSessionServiceMock).toHaveBeenCalled();
   });
 
   it('should load sessions on mount', async () => {
