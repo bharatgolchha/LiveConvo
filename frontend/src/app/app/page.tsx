@@ -5,62 +5,35 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { 
-  Brain, 
-  MessageSquare,
-  User, 
-  Bell,
+  Brain,
+  User,
   ArrowLeft,
   Mic,
   Square,
   Play,
   FileText,
-  Users,
-  Clock,
-  Lightbulb,
   Trash2,
-  Volume2,
-  VolumeX,
-  Maximize2,
-  Minimize2,
   RotateCcw,
-  UploadCloud,
   CheckCircle,
   XCircle,
   PauseCircle,
   Settings2,
-  SidebarOpen,
-  SidebarClose,
   RefreshCw,
-  TrendingUp,
-  CheckSquare,
-  ArrowRight,
-  Hash,
-  Clock3,
-  Target,
-  MessageCircle,
-  Handshake,
   ShieldCheck,
-  Quote,
-  Download,
-  ChevronRight,
-  Search
+  Download
 } from 'lucide-react';
 
 import { Button } from '@/components/ui/Button';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/Card';
 import { ThemeToggle } from '@/components/ui/ThemeToggle';
 import Link from 'next/link';
-import { useAIGuidance, ContextDocument, GuidanceRequest } from '@/lib/aiGuidance';
+import { useAIGuidance } from '@/lib/aiGuidance';
 import { useTranscription } from '@/lib/useTranscription';
 import { useRealtimeSummary } from '@/lib/useRealtimeSummary';
 import { useChatGuidance } from '@/lib/useChatGuidance';
 import { cn } from '@/lib/utils';
 import { updateTalkStats, TalkStats } from '@/lib/transcriptUtils';
-import { FloatingChatGuidance } from '@/components/guidance/FloatingChatGuidance';
-
-import { useSessions, Session as LocalSession } from '@/lib/hooks/useSessions';
+import { useSessions } from '@/lib/hooks/useSessions';
 import type { Session as SupabaseSession } from '@supabase/supabase-js';
-import { GuidanceChip, GuidanceType } from '@/components/guidance/GuidanceChip';
 import { useAuth } from '@/contexts/AuthContext';
 import { authenticatedFetch } from '@/lib/api';
 import { ConversationContent } from '@/components/conversation/ConversationContent';
@@ -70,9 +43,8 @@ import { TranscriptModal } from '@/components/conversation/TranscriptModal';
 import { useSessionData, SessionDocument } from '@/lib/hooks/useSessionData';
 import { useMinuteTracking } from '@/lib/hooks/useMinuteTracking';
 import { RecordingConsentModal } from '@/components/conversation/RecordingConsentModal';
-import { ConversationHeaderDate } from '@/components/ui/ConversationDateIndicator';
 import { LoadingModal } from '@/components/ui/LoadingModal';
-import type { SessionDataFull, ConversationSummary as ConversationSummaryType, TranscriptData, LocalStorageData, SessionFile } from '@/types/app';
+import type { SessionDataFull, ConversationSummary as ConversationSummaryType, TranscriptData, SessionFile } from '@/types/app';
 
 // Type assertion for getDisplayMedia support
 declare global {
@@ -212,15 +184,6 @@ function AppContent() {
   const [transcript, setTranscript] = useState<TranscriptLine[]>([]);
   // Track how many transcript lines have been saved to the database
   const [lastSavedTranscriptIndex, setLastSavedTranscriptIndex] = useState(0);
-  // Session data for date indicators
-  const [currentSessionData, setCurrentSessionData] = useState<{
-    id: string;
-    status: string;
-    created_at: string;
-    recording_started_at?: string;
-    recording_ended_at?: string;
-    finalized_at?: string;
-  } | null>(null);
   const [sessionDuration, setSessionDuration] = useState(0);
   const [cumulativeDuration, setCumulativeDuration] = useState(0); // Total duration across all recording sessions
   const [recordingStartTime, setRecordingStartTime] = useState<number | null>(null); // Track when current recording started
@@ -246,13 +209,7 @@ function AppContent() {
   const approachingLimitRef = useRef(false);
   
   const {
-    currentSessionMinutes,
-    currentSessionSeconds,
-    sessionTime,
-    remainingTime,
     checkUsageLimit,
-    resetSession: resetMinuteTracking,
-    error: minuteTrackingError,
     startTracking,
     stopTracking,
     canRecord,
@@ -293,7 +250,6 @@ function AppContent() {
   }, [conversationState]);
 
   // Tab visibility and page lifecycle management
-  const [isTabVisible, setIsTabVisible] = useState(true);
   const [wasRecordingBeforeHidden, setWasRecordingBeforeHidden] = useState(false);
   const pageVisibilityTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const preventUnloadRef = useRef(false);
@@ -420,15 +376,6 @@ function AppContent() {
       if (response.ok) {
         const { session: sessionData } = await response.json();
         
-        // Store session data for date indicators
-        setCurrentSessionData({
-          id: sessionData.id,
-          status: sessionData.status,
-          created_at: sessionData.created_at,
-          recording_started_at: sessionData.recording_started_at,
-          recording_ended_at: sessionData.recording_ended_at,
-          finalized_at: sessionData.finalized_at
-        });
         
         // Set the conversation details - backend data takes precedence
         setConversationTitle(sessionData.title || 'Untitled Conversation');
@@ -529,7 +476,6 @@ function AppContent() {
   useEffect(() => {
     const handleVisibilityChange = () => {
       const isVisible = !document.hidden;
-      setIsTabVisible(isVisible);
       
       console.log(`🔍 Tab ${isVisible ? 'visible' : 'hidden'}, recording state: ${conversationState}`);
       
@@ -671,19 +617,15 @@ function AppContent() {
 
   // AI Guidance hook
   const { 
-    generateGuidance, 
     addContext, 
     addUserContext, 
-    clearContext: clearAIGuidanceContext,
-    isGenerating,
-    error: guidanceError 
+    clearContext: clearAIGuidanceContext
   } = useAIGuidance();
 
   // Sessions hook for previous conversations
   const { 
     sessions, 
-    loading: sessionsLoading, 
-    error: sessionsError,
+    loading: sessionsLoading,
     fetchSessions 
   } = useSessions();
 
@@ -691,21 +633,10 @@ function AppContent() {
   const {
     uploadDocuments,
     saveContext,
-    fetchDocuments,
     fetchContext,
-    context,
-    documentsLoading,
-    contextLoading
+    context
   } = useSessionData();
 
-  // Demo guidance for fallback
-  const demoGuidances = [
-    { type: 'ask', message: "What are your key priorities for this quarter?", confidence: 92 },
-    { type: 'clarify', message: "Can you elaborate on the challenges you mentioned?", confidence: 87 },
-    { type: 'suggest', message: "Perhaps we can explore how our solution addresses that specific need.", confidence: 89 },
-    { type: 'avoid', message: "Try to avoid technical jargon unless they use it first.", confidence: 94 },
-    { type: 'warn', message: "Be mindful of the time, we have 10 minutes left.", confidence: 90 },
-  ];
 
   // Realtime transcription hooks for local (ME) and remote (THEM) audio
   const {
@@ -819,16 +750,9 @@ function AppContent() {
   // Chat guidance
   const {
     messages: chatMessages,
-    isLoading: isChatLoading,
-    inputValue: chatInputValue,
-    setInputValue: setChatInputValue,
     sendMessage: sendChatMessage,
-    sendQuickAction,
-    addAutoGuidance,
     clearChat,
-    initializeChat,
-    markMessagesAsRead,
-    messagesEndRef
+    initializeChat
   } = useChatGuidance({
     transcript: fullTranscriptText,
     conversationType,
@@ -1596,63 +1520,6 @@ function AppContent() {
     setShowRecordingConsentModal(true);
   };
 
-  // Event Handlers - Define handleGenerateGuidance before useEffect hooks
-  const handleGenerateGuidance = React.useCallback(async () => {
-    if (transcript.length === 0 && !textContext) return;
-    
-    console.log('Generating guidance with transcript length:', transcript.length);
-    setConversationState('processing');
-    
-    try {
-      // Use more transcript lines for better context
-      const recentTranscript = transcript.slice(-20).map(t => `${t.speaker}: ${t.text}`).join('\n');
-      
-      const guidanceRequest: GuidanceRequest = {
-        transcript: recentTranscript,
-        context: textContext,
-        conversationType: conversationType,
-      };
-
-      console.log('Sending guidance request:', guidanceRequest);
-      const guidanceResult = await generateGuidance(guidanceRequest);
-      console.log('Received guidance result:', guidanceResult);
-      
-      const guidance = Array.isArray(guidanceResult) ? guidanceResult[0] : guidanceResult;
-
-      if (guidance && guidance.message) {
-        // Add to chat as auto-guidance instead of old guidance list
-        addAutoGuidance({
-          type: guidance.type,
-          message: guidance.message,
-          confidence: guidance.confidence || Math.floor(80 + Math.random() * 20)
-        });
-        console.log('Added auto-guidance to chat:', guidance);
-      } else {
-        console.log("No new guidance suggestions from API or API returned empty.");
-        // Fallback to demo guidance
-        const randomGuidance = demoGuidances[Math.floor(Math.random() * demoGuidances.length)];
-        addAutoGuidance({
-          type: randomGuidance.type,
-          message: randomGuidance.message,
-          confidence: randomGuidance.confidence
-        });
-      }
-    } catch (error) {
-      console.error('Error generating guidance:', error);
-      setErrorMessage("Failed to generate AI guidance. Using a suggestion.");
-      const randomGuidance = demoGuidances[Math.floor(Math.random() * demoGuidances.length)];
-      addAutoGuidance({
-        type: randomGuidance.type,
-        message: randomGuidance.message,
-        confidence: randomGuidance.confidence
-      });
-    } finally {
-      if (conversationState === 'processing') {
-        setConversationState(transcript.length > 0 ? 'recording' : 'ready');
-      }
-    }
-  }, [transcript, textContext, conversationType, generateGuidance, conversationState, demoGuidances, addAutoGuidance]);
-
   // Auto-guidance functionality removed - now using manual button for guidance generation
 
   // Other Event Handlers
@@ -2000,19 +1867,6 @@ function AppContent() {
     });
   }, []);
 
-  const filteredPreviousSessions = sessions.filter(session => {
-    // Only show completed sessions (remove hasSummary requirement to show all completed calls)
-    if (session.status !== 'completed') return false;
-    
-    // Filter by search term
-    if (previousConversationSearch) {
-      const searchTerm = previousConversationSearch.toLowerCase();
-      return session.title?.toLowerCase().includes(searchTerm) ||
-             session.conversation_type?.toLowerCase().includes(searchTerm);
-    }
-    
-    return true;
-  }); // Remove the .slice(0, 10) limit to show all conversations // Limit to 10 most recent
 
   const handleExportSession = () => {
     const sessionData = {
@@ -2240,17 +2094,6 @@ function AppContent() {
     }
   };
 
-  // Manual transcript save function for UI buttons
-  const handleManualSaveTranscript = async () => {
-    if (!conversationId || !session || transcript.length === 0) {
-      console.log('⚠️ Cannot manually save transcript - missing data');
-      return;
-    }
-    
-    console.log('🔄 Manual transcript save requested by user');
-    const newIndex = await saveTranscriptNow(conversationId, transcript, session, lastSavedTranscriptIndex);
-    setLastSavedTranscriptIndex(newIndex);
-  };
 
   const getStateTextAndColor = (state: ConversationState): {text: string, color: string, icon?: React.ElementType} => {
     switch (state) {
@@ -2295,16 +2138,6 @@ function AppContent() {
     }
     if (conversationState === 'completed' || conversationState === 'error') {
       return <Button onClick={handleResetSession} size="lg" className="px-8 bg-secondary hover:bg-secondary/90 text-secondary-foreground"><RotateCcw className="w-5 h-5 mr-2" />New Session</Button>;
-    }
-    return null;
-  };
-  
-  const SecondaryActionButton: React.FC = () => {
-    if (conversationState === 'recording' || conversationState === 'paused') {
-      return <Button onClick={handleStopRecording} variant="destructive" size="lg" className="px-8"><Square className="w-5 h-5 mr-2" />Stop & Finish</Button>;
-    }
-    if (conversationState === 'completed' && transcript.length > 0) {
-      return <Button onClick={handleExportSession} variant="outline" size="lg" className="px-8"><Download className="w-5 h-5 mr-2" />Export Session</Button>;
     }
     return null;
   };
