@@ -5,7 +5,7 @@ import { SummaryService } from './SummaryService';
 import { ChecklistService } from './ChecklistService';
 import { RecordingService } from './RecordingService';
 
-class ServiceFactory {
+export class ServiceFactory {
   private static instance: ServiceFactory;
   
   private transcriptService: TranscriptService;
@@ -31,30 +31,29 @@ class ServiceFactory {
     return ServiceFactory.instance;
   }
   
-  getTranscriptService(): TranscriptService {
-    return this.transcriptService;
+  static getTranscriptService(): TranscriptService {
+    return ServiceFactory.getInstance().transcriptService;
   }
   
-  getSessionService(): SessionService {
-    return this.sessionService;
+  static getSessionService(): SessionService {
+    return ServiceFactory.getInstance().sessionService;
   }
   
-  getContextService(): ContextService {
-    return this.contextService;
+  static getContextService(): ContextService {
+    return ServiceFactory.getInstance().contextService;
   }
   
-  getSummaryService(): SummaryService {
-    return this.summaryService;
+  static getSummaryService(): SummaryService {
+    return ServiceFactory.getInstance().summaryService;
   }
   
-  getChecklistService(): ChecklistService {
-    return this.checklistService;
+  static getChecklistService(): ChecklistService {
+    return ServiceFactory.getInstance().checklistService;
   }
   
-  getRecordingService(): RecordingService {
-    return this.recordingService;
+  static getRecordingService(): RecordingService {
+    return ServiceFactory.getInstance().recordingService;
   }
-}
 
 export const services = ServiceFactory.getInstance();
 
