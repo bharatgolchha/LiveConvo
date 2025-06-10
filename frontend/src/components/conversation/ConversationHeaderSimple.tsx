@@ -15,7 +15,7 @@ import { Button } from '@/components/ui/Button';
 import { ThemeToggle } from '@/components/ui/ThemeToggle';
 import { cn } from '@/lib/utils';
 import { ConversationState } from '@/types/conversation';
-import { formatDuration } from '@/lib/conversation/stateUtils';
+import { formatDuration } from '@/lib/utils/time';
 
 interface ConversationHeaderSimpleProps {
   conversationState: ConversationState;
