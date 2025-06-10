@@ -51,6 +51,7 @@ import { useMinuteTracking } from '@/lib/hooks/useMinuteTracking';
 import { RecordingConsentModal } from '@/components/conversation/RecordingConsentModal';
 import { LoadingModal } from '@/components/ui/LoadingModal';
 import type { SessionDataFull, ConversationSummary as ConversationSummaryType, TranscriptData, SessionFile } from '@/types/app';
+import type { TranscriptLine, ConversationState } from '@/types/conversation';
 
 // Type assertion for getDisplayMedia support
 declare global {
@@ -59,7 +60,7 @@ declare global {
   }
 }
 
-// Alias app-level ConversationSummary type for reuse
+
 type ConversationSummary = ConversationSummaryType;
 
 
