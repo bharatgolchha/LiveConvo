@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef, useCallback, Suspense } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useSearchParams, useRouter } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { 
   Brain,
@@ -31,8 +31,10 @@ import { useTranscription } from '@/lib/useTranscription';
 import { useRealtimeSummary } from '@/lib/useRealtimeSummary';
 import { useChatGuidance } from '@/lib/useChatGuidance';
 import { cn } from '@/lib/utils';
-import { updateTalkStats, TalkStats } from '@/lib/transcriptUtils';
+import { useConversationState } from '@/lib/hooks/useConversationState';
+import { useTranscriptManager } from '@/lib/hooks/useTranscriptManager';
 import { useSessions } from '@/lib/hooks/useSessions';
+import type { ConversationState, TranscriptLine, TalkStats } from '@/types/conversation';
 import type { Session as SupabaseSession } from '@supabase/supabase-js';
 import { useAuth } from '@/contexts/AuthContext';
 import { authenticatedFetch } from '@/lib/api';
@@ -52,16 +54,6 @@ declare global {
     getDisplayMedia(constraints?: { audio?: boolean | MediaTrackConstraints; video?: boolean | MediaTrackConstraints }): Promise<MediaStream>;
   }
 }
-
-interface TranscriptLine {
-  id: string;
-  text: string;
-  timestamp: Date;
-  speaker: 'ME' | 'THEM';
-  confidence?: number;
-}
-
-type ConversationState = 'setup' | 'ready' | 'recording' | 'paused' | 'processing' | 'completed' | 'error';
 
 type ConversationSummary = ConversationSummaryType;
 
@@ -172,26 +164,34 @@ const saveSummaryToDatabase = async (sessionId: string, summary: ConversationSum
 };
 
 function AppContent() {
-  const searchParams = useSearchParams();
   const router = useRouter();
-  const conversationId = searchParams.get('cid');
   const { session, loading: authLoading } = useAuth(); // Add auth hook
-  
-  // Core State
-  const [conversationState, setConversationState] = useState<ConversationState>('setup');
+
+  // Conversation state managed via custom hook
+  const {
+    conversationId,
+    conversationState,
+    setConversationState,
+    transcript,
+    addTranscriptLine,
+    sessionDuration,
+    setSessionDuration,
+    talkStats,
+    setTalkStats,
+    config,
+    updateConfig
+  } = useConversationState();
+  const { conversationType, conversationTitle, textContext, uploadedFiles } = config;
+
+  const { addTranscript: saveTranscriptLine } = useTranscriptManager({ sessionId: conversationId || '' });
+
+  // Local UI state
   const [isSummarizing, setIsSummarizing] = useState(false); // New state for End & Finalize animation
   const [isFinalized, setIsFinalized] = useState(false); // Track if finalization is complete
-  const [transcript, setTranscript] = useState<TranscriptLine[]>([]);
   // Track how many transcript lines have been saved to the database
   const [lastSavedTranscriptIndex, setLastSavedTranscriptIndex] = useState(0);
-  const [sessionDuration, setSessionDuration] = useState(0);
   const [cumulativeDuration, setCumulativeDuration] = useState(0); // Total duration across all recording sessions
   const [recordingStartTime, setRecordingStartTime] = useState<number | null>(null); // Track when current recording started
-  const [talkStats, setTalkStats] = useState<TalkStats>({ meWords: 0, themWords: 0 });
-  const [conversationType, setConversationType] = useState<'sales' | 'support' | 'meeting' | 'interview'>('sales');
-  const [conversationTitle, setConversationTitle] = useState('New Conversation');
-  const [textContext, setTextContext] = useState('');
-  const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
   const [systemAudioStream, setSystemAudioStream] = useState<MediaStream | null>(null);
   const [personalContext, setPersonalContext] = useState<string>('');
 
@@ -345,16 +345,21 @@ function AppContent() {
               id: `restored-${conversationId}-${index}-${Date.now()}`,
               timestamp: new Date(line.timestamp)
             }));
-            setTranscript(restoredTranscript);
+            restoredTranscript.forEach(l => addTranscriptLine(l.text, l.speaker));
           }
           if (parsed.sessionDuration && typeof parsed.sessionDuration === 'number') {
             setSessionDuration(parsed.sessionDuration);
             setCumulativeDuration(parsed.sessionDuration);
           }
           if (parsed.talkStats) setTalkStats(parsed.talkStats);
-          if (parsed.conversationType) setConversationType(parsed.conversationType);
-          if (parsed.conversationTitle) setConversationTitle(parsed.conversationTitle);
-          if (parsed.textContext) setTextContext(parsed.textContext);
+          if (parsed.conversationType || parsed.conversationTitle || parsed.textContext) {
+            updateConfig({
+              conversationType: parsed.conversationType || conversationType,
+              conversationTitle: parsed.conversationTitle || conversationTitle,
+              textContext: parsed.textContext || textContext,
+              uploadedFiles
+            });
+          }
           if (parsed.selectedPreviousConversations && Array.isArray(parsed.selectedPreviousConversations)) {
             setSelectedPreviousConversations(parsed.selectedPreviousConversations);
           }
@@ -378,7 +383,7 @@ function AppContent() {
         
         
         // Set the conversation details - backend data takes precedence
-        setConversationTitle(sessionData.title || 'Untitled Conversation');
+        updateConfig({ conversationTitle: sessionData.title || 'Untitled Conversation' });
         
         // Map conversation type from database format to app format
         const dbTypeMapping: Record<string, 'sales' | 'support' | 'meeting' | 'interview'> = {
@@ -393,7 +398,7 @@ function AppContent() {
           dbType: sessionData.conversation_type,
           mappedType: mappedType
         });
-        setConversationType(mappedType);
+        updateConfig({ conversationType: mappedType });
         
         // Set state based on session status - this is the authoritative source
         if (sessionData.status === 'completed') {
@@ -460,8 +465,8 @@ function AppContent() {
           speaker: item.speaker === 'user' ? 'ME' : 'THEM',
           confidence: item.confidence_score || 0.85
         }));
-        
-        setTranscript(formattedTranscript);
+
+        formattedTranscript.forEach(t => addTranscriptLine(t.text, t.speaker));
       } else {
         console.error('Failed to load transcript:', response.status, response.statusText);
         const errorData = await response.text();
@@ -1055,7 +1060,7 @@ function AppContent() {
       if (storedConfig) {
         try {
           const config = JSON.parse(storedConfig);
-          setConversationTitle(config.title || 'New Conversation');
+          updateConfig({ conversationTitle: config.title || 'New Conversation' });
           
           // Map conversation type from dashboard format to app format
           const typeMapping: Record<string, 'sales' | 'support' | 'meeting' | 'interview'> = {
@@ -1077,7 +1082,7 @@ function AppContent() {
           };
           
           const mappedType = typeMapping[config.type] || 'sales';
-          setConversationType(mappedType);
+          updateConfig({ conversationType: mappedType });
           
           // Load selected previous conversations if provided
           if (config.selectedPreviousConversations && config.selectedPreviousConversations.length > 0) {
@@ -1086,7 +1091,7 @@ function AppContent() {
           
           if (config.context) {
             if (config.context.text) {
-              setTextContext(config.context.text);
+              updateConfig({ textContext: config.context.text });
               addUserContext(config.context.text);
             }
             if (config.context.files && config.context.files.length > 0) {
@@ -1096,7 +1101,7 @@ function AppContent() {
               const restoredFiles = (config.context.files as SessionFile[])
                 .map(f => f.name ? new File([], f.name, {type: f.type || 'application/octet-stream'}) : null)
                 .filter(f => f !== null) as File[];
-              setUploadedFiles(restoredFiles);
+              updateConfig({ uploadedFiles: restoredFiles });
               
               restoredFiles.forEach((file) => {
                 // Simulate adding context for AI (content won't be real here due to localStorage limitations)
@@ -1168,7 +1173,7 @@ function AppContent() {
           
           // Load session configuration
           if (sessionData.title) {
-            setConversationTitle(sessionData.title);
+            updateConfig({ conversationTitle: sessionData.title });
           }
           
           if (sessionData.conversation_type) {
@@ -1190,7 +1195,7 @@ function AppContent() {
               'Business Review': 'meeting'
             };
             const mappedType = typeMapping[sessionData.conversation_type] || 'sales';
-            setConversationType(mappedType as 'sales' | 'support' | 'meeting' | 'interview');
+            updateConfig({ conversationType: mappedType as 'sales' | 'support' | 'meeting' | 'interview' });
           }
           
           // CRITICAL FIX: Update conversation state based on DB, overriding localStorage if necessary for loaded sessions.
@@ -1237,7 +1242,7 @@ function AppContent() {
                     speaker: (line.speaker === 'user' || line.speaker === 'me') ? 'ME' : 'THEM',
                     confidence: line.confidence_score || 0.85
                   }));
-                  setTranscript(loadedTranscript);
+                  loadedTranscript.forEach(t => addTranscriptLine(t.text, t.speaker));
                   setLastSavedTranscriptIndex(loadedTranscript.length);
                   
                   // Calculate session duration from transcript
@@ -1312,7 +1317,7 @@ function AppContent() {
   useEffect(() => {
     if (context && context.text_context && !textContext) {
       // Only update if textContext is empty to avoid overwriting user input
-      setTextContext(context.text_context);
+      updateConfig({ textContext: context.text_context });
       addUserContext(context.text_context);
       console.log('✅ Context loaded from database:', context.text_context);
     }
@@ -1720,15 +1725,14 @@ function AppContent() {
 
   const handleLiveTranscript = (newTranscriptText: string, speaker: 'ME' | 'THEM') => {
     if (newTranscriptText && newTranscriptText.trim().length > 0) {
-      const newLine: TranscriptLine = {
-        id: generateUniqueId(),
-        text: newTranscriptText.trim(),
-        timestamp: new Date(),
-        speaker,
-        confidence: 0.85 + Math.random() * 0.15
-      };
-      setTranscript(prev => [...prev, newLine]);
-      setTalkStats(prev => updateTalkStats(prev, speaker, newTranscriptText));
+      addTranscriptLine(newTranscriptText.trim(), speaker);
+      if (conversationId) {
+        saveTranscriptLine({
+          content: newTranscriptText.trim(),
+          speaker,
+          start_time_seconds: sessionDuration
+        });
+      }
       // Auto-guidance removed - use manual button instead
     }
   };
@@ -1736,7 +1740,7 @@ function AppContent() {
   const handleFileUpload = async (newFiles: File[]) => {
     // Update local state immediately for UI feedback
     const updatedFiles = [...uploadedFiles, ...newFiles];
-    setUploadedFiles(updatedFiles);
+    updateConfig({ uploadedFiles: updatedFiles });
     
     // If we have a conversation ID, upload to database with text extraction
     if (conversationId) {
@@ -1801,7 +1805,7 @@ function AppContent() {
   };
 
   const handleTextContextChange = async (newText: string) => {
-    setTextContext(newText);
+    updateConfig({ textContext: newText });
     addUserContext(newText); // Update AI context in real-time
     
     // If we have a conversation ID, debounce the database save
@@ -1853,7 +1857,7 @@ function AppContent() {
   };
 
   const handleRemoveFile = (fileName: string) => {
-    setUploadedFiles(prev => prev.filter(file => file.name !== fileName));
+    updateConfig({ uploadedFiles: uploadedFiles.filter(file => file.name !== fileName) });
   };
 
   // Helper functions for previous conversations
@@ -1897,18 +1901,12 @@ function AppContent() {
   };
 
   const handleResetSession = () => {
-    setConversationState('setup');
-    setSessionDuration(0);
+    resetConversation();
     setCumulativeDuration(0);
     setRecordingStartTime(null);
-      // FIXED: Transcript is NEVER cleared in handleStartRecording - preserves all conversation data
-    setTranscript([]);
     setLastSavedTranscriptIndex(0);
-    setTextContext('');
-    setUploadedFiles([]);
+    updateConfig({ textContext: '', uploadedFiles: [], conversationTitle: 'New Conversation', conversationType: 'sales' });
     clearAIGuidanceContext();
-    setConversationTitle('New Conversation');
-    setConversationType('sales');
     setErrorMessage(null);
     setIsFinalized(false);
     
@@ -2397,9 +2395,9 @@ function AppContent() {
           isOpen={showContextPanel && !isFullscreen}
           onClose={() => setShowContextPanel(false)}
           conversationTitle={conversationTitle}
-          setConversationTitle={setConversationTitle}
+          setConversationTitle={(title) => updateConfig({ conversationTitle: title })}
           conversationType={conversationType}
-          setConversationType={setConversationType}
+          setConversationType={(type) => updateConfig({ conversationType: type })}
           conversationState={conversationState}
           textContext={textContext}
           handleTextContextChange={handleTextContextChange}
