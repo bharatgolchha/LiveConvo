@@ -49,7 +49,6 @@ import {
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/Card';
 import { ThemeToggle } from '@/components/ui/ThemeToggle';
-import Link from 'next/link';
 import { useAIGuidance, ContextDocument, GuidanceRequest } from '@/lib/aiGuidance';
 import { useTranscription } from '@/lib/useTranscription';
 import { useRealtimeSummary } from '@/lib/useRealtimeSummary';
@@ -76,6 +75,9 @@ import { useTranscriptAutosave } from '@/hooks/useTranscriptAutosave';
 import { RecordingConsentModal } from '@/components/conversation/RecordingConsentModal';
 import { ConversationHeaderDate } from '@/components/ui/ConversationDateIndicator';
 import { LoadingModal } from '@/components/ui/LoadingModal';
+import { MainActionButton } from '@/components/conversation/MainActionButton';
+import { SecondaryActionButton } from '@/components/conversation/SecondaryActionButton';
+import { ConversationHeaderSimple } from '@/components/conversation/ConversationHeaderSimple';
 import type { SessionDataFull, ConversationSummary as ConversationSummaryType, TranscriptData, LocalStorageData, SessionFile } from '@/types/app';
 
 // Type assertion for getDisplayMedia support
@@ -1979,45 +1981,7 @@ function AppContent() {
 
   const { text: stateText, color: stateColorClass, icon: StateIcon } = getStateTextAndColor(conversationState);
 
-  const MainActionButton: React.FC = () => {
-    if (conversationState === 'setup') {
-      return <Button onClick={() => { if (textContext) addUserContext(textContext); setConversationState('ready');}} size="lg" className="px-8 bg-primary hover:bg-primary/90 text-primary-foreground"><Play className="w-5 h-5 mr-2" />Get Ready</Button>;
-    }
-    if (conversationState === 'ready') {
-      return <Button onClick={handleInitiateRecording} size="lg" className="px-8 bg-primary hover:bg-primary/90 text-primary-foreground"><Mic className="w-5 h-5 mr-2" />Start Recording</Button>;
-    }
-    if (conversationState === 'recording') {
-      return <Button onClick={handlePauseRecording} size="lg" className="px-8 bg-warning hover:bg-warning/90 text-warning-foreground"><PauseCircle className="w-5 h-5 mr-2" />Pause</Button>;
-    }
-    if (conversationState === 'paused') {
-      return (
-        <Button 
-          onClick={handleResumeRecording} 
-          size="lg" 
-          className="px-8 bg-primary hover:bg-primary/90 text-primary-foreground"
-          disabled={!canRecord || minutesRemaining <= 0}
-          title={!canRecord || minutesRemaining <= 0 ? "No minutes remaining. Please upgrade your plan." : "Resume recording"}
-        >
-          <Play className="w-5 h-5 mr-2" />
-          Resume
-        </Button>
-      );
-    }
-    if (conversationState === 'completed' || conversationState === 'error') {
-      return <Button onClick={handleResetSession} size="lg" className="px-8 bg-secondary hover:bg-secondary/90 text-secondary-foreground"><RotateCcw className="w-5 h-5 mr-2" />New Session</Button>;
-    }
-    return null;
-  };
-  
-  const SecondaryActionButton: React.FC = () => {
-    if (conversationState === 'recording' || conversationState === 'paused') {
-      return <Button onClick={handleStopRecording} variant="destructive" size="lg" className="px-8"><Square className="w-5 h-5 mr-2" />Stop & Finish</Button>;
-    }
-    if (conversationState === 'completed' && transcript.length > 0) {
-      return <Button onClick={handleExportSession} variant="outline" size="lg" className="px-8"><Download className="w-5 h-5 mr-2" />Export Session</Button>;
-    }
-    return null;
-  };
+  // Action buttons are rendered via separate components
 
   // Cleanup timeout on unmount
   useEffect(() => {
@@ -2126,144 +2090,31 @@ function AppContent() {
     <div className={cn("h-screen flex flex-col overflow-hidden", isFullscreen ? 'h-screen overflow-hidden' : '')}>
       {/* Header */}
       {!isFullscreen && (
-        <header className="bg-card/95 backdrop-blur-md border-b border-border shadow-sm z-40 flex-shrink-0">
-          <div className="px-4 sm:px-6 lg:px-8 py-2">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-4">
-                <Link href="/dashboard" className="flex items-center gap-2 text-muted-foreground hover:text-primary transition-colors group">
-                  <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
-                  <span className="text-sm font-medium">Dashboard</span>
-                </Link>
-
-                <div className="h-4 w-px bg-border"></div>
-
-                <div className="flex items-center gap-3">
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-3">
-                      <h1 className="font-semibold text-foreground text-lg truncate leading-tight" title={conversationTitle}>
-                        {conversationTitle}
-                      </h1>
-                      <div className={cn("flex items-center gap-1 text-xs font-medium px-2 py-1 rounded-full", stateColorClass)}>
-                        {StateIcon && <StateIcon className="w-3 h-3" />}
-                        <span>{stateText}</span>
-                        {(conversationState === 'recording' || conversationState === 'paused') && sessionDuration > 0 && (
-                          <span className="font-mono text-xs bg-black/10 dark:bg-white/10 px-1.5 py-0.5 rounded-md ml-1">
-                            {formatDuration(sessionDuration)}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                  
-                  {/* Status Indicators */}
-                  <div className="flex items-center gap-2">
-                    {/* Tab Visibility Protection Indicator */}
-                    {conversationState === 'recording' && (
-                      <div className="flex items-center gap-1 text-xs text-green-600 bg-green-50 dark:bg-green-900/20 px-2 py-1 rounded-full border border-green-200 dark:border-green-800" title="Recording protected from tab switches">
-                        <ShieldCheck className="w-3 h-3" />
-                        <span className="hidden sm:inline">Protected</span>
-                      </div>
-                    )}
-                    {wasRecordingBeforeHidden && conversationState === 'paused' && (
-                      <div className="flex items-center gap-1 text-xs text-amber-600 bg-amber-50 dark:bg-amber-900/20 px-2 py-1 rounded-full border border-amber-200 dark:border-amber-800" title="Paused due to tab switch - click Resume to continue">
-                        <RefreshCw className="w-3 h-3" />
-                        <span className="hidden sm:inline">Tab Return</span>
-                      </div>
-                    )}
-                  </div>
-                  
-                  {/* Enhanced Recording Controls */}
-                  <div className="hidden sm:flex items-center gap-2 ml-4">
-                    {(conversationState === 'setup' || conversationState === 'ready') && (
-                      <Button 
-                        onClick={conversationState === 'setup' ? () => { if (textContext) addUserContext(textContext); setConversationState('ready'); } : handleInitiateRecording}
-                        size="sm" 
-                        className="bg-primary hover:bg-primary/90 text-primary-foreground font-medium px-4"
-                      >
-                        <Mic className="w-4 h-4 mr-1.5" />
-                        {conversationState === 'setup' ? 'Get Ready' : 'Start Recording'}
-                      </Button>
-                    )}
-                    
-                    {conversationState === 'recording' && (
-                      <>
-                        <Button 
-                          onClick={handlePauseRecording}
-                          size="sm" 
-                          variant="outline"
-                          className="border-warning text-warning hover:bg-warning/10 font-medium"
-                        >
-                          <PauseCircle className="w-4 h-4 mr-1.5" />
-                          Pause
-                        </Button>
-                        <Button 
-                          onClick={handleEndConversationAndFinalize}
-                          size="sm" 
-                          className="bg-primary hover:bg-primary/90 text-primary-foreground font-medium"
-                        >
-                          <FileText className="w-4 h-4 mr-1.5" />
-                          End & Finalize
-                        </Button>
-                      </>
-                    )}
-                    
-                    {conversationState === 'paused' && (
-                      <>
-                        <Button 
-                          onClick={handleResumeRecording}
-                          size="sm" 
-                          className="bg-primary hover:bg-primary/90 text-primary-foreground font-medium"
-                          disabled={!canRecord || minutesRemaining <= 0}
-                          title={!canRecord || minutesRemaining <= 0 ? "No minutes remaining. Please upgrade your plan." : "Resume recording"}
-                        >
-                          <Play className="w-4 h-4 mr-1.5" />
-                          Resume
-                        </Button>
-                        <Button 
-                          onClick={handleEndConversationAndFinalize}
-                          size="sm" 
-                          className="bg-primary hover:bg-primary/90 text-primary-foreground font-medium"
-                        >
-                          <FileText className="w-4 h-4 mr-1.5" />
-                          End & Finalize
-                        </Button>
-                      </>
-                    )}
-                    
-                    {(conversationState === 'completed' || conversationState === 'error') && (
-                      <>
-                        {conversationId && conversationState === 'completed' && isFinalized && (
-                          <Button 
-                            onClick={() => router.push(`/summary/${conversationId}`)}
-                            size="md" 
-                            className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold"
-                          >
-                            <FileText className="w-4 h-4 mr-2" />
-                            View Final Summary
-                          </Button>
-                        )}
-                      </>
-                    )}
-                  </div>
-                </div>
-              </div>
-            
-              <div className="flex items-center gap-2">
-                <Button variant="ghost" size="sm" onClick={() => setShowContextPanel(!showContextPanel)} title={showContextPanel ? "Hide Setup & Context" : "Show Setup & Context"} className="hover:bg-accent/80 p-1.5 rounded-lg">
-                  <Settings2 className="w-4 h-4" />
-                </Button>
-                <Button variant="ghost" size="sm" onClick={() => setShowTranscriptModal(true)} title="View Transcript" className="hover:bg-accent/80 p-1.5 rounded-lg">
-                  <FileText className="w-4 h-4" />
-                </Button>
-                <div className="h-4 w-px bg-border mx-1"></div>
-                <ThemeToggle />
-                <Button variant="ghost" size="sm" title="User Settings" className="hover:bg-accent/80 p-1.5 rounded-lg">
-                  <User className="w-4 h-4" />
-                </Button>
-              </div>
-            </div>
-          </div>
-        </header>
+        <ConversationHeaderSimple
+          conversationState={conversationState}
+          conversationTitle={conversationTitle}
+          sessionDuration={sessionDuration}
+          stateText={stateText}
+          stateColorClass={stateColorClass}
+          StateIcon={StateIcon}
+          showContextPanel={showContextPanel}
+          wasRecordingBeforeHidden={wasRecordingBeforeHidden}
+          canRecord={canRecord}
+          minutesRemaining={minutesRemaining}
+          conversationId={conversationId}
+          isFinalized={isFinalized}
+          onToggleContextPanel={() => setShowContextPanel(!showContextPanel)}
+          onShowTranscriptModal={() => setShowTranscriptModal(true)}
+          onInitiateRecording={handleInitiateRecording}
+          onPauseRecording={handlePauseRecording}
+          onResumeRecording={handleResumeRecording}
+          onEndConversationAndFinalize={handleEndConversationAndFinalize}
+          onResetSession={handleResetSession}
+          onViewSummary={() => router.push(`/summary/${conversationId}`)}
+          textContext={textContext}
+          addUserContext={addUserContext}
+          setConversationState={setConversationState}
+        />
       )}
 
       {/* Main Interface Area */}
@@ -2331,7 +2182,26 @@ function AppContent() {
                 <p className="text-muted-foreground mb-8 text-lg">
                   Configure your conversation title, type, and add any context on the left panel. Then, click &quot;Get Ready&quot;.
                 </p>
-                <MainActionButton />
+                <div className="flex flex-col sm:flex-row gap-4 justify-center">
+                  <MainActionButton
+                    conversationState={conversationState}
+                    textContext={textContext}
+                    canRecord={canRecord}
+                    minutesRemaining={minutesRemaining}
+                    addUserContext={addUserContext}
+                    setConversationState={setConversationState}
+                    handleInitiateRecording={handleInitiateRecording}
+                    handlePauseRecording={handlePauseRecording}
+                    handleResumeRecording={handleResumeRecording}
+                    handleResetSession={handleResetSession}
+                  />
+                  <SecondaryActionButton
+                    conversationState={conversationState}
+                    transcriptLength={transcript.length}
+                    handleStopRecording={handleStopRecording}
+                    handleExportSession={handleExportSession}
+                  />
+                </div>
               </motion.div>
             )}
 
