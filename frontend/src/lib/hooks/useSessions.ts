@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 
 // Types
@@ -78,11 +78,17 @@ export function useSessions(): SessionsHookReturn {
   const [hasMore, setHasMore] = useState(false);
   const [pagination, setPagination] = useState<SessionsResponse['pagination'] | null>(null);
   const [currentFilters, setCurrentFilters] = useState<SessionFilters>({});
+  // Prevent infinite re-fetch loops once onboarding is detected
+  const onboardingRequired = useRef(false);
 
   /**
    * Fetch sessions from the API
    */
   const fetchSessions = useCallback(async (filters: SessionFilters = {}) => {
+    // Abort if onboarding is required
+    if (onboardingRequired.current) {
+      return;
+    }
     if (!user || authLoading) {
       return;
     }
@@ -118,6 +124,8 @@ export function useSessions(): SessionsHookReturn {
         // Don't throw error for onboarding - let dashboard handle it
         if (response.status === 400 && errorData.error === 'Setup required') {
           setError(errorData.message || 'Please complete onboarding first');
+          // Mark that onboarding is required to avoid repeated calls
+          onboardingRequired.current = true;
           setSessions([]);
           setLoading(false);
           return;

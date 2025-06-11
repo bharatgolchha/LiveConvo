@@ -261,119 +261,126 @@ export const PricingModal: React.FC<PricingModalProps> = ({ isOpen, onClose }) =
               </div>
             ) : (
               <div className="flex justify-center gap-4 max-w-3xl mx-auto">
-                {plans.filter(plan => plan.slug !== 'individual_free').map((plan) => {
-                  const price = billingPeriod === 'monthly' ? plan.pricing.monthly : plan.pricing.yearly;
-                  const monthlyPrice = plan.pricing.monthly;
-                  const yearlyPrice = plan.pricing.yearly;
-                  const savings = getYearlySavings(monthlyPrice, yearlyPrice);
-                  
-                  return (
-                    <motion.div
-                      key={plan.id}
-                      initial={{ opacity: 0, y: 20 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ duration: 0.3, delay: plan.display.sortOrder * 0.1 }}
-                    >
-                      <Card
-                        className={`relative p-4 hover:shadow-xl transition-all duration-300 border-2 w-full max-w-xs ${
-                          plan.display.isFeatured 
-                            ? 'border-primary shadow-xl shadow-primary/20 scale-105 bg-gradient-to-b from-card to-card/80' 
-                            : 'border-border hover:border-primary/50 hover:shadow-lg'
-                        } ${
-                          currentUserPlan === plan.slug ? 'ring-2 ring-green-500 ring-offset-2 border-green-500' : ''
-                        }`}
+                {plans
+                  // Exclude free tier (price 0 or slug/name equals 'free')
+                  .filter((plan) => {
+                    const isFreeSlug = plan.slug === 'free' || plan.slug === 'individual_free';
+                    const isZeroPrice = (plan.pricing.monthly ?? 0) === 0 && (plan.pricing.yearly ?? 0) === 0;
+                    return !isFreeSlug && !isZeroPrice;
+                  })
+                  .map((plan) => {
+                    const price = billingPeriod === 'monthly' ? plan.pricing.monthly : plan.pricing.yearly;
+                    const monthlyPrice = plan.pricing.monthly;
+                    const yearlyPrice = plan.pricing.yearly;
+                    const savings = getYearlySavings(monthlyPrice, yearlyPrice);
+                    
+                    return (
+                      <motion.div
+                        key={plan.id}
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.3, delay: plan.display.sortOrder * 0.1 }}
                       >
-                        {currentUserPlan === plan.slug && (
-                          <div className="absolute -top-4 left-1/2 -translate-x-1/2">
-                            <Badge className="px-3 py-1.5 bg-green-500 text-white border-0 shadow-lg text-sm font-semibold">
-                              ✓ Current Plan
-                            </Badge>
-                          </div>
-                        )}
-                        {plan.display.isFeatured && currentUserPlan !== plan.slug && (
-                          <div className="absolute -top-4 left-1/2 -translate-x-1/2">
-                            <Badge className="px-4 py-1.5 bg-primary text-primary-foreground border-0 shadow-lg text-sm font-semibold">
-                              <Star className="w-4 h-4 mr-1" fill="currentColor" />
-                              Recommended
-                            </Badge>
-                          </div>
-                        )}
-                      
-                        <div className="text-center mb-4">
-                          <div className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-primary/10 mb-2">
-                            {plan.slug === 'individual_free' ? (
-                              <Zap className="w-4 h-4 text-primary" />
-                            ) : (
-                              <Shield className="w-4 h-4 text-primary" />
-                            )}
-                          </div>
-                          <h3 className="text-lg font-bold mb-1 text-foreground">{plan.name}</h3>
-                          <p className="text-muted-foreground text-xs">{plan.description}</p>
-                        </div>
-
-                        <div className="text-center mb-4 py-3 border-y border-border bg-muted/20 -mx-4 px-4">
-                          <div className="flex items-baseline justify-center gap-1">
-                            <span className="text-2xl font-bold tracking-tight text-foreground">{formatPrice(price)}</span>
-                            {price !== null && price > 0 && (
-                              <span className="text-muted-foreground text-sm">
-                                /{billingPeriod === 'monthly' ? 'mo' : 'yr'}
-                              </span>
-                            )}
-                          </div>
-                          {billingPeriod === 'yearly' && savings > 0 && (
-                            <p className="text-xs text-green-600 dark:text-green-400 mt-1">
-                              ✨ Save {savings}%
-                            </p>
-                          )}
-                        </div>
-
-                        {/* Key Features - Show only top 3 to save space */}
-                        <div className="space-y-2 mb-4">
-                          <div className="flex items-center gap-2 text-xs text-foreground">
-                            <Check className="w-3 h-3 text-primary flex-shrink-0" />
-                            <span>
-                              {plan.limits.monthlyAudioHours
-                                ? plan.limits.monthlyAudioHours < 1 
-                                  ? `${plan.limits.monthlyAudioHours * 60} minutes/month`
-                                  : `${plan.limits.monthlyAudioHours} hours/month`
-                                : 'Unlimited hours'}
-                            </span>
-                          </div>
-                          <div className="flex items-center gap-2 text-xs text-foreground">
-                            <Check className="w-3 h-3 text-primary flex-shrink-0" />
-                            <span>
-                              {plan.limits.maxSessionsPerMonth
-                                ? `${plan.limits.maxSessionsPerMonth} sessions/month`
-                                : 'Unlimited sessions'}
-                            </span>
-                          </div>
-                          {Object.entries(plan.features).slice(0, 2).map(([key, value]) => {
-                            const label = featureLabels[key as keyof typeof featureLabels];
-                            if (!label || !value) return null;
-                            
-                            return (
-                              <div key={key} className="flex items-center gap-2 text-xs text-foreground">
-                                <Check className="w-3 h-3 text-primary flex-shrink-0" />
-                                <span>{label}</span>
-                              </div>
-                            );
-                          })}
-                        </div>
-
-                        <Button
-                          onClick={() => handleSelectPlan(plan)}
-                          className="w-full py-2 text-xs font-semibold"
-                          variant={plan.display.isFeatured ? 'primary' : 'outline'}
-                          disabled={currentUserPlan === plan.slug}
+                        <Card
+                          className={`relative p-4 hover:shadow-xl transition-all duration-300 border-2 w-full max-w-xs ${
+                            plan.display.isFeatured 
+                              ? 'border-primary shadow-xl shadow-primary/20 scale-105 bg-gradient-to-b from-card to-card/80' 
+                              : 'border-border hover:border-primary/50 hover:shadow-lg'
+                          } ${
+                            currentUserPlan === plan.slug ? 'ring-2 ring-green-500 ring-offset-2 border-green-500' : ''
+                          }`}
                         >
-                          {currentUserPlan === plan.slug ? 'Current Plan' :
-                           plan.slug === 'org_enterprise' ? 'Contact Sales' : 
-                           plan.slug === 'individual_free' ? 'Get Started' : 'Upgrade Now'}
-                        </Button>
-                      </Card>
-                    </motion.div>
-                  );
-                })}
+                          {currentUserPlan === plan.slug && (
+                            <div className="absolute -top-4 left-1/2 -translate-x-1/2">
+                              <Badge className="px-3 py-1.5 bg-green-500 text-white border-0 shadow-lg text-sm font-semibold">
+                                ✓ Current Plan
+                              </Badge>
+                            </div>
+                          )}
+                          {plan.display.isFeatured && currentUserPlan !== plan.slug && (
+                            <div className="absolute -top-4 left-1/2 -translate-x-1/2">
+                              <Badge className="px-4 py-1.5 bg-primary text-primary-foreground border-0 shadow-lg text-sm font-semibold">
+                                <Star className="w-4 h-4 mr-1" fill="currentColor" />
+                                Recommended
+                              </Badge>
+                            </div>
+                          )}
+                        
+                          <div className="text-center mb-4">
+                            <div className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-primary/10 mb-2">
+                              {plan.slug === 'individual_free' ? (
+                                <Zap className="w-4 h-4 text-primary" />
+                              ) : (
+                                <Shield className="w-4 h-4 text-primary" />
+                              )}
+                            </div>
+                            <h3 className="text-lg font-bold mb-1 text-foreground">{plan.name}</h3>
+                            <p className="text-muted-foreground text-xs">{plan.description}</p>
+                          </div>
+
+                          <div className="text-center mb-4 py-3 border-y border-border bg-muted/20 -mx-4 px-4">
+                            <div className="flex items-baseline justify-center gap-1">
+                              <span className="text-2xl font-bold tracking-tight text-foreground">{formatPrice(price)}</span>
+                              {price !== null && price > 0 && (
+                                <span className="text-muted-foreground text-sm">
+                                  /{billingPeriod === 'monthly' ? 'mo' : 'yr'}
+                                </span>
+                              )}
+                            </div>
+                            {billingPeriod === 'yearly' && savings > 0 && (
+                              <p className="text-xs text-green-600 dark:text-green-400 mt-1">
+                                ✨ Save {savings}%
+                              </p>
+                            )}
+                          </div>
+
+                          {/* Key Features - Show only top 3 to save space */}
+                          <div className="space-y-2 mb-4">
+                            <div className="flex items-center gap-2 text-xs text-foreground">
+                              <Check className="w-3 h-3 text-primary flex-shrink-0" />
+                              <span>
+                                {plan.limits.monthlyAudioHours
+                                  ? plan.limits.monthlyAudioHours < 1 
+                                    ? `${plan.limits.monthlyAudioHours * 60} minutes/month`
+                                    : `${plan.limits.monthlyAudioHours} hours/month`
+                                  : 'Unlimited hours'}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-2 text-xs text-foreground">
+                              <Check className="w-3 h-3 text-primary flex-shrink-0" />
+                              <span>
+                                {plan.limits.maxSessionsPerMonth
+                                  ? `${plan.limits.maxSessionsPerMonth} sessions/month`
+                                  : 'Unlimited sessions'}
+                              </span>
+                            </div>
+                            {Object.entries(plan.features).slice(0, 2).map(([key, value]) => {
+                              const label = featureLabels[key as keyof typeof featureLabels];
+                              if (!label || !value) return null;
+                              
+                              return (
+                                <div key={key} className="flex items-center gap-2 text-xs text-foreground">
+                                  <Check className="w-3 h-3 text-primary flex-shrink-0" />
+                                  <span>{label}</span>
+                                </div>
+                              );
+                            })}
+                          </div>
+
+                          <Button
+                            onClick={() => handleSelectPlan(plan)}
+                            className="w-full py-2 text-xs font-semibold"
+                            variant={plan.display.isFeatured ? 'primary' : 'outline'}
+                            disabled={currentUserPlan === plan.slug}
+                          >
+                            {currentUserPlan === plan.slug ? 'Current Plan' :
+                             plan.slug === 'org_enterprise' ? 'Contact Sales' : 
+                             plan.slug === 'individual_free' ? 'Get Started' : 'Upgrade Now'}
+                          </Button>
+                        </Card>
+                      </motion.div>
+                    );
+                  })}
               </div>
             )}
 

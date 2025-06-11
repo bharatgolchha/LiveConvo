@@ -66,25 +66,37 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Get the free plan
-    const { data: freePlan, error: planError } = await serviceClient
+    // Attempt to fetch the free plan. First try 'individual_free' (new name), fall back to 'free' (legacy name).
+    let { data: freePlan, error: planError } = await serviceClient
       .from('plans')
       .select('*')
       .eq('name', 'individual_free')
       .eq('is_active', true)
       .single();
 
-    console.log('📋 Plan query result:', { freePlan, planError });
+    if (planError || !freePlan) {
+      console.warn('individual_free plan not found – falling back to legacy "free" name', planError);
+
+      const fallback = await serviceClient
+        .from('plans')
+        .select('*')
+        .eq('name', 'free')
+        .eq('is_active', true)
+        .single();
+
+      freePlan = fallback.data || null;
+      planError = fallback.error;
+    }
+
+    console.log('📋 Resolved free plan:', { freePlan, planError });
 
     if (planError || !freePlan) {
       console.error('Free plan not found:', planError);
-      
-      // Check what plans are available
-      const { data: allPlans } = await serviceClient
-        .from('plans')
-        .select('*');
+
+      // Log available plans for debugging
+      const { data: allPlans } = await serviceClient.from('plans').select('*');
       console.log('📋 All available plans:', allPlans);
-      
+
       return NextResponse.json(
         { error: 'Setup error', message: 'Free plan not available' },
         { status: 500 }

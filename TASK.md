@@ -563,6 +563,15 @@
     - Proper cleanup of TypeScript interfaces and imports
   - **Result**: ✅ Audio feedback button successfully removed from both interface locations
 
+- [x] **🛠️ Fix Dashboard Onboarding Error** (2025-06-11) ✅ **JUST FIXED**
+  - **Issue**: New users encountered "Please complete onboarding first" error on initial dashboard load. The stats API (useUserStats hook) threw an unhandled 400 error when no organization was set, preventing the onboarding modal from appearing.
+  - **Solution Implemented**:
+    - ✅ Added graceful 400 "Setup required" handling in `useUserStats` hook, resetting stats to defaults and exposing a friendly error message.
+    - ✅ Updated dashboard onboarding check to include `statsError` alongside `sessionsError`, ensuring the `OnboardingModal` is shown whenever either API signals onboarding is required.
+    - ✅ Fixed onboarding API fallback: if `individual_free` plan is missing, falls back to legacy `free` plan to prevent 500 errors.
+    - ✅ Updated Stripe price IDs in Supabase secrets for Pro plan ($29/month, $290/year) and redeployed Edge Functions.
+  - **Status**: ✅ COMPLETED - The dashboard now automatically shows onboarding modal for new users and successfully completes setup with the free plan.
+
 ### ✅ Completed Tasks
 
 - [x] **✅ 📋 Checklist Tab Feature - Third Tab Implementation** (2025-01-30) 🆕 **JUST COMPLETED**

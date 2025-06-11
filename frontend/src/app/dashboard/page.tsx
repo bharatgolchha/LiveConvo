@@ -355,10 +355,6 @@ const ConversationInboxItem: React.FC<{
     }
   };
 
-
-
-
-
   const statusIndicator = getStatusIndicator(session.status);
 
   return (
@@ -1361,14 +1357,24 @@ const DashboardPage: React.FC = () => {
     }
   }, [subscription, planType]);
 
-  // Check if user needs onboarding
+  // Check if user needs onboarding (sessions or stats APIs)
   useEffect(() => {
-    console.log('🔍 Dashboard - checking onboarding:', { sessionsError, user: !!user });
-    if (sessionsError && (sessionsError.includes('Setup required') || sessionsError.includes('Please complete onboarding first'))) {
+    console.log('🔍 Dashboard - checking onboarding:', {
+      sessionsError,
+      statsError,
+      user: !!user,
+    });
+
+    const needsOnboarding = (error?: string | null) =>
+      error &&
+      (error.includes('Setup required') ||
+        error.includes('Please complete onboarding first'));
+
+    if (needsOnboarding(sessionsError) || needsOnboarding(statsError)) {
       console.log('🚀 Dashboard - showing onboarding modal');
       setShowOnboardingModal(true);
     }
-  }, [sessionsError]);
+  }, [sessionsError, statsError]);
 
   // Filter sessions based on search query and active path
   const filteredSessions = sessions.filter(session => {

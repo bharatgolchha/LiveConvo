@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 
 // Types
@@ -39,11 +39,17 @@ export function useUserStats(): UserStatsHookReturn {
   const [stats, setStats] = useState<UserStats | null>(defaultStats);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Prevent infinite re-fetch loops once onboarding is detected
+  const onboardingRequired = useRef(false);
 
   /**
    * Fetch user statistics from the API
    */
   const fetchStats = useCallback(async () => {
+    // Skip fetching if we've already determined onboarding is required
+    if (onboardingRequired.current) {
+      return;
+    }
     if (!user || authLoading) {
       return;
     }
@@ -64,9 +70,33 @@ export function useUserStats(): UserStatsHookReturn {
 
       if (!response.ok) {
         const errorData = await response.json();
+
+        // Handle expired auth tokens separately
         if (response.status === 401 && user) {
-          setSessionExpiredMessage(errorData.message || 'Your session for user stats has expired. Please sign in again.');
+          setSessionExpiredMessage(
+            errorData.message ||
+              'Your session for user stats has expired. Please sign in again.'
+          );
         }
+
+        // Gracefully handle missing onboarding / organization setup so the UI
+        // can prompt the user instead of crashing with an uncaught error.
+        if (
+          response.status === 400 &&
+          (errorData?.error === 'Setup required' ||
+            errorData?.message?.includes('Please complete onboarding'))
+        ) {
+          // Expose a friendly error so the dashboard can show the onboarding flow.
+          setError(errorData.message || 'Please complete onboarding first');
+          // Mark that onboarding is required so we don't keep calling this endpoint
+          onboardingRequired.current = true;
+          // Reset to defaults so consuming components don't break on nulls.
+          setStats(defaultStats);
+          setLoading(false);
+          return;
+        }
+
+        // For all other error cases, throw so the generic handler runs.
         throw new Error(errorData.message || 'Failed to fetch user stats');
       }
 
