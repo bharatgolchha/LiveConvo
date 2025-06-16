@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { buildChatMessages } from '@/lib/chatPromptBuilder';
 import { updateRunningSummary } from '@/lib/summarizer';
-import { createClient } from '@supabase/supabase-js';
+import { z } from 'zod';
 
 interface ChatMessage {
   id: string;
@@ -46,19 +46,37 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     
-    // Validate required fields
-    if (!body.message) {
-      return NextResponse.json(
-        { error: 'Message is required' },
-        { status: 400 }
-      );
+    // Validate body
+    const BodySchema = z.object({
+      message: z.string(),
+      transcript: z.string().default(''),
+      chatHistory: z.any().default([]),
+      conversationType: z.string().optional(),
+      sessionId: z.string().optional(),
+      textContext: z.string().optional(),
+      conversationTitle: z.string().optional(),
+      summary: z.any().optional(),
+      uploadedFiles: z.any().optional(),
+      selectedPreviousConversations: z.any().optional(),
+      personalContext: z.string().optional(),
+      stage: z.enum(['opening','discovery','demo','pricing','closing']).optional(),
+      isRecording: z.boolean().optional(),
+      transcriptLength: z.number().optional()
+    }).passthrough();
+
+    let parsedBody;
+    try {
+      parsedBody = BodySchema.parse(body);
+    } catch (e) {
+      console.error('Validation error', e);
+      return NextResponse.json({ error: 'Invalid request body' }, { status: 400 });
     }
-    
-    const { 
-      message, 
-      transcript = '', 
-      chatHistory = [], 
-      conversationType, 
+
+    const {
+      message,
+      transcript = '',
+      chatHistory = [],
+      conversationType,
       sessionId,
       textContext,
       conversationTitle,
@@ -66,9 +84,10 @@ export async function POST(request: NextRequest) {
       uploadedFiles,
       selectedPreviousConversations,
       personalContext,
+      stage,
       isRecording = false,
-      transcriptLength = 0
-    } = body;
+      transcriptLength = 0,
+    } = parsedBody;
 
     // Debug logging for personal context
     console.log('🔍 Chat API Debug:', {
@@ -90,7 +109,8 @@ export async function POST(request: NextRequest) {
     const parsedContext = parseContextFromMessage(message);
     const effectiveConversationType = parsedContext.conversationType || conversationType;
 
-    const systemPrompt = getChatGuidanceSystemPrompt(effectiveConversationType, isRecording, transcriptLength);
+    // If request body contains a recognized callStage we treat as chip-generation request
+    const chipsMode = !!stage;
 
     let runningSummary = summary?.tldr || '';
     let effectiveTranscript = transcript;
@@ -105,6 +125,16 @@ export async function POST(request: NextRequest) {
         console.error('Running summary update failed:', e);
       }
     }
+
+    const getChipPrompt = (conv:string, stg:string, obj:string)=>{
+      return `You are an expert ${conv || 'sales'} conversation coach.
+Current stage: ${stg}
+Objective/context: "${obj || 'n/a'}"
+
+Provide EXACTLY 3 contextual suggestions the user can tap right now, ranked by impact.
+Return ONLY a JSON array, each item:
+{"text":"<emoji> 4-6 words","prompt":"full question to ask","impact":80}`;
+    };
 
     const chatMessages = buildChatMessages(
       parsedContext.userMessage,
@@ -128,7 +158,7 @@ export async function POST(request: NextRequest) {
       body: JSON.stringify({
         model: 'google/gemini-2.5-flash-preview-05-20',
         messages: [
-          { role: 'system', content: systemPrompt },
+          { role: 'system', content: chipsMode ? getChipPrompt(effectiveConversationType || 'sales', stage || 'opening', textContext || '') : getChatGuidanceSystemPrompt(effectiveConversationType, isRecording, transcriptLength) },
           ...chatMessages,
         ],
         temperature: 0.4,
@@ -152,83 +182,50 @@ export async function POST(request: NextRequest) {
     console.log('OpenRouter response data:', data);
     console.log('Raw content to parse:', data.choices[0]?.message?.content);
     
-    let chatResponse;
-    try {
-      const rawContent = data.choices[0].message.content;
-      
-      // Check if the JSON response appears to be truncated
-      if (!rawContent.trim().endsWith('}')) {
-        console.warn('Response appears to be truncated:', rawContent);
-        
-        // Try to complete the JSON structure
-        let completedJson = rawContent;
-        if (!completedJson.includes('"suggestedActions"')) {
-          completedJson += ', "suggestedActions": [], "smartSuggestion": null, "confidence": 85}';
-        } else if (!completedJson.endsWith('}')) {
-          if (!completedJson.includes('"smartSuggestion"')) {
-            completedJson += ', "smartSuggestion": null';
-          }
-          completedJson += '}';
-        }
-        
-        try {
-          chatResponse = JSON.parse(completedJson);
-          console.log('Successfully parsed completed JSON');
-        } catch (completionError) {
-          console.error('Failed to complete truncated JSON:', completionError);
-          throw new Error('Response was truncated and could not be completed');
-        }
-      } else {
-        chatResponse = JSON.parse(rawContent);
-      }
-    } catch (parseError) {
-      console.error('JSON parsing error:', parseError);
-      console.error('Content that failed to parse:', data.choices[0]?.message?.content);
-      
-      // Fallback response if JSON parsing fails
-      return NextResponse.json({
-        response: data.choices[0]?.message?.content || "I'm having trouble processing your request right now.",
-        suggestedActions: [],
-        smartSuggestion: null,
-        confidence: 50,
-        generatedAt: new Date().toISOString(),
-        sessionId,
-        note: "Response parsed as plain text due to JSON parsing error"
-      });
-    }
-    
-    // After updating runningSummary, persist if changed and sessionId exists
-    if (sessionId && runningSummary && runningSummary !== summary?.tldr) {
-      try {
-        const supabaseUrl = process.env.SUPABASE_URL;
-        const supabaseServiceRole = process.env.SUPABASE_SERVICE_ROLE_KEY;
-        if (supabaseUrl && supabaseServiceRole) {
-          const supabase = createClient(supabaseUrl, supabaseServiceRole as string, {
-            auth: { persistSession: false },
-          });
-          const { error } = await supabase
-            .from('sessions')
-            .update({ realtime_summary_cache: { tldr: runningSummary } })
-            .eq('id', sessionId);
-          if (error) {
-            console.error('Failed to save running summary', error);
-          }
-        } else {
-          console.warn('Supabase env vars not set; skipping summary persistence');
-        }
-      } catch (err) {
-        console.error('Error persisting running summary:', err);
-      }
-    }
+    const rawContent = data.choices[0].message.content.trim();
 
-    return NextResponse.json({ 
-      response: chatResponse.response,
-      suggestedActions: chatResponse.suggestedActions || [],
-      confidence: chatResponse.confidence || 90,
-      smartSuggestion: chatResponse.smartSuggestion,
-      generatedAt: new Date().toISOString(),
-      sessionId 
-    });
+    if (chipsMode) {
+      // Expecting an array of chip objects
+      try {
+        const chips = z
+          .array(
+            z.object({
+              text: z.string().max(40),
+              prompt: z.string(),
+              impact: z.number().min(0).max(100).optional(),
+            })
+          )
+          .parse(JSON.parse(rawContent));
+
+        console.log('chips_shown', { stage, texts: chips.map((c) => c.text) });
+        return NextResponse.json({ suggestedActions: chips });
+      } catch (e) {
+        console.error('Chip JSON parse/validate failed:', e);
+        return NextResponse.json({}, { status: 204 });
+      }
+    } else {
+      // Expecting full ChatResponse object
+      let chatResp: any;
+      try {
+        chatResp = JSON.parse(rawContent);
+      } catch {
+        // If not JSON, wrap string into response field
+        chatResp = { response: rawContent, suggestedActions: [], confidence: 0 };
+      }
+
+      // Basic shape validation
+      if (typeof chatResp.response !== 'string') {
+        chatResp.response = rawContent;
+      }
+      if (!Array.isArray(chatResp.suggestedActions)) {
+        chatResp.suggestedActions = [];
+      }
+      if (typeof chatResp.confidence !== 'number') {
+        chatResp.confidence = 0;
+      }
+
+      return NextResponse.json(chatResp);
+    }
 
   } catch (error) {
     console.error('Chat guidance API error:', error);

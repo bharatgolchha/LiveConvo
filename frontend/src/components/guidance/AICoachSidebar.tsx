@@ -35,6 +35,9 @@ import remarkGfm from "remark-gfm";
 import rehypeHighlight from "rehype-highlight";
 import "highlight.js/styles/github.css";
 import { toast } from "sonner";
+import { useGuidanceChips } from '@/lib/hooks/useGuidanceChips';
+import { GuidancePhase } from '@/lib/guidancePresets';
+import { useCallStage } from '@/lib/hooks/useCallStage';
 
 interface SmartSuggestion {
   type: 'response' | 'action' | 'question' | 'followup' | 'objection' | 'timing' | 'emotional-intelligence' | 'redirect' | 'clarification' | 'summarize' | 'confidence-boost';
@@ -167,8 +170,6 @@ export default function AICoachSidebar({
   const [isExpanded, setIsExpanded] = useState(false);
   const [newMessage, setNewMessage] = useState("");
   const [isResizing, setIsResizing] = useState(false);
-  const [dynamicChips, setDynamicChips] = useState<GuidanceChip[]>([]);
-  const [isGeneratingChips, setIsGeneratingChips] = useState(false);
   const [addingToChecklistId, setAddingToChecklistId] = useState<string | null>(
     null,
   );
@@ -197,7 +198,7 @@ export default function AICoachSidebar({
   // Auto-generate contextual guidance chips using AI
   const generateContextualChips = useCallback(
     async (latestMessage: string, conversationContext: string) => {
-      setIsGeneratingChips(true);
+      setIsAIThinking(true);
 
       try {
         const response = await fetch("/api/chat-guidance", {
@@ -281,7 +282,6 @@ Example format for each chip: {"text": "🔥 Build rapport", "prompt": "How can 
               );
 
               if (chips.length > 0) {
-                setDynamicChips(chips.slice(0, 6)); // Limit to 6 chips
                 return; // Success, exit early
               }
             }
@@ -298,7 +298,6 @@ Example format for each chip: {"text": "🔥 Build rapport", "prompt": "How can 
                       (chip: GuidanceChip) => chip.text && chip.prompt,
                     );
                     if (validChips.length > 0) {
-                      setDynamicChips(validChips.slice(0, 6));
                       return;
                     }
                   }
@@ -313,11 +312,11 @@ Example format for each chip: {"text": "🔥 Build rapport", "prompt": "How can 
               "No valid guidance chips in response, using defaults:",
               data,
             );
-            setDynamicChips(getDefaultQuickHelp());
+            return getDefaultQuickHelp();
           } catch (parseError) {
             console.error("Error parsing AI chip response:", parseError);
             // Fallback to static chips if parsing fails
-            setDynamicChips(getDefaultQuickHelp());
+            return getDefaultQuickHelp();
           }
         } else {
           console.error("API request failed:", response.status, response.statusText);
@@ -328,14 +327,14 @@ Example format for each chip: {"text": "🔥 Build rapport", "prompt": "How can 
           } catch (e) {
             // Unable to parse error response
           }
-          setDynamicChips(getDefaultQuickHelp());
+          return getDefaultQuickHelp();
         }
       } catch (error) {
         console.error("Error generating contextual chips:", error);
         // Fallback to static chips on error
-        setDynamicChips(getDefaultQuickHelp());
+        return getDefaultQuickHelp();
       } finally {
-        setIsGeneratingChips(false);
+        setIsAIThinking(false);
       }
     },
     [contextSummary],
@@ -735,61 +734,6 @@ Example format for each chip: {"text": "🔥 Build rapport", "prompt": "How can 
     }
   }, [isAIThinking]);
 
-  // Generate initial contextual chips when context is available
-  useEffect(() => {
-    if (
-      contextSummary?.textContext &&
-      messages.length === 0 &&
-      dynamicChips.length === 0
-    ) {
-      if (isViewingFinalized) {
-        // For finalized conversations, use analysis-specific chips
-        const analysisChips: GuidanceChip[] = [
-          {
-            text: "🎯 Key objective",
-            prompt:
-              "What was the key objective for this conversation and was it achieved?",
-          },
-          {
-            text: "💡 Discovery questions",
-            prompt:
-              "What discovery questions were asked and what insights were gained?",
-          },
-          {
-            text: "🔥 Build rapport",
-            prompt:
-              "How effectively was rapport built during this conversation?",
-          },
-          {
-            text: "📊 Present value",
-            prompt: "How was value presented and what was the response?",
-          },
-          {
-            text: "🛡️ Handle objections",
-            prompt: "What objections came up and how were they handled?",
-          },
-          {
-            text: "🤝 Next steps",
-            prompt:
-              "What were the next steps and action items from this conversation?",
-          },
-        ];
-        setDynamicChips(analysisChips);
-      } else {
-        generateContextualChips(
-          `Starting ${contextSummary.conversationType} conversation`,
-          contextSummary.textContext,
-        );
-      }
-    }
-  }, [
-    contextSummary?.textContext,
-    messages.length,
-    dynamicChips.length,
-    generateContextualChips,
-    isViewingFinalized,
-  ]);
-
   // Handle resize functionality
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
@@ -853,11 +797,10 @@ Example format for each chip: {"text": "🔥 Build rapport", "prompt": "How can 
 
   const status = getStatusInfo();
 
-  // Determine current mode for dynamic title
+  // Determine current mode for other sidebar logic
   const hasActiveTranscript = (transcriptLength || 0) > 0;
   const isLiveConversation = isRecording || hasActiveTranscript;
   const currentMode = isLiveConversation ? "Live" : "Preparation";
-  const quickHelpButtons = getContextAwareQuickHelp();
 
   // Handle sending messages
   const handleSendMessage = () => {
@@ -875,21 +818,8 @@ Example format for each chip: {"text": "🔥 Build rapport", "prompt": "How can 
       onSendMessage(messageToSend);
       setNewMessage("");
 
-      // Auto-generate contextual chips based on the message and conversation context
-      const conversationContext = [
-        contextSummary?.textContext || "",
-        messages
-          .slice(-3)
-          .map((m) => `${m.type}: ${parseMessageForDisplay(m.content)}`)
-          .join("\n"),
-      ]
-        .filter(Boolean)
-        .join("\n\n");
-
-      // Generate new chips after a short delay to let the message be processed
-      setTimeout(() => {
-        generateContextualChips(messageContent, conversationContext);
-      }, 500);
+      // Refresh chips shortly after sending a message to get updated AI tips
+      setTimeout(() => refreshChips(), 500);
     }
   };
 
@@ -898,28 +828,6 @@ Example format for each chip: {"text": "🔥 Build rapport", "prompt": "How can 
       e.preventDefault();
       handleSendMessage();
     }
-  };
-
-  // Handle refreshing guidance chips
-  const handleRefreshChips = () => {
-    if (isViewingFinalized) return; // Don't refresh chips for completed conversations
-
-    const conversationContext = [
-      contextSummary?.textContext || "",
-      messages
-        .slice(-3)
-        .map((m) => `${m.type}: ${parseMessageForDisplay(m.content)}`)
-        .join("\n"),
-    ]
-      .filter(Boolean)
-      .join("\n\n");
-
-    const latestMessage =
-      messages.length > 0
-        ? parseMessageForDisplay(messages[messages.length - 1].content)
-        : `Planning ${contextSummary?.conversationType || "conversation"}`;
-
-    generateContextualChips(latestMessage, conversationContext);
   };
 
   // Handle auto-guidance - automatically generate and send the best guidance
@@ -1594,6 +1502,19 @@ Example format for each chip: {"text": "🔥 Build rapport", "prompt": "How can 
     );
   };
 
+  // useGuidanceChips replaces previous chip logic
+  const phase: GuidancePhase = isViewingFinalized ? 'analysis' : (isRecording || (transcriptLength || 0) > 0 ? 'live' : 'preparation');
+  // build transcript slice
+  const lastTranscript = messages.slice(-6).map(m=>m.content).join(' ').slice(-800);
+  const stage = useCallStage({ elapsedSec: sessionDuration, transcriptSlice: lastTranscript });
+  const { chips: guidanceChips, isLoading: chipsLoading, refresh: refreshChips, lastUpdated } = useGuidanceChips({
+    conversationType: contextSummary?.conversationType ?? 'sales',
+    phase,
+    latestMessage: messages.length ? messages[messages.length - 1].content : '',
+    context: contextSummary?.textContext ?? '',
+    stage
+  });
+
   return (
     <>
       {/* Resize Handle - Minimal Design */}
@@ -1751,20 +1672,12 @@ Example format for each chip: {"text": "🔥 Build rapport", "prompt": "How can 
             {/* Quick Help Actions */}
             <div className="flex-shrink-0 p-4 border-t border-border/30 bg-muted/30">
               <div className="flex items-center justify-between mb-3">
-                <div className="flex items-center gap-2">
-                  <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                    {isViewingFinalized
-                      ? "Analysis Questions"
-                      : contextSummary
-                        ? `${currentMode} ${contextSummary.conversationType} Help`
-                        : "Quick Help"}
-                    {isGeneratingChips && !isViewingFinalized && (
-                      <span className="ml-2 text-xs text-blue-500 animate-pulse">
-                        • AI generating...
-                      </span>
-                    )}
-                  </h4>
-                </div>
+                <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                  AI Tips
+                  {lastUpdated && (
+                    <span className="ml-1 text-[10px] text-muted-foreground">• {new Date(lastUpdated).toLocaleTimeString()}</span>
+                  )}
+                </h4>
                 <div className="flex items-center gap-1">
                   {isRecording && !isPaused && (
                     <Button
@@ -1792,18 +1705,12 @@ Example format for each chip: {"text": "🔥 Build rapport", "prompt": "How can 
                   <Button
                     variant="ghost"
                     size="sm"
-                    onClick={handleRefreshChips}
-                    disabled={isGeneratingChips || isViewingFinalized}
+                    onClick={refreshChips}
+                    disabled={chipsLoading}
                     className="h-6 w-6 p-0 text-muted-foreground hover:text-foreground"
-                    title={
-                      isViewingFinalized
-                        ? "Cannot refresh guidance for completed conversations"
-                        : "Refresh AI guidance suggestions"
-                    }
+                    title="Refresh AI guidance suggestions"
                   >
-                    <RefreshCw
-                      className={`h-3 w-3 ${isGeneratingChips ? "animate-spin" : ""}`}
-                    />
+                    <RefreshCw className={`h-3 w-3 ${chipsLoading ? "animate-spin" : ""}`} />
                   </Button>
                   <Button
                     variant="ghost"
@@ -1819,54 +1726,20 @@ Example format for each chip: {"text": "🔥 Build rapport", "prompt": "How can 
                 </div>
               </div>
               {isAnalysisVisible && (
-                <>
-                  <div className="grid grid-cols-2 gap-2 mb-3">
-                    {(dynamicChips.length > 0 ? dynamicChips : quickHelpButtons)
-                      .slice(0, 4)
-                      .map((help, idx) => (
-                        <Button
-                          key={`${help.text}-${idx}`}
-                          variant="outline"
-                          size="sm"
-                          onClick={() => setNewMessage(help.prompt)}
-                          className={`text-xs h-8 bg-card hover:bg-accent border-border justify-start ${
-                            dynamicChips.length > 0
-                              ? "ring-1 ring-blue-200 dark:ring-blue-800"
-                              : ""
-                          }`}
-                          disabled={!canRecord}
-                          title={!canRecord
-                              ? "No minutes remaining. Please upgrade your plan."
-                              : help.prompt}
-                        >
-                          {help.text}
-                        </Button>
-                      ))}
-                  </div>
-                  <div className="grid grid-cols-1 gap-1">
-                    {(dynamicChips.length > 0 ? dynamicChips : quickHelpButtons)
-                      .slice(4, 6)
-                      .map((help, idx) => (
-                        <Button
-                          key={`${help.text}-${idx + 4}`}
-                          variant="outline"
-                          size="sm"
-                          onClick={() => setNewMessage(help.prompt)}
-                          className={`text-xs h-7 bg-card hover:bg-accent border-border justify-start ${
-                            dynamicChips.length > 0
-                              ? "ring-1 ring-blue-200 dark:ring-blue-800"
-                              : ""
-                          }`}
-                          disabled={!canRecord}
-                          title={!canRecord
-                              ? "No minutes remaining. Please upgrade your plan."
-                              : help.prompt}
-                        >
-                          {help.text}
-                        </Button>
-                      ))}
-                  </div>
-                </>
+                <div className="space-y-2">
+                  {guidanceChips.map((chip, idx) => (
+                    <Button
+                      key={idx}
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setNewMessage(chip.prompt)}
+                      className="text-xs h-8 w-full justify-start"
+                      disabled={!canRecord}
+                    >
+                      {chip.text}
+                    </Button>
+                  ))}
+                </div>
               )}
             </div>
 
