@@ -77,12 +77,13 @@ export async function GET(request: NextRequest) {
     // Get audio usage (from usage_tracking table)
     const { data: usageData } = await supabase
       .from('usage_tracking')
-      .select('audio_minutes')
+      .select('seconds_recorded')
       .eq('user_id', user.id)
       .gte('created_at', firstDayOfMonth.toISOString())
       .order('created_at', { ascending: false });
 
-    const totalAudioMinutes = usageData?.reduce((sum: number, record: any) => sum + (record.audio_minutes || 0), 0) || 0;
+    const totalAudioSeconds = usageData?.reduce((sum: number, record: any) => sum + (record.seconds_recorded || 0), 0) || 0;
+    const totalAudioMinutes = totalAudioSeconds / 60;
     const totalAudioHours = Math.round((totalAudioMinutes / 60) * 100) / 100; // Round to 2 decimal places
 
     // Get session count for current month

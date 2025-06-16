@@ -373,7 +373,12 @@ export const SubscriptionManager: React.FC = () => {
                 if (audioHours < 1) return `${Math.round(audioHours * 60)} minutes`;
                 return `${audioHours} hours`;
               }
-              return isFree ? '30 minutes' : '7 hours';
+              // Fallback to usage data if planDetails not loaded
+              if (usage.limitAudioHours !== null) {
+                if (usage.limitAudioHours < 1) return `${Math.round(usage.limitAudioHours * 60)} minutes`;
+                return `${usage.limitAudioHours} hours`;
+              }
+              return 'Loading...';
             })()}
           </p>
           <p className="text-sm text-muted-foreground">
