@@ -42,59 +42,105 @@ export async function POST(request: NextRequest) {
     const serviceClient = createServerSupabaseClient();
     
     // Check if user exists in users table
-    const { data: existingUser } = await serviceClient
+    const { data: existingUserData } = await serviceClient
       .from('users')
       .select('has_completed_onboarding, current_organization_id, full_name')
       .eq('id', user.id)
       .single();
 
-    console.log('👤 Existing user query result:', { existingUser });
+    console.log('👤 Existing user query result:', { existingUserData });
 
-    // If user doesn't exist, return error (they should have been created by the trigger)
-    if (!existingUser) {
-      console.error('❌ User record not found for:', user.id);
-      return NextResponse.json(
-        { error: 'Database error', message: 'User profile not found. Please try signing in again.' },
-        { status: 500 }
-      );
+    // If user record is missing (trigger might have failed), create a basic profile on the fly
+    let userProfile = existingUserData;
+
+    if (!userProfile) {
+      console.warn('⚠️ User profile missing – attempting to create a new record for:', user.id);
+
+      const { data: createdUser, error: createUserError } = await serviceClient
+        .from('users')
+        .insert({
+          id: user.id,
+          email: user.email,
+          full_name: user.user_metadata?.full_name || user.email?.split('@')[0] || null,
+          has_completed_onboarding: false,
+          has_completed_organization_setup: false
+        })
+        .select()
+        .single();
+
+      if (createUserError || !createdUser) {
+        console.error('❌ Failed to auto-create user profile:', createUserError);
+        return NextResponse.json(
+          { error: 'Database error', message: 'Failed to create user profile. Please try again.' },
+          { status: 500 }
+        );
+      }
+
+      userProfile = createdUser;
     }
 
-    if (existingUser?.has_completed_onboarding) {
+    // Use the userProfile object for the rest of the onboarding flow
+
+    if (userProfile?.has_completed_onboarding) {
       return NextResponse.json(
         { error: 'Already onboarded', message: 'User has already completed onboarding' },
         { status: 400 }
       );
     }
 
-    // Get the free plan
-    const { data: freePlan, error: planError } = await serviceClient
+    // Get the free plan (create if missing)
+    let freePlan: any = null;
+    const { data: fetchedPlan, error: planError } = await serviceClient
       .from('plans')
       .select('*')
       .eq('name', 'individual_free')
       .eq('is_active', true)
       .single();
 
-    console.log('📋 Plan query result:', { freePlan, planError });
+    freePlan = fetchedPlan;
 
     if (planError || !freePlan) {
-      console.error('Free plan not found:', planError);
-      
-      // Check what plans are available
-      const { data: allPlans } = await serviceClient
+      console.warn('⚠️ Free plan not found – attempting to create default plan');
+
+      const { data: createdPlan, error: createPlanError } = await serviceClient
         .from('plans')
-        .select('*');
-      console.log('📋 All available plans:', allPlans);
-      
-      return NextResponse.json(
-        { error: 'Setup error', message: 'Free plan not available' },
-        { status: 500 }
-      );
+        .insert({
+          name: 'individual_free',
+          display_name: 'Individual Free',
+          description: 'Free plan with limited usage suitable for personal testing',
+          plan_type: 'individual',
+          price_monthly: null,
+          price_yearly: null,
+          monthly_audio_hours_limit: 3, // reasonable free limit
+          max_documents_per_session: 10,
+          max_file_size_mb: 25,
+          max_sessions_per_month: 40,
+          max_organization_members: 1,
+          has_real_time_guidance: true,
+          is_active: true,
+          is_featured: false,
+          sort_order: 0
+        })
+        .select()
+        .single();
+
+      if (createPlanError || !createdPlan) {
+        console.error('❌ Failed to create default free plan:', createPlanError);
+        return NextResponse.json(
+          { error: 'Setup error', message: 'Free plan not available and failed to create default.' },
+          { status: 500 }
+        );
+      }
+
+      freePlan = createdPlan;
     }
+
+    console.log('📋 Using free plan:', freePlan);
 
     // Generate organization name if not provided
     const userEmail = user.email || '';
     const defaultOrgName = organization_name || 
-      (existingUser?.full_name ? `${existingUser.full_name}'s Organization` : 
+      (userProfile?.full_name ? `${userProfile.full_name}'s Organization` : 
        `${userEmail.split('@')[0]}'s Organization`);
 
     // Generate unique slug for organization
@@ -127,7 +173,7 @@ export async function POST(request: NextRequest) {
         display_name: defaultOrgName,
         slug: organizationSlug,
         default_timezone: timezone,
-        monthly_audio_hours_limit: freePlan.monthly_audio_hours_limit,
+        monthly_audio_hours_limit: freePlan?.monthly_audio_hours_limit ?? null,
         max_members: freePlan.max_organization_members || 1,
         max_sessions_per_month: freePlan.max_sessions_per_month,
         is_active: true
@@ -151,7 +197,7 @@ export async function POST(request: NextRequest) {
         user_id: user.id,
         role: 'owner',
         status: 'active',
-        monthly_audio_hours_limit: freePlan.monthly_audio_hours_limit,
+        monthly_audio_hours_limit: freePlan?.monthly_audio_hours_limit ?? null,
         max_sessions_per_month: freePlan.max_sessions_per_month
       })
       .select()

@@ -81,15 +81,8 @@ declare global {
   }
 }
 
-interface TranscriptLine {
-  id: string;
-  text: string;
-  timestamp: Date;
-  speaker: 'ME' | 'THEM';
-  confidence?: number;
-}
-
-type ConversationState = 'setup' | 'ready' | 'recording' | 'paused' | 'processing' | 'completed' | 'error';
+// Import TranscriptLine and ConversationState from types
+import { TranscriptLine, ConversationState } from '@/types/conversation';
 
 type ConversationSummary = ConversationSummaryType;
 
@@ -206,7 +199,10 @@ function AppContent() {
   const { session, loading: authLoading } = useAuth(); // Add auth hook
   
   // Core State
-  const [conversationState, setConversationState] = useState<ConversationState>('setup');
+  // Start with 'loading' state if we have a conversationId (existing session)
+  const [conversationState, setConversationState] = useState<ConversationState>(
+    conversationId ? 'loading' : 'setup'
+  );
   const [isSummarizing, setIsSummarizing] = useState(false); // New state for End & Finalize animation
   const [isFinalized, setIsFinalized] = useState(false); // Track if finalization is complete
   const [transcript, setTranscript] = useState<TranscriptLine[]>([]);
@@ -1186,13 +1182,17 @@ function AppContent() {
               });
             }
           }
-          if (conversationState === 'setup') {
+          // Only transition from loading/setup to ready
+          if (conversationState === 'loading' || conversationState === 'setup') {
             setConversationState('ready');
           }
         } catch (error) {
           console.error('Error loading conversation config:', error);
-          setErrorMessage('Failed to load conversation settings.');
-          setConversationState('error');
+          // Only set error state if we're in loading state
+          if (conversationState === 'loading') {
+            setErrorMessage('Failed to load conversation settings.');
+            setConversationState('error');
+          }
         }
       }
     }
@@ -1283,11 +1283,12 @@ function AppContent() {
               console.log('DB Load: Session is active. Setting state to "paused".');
             } else { // 'draft' or other unknown status
               // If conversationState is 'setup', move to 'ready'. Otherwise, preserve current state if DB is 'draft'.
-              if (conversationState === 'setup') {
+              // If conversationState is 'loading' or 'setup', move to 'ready'
+              if (conversationState === 'loading' || conversationState === 'setup') {
                  setConversationState('ready');
-                 console.log('DB Load: Session is draft, initial state was setup. Setting state to "ready".');
+                 console.log('DB Load: Session is draft. Setting state to "ready".');
               } else {
-                 console.log('DB Load: Session is draft or unknown. Preserving current non-setup state:', conversationState);
+                 console.log('DB Load: Session is draft or unknown. Preserving current state:', conversationState);
               }
             }
             // Ensure hasLoadedFromStorage is true after DB state alignment attempt
@@ -1374,9 +1375,16 @@ function AppContent() {
           
         } catch (error) {
           console.error('❌ Failed to load session from database:', error);
-          // Don't set error state as user can still use the app
+          // If we're still in loading state, transition to setup/ready
+          if (conversationState === 'loading') {
+            setConversationState('ready');
+          }
         } finally {
           setIsLoadingFromSession(false);
+          // Ensure we're not stuck in loading state
+          if (conversationState === 'loading') {
+            setConversationState('ready');
+          }
         }
       }
     };
@@ -2254,6 +2262,7 @@ function AppContent() {
 
   const getStateTextAndColor = (state: ConversationState): {text: string, color: string, icon?: React.ElementType} => {
     switch (state) {
+      case 'loading': return {text: 'Loading', color: 'text-blue-500 bg-blue-100', icon: RefreshCw};
       case 'setup': return {text: 'Setup', color: 'text-gray-500 bg-gray-100', icon: Settings2};
       case 'ready': return {text: 'Ready', color: 'text-blue-600 bg-blue-100', icon: Play};
       case 'recording': return {text: 'Recording', color: 'text-red-600 bg-red-100 animate-pulse', icon: Mic};
@@ -2270,6 +2279,9 @@ function AppContent() {
   const { text: stateText, color: stateColorClass, icon: StateIcon } = getStateTextAndColor(conversationState);
 
   const MainActionButton: React.FC = () => {
+    if (conversationState === 'loading') {
+      return null; // Don't show action button while loading
+    }
     if (conversationState === 'setup') {
       return <Button onClick={() => { if (textContext) addUserContext(textContext); setConversationState('ready');}} size="lg" className="px-8 bg-primary hover:bg-primary/90 text-primary-foreground"><Play className="w-5 h-5 mr-2" />Get Ready</Button>;
     }
@@ -2365,6 +2377,7 @@ function AppContent() {
           currentTranscriptWords > 50 && 
           conversationState !== 'recording' && 
           conversationState !== 'setup' &&
+          conversationState !== 'loading' &&
           conversationId &&
           session &&
           !authLoading &&
@@ -2731,9 +2744,9 @@ function AppContent() {
         conversationTitle={conversationTitle}
       />
 
-      {/* Loading Modal */}
+      {/* Loading Modal - Show during initial loading or session loading */}
       <LoadingModal
-        isOpen={isLoadingFromSession}
+        isOpen={conversationState === 'loading' || isLoadingFromSession}
         title={conversationTitle && conversationTitle !== 'Untitled Conversation' ? conversationTitle : undefined}
         description={conversationId ? "Loading your session" : "Preparing your workspace"}
         isNewSession={!conversationId}

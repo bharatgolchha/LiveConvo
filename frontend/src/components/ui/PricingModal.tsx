@@ -163,13 +163,20 @@ export const PricingModal: React.FC<PricingModalProps> = ({ isOpen, onClose }) =
         },
         body: JSON.stringify({
           priceId: priceId,
-          userId: session.user.id,
-          billingCycle: billingPeriod
+          planId: plan.id,
+          interval: billingPeriod === 'monthly' ? 'month' : 'year'
         })
       });
 
       if (!response.ok) {
-        throw new Error('Failed to create checkout session');
+        const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+        
+        if (errorData.error && errorData.error.includes('STRIPE_SECRET_KEY')) {
+          alert('Payment system is not configured. Please contact support or check the STRIPE_IMMEDIATE_FIX.md file for setup instructions.');
+          return;
+        }
+        
+        throw new Error(errorData.error || 'Failed to create checkout session');
       }
 
       const { url } = await response.json();
@@ -177,8 +184,9 @@ export const PricingModal: React.FC<PricingModalProps> = ({ isOpen, onClose }) =
       // Redirect to Stripe checkout
       window.location.href = url;
       
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error creating checkout session:', error);
+      
       // Fallback to signup page
       onClose();
       router.push(`/auth/signup?plan=${plan.slug}&billing=${billingPeriod}`);
