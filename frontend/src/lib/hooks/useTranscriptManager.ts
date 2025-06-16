@@ -174,7 +174,8 @@ export function useTranscriptManager({
 
   // Set up polling for updates (optional, for multi-user scenarios)
   useEffect(() => {
-    const interval = setInterval(pollForUpdates, 5000); // Poll every 5 seconds
+    const POLL_INTERVAL = Number(process.env.NEXT_PUBLIC_TRANSCRIPT_POLL_MS || 30000);
+    const interval = setInterval(pollForUpdates, POLL_INTERVAL); // Poll every 30 seconds (configurable)
     return () => clearInterval(interval);
   }, [pollForUpdates]);
 

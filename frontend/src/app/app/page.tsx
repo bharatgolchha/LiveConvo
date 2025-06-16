@@ -952,15 +952,21 @@ function AppContent() {
           console.log('🚨 Component unmounting - saving pending transcripts');
           // Use beacon API for more reliable saving during navigation
           const unsavedLines = transcript.slice(lastSavedTranscriptIndex);
-          const data = JSON.stringify({
+
+          // Build payload in the format accepted by POST /transcript
+          const payload = unsavedLines.map((line, index) => ({
             session_id: conversationId,
-            transcript_lines: unsavedLines.map((line, index) => ({
-              sequence_number: lastSavedTranscriptIndex + index,
-              speaker: line.speaker,
-              text: line.text,
-              timestamp: line.timestamp
-            }))
-          });
+            content: line.text,
+            speaker: line.speaker.toLowerCase(),
+            confidence_score: line.confidence || 0.85,
+            start_time_seconds: (lastSavedTranscriptIndex + index) * 2, // rough timing
+            is_final: true,
+            stt_provider: 'deepgram',
+            client_id: line.id || `${Date.now()}-${index}`,
+            sequence_number: lastSavedTranscriptIndex + index + 1
+          }));
+
+          const data = JSON.stringify(payload);
           
           /*
            * Use fetch with keepalive so the request is still sent even when the
