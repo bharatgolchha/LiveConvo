@@ -5,6 +5,9 @@ import { User, Session, AuthError } from '@supabase/supabase-js'
 import { supabase, isSupabaseConfigured } from '@/lib/supabase'
 import { Button } from '@/components/ui/Button'
 import { AlertTriangle } from 'lucide-react'
+import { clearAuthData, isAuthError, handleAuthError } from '@/lib/auth-utils'
+
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
 
 interface AuthContextType {
   user: User | null
@@ -44,19 +47,44 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         
         if (error) {
           console.error('Error getting session:', error)
-          // Check if it's a refresh token error
-          if (error.message?.includes('Refresh Token') || error.message?.includes('refresh token')) {
+          // Check if it's a refresh token error or session missing error
+          if (error.message?.includes('Refresh Token') || 
+              error.message?.includes('refresh token') ||
+              error.message?.includes('Auth session missing')) {
             setSessionExpiredMessage('Your session has expired. Please sign in again.')
             // Clear any invalid stored session
-            await supabase.auth.signOut()
+            setUser(null)
+            setSession(null)
+            clearAuthData()
+          }
+        } else if (initialSession) {
+          // Verify the session is actually valid
+          try {
+            const { data: { user }, error: userError } = await supabase.auth.getUser()
+            if (userError || !user) {
+              console.error('Invalid session detected:', userError)
+              setUser(null)
+              setSession(null)
+              
+              clearAuthData()
+            } else {
+              setSession(initialSession)
+              setUser(user)
+            }
+          } catch (verifyError) {
+            console.error('Session verification failed:', verifyError)
+            setUser(null)
+            setSession(null)
           }
         } else {
-          setSession(initialSession)
-          setUser(initialSession?.user ?? null)
+          // No session found
+          setUser(null)
+          setSession(null)
         }
       } catch (error) {
         console.error('Error getting session:', error)
-        // setUser and setSession remain null
+        setUser(null)
+        setSession(null)
       } finally {
         setLoading(false)
       }
@@ -160,18 +188,47 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const handleSignOut = async () => {
     if (!isSupabaseConfigured) {
       setSessionExpiredMessage(null)
+      setUser(null)
+      setSession(null)
       return { error: null }
     }
     try {
-      const { error } = await supabase.auth.signOut()
+      // Clear local state first
+      setUser(null)
+      setSession(null)
       setSessionExpiredMessage(null)
-      if (error) {
+      
+      // Clear all auth data
+      clearAuthData()
+      
+      // Attempt to sign out from Supabase
+      try {
+        await supabase.auth.signOut()
+      } catch (error) {
         console.error('Sign out error:', error)
+        // Continue anyway since we've cleared local state
       }
-      return { error }
+      
+      // Redirect to home page after sign out
+      if (typeof window !== 'undefined') {
+        window.location.href = '/'
+      }
+      
+      return { error: null }
     } catch (error) {
+      // Even on error, clear local state
+      setUser(null)
+      setSession(null)
       setSessionExpiredMessage(null)
-      return { error: { message: 'Sign out failed' } as AuthError }
+      
+      // Clear all auth data
+      clearAuthData()
+      
+      if (typeof window !== 'undefined') {
+        window.location.href = '/'
+      }
+      
+      return { error: null }
     }
   }
 
