@@ -9,7 +9,8 @@
     "lint": "next lint",
     "test": "jest",
     "test:watch": "jest --watch",
-    "test:coverage": "jest --coverage"
+    "test:coverage": "jest --coverage",
+    "postbuild": "next-sitemap"
   },
   "dependencies": {
     "@deepgram/sdk": "^4.2.0",
@@ -51,7 +52,8 @@
     "tailwind-merge": "^3.3.0",
     "tailwindcss": "^3.4.17",
     "tailwindcss-animate": "^1.0.7",
-    "zod": "^3.25.30"
+    "zod": "^3.25.30",
+    "next-sitemap": "^4.0.2"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",
