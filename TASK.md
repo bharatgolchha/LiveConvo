@@ -1638,3 +1638,12 @@ None currently identified - all major issues have been resolved or moved to acti
 
 ### Completed (2025-06-16)
 - SEO enhancements for index page: added rich metadata, structured data JSON-LD, robots.txt, and sitemap generation.
+
+- [x] **📈 Integrate Google Tag Manager (GTM)** (2025-06-16) 🆕 **JUST COMPLETED**
+  - **Request**: Add Google Tag Manager snippets to every page for analytics
+  - **Implementation**:
+    - ✅ Added GTM script in `<head>` and noscript iframe after `<body>` using Next.js `Script` component
+    - ✅ Integrated code in `frontend/src/app/layout.tsx` to ensure presence across all pages
+    - ✅ Used `strategy="afterInteractive"` for optimized loading without blocking paint
+  - **Outcome**: GTM is now tracking user interactions across the entire site, enabling better analytics
+  - **Status**: ✅ COMPLETED - GTM successfully integrated site-wide
