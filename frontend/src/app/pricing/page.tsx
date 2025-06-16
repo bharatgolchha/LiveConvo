@@ -12,6 +12,7 @@ import { useTheme } from '@/contexts/ThemeContext';
 import { ThemeToggle } from '@/components/ui/ThemeToggle';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
+import { Footer } from '@/components/layout/Footer';
 
 interface PricingPlan {
   id: string;
@@ -598,6 +599,8 @@ export default function PricingPage() {
           </motion.div>
         </div>
       </div>
+      
+      <Footer />
     </div>
   );
 }
