@@ -962,19 +962,26 @@ function AppContent() {
             }))
           });
           
-          // Try beacon API first (survives navigation)
-          if (navigator.sendBeacon) {
-            const blob = new Blob([data], { type: 'application/json' });
-            navigator.sendBeacon(`/api/sessions/${conversationId}/transcript`, blob);
-          } else {
-            // Fallback to synchronous XHR (deprecated but works)
-            const xhr = new XMLHttpRequest();
-            xhr.open('POST', `/api/sessions/${conversationId}/transcript`, false); // false = synchronous
-            xhr.setRequestHeader('Content-Type', 'application/json');
-            if (session.access_token) {
-              xhr.setRequestHeader('Authorization', `Bearer ${session.access_token}`);
-            }
-            xhr.send(data);
+          /*
+           * Use fetch with keepalive so the request is still sent even when the
+           * tab is closing. This allows us to include the Authorization header,
+           * which navigator.sendBeacon does not support, avoiding 401 errors.
+           */
+          try {
+            fetch(`/api/sessions/${conversationId}/transcript`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                ...(session?.access_token ? { 'Authorization': `Bearer ${session.access_token}` } : {})
+              },
+              body: data,
+              // keepalive sends the request in the background while the page unloads
+              keepalive: true
+            }).catch(err => {
+              console.warn('⚠️ Unexpected error when queueing unload save:', err);
+            });
+          } catch (err) {
+            console.warn('⚠️ Failed to send pending transcripts during unload:', err);
           }
         }
       }
