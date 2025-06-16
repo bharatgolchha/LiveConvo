@@ -1553,12 +1553,14 @@ Example format for each chip: {"text": "🔥 Build rapport", "prompt": "How can 
             </ReactMarkdown>
 
             {/* Suggested actions (AI follow-ups) - Collapsible */}
-            {!isUser && ((message.metadata?.suggestedActions?.length ?? 0) > 0) && (
-              <SuggestedActionsAccordion
-                actions={message.metadata!.suggestedActions}
-                onActionClick={setNewMessage}
-              />
-            )}
+            {!isUser &&
+              message.metadata?.suggestedActions &&
+              message.metadata.suggestedActions.length > 0 && (
+                <SuggestedActionsAccordion
+                  actions={message.metadata.suggestedActions as string[]}
+                  onActionClick={setNewMessage}
+                />
+              )}
           </div>
           {/* Suggestions */}
           {message.metadata?.suggestions &&
