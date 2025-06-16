@@ -1849,12 +1849,10 @@ Example format for each chip: {"text": "🔥 Build rapport", "prompt": "How can 
                               ? "ring-1 ring-blue-200 dark:ring-blue-800"
                               : ""
                           }`}
-                          disabled={!canRecord || minutesRemaining <= 0}
-                          title={
-                            !canRecord || minutesRemaining <= 0
+                          disabled={!canRecord}
+                          title={!canRecord
                               ? "No minutes remaining. Please upgrade your plan."
-                              : help.prompt
-                          }
+                              : help.prompt}
                         >
                           {help.text}
                         </Button>
@@ -1874,12 +1872,10 @@ Example format for each chip: {"text": "🔥 Build rapport", "prompt": "How can 
                               ? "ring-1 ring-blue-200 dark:ring-blue-800"
                               : ""
                           }`}
-                          disabled={!canRecord || minutesRemaining <= 0}
-                          title={
-                            !canRecord || minutesRemaining <= 0
+                          disabled={!canRecord}
+                          title={!canRecord
                               ? "No minutes remaining. Please upgrade your plan."
-                              : help.prompt
-                          }
+                              : help.prompt}
                         >
                           {help.text}
                         </Button>
@@ -1897,7 +1893,7 @@ Example format for each chip: {"text": "🔥 Build rapport", "prompt": "How can 
                   onChange={(e) => setNewMessage(e.target.value)}
                   onKeyPress={handleKeyPress}
                   placeholder={
-                    !canRecord || minutesRemaining <= 0
+                    !canRecord
                       ? "No minutes remaining. Please upgrade your plan."
                       : isViewingFinalized
                         ? `Analyze this completed ${contextSummary?.conversationType || "conversation"}...`
@@ -1907,20 +1903,19 @@ Example format for each chip: {"text": "🔥 Build rapport", "prompt": "How can 
                   }
                   className="flex-1 min-h-[40px] max-h-[120px] resize-none"
                   rows={1}
-                  disabled={isAIThinking || !canRecord || minutesRemaining <= 0}
+                  disabled={isAIThinking || !canRecord}
                 />
                 <Button
                   onClick={handleSendMessage}
                   disabled={
                     !newMessage.trim() ||
                     isAIThinking ||
-                    !canRecord ||
-                    minutesRemaining <= 0
+                    !canRecord
                   }
                   size="sm"
                   className="px-4"
                   title={
-                    !canRecord || minutesRemaining <= 0
+                    !canRecord
                       ? "No minutes remaining. Please upgrade your plan."
                       : "Send message"
                   }
