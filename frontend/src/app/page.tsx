@@ -1089,18 +1089,22 @@ export default function LandingPage() {
                 <span className="text-xl font-bold" style={{ fontFamily: 'var(--font-poppins)', color: '#ffffff' }}>liveprompt.ai</span>
               </div>
               <p className="text-sm" style={{ color: '#9ca3af' }}>Your AI conversation co-pilot for better outcomes</p>
+              <p className="text-xs mt-1" style={{ color: '#6b7280' }}>© {new Date().getFullYear()} NexGenAI LLC. All rights reserved.</p>
             </div>
             
             <div className="flex items-center gap-8">
-              <Link href="/privacy" className="text-sm transition-colors" style={{ color: '#9ca3af' }} onMouseEnter={(e) => e.currentTarget.style.color = '#ffffff'} onMouseLeave={(e) => e.currentTarget.style.color = '#9ca3af'}>Privacy</Link>
-              <Link href="/terms" className="text-sm transition-colors" style={{ color: '#9ca3af' }} onMouseEnter={(e) => e.currentTarget.style.color = '#ffffff'} onMouseLeave={(e) => e.currentTarget.style.color = '#9ca3af'}>Terms</Link>
-              <Link href="/security" className="text-sm transition-colors" style={{ color: '#9ca3af' }} onMouseEnter={(e) => e.currentTarget.style.color = '#ffffff'} onMouseLeave={(e) => e.currentTarget.style.color = '#9ca3af'}>Security</Link>
-              <Link href="/status" className="text-sm transition-colors" style={{ color: '#9ca3af' }} onMouseEnter={(e) => e.currentTarget.style.color = '#ffffff'} onMouseLeave={(e) => e.currentTarget.style.color = '#9ca3af'}>Status</Link>
+              <Link href="/terms" className="text-sm transition-colors" style={{ color: '#9ca3af' }} onMouseEnter={(e) => e.currentTarget.style.color = '#ffffff'} onMouseLeave={(e) => e.currentTarget.style.color = '#9ca3af'}>Terms of Service</Link>
+              <Link href="/privacy" className="text-sm transition-colors" style={{ color: '#9ca3af' }} onMouseEnter={(e) => e.currentTarget.style.color = '#ffffff'} onMouseLeave={(e) => e.currentTarget.style.color = '#9ca3af'}>Privacy Policy</Link>
+              <Link href="/pricing" className="text-sm transition-colors" style={{ color: '#9ca3af' }} onMouseEnter={(e) => e.currentTarget.style.color = '#ffffff'} onMouseLeave={(e) => e.currentTarget.style.color = '#9ca3af'}>Pricing</Link>
+              <a href="mailto:hello@liveprompt.ai" className="text-sm transition-colors" style={{ color: '#9ca3af' }} onMouseEnter={(e) => e.currentTarget.style.color = '#ffffff'} onMouseLeave={(e) => e.currentTarget.style.color = '#9ca3af'}>Contact</a>
             </div>
             
-            <div className="flex items-center gap-4">
-              <Shield className="w-5 h-5" style={{ color: '#6b7280' }} />
-              <span className="text-sm" style={{ color: '#6b7280' }}>SOC 2 Compliant</span>
+            <div className="flex flex-col items-end gap-2">
+              <div className="flex items-center gap-4">
+                <Shield className="w-5 h-5" style={{ color: '#6b7280' }} />
+                <span className="text-sm" style={{ color: '#6b7280' }}>SOC 2 Compliant</span>
+              </div>
+              <span className="text-xs" style={{ color: '#6b7280' }}>Delaware, USA</span>
             </div>
           </div>
         </div>
