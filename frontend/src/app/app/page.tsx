@@ -2313,8 +2313,8 @@ function AppContent() {
           onClick={handleResumeRecording} 
           size="lg" 
           className="px-8 bg-primary hover:bg-primary/90 text-primary-foreground"
-          disabled={!canRecord || minutesRemaining <= 0}
-          title={!canRecord || minutesRemaining <= 0 ? "No minutes remaining. Please upgrade your plan." : "Resume recording"}
+          disabled={!canRecord}
+          title={!canRecord ? "No minutes remaining. Please upgrade your plan." : "Resume recording"}
         >
           <Play className="w-5 h-5 mr-2" />
           Resume
@@ -2532,8 +2532,8 @@ function AppContent() {
                           onClick={handleResumeRecording}
                           size="sm" 
                           className="bg-primary hover:bg-primary/90 text-primary-foreground font-medium"
-                          disabled={!canRecord || minutesRemaining <= 0}
-                          title={!canRecord || minutesRemaining <= 0 ? "No minutes remaining. Please upgrade your plan." : "Resume recording"}
+                          disabled={!canRecord}
+                          title={!canRecord ? "No minutes remaining. Please upgrade your plan." : "Resume recording"}
                         >
                           <Play className="w-4 h-4 mr-1.5" />
                           Resume
