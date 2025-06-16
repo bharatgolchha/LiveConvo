@@ -170,6 +170,54 @@ OPENROUTER_API_KEY=
 DEEPGRAM_API_KEY=
 ```
 
+## 🚀 Deployment Environments
+
+### Development Environment
+- **Database**: VoiceConvo Dev (`ucvfgfbjcrxbzppwjpuu`)
+- **URL**: https://ucvfgfbjcrxbzppwjpuu.supabase.co
+- **Region**: ap-southeast-1 (Singapore)
+- **Status**: Active development database
+
+### Production Environment  
+- **Database**: LiveConvo Production (`txacbzmkbbhtuvvbscwi`)
+- **URL**: https://txacbzmkbbhtuvvbscwi.supabase.co
+- **Region**: ap-southeast-1 (Singapore)
+- **Status**: Production-ready with full schema and edge functions
+
+### Edge Functions (Production)
+- **Stripe Webhooks**: `https://txacbzmkbbhtuvvbscwi.supabase.co/functions/v1/stripe-webhooks`
+- **Create Checkout**: `https://txacbzmkbbhtuvvbscwi.supabase.co/functions/v1/create-checkout-session`
+- **Billing Portal**: `https://txacbzmkbbhtuvvbscwi.supabase.co/functions/v1/create-portal-session`
+- **Test Stripe Config**: `https://txacbzmkbbhtuvvbscwi.supabase.co/functions/v1/test-stripe-config`
+
+### Deployment Configuration
+- **Platform**: Vercel
+- **Framework**: Next.js 15.3.2
+- **Build Directory**: `frontend/`
+- **Output Directory**: `frontend/.next`
+- **Node Version**: 18+
+
+### Production Environment Variables
+```bash
+# Production Database
+NEXT_PUBLIC_SUPABASE_URL=https://txacbzmkbbhtuvvbscwi.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR4YWNiem1rYmJodHV2dmJzY3dpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTAwNTkwMjQsImV4cCI6MjA2NTYzNTAyNH0.qzb4ufGObX_MpRf7cUt7LYA7JPnHA_ondjIUqtMr9zE
+SUPABASE_SERVICE_ROLE_KEY=[Get from Supabase Dashboard]
+
+# API Keys
+OPENROUTER_API_KEY=[Your OpenRouter API key]
+DEEPGRAM_API_KEY=[Your Deepgram API key]
+
+# Stripe (Production)
+STRIPE_SECRET_KEY=sk_live_[Your production Stripe secret key]
+NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_live_[Your production Stripe publishable key]
+STRIPE_WEBHOOK_SECRET=whsec_[Your production webhook secret]
+
+# App Configuration
+NEXT_PUBLIC_APP_URL=https://your-production-domain.com
+NODE_ENV=production
+```
+
 ## Testing Guidelines
 
 ### Test Structure

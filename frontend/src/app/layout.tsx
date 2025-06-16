@@ -26,6 +26,45 @@ const poppins = Poppins({
 export const metadata: Metadata = {
   title: "liveprompt.ai - Real-time Conversation Intelligence",
   description: "Transform your conversations with AI-powered real-time guidance and intelligent summaries",
+  icons: {
+    icon: [
+      {
+        url: '/favicon-16x16.png',
+        sizes: '16x16',
+        type: 'image/png',
+      },
+      {
+        url: '/favicon-32x32.png',
+        sizes: '32x32',
+        type: 'image/png',
+      },
+      {
+        url: '/favicon.ico',
+        sizes: 'any',
+      },
+    ],
+    apple: [
+      {
+        url: '/apple-touch-icon.png',
+        sizes: '180x180',
+        type: 'image/png',
+      },
+    ],
+    other: [
+      {
+        rel: 'mask-icon',
+        url: '/apple-touch-icon.png',
+        color: '#000000',
+      },
+    ],
+  },
+  manifest: '/site.webmanifest',
+  themeColor: '#000000',
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'default',
+    title: 'LivePrompt',
+  },
 };
 
 export default function RootLayout({
