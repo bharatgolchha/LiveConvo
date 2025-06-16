@@ -133,8 +133,8 @@ export async function GET(request: NextRequest) {
     const limitData = limits?.[0] || {
       can_record: true,
       minutes_used: 0,
-      minutes_limit: 30, // Default 30 minutes (free plan)
-      minutes_remaining: 30,
+      minutes_limit: 60, // Default 60 minutes (free plan)
+      minutes_remaining: 60,
       percentage_used: 0,
       is_unlimited: false
     };
