@@ -907,6 +907,9 @@ function AppContent() {
     if (conversationState === 'recording' && conversationId && transcript.length > 0) {
       // Smart batching: save when we have significant new content OR after time interval
       const autoSaveInterval = setInterval(async () => {
+        // Skip while tab is in background to reduce unnecessary network calls
+        if (document.hidden) return;
+        
         const unsavedLines = transcript.length - lastSavedTranscriptIndex;
         
         // Only save if we have new content worth saving
@@ -937,7 +940,7 @@ function AppContent() {
         } else {
           console.log(`💾 Auto-save skipped: only ${unsavedLines} new lines (need 5+)`);
         }
-      }, 45000); // Increased interval to 45 seconds to reduce database load
+      }, 30000); // Save at most every 30 s when tab is visible
       
       return () => clearInterval(autoSaveInterval);
     }
