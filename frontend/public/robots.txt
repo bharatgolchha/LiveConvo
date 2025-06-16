@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://liveprompt.ai/sitemap.xml 
