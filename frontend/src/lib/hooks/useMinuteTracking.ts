@@ -251,6 +251,11 @@ export function useMinuteTracking({
     // Update every second
     intervalRef.current = setInterval(() => {
       setState(prev => {
+        // If tab is hidden, don't count time – reduces background CPU and avoids needless API calls
+        if (document.hidden) {
+          return prev;
+        }
+
         const newSessionSeconds = prev.currentSessionSeconds + 1;
         
         secondsInCurrentMinute.current += 1;
