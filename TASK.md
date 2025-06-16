@@ -1596,3 +1596,18 @@ None currently identified - all major issues have been resolved or moved to acti
 - `frontend/src/components/ui/PricingModal.tsx` - Updated with Stripe integration ⭐
 - `frontend/src/components/settings/SubscriptionManager.tsx` - Subscription management UI ⭐
 - `TASK.md` (updated)
+
+- [x] **🛠️ Fix Onboarding Fails When User Profile Missing** (2025-06-11)
+  - **Issue**: New users received "User profile not found" and onboard failed because the trigger to create a `users` row sometimes didn't run, causing `/api/auth/onboard` to fail with 500.
+  - **Additional Issue**: User had incomplete onboarding (`has_completed_onboarding: false`) with no organization, membership, or subscription created.
+  - **Solution Implemented**:
+    - Updated `frontend/src/app/api/auth/onboard/route.ts` to automatically create a minimal `users` table entry if it's missing.
+    - Ensures onboarding can proceed even if database trigger fails.
+    - Added comprehensive logging and graceful error handling.
+    - **Database Fix**: Manually completed onboarding for user `e1ae6d39-bc60-4954-a498-ab08f14144af` by:
+      - Creating `individual_free` plan (3 audio hours/month, 40 sessions/month)
+      - Creating organization "Bharat Golchha's Organization"
+      - Creating organization membership with `owner` role
+      - Creating active subscription
+      - Setting `has_completed_onboarding = true` and `current_organization_id`
+  - **Status**: ✅ COMPLETED - Onboarding now works reliably even for first-time sign-ins, user can now access dashboard APIs

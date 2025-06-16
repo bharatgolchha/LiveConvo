@@ -27,9 +27,7 @@ import { DocumentTextIcon } from '@heroicons/react/24/outline';
 import { Button } from '@/components/ui/Button';
 import { cn } from '@/lib/utils';
 import { Session } from '@/lib/hooks/useSessions';
-
-type ConversationType = 'sales' | 'support' | 'meeting' | 'interview';
-type ConversationState = 'setup' | 'ready' | 'recording' | 'paused' | 'processing' | 'completed' | 'error';
+import { ConversationType, ConversationState } from '@/types/conversation';
 
 interface SetupModalProps {
   // Visibility

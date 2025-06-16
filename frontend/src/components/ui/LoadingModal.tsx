@@ -7,7 +7,6 @@ import {
   DialogContent,
   DialogTitle,
 } from "@/components/ui/dialog"
-import { cn } from "@/lib/utils"
 
 interface LoadingModalProps {
   isOpen: boolean
@@ -127,21 +126,23 @@ export function LoadingModal({
               transition={{ delay: 0.2 }}
             >
               <AnimatePresence mode="wait">
-                {[0, 1, 2].map((i) => (
-                  <motion.span
-                    key={i}
-                    className="inline-block w-1.5 h-1.5 mx-0.5 bg-blue-500 rounded-full"
-                    initial={{ opacity: 0, scale: 0 }}
-                    animate={{ 
-                      opacity: i < dots ? 1 : 0.3,
-                      scale: i < dots ? 1.2 : 1,
-                    }}
-                    transition={{
-                      duration: 0.3,
-                      ease: "easeInOut",
-                    }}
-                  />
-                ))}
+                <motion.div key={`dots-${dots}`} className="flex">
+                  {[0, 1, 2].map((i) => (
+                    <motion.span
+                      key={i}
+                      className="inline-block w-1.5 h-1.5 mx-0.5 bg-blue-500 rounded-full"
+                      initial={{ opacity: 0, scale: 0 }}
+                      animate={{ 
+                        opacity: i < dots ? 1 : 0.3,
+                        scale: i < dots ? 1.2 : 1,
+                      }}
+                      transition={{
+                        duration: 0.3,
+                        ease: "easeInOut",
+                      }}
+                    />
+                  ))}
+                </motion.div>
               </AnimatePresence>
             </motion.div>
           </div>

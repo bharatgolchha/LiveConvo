@@ -100,7 +100,7 @@ export function useSubscription(): UseSubscriptionReturn {
   }, [session, authLoading, fetchSubscription]);
 
   // Derive plan type from subscription data
-  const planType: 'free' | 'pro' | 'team' = subscription?.plan.name === 'individual_pro' 
+  const planType: 'free' | 'pro' | 'team' = subscription?.plan.name === 'pro' 
     ? 'pro' 
     : subscription?.plan.name === 'team' 
     ? 'team' 

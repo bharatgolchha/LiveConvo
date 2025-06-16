@@ -39,6 +39,7 @@ export async function POST(request: NextRequest) {
     const token = authHeader?.split(' ')[1];
     
     if (!token) {
+      console.log('Track minute: No auth token provided');
       return NextResponse.json(
         { error: 'Unauthorized', message: 'Please sign in to track usage' },
         { status: 401 }
@@ -50,6 +51,7 @@ export async function POST(request: NextRequest) {
     const { data: { user }, error: authError } = await authSupabase.auth.getUser();
     
     if (authError || !user) {
+      console.log('Track minute: Auth error or no user', { authError: authError?.message });
       return NextResponse.json(
         { error: 'Unauthorized', message: 'Please sign in to track usage' },
         { status: 401 }

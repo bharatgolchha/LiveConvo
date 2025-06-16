@@ -149,9 +149,13 @@ export function useMinuteTracking({
       console.warn('❌ trackMinute: No auth token - minute not tracked!', {
         sessionId,
         seconds,
-        hasAuthSession: !!authSession
+        hasAuthSession: !!authSession,
+        authSessionKeys: authSession ? Object.keys(authSession) : []
       });
-      setError('Authentication required to track usage');
+      // Don't set error for missing auth during development
+      if (process.env.NODE_ENV !== 'development') {
+        setError('Authentication required to track usage');
+      }
       return;
     }
 
@@ -173,8 +177,17 @@ export function useMinuteTracking({
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({ message: 'Unknown error' }));
-        console.error('❌ Track minute API error:', response.status, errorData);
-        setError(`Failed to track usage: ${errorData.message}`);
+        
+        // Only log error in development or if it's not a 401
+        if (process.env.NODE_ENV === 'development' || response.status !== 401) {
+          console.error('❌ Track minute API error:', response.status, errorData);
+        }
+        
+        // Don't show error for 401 in production (user might be logging out)
+        if (response.status !== 401) {
+          setError(`Failed to track usage: ${errorData.message}`);
+        }
+        
         throw new Error(errorData.message || 'Failed to track minute');
       }
 
@@ -220,6 +233,12 @@ export function useMinuteTracking({
       return;
     }
 
+    // Don't start tracking if no auth session
+    if (!authSession?.access_token) {
+      console.warn('⚠️ Cannot start tracking without auth session');
+      return;
+    }
+
     console.log('🎯 Starting minute tracking...', {
       sessionId,
       hasAuth: !!authSession?.access_token,
@@ -240,8 +259,8 @@ export function useMinuteTracking({
         if (secondsInCurrentMinute.current >= 60) {
           const currentMinute = Math.floor(newSessionSeconds / 60) + 1;
           
-          // Only track if this is a new minute
-          if (currentMinute > lastMinuteSaved.current) {
+          // Only track if this is a new minute and we have auth
+          if (currentMinute > lastMinuteSaved.current && authSession?.access_token) {
             lastMinuteSaved.current = currentMinute;
             console.log(`⏰ Completed minute ${currentMinute}, tracking 60 seconds...`);
             trackMinute(60); // Full minute
@@ -262,7 +281,7 @@ export function useMinuteTracking({
         };
       });
     }, 1000);
-  }, [trackMinute, sessionId, authSession?.access_token]);
+  }, [trackMinute, sessionId, authSession]);
 
   // Stop recording timer
   const stopTracking = useCallback(() => {
@@ -271,8 +290,8 @@ export function useMinuteTracking({
       intervalRef.current = null;
     }
 
-    // Track any remaining seconds as a partial minute
-    if (secondsInCurrentMinute.current > 0 && sessionId) {
+    // Track any remaining seconds as a partial minute (only if we have auth)
+    if (secondsInCurrentMinute.current > 0 && sessionId && authSession?.access_token) {
       console.log(`⏰ Recording stopped, tracking partial minute: ${secondsInCurrentMinute.current} seconds`);
       const promise = trackMinute(secondsInCurrentMinute.current);
       
@@ -287,7 +306,7 @@ export function useMinuteTracking({
     recordingStartTime.current = null;
     secondsInCurrentMinute.current = 0;
     return Promise.resolve(null); // Return a resolved promise
-  }, [sessionId, trackMinute]);
+  }, [sessionId, trackMinute, authSession]);
 
   // Reset session tracking
   const resetSession = useCallback(() => {

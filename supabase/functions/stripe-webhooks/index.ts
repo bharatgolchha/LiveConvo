@@ -137,29 +137,35 @@ Deno.serve(async (req: Request) => {
         
         // Get price ID and plan
         const priceId = subscription.items.data[0]?.price.id;
-        console.log('Price ID:', priceId);
+        console.log('Price details:', {
+          priceId: priceId,
+          unitAmount: subscription.items.data[0]?.price.unit_amount,
+          interval: subscription.items.data[0]?.price.recurring?.interval
+        });
         
-        // Hardcode the plan lookup for now
-        let planId = null;
-        let planType = 'individual_free';
-        
-        if (priceId === 'price_1RXa5S2eW0vYydurJ8nlepOf' || priceId === 'price_1RXa5Z2eW0vYydurC5gLjswF') {
-          planId = 'c4d87221-80b1-477c-bc21-bce5532e764e';
-          planType = 'individual_pro';
-        }
-        
-        console.log('Plan:', { planId, planType });
-        
-        if (!planId) {
-          console.error('Unknown price ID:', priceId);
+        // Look up plan by price ID from database
+        const { data: planData, error: planError } = await supabase
+          .from('plans')
+          .select('id, name, plan_type')
+          .or(`stripe_price_id_monthly.eq.${priceId},stripe_price_id_yearly.eq.${priceId}`)
+          .single();
+          
+        if (planError || !planData) {
+          console.error('Plan lookup error:', planError);
           return new Response(JSON.stringify({ 
             received: true, 
-            error: 'Unknown price' 
+            error: 'Plan not found for price',
+            priceId: priceId
           }), {
             headers: { 'Content-Type': 'application/json', ...corsHeaders },
             status: 200,
           });
         }
+        
+        const planId = planData.id;
+        const planType = planData.plan_type || 'individual';
+        
+        console.log('Plan found:', { planId, planType });
         
         // Generate UUID for the subscription
         const subscriptionId = globalThis.crypto.randomUUID();
@@ -307,7 +313,12 @@ Deno.serve(async (req: Request) => {
       if (event.type === 'invoice.payment_succeeded') {
         const invoice = event.data.object;
         console.log('Processing payment success for invoice:', invoice.id);
-        console.log('Subscription ID:', invoice.subscription);
+        console.log('Invoice details:', {
+          subscription_id: invoice.subscription,
+          customer_id: invoice.customer,
+          amount_paid: invoice.amount_paid,
+          billing_reason: invoice.billing_reason
+        });
         
         if (invoice.subscription) {
           // Update subscription status to active

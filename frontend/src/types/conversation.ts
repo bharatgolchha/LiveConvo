@@ -23,7 +23,7 @@ export interface DatabaseTranscriptLine {
   is_final?: boolean;
 }
 
-export type ConversationState = 'setup' | 'ready' | 'recording' | 'paused' | 'processing' | 'completed' | 'error';
+export type ConversationState = 'loading' | 'setup' | 'ready' | 'recording' | 'paused' | 'processing' | 'completed' | 'error';
 
 export type ConversationType = 'sales' | 'support' | 'meeting' | 'interview';
 
