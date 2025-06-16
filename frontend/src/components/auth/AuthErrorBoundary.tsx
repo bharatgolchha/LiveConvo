@@ -3,6 +3,7 @@
 import React from 'react';
 import { Button } from '@/components/ui/Button';
 import { AlertCircle } from 'lucide-react';
+import { isAuthError, clearAuthData } from '@/lib/auth-utils';
 
 interface Props {
   children: React.ReactNode;
@@ -20,12 +21,10 @@ export class AuthErrorBoundary extends React.Component<Props, State> {
   }
 
   static getDerivedStateFromError(error: Error): State {
-    // Check if it's an auth error
-    if (
-      error.message?.includes('Refresh Token') ||
-      error.message?.includes('Invalid Refresh Token') ||
-      error.name === 'AuthApiError'
-    ) {
+    // Check if it's an auth error using our utility
+    if (isAuthError(error)) {
+      // Clear auth data immediately
+      clearAuthData();
       return { hasError: true, error };
     }
     return { hasError: false };
@@ -33,16 +32,20 @@ export class AuthErrorBoundary extends React.Component<Props, State> {
 
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
     console.error('Auth error caught by boundary:', error, errorInfo);
+    
+    // If it's an auth error, redirect to recovery page
+    if (this.state.hasError && isAuthError(error)) {
+      setTimeout(() => {
+        window.location.href = '/auth/recovery';
+      }, 1000);
+    }
   }
 
   handleClearSession = () => {
-    // Clear all auth-related storage
-    if (typeof window !== 'undefined') {
-      localStorage.clear();
-      sessionStorage.clear();
-      // Redirect to clear auth
-      window.location.href = '/auth/clear';
-    }
+    // Clear all auth-related storage using our utility
+    clearAuthData();
+    // Redirect to recovery page
+    window.location.href = '/auth/recovery';
   };
 
   render() {
