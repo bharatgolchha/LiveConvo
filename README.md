@@ -201,3 +201,76 @@ If you're migrating from a previous version that used OpenAI directly:
 2. Update any hardcoded references to OpenAI API endpoints
 3. Models are now prefixed (e.g., `openai/gpt-4o-mini`)
 4. All API calls now go through OpenRouter for better model access and pricing 
+
+## 🚀 Deployment
+
+### Production Environment
+
+LiveConvo is deployed with the following infrastructure:
+
+- **Platform**: Vercel
+- **Database**: Supabase PostgreSQL
+- **Production Database**: `txacbzmkbbhtuvvbscwi` (LiveConvo Production)
+- **Development Database**: `ucvfgfbjcrxbzppwjpuu` (VoiceConvo Dev)
+
+### Environment URLs
+
+#### Production
+- **Database URL**: `https://txacbzmkbbhtuvvbscwi.supabase.co`
+- **Edge Functions**:
+  - Stripe Webhooks: `https://txacbzmkbbhtuvvbscwi.supabase.co/functions/v1/stripe-webhooks`
+  - Create Checkout: `https://txacbzmkbbhtuvvbscwi.supabase.co/functions/v1/create-checkout-session`
+  - Billing Portal: `https://txacbzmkbbhtuvvbscwi.supabase.co/functions/v1/create-portal-session`
+  - Test Stripe Config: `https://txacbzmkbbhtuvvbscwi.supabase.co/functions/v1/test-stripe-config`
+
+#### Development
+- **Database URL**: `https://ucvfgfbjcrxbzppwjpuu.supabase.co`
+- **Local Development**: `http://localhost:3000`
+
+### Deployment Configuration
+
+The project uses Vercel for deployment with the following configuration:
+
+```json
+{
+  "buildCommand": "cd frontend && npm ci --include=dev && npm run build",
+  "outputDirectory": "frontend/.next",
+  "framework": "nextjs",
+  "regions": ["iad1"]
+}
+```
+
+### Production Environment Variables
+
+For production deployment, configure these environment variables in Vercel:
+
+```bash
+# Production Database
+NEXT_PUBLIC_SUPABASE_URL=https://txacbzmkbbhtuvvbscwi.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR4YWNiem1rYmJodHV2dmJzY3dpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTAwNTkwMjQsImV4cCI6MjA2NTYzNTAyNH0.qzb4ufGObX_MpRf7cUt7LYA7JPnHA_ondjIUqtMr9zE
+SUPABASE_SERVICE_ROLE_KEY=[Get from Supabase Dashboard]
+
+# API Keys
+OPENROUTER_API_KEY=[Your OpenRouter API key]
+DEEPGRAM_API_KEY=[Your Deepgram API key]
+
+# Stripe Production Keys
+STRIPE_SECRET_KEY=sk_live_[Your production Stripe secret key]
+NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_live_[Your production Stripe publishable key]
+STRIPE_WEBHOOK_SECRET=whsec_[Your production webhook secret]
+
+# App Configuration
+NEXT_PUBLIC_APP_URL=https://your-production-domain.com
+NODE_ENV=production
+```
+
+### Database Schema
+
+The production database includes:
+- **20 core tables** with complete relationships
+- **Row-Level Security (RLS)** policies for data protection
+- **Edge functions** for Stripe integration and billing
+- **Default plans** (Free & Pro) with pricing configuration
+- **Usage tracking** and analytics capabilities
+
+For detailed deployment instructions, see [DEPLOYMENT_GUIDE.md](DEPLOYMENT_GUIDE.md). 
