@@ -431,7 +431,9 @@ function AppContent() {
   const latestTextContext = useRef('');
   const contextSaveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const previousConversationState = useRef<ConversationState | null>(null);
-  
+  // Track if we have already fetched full session data for this conversation to avoid redundant network requests
+  const hasLoadedSessionRef = useRef(false);
+
   // UI State
   const [showContextPanel, setShowContextPanel] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -1029,6 +1031,11 @@ function AppContent() {
           return;
         }
 
+        // Prevent redundant reloads once the session data has been successfully fetched
+        if (hasLoadedSessionRef.current) {
+          return;
+        }
+
         try {
           console.log('🔄 Loading session data from database...', conversationId);
           setIsLoadingFromSession(true);
@@ -1170,6 +1177,8 @@ function AppContent() {
             }
           }
           console.log('✅ Session data loaded successfully from database');
+          // Mark that we have loaded session once to avoid redundant future loads
+          hasLoadedSessionRef.current = true;
           
         } catch (error) {
           console.error('❌ Failed to load session from database:', error);
@@ -2189,6 +2198,11 @@ function AppContent() {
       loadSessionDetails(conversationId);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [conversationId]);
+
+  // Reset session loaded flag when switching to a different conversation
+  useEffect(() => {
+    hasLoadedSessionRef.current = false;
   }, [conversationId]);
 
   // UI Render
