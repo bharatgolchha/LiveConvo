@@ -7,22 +7,12 @@ import { useDeepgramTranscription } from './deepgramTranscription';
  */
 export function useTranscription(provider: 'openai' | 'deepgram' = 'deepgram') {
   // Use provider-specific transcription service
-  const openaiTranscription = useWebRTCTranscription();
-  const deepgramTranscription = useDeepgramTranscription();
+  const openaiTranscription = useWebRTCTranscription(provider === 'openai');
+  const deepgramTranscription = useDeepgramTranscription(provider === 'deepgram');
 
-  if (provider === 'deepgram') {
-    return {
-      ...deepgramTranscription,
-      isMockMode: false,
-      provider: 'deepgram' as const
-    };
-  } else {
-    return {
-      ...openaiTranscription,
-      isMockMode: false,
-      provider: 'openai' as const
-    };
-  }
+  return provider === 'deepgram'
+    ? { ...deepgramTranscription, isMockMode: false, provider: 'deepgram' as const }
+    : { ...openaiTranscription, isMockMode: false, provider: 'openai' as const };
 }
 
  

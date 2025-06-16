@@ -1,4 +1,5 @@
 import React from 'react';
+import { getApiConfig } from '@/lib/apiConfig';
 
 /**
  * OpenAI Realtime API WebRTC integration for live transcription
@@ -449,7 +450,7 @@ export class WebRTCTranscriptionService {
 /**
  * Hook for using WebRTC-based real-time transcription
  */
-export function useWebRTCTranscription() {
+export function useWebRTCTranscription(enabled: boolean = true) {
   const [service, setService] = React.useState<WebRTCTranscriptionService | null>(null);
   const [isConnected, setIsConnected] = React.useState(false);
   const [isRecording, setIsRecording] = React.useState(false);
@@ -459,26 +460,23 @@ export function useWebRTCTranscription() {
 
   // Initialize service with API key from backend
   React.useEffect(() => {
+    if (!enabled) return;
+    
     async function initializeService() {
       try {
         console.log('🔑 Fetching OpenAI API key from backend...');
-        const response = await fetch('/api/config');
-        
-        if (!response.ok) {
-          throw new Error(`Failed to get API key: ${response.status}`);
-        }
-        
-        const config = await response.json();
-        
-        if (!config.success || !config.apiKey) {
-          throw new Error('Invalid API key response');
-        }
-        
-        console.log('✅ API key retrieved successfully');
-        const newService = new WebRTCTranscriptionService({ apiKey: config.apiKey });
+        const config = await getApiConfig();
+
+        if (!config.success) throw new Error('Invalid API config');
+
+        const responseData = { success: true, apiKey: config.apiKey };
+
+        // mimic old behavior vars
+
+        const newService = new WebRTCTranscriptionService({ apiKey: responseData.apiKey! });
         setService(newService);
         setIsInitialized(true);
-        
+        return;
       } catch (error) {
         console.error('❌ Failed to initialize transcription service:', error);
         setError(error instanceof Error ? error.message : 'Failed to initialize');
@@ -486,7 +484,7 @@ export function useWebRTCTranscription() {
     }
     
     initializeService();
-  }, []);
+  }, [enabled]);
 
   React.useEffect(() => {
     if (!service) return;

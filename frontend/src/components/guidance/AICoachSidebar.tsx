@@ -17,7 +17,6 @@ import {
   Send,
   HelpCircle,
   Target,
-  ArrowRight,
   Clock,
   Shield,
   Calendar,
@@ -139,64 +138,6 @@ const AIThinkingAnimation = () => (
     </div>
   </div>
 );
-
-// Elegant collapsible suggested actions component
-const SuggestedActionsAccordion: React.FC<{
-  actions: string[];
-  onActionClick: (action: string) => void;
-}> = ({ actions, onActionClick }) => {
-  const [isExpanded, setIsExpanded] = useState(false);
-
-  return (
-    <div className="mt-2">
-      {/* Compact trigger button */}
-      <button
-        onClick={() => setIsExpanded(!isExpanded)}
-        className="group flex items-center gap-2 w-full p-2 text-left bg-blue-50/30 dark:bg-blue-950/20 hover:bg-blue-50/50 dark:hover:bg-blue-950/30 border border-blue-200/30 dark:border-blue-700/30 rounded-lg transition-all duration-200"
-      >
-        <div className="flex items-center gap-2 flex-1">
-          <Sparkles className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400" />
-          <span className="text-xs font-medium text-blue-900 dark:text-blue-100">
-            Live Prompts
-          </span>
-          <Badge variant="secondary" className="text-xs h-4 px-1.5">
-            {actions.length}
-          </Badge>
-        </div>
-        <ChevronDown 
-          className={`h-3.5 w-3.5 text-blue-600 dark:text-blue-400 transition-transform duration-200 ${
-            isExpanded ? 'rotate-180' : ''
-          }`} 
-        />
-      </button>
-
-      {/* Expandable content */}
-      {isExpanded && (
-        <div className="mt-2 space-y-1.5 animate-in slide-in-from-top-2 duration-200">
-          {actions.map((action, idx) => (
-            <button
-              key={idx}
-              onClick={() => {
-                onActionClick(action);
-                setIsExpanded(false); // Auto-collapse after selection
-              }}
-              className="group w-full text-left p-2.5 bg-white/40 dark:bg-gray-800/30 hover:bg-white/70 dark:hover:bg-gray-700/50 border border-blue-200/40 dark:border-blue-700/30 hover:border-blue-300/60 dark:hover:border-blue-600/50 rounded-md transition-all duration-150 hover:shadow-sm"
-            >
-              <div className="flex items-center gap-2">
-                <div className="flex-shrink-0 w-4 h-4 rounded-full bg-blue-100/80 dark:bg-blue-900/40 flex items-center justify-center group-hover:bg-blue-200 dark:group-hover:bg-blue-800/60 transition-colors">
-                  <ArrowRight className="h-2.5 w-2.5 text-blue-600 dark:text-blue-400" />
-                </div>
-                <span className="text-xs text-gray-800 dark:text-gray-200 font-medium leading-relaxed">
-                  {action}
-                </span>
-              </div>
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-};
 
 // Constants defined outside component to prevent recreation on every render
 const MIN_WIDTH = 320;
@@ -1552,125 +1493,101 @@ Example format for each chip: {"text": "🔥 Build rapport", "prompt": "How can 
                 : message.content}
             </ReactMarkdown>
 
-            {/* Suggested actions (AI follow-ups) - Collapsible */}
-            {!isUser &&
-              message.metadata?.suggestedActions &&
-              message.metadata.suggestedActions.length > 0 && (
-                <SuggestedActionsAccordion
-                  actions={message.metadata.suggestedActions as string[]}
-                  onActionClick={setNewMessage}
-                />
-              )}
-          </div>
-          {/* Suggestions */}
-          {message.metadata?.suggestions &&
-            message.metadata.suggestions.length > 0 && (
-              <div className="mt-4 p-4 bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-700 rounded-xl">
-                <div className="text-sm text-blue-700 dark:text-blue-300 font-medium mb-2">
-                  Suggestions:
-                </div>
-                <ul className="list-disc list-inside text-sm text-blue-600 dark:text-blue-400 space-y-1">
-                  {message.metadata.suggestions.map((suggestion, index) => (
-                    <li key={index}>{suggestion}</li>
-                  ))}
-                </ul>
-              </div>
-            )}
-
-          {/* Smart Suggestions */}
-          {message.metadata?.smartSuggestion && (
-            <div className="mt-3">
-              {(() => {
-                const suggestion = message.metadata.smartSuggestion;
-                const config = getSuggestionConfig(suggestion.type);
-                
-                const priorityColors = {
-                  high: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400",
-                  medium: "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400",
-                  low: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
-                };
-                
-                return (
-                  <div className={`bg-gradient-to-r ${config.bgGradient} ${config.border} border-2 rounded-lg p-4 shadow-md`}>
-                    <div className="flex items-start gap-3">
-                      <div className={`text-${config.color}-600 dark:text-${config.color}-400 mt-0.5`}>
-                        {config.icon}
-                      </div>
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className={`text-sm font-semibold text-${config.color}-700 dark:text-${config.color}-300`}>
-                            {config.label}
-                          </span>
-                          <span className={`text-xs px-1.5 py-0.5 rounded-full ${priorityColors[suggestion.priority]}`}>
-                            {suggestion.priority}
-                          </span>
-                          {suggestion.timing && (
-                            <span className="text-xs text-muted-foreground">
-                              • {suggestion.timing}
-                            </span>
-                          )}
+            {/* Smart Suggestions */}
+            {message.metadata?.smartSuggestion && (
+              <div className="mt-3">
+                {(() => {
+                  const suggestion = message.metadata.smartSuggestion;
+                  const config = getSuggestionConfig(suggestion.type);
+                  
+                  const priorityColors = {
+                    high: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400",
+                    medium: "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400",
+                    low: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
+                  };
+                  
+                  return (
+                    <div className={`bg-gradient-to-r ${config.bgGradient} ${config.border} border-2 rounded-lg p-4 shadow-md`}>
+                      <div className="flex items-start gap-3">
+                        <div className={`text-${config.color}-600 dark:text-${config.color}-400 mt-0.5`}>
+                          {config.icon}
                         </div>
-                        <p className="text-base font-bold italic text-gray-900 dark:text-gray-100 leading-relaxed">
-                          {suggestion.content}
-                        </p>
-                        
-                        {/* Metadata - Extremely Concise */}
-                        {suggestion.metadata && (
-                          <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                            {suggestion.metadata.reason && (
-                              <span className="italic">
-                                {suggestion.metadata.reason}
-                              </span>
-                            )}
-                            {suggestion.metadata.successRate !== undefined && (
-                              <span className={`font-medium ${
-                                suggestion.metadata.successRate >= 80 ? 'text-green-600 dark:text-green-400' :
-                                suggestion.metadata.successRate >= 60 ? 'text-yellow-600 dark:text-yellow-400' :
-                                'text-orange-600 dark:text-orange-400'
-                              }`}>
-                                {suggestion.metadata.successRate}%
-                              </span>
-                            )}
-                            {suggestion.metadata.estimatedTime && (
-                              <span className="flex items-center gap-1">
-                                <Clock className="h-3 w-3" />
-                                {suggestion.metadata.estimatedTime}
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className={`text-sm font-semibold text-${config.color}-700 dark:text-${config.color}-300`}>
+                              {config.label}
+                            </span>
+                            <span className={`text-xs px-1.5 py-0.5 rounded-full ${priorityColors[suggestion.priority]}`}>
+                              {suggestion.priority}
+                            </span>
+                            {suggestion.timing && (
+                              <span className="text-xs text-muted-foreground">
+                                • {suggestion.timing}
                               </span>
                             )}
                           </div>
-                        )}
+                          <p className="text-base font-bold italic text-gray-900 dark:text-gray-100 leading-relaxed">
+                            {suggestion.content}
+                          </p>
+                          
+                          {/* Metadata - Extremely Concise */}
+                          {suggestion.metadata && (
+                            <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                              {suggestion.metadata.reason && (
+                                <span className="italic">
+                                  {suggestion.metadata.reason}
+                                </span>
+                              )}
+                              {suggestion.metadata.successRate !== undefined && (
+                                <span className={`font-medium ${
+                                  suggestion.metadata.successRate >= 80 ? 'text-green-600 dark:text-green-400' :
+                                  suggestion.metadata.successRate >= 60 ? 'text-yellow-600 dark:text-yellow-400' :
+                                  'text-orange-600 dark:text-orange-400'
+                                }`}>
+                                  {suggestion.metadata.successRate}%
+                                </span>
+                              )}
+                              {suggestion.metadata.estimatedTime && (
+                                <span className="flex items-center gap-1">
+                                  <Clock className="h-3 w-3" />
+                                  {suggestion.metadata.estimatedTime}
+                                </span>
+                              )}
+                            </div>
+                          )}
+                        </div>
                       </div>
                     </div>
-                  </div>
-                );
-              })()}
-            </div>
-          )}
-
-          {/* Action buttons for messages */}
-          {message.metadata?.suggestions &&
-            message.metadata.suggestions.length > 0 && (
-              <div className="mt-2 space-y-1">
-                {message.metadata.suggestions.map((suggestion, idx) => (
-                  <Button
-                    key={idx}
-                    variant="outline"
-                    size="sm"
-                    className="text-xs h-6 px-2"
-                    onClick={() => setNewMessage(suggestion)}
-                  >
-                    {suggestion}
-                  </Button>
-                ))}
+                  );
+                })()}
               </div>
             )}
-          <div
-            className={`text-xs mt-1 ${isUser ? "text-white/70" : "opacity-60"}`}
-          >
-            {message.timestamp.toLocaleTimeString([], {
-              hour: "2-digit",
-              minute: "2-digit",
-            })}
+
+            {/* Action buttons for messages */}
+            {message.metadata?.suggestions &&
+              message.metadata.suggestions.length > 0 && (
+                <div className="mt-2 space-y-1">
+                  {message.metadata.suggestions.map((suggestion, idx) => (
+                    <Button
+                      key={idx}
+                      variant="outline"
+                      size="sm"
+                      className="text-xs h-6 px-2"
+                      onClick={() => setNewMessage(suggestion)}
+                    >
+                      {suggestion}
+                    </Button>
+                  ))}
+                </div>
+              )}
+            <div
+              className={`text-xs mt-1 ${isUser ? "text-white/70" : "opacity-60"}`}
+            >
+              {message.timestamp.toLocaleTimeString([], {
+                hour: "2-digit",
+                minute: "2-digit",
+              })}
+            </div>
           </div>
         </div>
       </div>
