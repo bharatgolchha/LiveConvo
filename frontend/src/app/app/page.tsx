@@ -114,7 +114,9 @@ const saveTranscriptToDatabase = async (
       is_final: true,
       stt_provider: 'deepgram',
       // Add a unique identifier to prevent duplicates
-      client_id: line.id || `${Date.now()}-${lastSavedIndex + index}`
+      client_id: line.id || `${Date.now()}-${lastSavedIndex + index}`,
+      // Ensure unique per session for ON CONFLICT logic
+      sequence_number: lastSavedIndex + index + 1,
     }));
 
     const response = await authenticatedFetch(`/api/sessions/${sessionId}/transcript`, authSession, {
