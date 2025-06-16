@@ -64,15 +64,24 @@ import { GuidanceChip, GuidanceType } from '@/components/guidance/GuidanceChip';
 import { useAuth } from '@/contexts/AuthContext';
 import { authenticatedFetch } from '@/lib/api';
 import { ConversationContent } from '@/components/conversation/ConversationContent';
-import { SetupModal } from '@/components/setup/SetupModal';
-import AICoachSidebar from '@/components/guidance/AICoachSidebar';
-import { TranscriptModal } from '@/components/conversation/TranscriptModal';
 import { useSessionData, SessionDocument } from '@/lib/hooks/useSessionData';
 import { useMinuteTracking } from '@/lib/hooks/useMinuteTracking';
-import { RecordingConsentModal } from '@/components/conversation/RecordingConsentModal';
+import { useConversationCoreState } from '@/lib/hooks/useConversationCoreState';
 import { ConversationHeaderDate } from '@/components/ui/ConversationDateIndicator';
-import { LoadingModal } from '@/components/ui/LoadingModal';
+import { useConversationLifecycle } from '@/lib/hooks/useConversationLifecycle';
+import { useConversationLocalStorage } from '@/lib/hooks/useConversationLocalStorage';
+import { useFileUploads } from '@/lib/hooks/useFileUploads';
+
+import dynamic from 'next/dynamic';
 import type { SessionDataFull, ConversationSummary as ConversationSummaryType, TranscriptData, LocalStorageData, SessionFile } from '@/types/app';
+import { saveTranscriptToDatabase, saveTranscriptNow, saveSummaryToDatabase } from '@/lib/transcriptPersistence';
+
+// Lazy-load heavy components so they don't block first paint
+const SetupModal = dynamic(() => import('@/components/setup/SetupModal').then(m => m.SetupModal), { ssr: false });
+const TranscriptModal = dynamic(() => import('@/components/conversation/TranscriptModal').then(m => m.TranscriptModal), { ssr: false });
+const AICoachSidebar = dynamic(() => import('@/components/guidance/AICoachSidebar'), { ssr: false });
+const RecordingConsentModal = dynamic(() => import('@/components/conversation/RecordingConsentModal').then(m => m.RecordingConsentModal), { ssr: false });
+const LoadingModal = dynamic(() => import('@/components/ui/LoadingModal').then(m => m.LoadingModal), { ssr: false });
 
 // Type assertion for getDisplayMedia support
 declare global {
@@ -86,113 +95,6 @@ import { TranscriptLine, ConversationState } from '@/types/conversation';
 
 type ConversationSummary = ConversationSummaryType;
 
-// Database saving functions - Enhanced for reliability and duplicate prevention
-const saveTranscriptToDatabase = async (
-  sessionId: string,
-  transcriptLines: TranscriptLine[],
-  authSession: SupabaseSession | null,
-  lastSavedIndex = 0,
-  retryCount = 0
-) : Promise<number> => {
-  try {
-    // Only save new transcript lines that haven't been saved yet
-    const newLines = transcriptLines.slice(lastSavedIndex);
-
-    if (newLines.length === 0) {
-      console.log('💾 No new transcript lines to save');
-      return lastSavedIndex;
-    }
-
-    console.log(`💾 Saving ${newLines.length} new transcript lines to database (total: ${transcriptLines.length})...`);
-
-    const transcriptData = newLines.map((line, index) => ({
-      session_id: sessionId,
-      content: line.text,
-      speaker: line.speaker.toLowerCase(),
-      confidence_score: line.confidence || 0.85,
-      start_time_seconds: (lastSavedIndex + index) * 2, // Sequential timing
-      is_final: true,
-      stt_provider: 'deepgram',
-      // Add a unique identifier to prevent duplicates
-      client_id: line.id || `${Date.now()}-${lastSavedIndex + index}`,
-      // Ensure unique per session for ON CONFLICT logic
-      sequence_number: lastSavedIndex + index + 1,
-    }));
-
-    const response = await authenticatedFetch(`/api/sessions/${sessionId}/transcript`, authSession, {
-      method: 'POST',
-      body: JSON.stringify(transcriptData)
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('Failed to save transcript:', response.status, errorText);
-      
-      // Retry logic for failed saves (up to 3 times)
-      if (retryCount < 3) {
-        console.log(`🔄 Retrying transcript save (attempt ${retryCount + 1}/3)...`);
-        setTimeout(() => {
-          saveTranscriptToDatabase(sessionId, transcriptLines, authSession, lastSavedIndex, retryCount + 1);
-        }, 1000 * (retryCount + 1)); // Exponential backoff
-      } else {
-        console.error('❌ Failed to save transcript after 3 retries');
-      }
-    } else {
-      console.log(`✅ Transcript saved successfully (${newLines.length} new lines)`);
-      return transcriptLines.length;
-    }
-  } catch (error) {
-    console.error('Error saving transcript to database:', error);
-
-    // Retry on network/connection errors
-    if (retryCount < 3) {
-      console.log(`🔄 Retrying transcript save due to error (attempt ${retryCount + 1}/3)...`);
-      setTimeout(() => {
-        saveTranscriptToDatabase(sessionId, transcriptLines, authSession, lastSavedIndex, retryCount + 1);
-      }, 1000 * (retryCount + 1));
-    } else {
-      console.error('❌ Failed to save transcript after 3 retries due to errors');
-    }
-  }
-
-  return lastSavedIndex;
-};
-
-// Manual save function for immediate transcript saving
-const saveTranscriptNow = async (
-  sessionId: string,
-  transcriptLines: TranscriptLine[],
-  authSession: SupabaseSession | null,
-  lastSavedIndex: number
-): Promise<number> => {
-  if (!sessionId || !transcriptLines || transcriptLines.length === 0 || !authSession) {
-    console.log('⚠️ Cannot save transcript - missing required data');
-    return lastSavedIndex; // Return current index if save fails
-  }
-
-  console.log('🚀 Manual transcript save triggered');
-  const newIndex = await saveTranscriptToDatabase(sessionId, transcriptLines, authSession, lastSavedIndex);
-  return newIndex || lastSavedIndex; // Fallback to current index if undefined
-};
-
-
-
-const saveSummaryToDatabase = async (sessionId: string, summary: ConversationSummary, authSession: SupabaseSession | null) => {
-  try {
-    const response = await authenticatedFetch(`/api/sessions/${sessionId}`, authSession, {
-      method: 'PATCH',
-      body: JSON.stringify({
-        realtime_summary_cache: summary
-      })
-    });
-
-    if (!response.ok) {
-      console.error('Failed to save summary cache:', await response.text());
-    }
-  } catch (error) {
-    console.error('Error saving summary to database:', error);
-  }
-};
 
 function AppContent() {
   const searchParams = useSearchParams();
@@ -200,44 +102,52 @@ function AppContent() {
   const conversationId = searchParams.get('cid');
   const { session, loading: authLoading } = useAuth(); // Add auth hook
   
-  // Core State
-  // Start with 'loading' state if we have a conversationId (existing session)
-  const [conversationState, setConversationState] = useState<ConversationState>(
-    conversationId ? 'loading' : 'setup'
-  );
-  const [isSummarizing, setIsSummarizing] = useState(false); // New state for End & Finalize animation
-  const [isFinalized, setIsFinalized] = useState(false); // Track if finalization is complete
-  const [transcript, setTranscript] = useState<TranscriptLine[]>([]);
-  // Track how many transcript lines have been saved to the database
-  const [lastSavedTranscriptIndex, setLastSavedTranscriptIndex] = useState(0);
-  // Session data for date indicators
-  const [currentSessionData, setCurrentSessionData] = useState<{
-    id: string;
-    status: string;
-    created_at: string;
-    recording_started_at?: string;
-    recording_ended_at?: string;
-    finalized_at?: string;
-  } | null>(null);
-  const [sessionDuration, setSessionDuration] = useState(0);
-  const [cumulativeDuration, setCumulativeDuration] = useState(0); // Total duration across all recording sessions
-  const [recordingStartTime, setRecordingStartTime] = useState<number | null>(null); // Track when current recording started
-  const [talkStats, setTalkStats] = useState<TalkStats>({ meWords: 0, themWords: 0 });
-  const [conversationType, setConversationType] = useState<'sales' | 'support' | 'meeting' | 'interview'>('sales');
-  const [conversationTitle, setConversationTitle] = useState('New Conversation');
-  const [textContext, setTextContext] = useState('');
-  const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
-  const [systemAudioStream, setSystemAudioStream] = useState<MediaStream | null>(null);
-  const [personalContext, setPersonalContext] = useState<string>('');
-
-  // Database-loaded data (overrides AI-generated data when available)
-  const [loadedSummary, setLoadedSummary] = useState<ConversationSummary | null>(null);
-
-  // Add a ref to track whether we've loaded from localStorage
-  const hasLoadedFromStorage = useRef(false);
-  
-  // Track if we're loading session data from the database
-  const [isLoadingFromSession, setIsLoadingFromSession] = useState(false);
+  // Core State handled by dedicated hook
+  const {
+    conversationState,
+    setConversationState,
+    isSummarizing,
+    setIsSummarizing,
+    isFinalized,
+    setIsFinalized,
+    transcript,
+    setTranscript,
+    lastSavedTranscriptIndex,
+    setLastSavedTranscriptIndex,
+    currentSessionData,
+    setCurrentSessionData,
+    sessionDuration,
+    setSessionDuration,
+    cumulativeDuration,
+    setCumulativeDuration,
+    recordingStartTime,
+    setRecordingStartTime,
+    talkStats,
+    setTalkStats,
+    conversationType,
+    setConversationType,
+    conversationTitle,
+    setConversationTitle,
+    textContext,
+    setTextContext,
+    uploadedFiles,
+    setUploadedFiles,
+    systemAudioStream,
+    setSystemAudioStream,
+    personalContext,
+    setPersonalContext,
+    loadedSummary,
+    setLoadedSummary,
+    isLoadingFromSession,
+    setIsLoadingFromSession,
+    isTabVisible,
+    setIsTabVisible,
+    wasRecordingBeforeHidden,
+    setWasRecordingBeforeHidden,
+    hasLoadedFromStorage,
+    pageVisibilityTimeoutRef,
+    preventUnloadRef
+  } = useConversationCoreState(conversationId);
 
   // Minute tracking for usage limits
   const limitReachedRef = useRef(false);
@@ -290,11 +200,7 @@ function AppContent() {
     }
   }, [conversationState]);
 
-  // Tab visibility and page lifecycle management
-  const [isTabVisible, setIsTabVisible] = useState(true);
-  const [wasRecordingBeforeHidden, setWasRecordingBeforeHidden] = useState(false);
-  const pageVisibilityTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const preventUnloadRef = useRef(false);
+  // Tab visibility handled by hook above
 
   // Add a ref to track current recording state for database loading prevention
   const isCurrentlyRecordingRef = useRef(false);
@@ -349,64 +255,7 @@ function AppContent() {
     };
   }, [conversationState, recordingStartTime, cumulativeDuration]);
 
-  // Save conversation state to localStorage whenever it changes
-  useEffect(() => {
-    if (conversationId && typeof window !== 'undefined') {
-      const stateToSave = {
-        conversationState,
-        sessionDuration,
-        transcript: transcript.slice(-50), // Only save last 50 lines to avoid storage bloat
-        talkStats,
-        conversationType,
-        conversationTitle,
-        textContext,
-        updatedAt: new Date().toISOString()
-      };
-      localStorage.setItem(`conversation_state_${conversationId}`, JSON.stringify(stateToSave));
-    }
-  }, [conversationState, sessionDuration, transcript, talkStats, conversationType, conversationTitle, textContext, conversationId]);
-
-  // Load conversation state from localStorage on mount
-  useEffect(() => {
-    if (conversationId && typeof window !== 'undefined') {
-      // Always load session details from backend first to get the latest state
-      // This ensures finalized conversations show correctly when accessed from dashboard
-      loadSessionDetails(conversationId);
-      
-      // Also check localStorage for any draft data (transcript, etc.)
-      const storedState = localStorage.getItem(`conversation_state_${conversationId}`);
-      if (storedState) {
-        try {
-          const parsed = JSON.parse(storedState);
-          // Only restore transcript and other non-state data from localStorage
-          // The actual conversation state will come from the backend
-          if (parsed.transcript) {
-            const restoredTranscript = (parsed.transcript as TranscriptLine[]).map((line, index) => ({
-              ...line,
-              // Regenerate IDs to ensure uniqueness when restoring from localStorage
-              id: `restored-${conversationId}-${index}-${Date.now()}`,
-              timestamp: new Date(line.timestamp)
-            }));
-            setTranscript(restoredTranscript);
-          }
-          if (parsed.sessionDuration && typeof parsed.sessionDuration === 'number') {
-            setSessionDuration(parsed.sessionDuration);
-            setCumulativeDuration(parsed.sessionDuration);
-          }
-          if (parsed.talkStats) setTalkStats(parsed.talkStats);
-          if (parsed.conversationType) setConversationType(parsed.conversationType);
-          if (parsed.conversationTitle) setConversationTitle(parsed.conversationTitle);
-          if (parsed.textContext) setTextContext(parsed.textContext);
-          if (parsed.selectedPreviousConversations && Array.isArray(parsed.selectedPreviousConversations)) {
-            setSelectedPreviousConversations(parsed.selectedPreviousConversations);
-          }
-          // Don't load conversation state from localStorage - let backend determine it
-        } catch (err) {
-          console.error('Error loading saved conversation state:', err);
-        }
-      }
-    }
-  }, [conversationId]);
+  // (localStorage persistence now handled by useConversationLocalStorage hook)
 
   // Load session details from backend
   const loadSessionDetails = async (sessionId: string) => {
@@ -523,84 +372,15 @@ function AppContent() {
     }
   };
 
-  // Handle page visibility changes to maintain recording state
-  useEffect(() => {
-    const handleVisibilityChange = () => {
-      const isVisible = !document.hidden;
-      setIsTabVisible(isVisible);
-      
-      console.log(`🔍 Tab ${isVisible ? 'visible' : 'hidden'}, recording state: ${conversationState}`);
-      
-      if (!isVisible) {
-        // Tab is being hidden
-        if (conversationState === 'recording') {
-          setWasRecordingBeforeHidden(true);
-          console.log('🔍 Tab hidden while recording - maintaining state');
-          
-          // Set a timeout to pause recording only if tab stays hidden for too long (optional)
-          pageVisibilityTimeoutRef.current = setTimeout(() => {
-            if (document.hidden && conversationState === 'recording') {
-              console.log('🔍 Tab hidden for too long, pausing recording');
-              // Reference the correct function name - we'll define this later
-              // handlePauseRecording();
-            }
-          }, 300000); // 5 minutes
-        }
-      } else {
-        // Tab is becoming visible
-        console.log('🔍 Tab became visible');
-        
-        // Clear any pending pause timeout
-        if (pageVisibilityTimeoutRef.current) {
-          clearTimeout(pageVisibilityTimeoutRef.current);
-          pageVisibilityTimeoutRef.current = null;
-        }
-        
-        // If we were recording before and are now paused, offer to resume
-        if (wasRecordingBeforeHidden && conversationState === 'paused') {
-          console.log('🔍 Tab visible again, was recording before - ready to resume');
-          setWasRecordingBeforeHidden(false);
-        }
-      }
-    };
-
-    // Prevent page unload while recording
-    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
-      if (conversationState === 'recording' || preventUnloadRef.current) {
-        e.preventDefault();
-        e.returnValue = 'You have an active recording. Are you sure you want to leave?';
-        return e.returnValue;
-      }
-    };
-
-    // Prevent accidental page refresh during recording
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (conversationState === 'recording') {
-        // Prevent Ctrl+R, F5, Cmd+R
-        if ((e.ctrlKey && e.key === 'r') || 
-            (e.metaKey && e.key === 'r') || 
-            e.key === 'F5') {
-          e.preventDefault();
-          console.log('🔍 Prevented page refresh during recording');
-          return false;
-        }
-      }
-    };
-
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    window.addEventListener('beforeunload', handleBeforeUnload);
-    document.addEventListener('keydown', handleKeyDown);
-    
-    return () => {
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-      window.removeEventListener('beforeunload', handleBeforeUnload);
-      document.removeEventListener('keydown', handleKeyDown);
-      
-      if (pageVisibilityTimeoutRef.current) {
-        clearTimeout(pageVisibilityTimeoutRef.current);
-      }
-    };
-  }, [conversationState, wasRecordingBeforeHidden]);
+  // Lifecycle & visibility listeners handled by custom hook
+  useConversationLifecycle({
+    conversationState,
+    setIsTabVisible,
+    wasRecordingBeforeHidden,
+    setWasRecordingBeforeHidden,
+    pageVisibilityTimeoutRef,
+    preventUnloadRef,
+  });
 
   // Temporary debug logging for auth state
   useEffect(() => {
@@ -1608,6 +1388,26 @@ function AppContent() {
     }
   }, [selectedPreviousConversations, conversationId, textContext, conversationType, saveContext, session, authLoading]);
 
+  // LocalStorage persistence
+  useConversationLocalStorage({
+    conversationId,
+    conversationState,
+    sessionDuration,
+    transcript,
+    talkStats,
+    conversationType,
+    conversationTitle,
+    textContext,
+    setTranscript,
+    setSessionDuration,
+    setCumulativeDuration,
+    setTalkStats,
+    setConversationType,
+    setConversationTitle,
+    setTextContext,
+    setSelectedPreviousConversations,
+  });
+
   // Helper Functions
   const formatDuration = (seconds: number) => {
     const hours = Math.floor(seconds / 3600);
@@ -1892,72 +1692,17 @@ function AppContent() {
     }
   };
 
-  const handleFileUpload = async (newFiles: File[]) => {
-    // Update local state immediately for UI feedback
-    const updatedFiles = [...uploadedFiles, ...newFiles];
-    setUploadedFiles(updatedFiles);
-    
-    // If we have a conversation ID, upload to database with text extraction
-    if (conversationId) {
-      try {
-        const uploadedDocuments = await uploadDocuments(conversationId, newFiles);
-        console.log('✅ Documents uploaded successfully:', uploadedDocuments);
-        
-        // Add extracted text to AI context
-        if (uploadedDocuments && uploadedDocuments.length > 0) {
-          uploadedDocuments.forEach((doc: SessionDocument) => {
-            if (doc.extracted_text) {
-              addContext({
-                id: doc.id,
-                name: doc.original_filename,
-                type: doc.file_type as 'txt' | 'pdf' | 'docx',
-                content: doc.extracted_text,
-                uploadedAt: new Date(doc.created_at || new Date()),
-              });
-            }
-          });
-        }
-      } catch (error) {
-        console.error('❌ Failed to upload documents:', error);
-        // Fallback to basic text extraction for AI context only
-    newFiles.forEach(async (file) => {
-      try {
-            const fileContent = await file.text();
-          addContext({
-            id: generateUniqueId(),
-            name: file.name,
-              type: file.type.startsWith('text') ? 'txt' : (file.type.includes('pdf') ? 'pdf' : 'docx'),
-          content: fileContent,
-          uploadedAt: new Date(),
-          });
-      } catch (e) {
-            console.error("Error reading file for AI context:", e);
-        }
-    });
-      }
-    } else {
-      // No conversation ID yet - use basic file reading for AI context
-      newFiles.forEach(async (file) => {
-        try {
-          const fileContent = await file.text();
-          addContext({
-            id: generateUniqueId(),
-            name: file.name,
-            type: file.type.startsWith('text') ? 'txt' : (file.type.includes('pdf') ? 'pdf' : 'docx'),
-            content: fileContent,
-            uploadedAt: new Date(),
-          });
-        } catch (e) {
-          console.error("Error reading file for AI context:", e);
-        }
-      });
-    }
-    
-    // Update AI context with the current text context as well
-    if (textContext) {
-      addUserContext(textContext);
-    }
-  };
+  // File upload management via dedicated hook
+  const { handleFileUpload, handleRemoveFile } = useFileUploads({
+    conversationId,
+    uploadedFiles,
+    setUploadedFiles,
+    uploadDocuments,
+    addContext,
+    addUserContext,
+    textContext,
+    generateUniqueId, // pass the local util so IDs remain consistent
+  });
 
   const handleTextContextChange = async (newText: string) => {
     setTextContext(newText);
@@ -2009,10 +1754,6 @@ function AppContent() {
       console.error('❌ Failed to manually save context:', error);
       setErrorMessage('Failed to save context. Please try again.');
     }
-  };
-
-  const handleRemoveFile = (fileName: string) => {
-    setUploadedFiles(prev => prev.filter(file => file.name !== fileName));
   };
 
   // Helper functions for previous conversations
@@ -2441,6 +2182,14 @@ function AppContent() {
       hasTriggeredForcedGeneration.current = false;
     }
   }, [conversationState, conversationId]); // Only depend on conversationId and conversationState
+
+  // Ensure we always fetch the authoritative session details from backend on mount
+  useEffect(() => {
+    if (conversationId) {
+      loadSessionDetails(conversationId);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [conversationId]);
 
   // UI Render
   return (

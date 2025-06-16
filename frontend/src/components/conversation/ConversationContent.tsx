@@ -29,6 +29,7 @@ import { cn } from '@/lib/utils';
 import { ConversationSummary } from '@/lib/useRealtimeSummary';
 import { ProcessingAnimation } from './ProcessingAnimation';
 import { ChecklistTab } from '@/components/checklist/ChecklistTab';
+import { VirtualizedTranscriptList, VirtualizedTranscriptListHandle } from './VirtualizedTranscriptList';
 
 interface TranscriptLine {
   id: string;
@@ -102,7 +103,6 @@ export const ConversationContent: React.FC<ConversationContentProps> = ({
   selectedPreviousConversations,
   getSummaryTimeUntilNextRefresh
 }) => {
-  const transcriptEndRef = useRef<null | HTMLDivElement>(null);
   const [isRefreshing, setIsRefreshing] = React.useState(false);
   const [selectedTopic, setSelectedTopic] = React.useState<string | null>(null);
   const [topicSummary, setTopicSummary] = React.useState<string | null>(null);
@@ -205,17 +205,6 @@ export const ConversationContent: React.FC<ConversationContentProps> = ({
     });
   }, [activeTab, summary, isSummaryLoading, summaryError, isSummarizing]);
 
-  // Auto-scroll transcript to bottom when new content is added and user is on transcript tab
-  React.useEffect(() => {
-    if (activeTab === 'transcript' && transcript.length > 0) {
-      // Small delay to ensure DOM has updated
-      const timer = setTimeout(() => {
-        transcriptEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-      }, 100);
-      return () => clearTimeout(timer);
-    }
-  }, [transcript.length, activeTab]);
-
   // Group consecutive transcript lines from the same speaker into coherent messages
   const groupTranscriptMessages = (transcript: TranscriptLine[]) => {
     if (transcript.length === 0) return [];
@@ -300,6 +289,18 @@ export const ConversationContent: React.FC<ConversationContentProps> = ({
   }, [transcript]);
 
   const nextRefreshSeconds = Math.ceil(summaryRefreshMs / 1000);
+
+  const listRef = React.useRef<VirtualizedTranscriptListHandle>(null);
+
+  // Auto-scroll transcript to bottom when new content is added and user is on transcript tab
+  React.useEffect(() => {
+    if (activeTab === 'transcript' && groupedTranscript.length > 0) {
+      const timer = setTimeout(() => {
+        listRef.current?.scrollToBottom();
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [groupedTranscript.length, activeTab]);
 
   return (
     <div className="h-full max-h-full flex flex-col overflow-hidden bg-gradient-to-br from-background via-background to-muted/20">
@@ -540,8 +541,7 @@ export const ConversationContent: React.FC<ConversationContentProps> = ({
                         variant="ghost"
                         size="sm"
                         onClick={() => {
-                          // Scroll to bottom of transcript
-                          transcriptEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+                          listRef.current?.scrollToBottom();
                         }}
                         className="text-muted-foreground hover:text-foreground"
                         title="Scroll to latest"
@@ -552,69 +552,13 @@ export const ConversationContent: React.FC<ConversationContentProps> = ({
                   </div>
                 </div>
 
-                {/* Transcript Content */}
-                <div className="flex-1 min-h-0 overflow-y-auto px-8 py-6 space-y-4">
-                  {groupedTranscript.map((line, index) => (
-                    <div 
-                      key={line.id} 
-                      className={cn(
-                        "flex gap-4 p-4 rounded-2xl transition-all duration-200",
-                        line.speaker === 'ME' 
-                          ? "bg-gradient-to-r from-blue-50 to-blue-100/50 dark:from-blue-950/30 dark:to-blue-900/20 border border-blue-200/50 dark:border-blue-800/30 ml-8" 
-                          : "bg-gradient-to-r from-gray-50 to-gray-100/50 dark:from-gray-900/30 dark:to-gray-800/20 border border-gray-200/50 dark:border-gray-700/30 mr-8",
-                        // Highlight the most recent message
-                        index === groupedTranscript.length - 1 && conversationState === 'recording' ? "ring-2 ring-blue-400/50 shadow-lg" : ""
-                      )}
-                    >
-                      <div className="flex-shrink-0">
-                        <div className={cn(
-                          "w-10 h-10 rounded-full flex items-center justify-center text-sm font-semibold",
-                          line.speaker === 'ME' 
-                            ? "bg-blue-500 text-white" 
-                            : "bg-gray-500 text-white"
-                        )}>
-                          {line.speaker === 'ME' ? 'ME' : 'THEM'}
-                        </div>
-                      </div>
-                      
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-3 mb-2">
-                          <span className={cn(
-                            "text-sm font-medium",
-                            line.speaker === 'ME' 
-                              ? "text-blue-900 dark:text-blue-100" 
-                              : "text-gray-900 dark:text-gray-100"
-                          )}>
-                            {line.speaker === 'ME' ? 'You' : 'Participant'}
-                          </span>
-                          <span className="text-xs text-muted-foreground">
-                            {line.timestamp.toLocaleTimeString()}
-                          </span>
-                          {line.messageCount > 1 && (
-                            <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
-                              {line.messageCount} fragments
-                            </span>
-                          )}
-                          {line.confidence && line.confidence < 0.8 && (
-                            <span className="text-xs text-amber-600 dark:text-amber-400 bg-amber-100 dark:bg-amber-900/20 px-2 py-0.5 rounded-full">
-                              Low confidence
-                            </span>
-                          )}
-                        </div>
-                                                   <p className={cn(
-                             "leading-relaxed break-words text-sm",
-                             line.speaker === 'ME' 
-                               ? "text-blue-800 dark:text-blue-200" 
-                               : "text-gray-800 dark:text-gray-200"
-                           )}>
-                             {line.text}
-                           </p>
-                      </div>
-                    </div>
-                  ))}
-                  
-                  {/* Auto-scroll target */}
-                  <div ref={transcriptEndRef} className="h-1" />
+                {/* Transcript Content (virtualized) */}
+                <div className="flex-1 min-h-0 overflow-hidden px-8 py-6">
+                  <VirtualizedTranscriptList
+                    ref={listRef}
+                    messages={groupedTranscript}
+                    conversationState={conversationState}
+                  />
                 </div>
 
                 {/* Footer with Quick Actions */}
@@ -900,8 +844,6 @@ export const ConversationContent: React.FC<ConversationContentProps> = ({
             )}
           </div>
         )}
-
-
 
         {/* Checklist Tab */}
         {activeTab === 'checklist' && !isSummarizing && sessionId && (

@@ -38,64 +38,6 @@ const quickActions = [
   { id: 'key-points', label: 'Key points', icon: CheckCircle, color: 'purple' }
 ];
 
-// Elegant collapsible suggested actions component
-const SuggestedActionsAccordion: React.FC<{
-  actions: string[];
-  onActionClick?: (action: string) => void;
-}> = ({ actions, onActionClick }) => {
-  const [isExpanded, setIsExpanded] = useState(false);
-
-  return (
-    <div className="mt-2">
-      {/* Compact trigger button */}
-      <button
-        onClick={() => setIsExpanded(!isExpanded)}
-        className="group flex items-center gap-2 w-full p-2 text-left bg-emerald-50/30 dark:bg-emerald-950/20 hover:bg-emerald-50/50 dark:hover:bg-emerald-950/30 border border-emerald-200/30 dark:border-emerald-700/30 rounded-lg transition-all duration-200"
-      >
-        <div className="flex items-center gap-2 flex-1">
-          <Zap className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
-          <span className="text-xs font-medium text-emerald-900 dark:text-emerald-100">
-            Live Prompts
-          </span>
-          <span className="text-xs px-1.5 py-0.5 bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 rounded-full">
-            {actions.length}
-          </span>
-        </div>
-        <ChevronUp 
-          className={`h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400 transition-transform duration-200 ${
-            isExpanded ? 'rotate-180' : ''
-          }`} 
-        />
-      </button>
-
-      {/* Expandable content */}
-      {isExpanded && (
-        <div className="mt-2 space-y-1.5 animate-in slide-in-from-top-2 duration-200">
-          {actions.map((action, idx) => (
-            <button
-              key={idx}
-              onClick={() => {
-                onActionClick?.(action);
-                setIsExpanded(false); // Auto-collapse after selection
-              }}
-              className="group w-full text-left p-2.5 bg-white/40 dark:bg-gray-800/30 hover:bg-white/70 dark:hover:bg-gray-700/50 border border-emerald-200/40 dark:border-emerald-700/30 hover:border-emerald-300/60 dark:hover:border-emerald-600/50 rounded-md transition-all duration-150 hover:shadow-sm"
-            >
-              <div className="flex items-center gap-2">
-                <div className="flex-shrink-0 w-4 h-4 rounded-full bg-emerald-100/80 dark:bg-emerald-900/40 flex items-center justify-center group-hover:bg-emerald-200 dark:group-hover:bg-emerald-800/60 transition-colors">
-                  <ArrowRight className="h-2.5 w-2.5 text-emerald-600 dark:text-emerald-400" />
-                </div>
-                <span className="text-xs text-gray-800 dark:text-gray-200 font-medium leading-relaxed">
-                  {action}
-                </span>
-              </div>
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-};
-
 const MessageBubble: React.FC<{ message: ChatMessage; onSendMessage?: (message: string) => void }> = ({ message, onSendMessage }) => {
   const isUser = message.type === 'user';
   const isAutoGuidance = message.type === 'auto-guidance';
@@ -156,13 +98,6 @@ const MessageBubble: React.FC<{ message: ChatMessage; onSendMessage?: (message: 
         <p className="text-sm leading-relaxed whitespace-pre-wrap">
           {message.content}
         </p>
-        
-        {message.metadata?.suggestedActions && message.metadata.suggestedActions.length > 0 && (
-          <SuggestedActionsAccordion 
-            actions={message.metadata.suggestedActions}
-            onActionClick={onSendMessage}
-          />
-        )}
         
         <div className="flex items-center justify-between mt-1">
           <span className="text-xs opacity-60">

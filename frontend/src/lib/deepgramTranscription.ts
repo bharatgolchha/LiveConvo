@@ -1,5 +1,6 @@
 import React from 'react';
 import { createClient, LiveTranscriptionEvents } from '@deepgram/sdk';
+import { getApiConfig } from '@/lib/apiConfig';
 
 /**
  * Deepgram streaming transcription service for live audio processing
@@ -691,7 +692,7 @@ export class DeepgramTranscriptionService {
  * React hook for using Deepgram real-time transcription
  * Optimized for performance with reduced re-renders and efficient state management
  */
-export function useDeepgramTranscription() {
+export function useDeepgramTranscription(enabled: boolean = true) {
   const [service, setService] = React.useState<DeepgramTranscriptionService | null>(null);
   const [isConnected, setIsConnected] = React.useState(false);
   const [isRecording, setIsRecording] = React.useState(false);
@@ -706,16 +707,12 @@ export function useDeepgramTranscription() {
 
   // Initialize service with API key from backend
   React.useEffect(() => {
+    if (!enabled) return;
+    
     async function initializeService() {
       try {
         console.log('🔑 Fetching Deepgram API key from backend...');
-        const response = await fetch('/api/config');
-        
-        if (!response.ok) {
-          throw new Error(`Failed to get API configuration: ${response.status}`);
-        }
-        
-        const config = await response.json();
+        const config = await getApiConfig();
         
         if (!config.success) {
           throw new Error('Invalid API configuration response');
@@ -755,7 +752,7 @@ export function useDeepgramTranscription() {
     }
     
     initializeService();
-  }, []);
+  }, [enabled]);
 
   // Optimized event handling with debouncing for interim results
   React.useEffect(() => {
