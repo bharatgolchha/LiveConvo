@@ -140,6 +140,64 @@ const AIThinkingAnimation = () => (
   </div>
 );
 
+// Elegant collapsible suggested actions component
+const SuggestedActionsAccordion: React.FC<{
+  actions: string[];
+  onActionClick: (action: string) => void;
+}> = ({ actions, onActionClick }) => {
+  const [isExpanded, setIsExpanded] = useState(false);
+
+  return (
+    <div className="mt-2">
+      {/* Compact trigger button */}
+      <button
+        onClick={() => setIsExpanded(!isExpanded)}
+        className="group flex items-center gap-2 w-full p-2 text-left bg-blue-50/30 dark:bg-blue-950/20 hover:bg-blue-50/50 dark:hover:bg-blue-950/30 border border-blue-200/30 dark:border-blue-700/30 rounded-lg transition-all duration-200"
+      >
+        <div className="flex items-center gap-2 flex-1">
+          <Sparkles className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400" />
+          <span className="text-xs font-medium text-blue-900 dark:text-blue-100">
+            Live Prompts
+          </span>
+          <Badge variant="secondary" className="text-xs h-4 px-1.5">
+            {actions.length}
+          </Badge>
+        </div>
+        <ChevronDown 
+          className={`h-3.5 w-3.5 text-blue-600 dark:text-blue-400 transition-transform duration-200 ${
+            isExpanded ? 'rotate-180' : ''
+          }`} 
+        />
+      </button>
+
+      {/* Expandable content */}
+      {isExpanded && (
+        <div className="mt-2 space-y-1.5 animate-in slide-in-from-top-2 duration-200">
+          {actions.map((action, idx) => (
+            <button
+              key={idx}
+              onClick={() => {
+                onActionClick(action);
+                setIsExpanded(false); // Auto-collapse after selection
+              }}
+              className="group w-full text-left p-2.5 bg-white/40 dark:bg-gray-800/30 hover:bg-white/70 dark:hover:bg-gray-700/50 border border-blue-200/40 dark:border-blue-700/30 hover:border-blue-300/60 dark:hover:border-blue-600/50 rounded-md transition-all duration-150 hover:shadow-sm"
+            >
+              <div className="flex items-center gap-2">
+                <div className="flex-shrink-0 w-4 h-4 rounded-full bg-blue-100/80 dark:bg-blue-900/40 flex items-center justify-center group-hover:bg-blue-200 dark:group-hover:bg-blue-800/60 transition-colors">
+                  <ArrowRight className="h-2.5 w-2.5 text-blue-600 dark:text-blue-400" />
+                </div>
+                <span className="text-xs text-gray-800 dark:text-gray-200 font-medium leading-relaxed">
+                  {action}
+                </span>
+              </div>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
 // Constants defined outside component to prevent recreation on every render
 const MIN_WIDTH = 320;
 const MAX_WIDTH = 600;
@@ -1493,6 +1551,14 @@ Example format for each chip: {"text": "🔥 Build rapport", "prompt": "How can 
                 ? parseMessageForDisplay(message.content)
                 : message.content}
             </ReactMarkdown>
+
+            {/* Suggested actions (AI follow-ups) - Collapsible */}
+            {!isUser && ((message.metadata?.suggestedActions?.length ?? 0) > 0) && (
+              <SuggestedActionsAccordion
+                actions={message.metadata!.suggestedActions}
+                onActionClick={setNewMessage}
+              />
+            )}
           </div>
           {/* Suggestions */}
           {message.metadata?.suggestions &&

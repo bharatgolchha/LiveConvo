@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { buildChatPrompt } from '@/lib/chatPromptBuilder';
+import { buildChatMessages } from '@/lib/chatPromptBuilder';
+import { updateRunningSummary } from '@/lib/summarizer';
+import { createClient } from '@supabase/supabase-js';
 
 interface ChatMessage {
   id: string;
@@ -89,18 +91,30 @@ export async function POST(request: NextRequest) {
     const effectiveConversationType = parsedContext.conversationType || conversationType;
 
     const systemPrompt = getChatGuidanceSystemPrompt(effectiveConversationType, isRecording, transcriptLength);
-    const prompt = buildChatPrompt(
+
+    let runningSummary = summary?.tldr || '';
+    let effectiveTranscript = transcript;
+
+    if (transcript.length > 3500) {
+      // Split transcript: keep tail for context, summarize the rest.
+      const overflowChunk = transcript.slice(0, transcript.length - 3500);
+      effectiveTranscript = transcript.slice(-3500);
+      try {
+        runningSummary = await updateRunningSummary(runningSummary, overflowChunk);
+      } catch (e) {
+        console.error('Running summary update failed:', e);
+      }
+    }
+
+    const chatMessages = buildChatMessages(
       parsedContext.userMessage,
-      transcript,
+      effectiveTranscript,
       chatHistory,
       effectiveConversationType,
-      parsedContext.conversationTitle || conversationTitle,
-      // Enhanced context
+      runningSummary,
+      personalContext,
       textContext,
-      summary,
-      uploadedFiles,
-      selectedPreviousConversations,
-      personalContext
+      4000 // transcript tail
     );
 
     const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
@@ -114,14 +128,8 @@ export async function POST(request: NextRequest) {
       body: JSON.stringify({
         model: 'google/gemini-2.5-flash-preview-05-20',
         messages: [
-          {
-            role: 'system',
-            content: systemPrompt
-          },
-          {
-            role: 'user',
-            content: prompt
-          }
+          { role: 'system', content: systemPrompt },
+          ...chatMessages,
         ],
         temperature: 0.4,
         max_tokens: 1500,
@@ -189,6 +197,30 @@ export async function POST(request: NextRequest) {
       });
     }
     
+    // After updating runningSummary, persist if changed and sessionId exists
+    if (sessionId && runningSummary && runningSummary !== summary?.tldr) {
+      try {
+        const supabaseUrl = process.env.SUPABASE_URL;
+        const supabaseServiceRole = process.env.SUPABASE_SERVICE_ROLE_KEY;
+        if (supabaseUrl && supabaseServiceRole) {
+          const supabase = createClient(supabaseUrl, supabaseServiceRole as string, {
+            auth: { persistSession: false },
+          });
+          const { error } = await supabase
+            .from('sessions')
+            .update({ realtime_summary_cache: { tldr: runningSummary } })
+            .eq('id', sessionId);
+          if (error) {
+            console.error('Failed to save running summary', error);
+          }
+        } else {
+          console.warn('Supabase env vars not set; skipping summary persistence');
+        }
+      } catch (err) {
+        console.error('Error persisting running summary:', err);
+      }
+    }
+
     return NextResponse.json({ 
       response: chatResponse.response,
       suggestedActions: chatResponse.suggestedActions || [],
@@ -231,7 +263,7 @@ RESPONSE FORMAT:
 Return a JSON object:
 {
   "response": "Specific, actionable guidance using all available context (use markdown for clarity). Keep responses focused and concise - aim for 2-3 key points maximum.",
-  "suggestedActions": ["Action 1", "Action 2", "Action 3"],
+  "suggestedActions": ["Prompt 1", "Prompt 2", "Prompt 3"],  // These are **Live Prompts** – short (max 12 words) utterances the user can say next. Provide **no more than three**, already ranked by importance (best first). If none are truly helpful, return an empty array.
   "confidence": 85,
   "smartSuggestion": null or {
     "type": "response|action|question|followup|objection|timing|emotional-intelligence|redirect|clarification|summarize|confidence-boost",

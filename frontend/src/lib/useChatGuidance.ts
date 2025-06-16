@@ -198,6 +198,15 @@ export function useChatGuidance({
 
       const data: ChatResponse = await response.json();
       
+      // Debug log to see what we're getting
+      console.log('🎯 Chat Response Debug:', {
+        hasSuggestedActions: !!data.suggestedActions,
+        suggestedActionsLength: data.suggestedActions?.length || 0,
+        suggestedActions: data.suggestedActions,
+        hasSmartSuggestion: !!data.smartSuggestion,
+        response: data.response.substring(0, 100) + '...'
+      });
+      
       // Add AI response
       addMessage({
         type: 'ai',

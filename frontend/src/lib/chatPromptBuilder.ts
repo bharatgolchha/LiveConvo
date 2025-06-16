@@ -140,3 +140,67 @@ function buildPreviousConversationsContext(selectedPreviousConversations: string
 - Build on decisions and agreements made in earlier discussions
 - Provide continuity by acknowledging past interactions and progress`;
 }
+
+/**
+ * Build a compact `messages` array for OpenAI / Gemini style chat completions.
+ * The function intentionally keeps the payload small by:
+ *   • sending only the last few turns verbatim (default 4)
+ *   • truncating long transcripts to the last ~1 500 characters
+ *   • adding optional summary / personal context in a single short system line
+ *
+ * Args:
+ *     userMessage:      The current user question/prompt.
+ *     transcript:       Live transcript text (may be empty).
+ *     chatHistory:      Full chat history; we slice the tail.
+ *     conversationType: (Optional) sales | support | … – used for a tiny hint.
+ *     runningSummary:   (Optional) short summary of the convo (<= 500 chars).
+ *     personalContext:  (Optional) personal profile of the user (<= 300 chars).
+ *     textContext:      (Optional) extra context (<= 300 chars).
+ *
+ * Returns:
+ *     An array of messages ready to be sent to the LLM **excluding** the main
+ *     "instruction" system prompt – that should be prepended by the caller.
+ */
+export function buildChatMessages(
+  userMessage: string,
+  transcript: string,
+  chatHistory: ChatMessage[],
+  conversationType?: string,
+  runningSummary?: string,
+  personalContext?: string,
+  textContext?: string,
+  transcriptCharLimit: number = 4000
+): Array<{ role: 'system' | 'user' | 'assistant'; content: string }> {
+  // 1. Latest few turns (verbatim)
+  const latestTurns = chatHistory.slice(-4).map((m) => ({
+    role: m.type === 'user' ? ('user' as const) : ('assistant' as const),
+    content: m.content,
+  }));
+
+  // 2. Compact context line (single system msg)
+  const contextPieces: string[] = [];
+  if (conversationType) contextPieces.push(`type:${conversationType}`);
+  if (runningSummary) contextPieces.push(`summary:${runningSummary.slice(0, 500)}`);
+  if (personalContext) contextPieces.push(`me:${personalContext.slice(0, 300)}`);
+  if (textContext) contextPieces.push(`ctx:${textContext.slice(0, 300)}`);
+
+  const contextMessage = contextPieces.length
+    ? [{ role: 'system' as const, content: contextPieces.join(' | ') }]
+    : [];
+
+  // 3. Transcript snippet – last ~1500 chars
+  const transcriptSnippet = transcript?.trim();
+  const transcriptMsg = transcriptSnippet
+    ? [{ role: 'system' as const, content: `###T\n${transcriptSnippet.slice(-transcriptCharLimit)}` }]
+    : [];
+
+  // 4. Assemble messages
+  const messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }> = [
+    ...contextMessage,
+    ...transcriptMsg,
+    ...latestTurns,
+    { role: 'user', content: userMessage },
+  ];
+
+  return messages;
+}
