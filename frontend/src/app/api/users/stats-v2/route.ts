@@ -116,9 +116,6 @@ export async function GET(request: NextRequest) {
       .eq('month_year', periodKey)
       .single();
 
-    const monthlyMinutesUsed = monthlyUsage?.total_minutes_used || 0;
-    const monthlySecondsUsed = monthlyUsage?.total_seconds_used || 0;
-
     // Get usage limits using the database function with service client
     const { data: limits, error: limitsError } = await serviceClient
       .rpc('check_usage_limit_v2', {
@@ -144,8 +141,12 @@ export async function GET(request: NextRequest) {
       userId: user.id,
       organizationId: userData.current_organization_id,
       limitData,
-      monthlyMinutesUsed
+      monthlyMinutesUsed: monthlyUsage?.total_minutes_used
     });
+
+    // Use limits data for reliable up-to-date minutes used. Fallback to cache if limits missing.
+    const monthlyMinutesUsed = limitData.minutes_used ?? monthlyUsage?.total_minutes_used ?? 0;
+    const monthlySecondsUsed = monthlyUsage?.total_seconds_used ?? (monthlyMinutesUsed * 60);
 
     // Calculate average and projected usage
     const averageDailyUsage = daysElapsed > 0 ? Math.round(monthlyMinutesUsed / daysElapsed) : 0;
