@@ -61,7 +61,8 @@ export interface SessionsHookReturn {
     title: string; 
     conversation_type: string; 
     selected_template_id?: string;
-    context?: { text?: string; metadata?: Record<string, unknown> }
+    context?: { text?: string; metadata?: Record<string, unknown> };
+    linkedConversationIds?: string[];
   }) => Promise<Session | null>;
   refreshSessions: () => Promise<void>;
 }
@@ -250,7 +251,8 @@ export function useSessions(): SessionsHookReturn {
     title: string; 
     conversation_type: string; 
     selected_template_id?: string;
-    context?: { text?: string; metadata?: Record<string, unknown> }
+    context?: { text?: string; metadata?: Record<string, unknown> };
+    linkedConversationIds?: string[];
   }): Promise<Session | null> => {
     if (!user || authLoading) {
       return null;

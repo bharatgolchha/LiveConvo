@@ -347,12 +347,12 @@ function AppContent() {
     
     try {
       console.log('📡 Fetching transcript from API...');
-      const response = await authenticatedFetch(`/api/sessions/${sessionId}/transcript`, session);
+      const response = await authenticatedFetch(`/api/sessions/${sessionId}/transcript?includeLinked=true`, session);
       if (response.ok) {
         const transcriptData = await response.json();
         console.log('Transcript data received:', transcriptData);
         
-        // Convert transcript data to TranscriptLine format
+        // Convert transcript data to TranscriptLine format (current conversation)
         const formattedTranscript = transcriptData.transcripts.map((item: TranscriptData, index: number) => ({
           id: `loaded-${sessionId}-${index}-${Date.now()}`,
           text: item.content,
@@ -362,6 +362,15 @@ function AppContent() {
         }));
         
         setTranscript(formattedTranscript);
+        
+        // If API returned linked transcripts, store their IDs so downstream effects
+        // can fetch memory summaries and add context.
+        if (transcriptData.linked && Array.isArray(transcriptData.linked) && transcriptData.linked.length > 0) {
+          const linkedIds = transcriptData.linked.map((l: any) => l.id);
+          if (linkedIds.length > 0) {
+            setSelectedPreviousConversations(prev => (prev.length === 0 ? linkedIds : prev));
+          }
+        }
       } else {
         console.error('Failed to load transcript:', response.status, response.statusText);
         const errorData = await response.text();
@@ -509,11 +518,14 @@ function AppContent() {
   const lastTheirTranscriptLen = useRef(0);
   // lastGuidanceIndex removed - auto-guidance no longer used
 
-  // Real-time summary hook - include speaker tags for better context
-  // Memoize fullTranscriptText to prevent unnecessary recalculations and re-renders
-  const fullTranscriptText = React.useMemo(() => 
-    transcript.map(t => `${t.speaker}: ${t.text}`).join('\n')
-  , [transcript]);
+  // Combine live transcript with summaries of selected previous conversations so that
+  // the realtime-summary hook can incorporate broader context.
+  const fullTranscriptText = React.useMemo(() => {
+    const base = transcript.map(t => `${t.speaker}: ${t.text}`).join('\n');
+    return previousConversationsContext
+      ? `${base}\n\n=== PREVIOUS CONVERSATIONS CONTEXT ===\n${previousConversationsContext}`
+      : base;
+  }, [transcript, previousConversationsContext]);
   
   // Only log state changes, not every render
   const lastLoggedState = useRef<{state: string, transcriptLength: number}>({state: '', transcriptLength: 0});
@@ -2443,6 +2455,7 @@ function AppContent() {
                   conversationTitle={conversationTitle}
                   textContext={textContext}
                   selectedPreviousConversations={selectedPreviousConversations}
+                  previousConversationsContext={previousConversationsContext}
                   getSummaryTimeUntilNextRefresh={getTimeUntilNextRefresh}
                 />
               </div>

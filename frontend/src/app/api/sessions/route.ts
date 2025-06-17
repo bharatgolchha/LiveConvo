@@ -169,7 +169,8 @@ export async function POST(request: NextRequest) {
       title, 
       conversation_type, 
       selected_template_id,
-      context // { text: string, metadata?: object }
+      context, // { text: string, metadata?: object }
+      linkedConversationIds
     } = body;
 
     // Get current user from Supabase auth using the access token
@@ -253,6 +254,23 @@ export async function POST(request: NextRequest) {
         // The session was already created successfully
       } else {
         sessionContext = contextData;
+      }
+    }
+
+    // If linkedConversationIds provided, create rows in conversation_links
+    if (Array.isArray(linkedConversationIds) && linkedConversationIds.length > 0) {
+      const rows = linkedConversationIds.map((id: string) => ({
+        session_id: session.id,
+        linked_session_id: id
+      }));
+
+      const { error: linkError } = await authClient
+        .from('conversation_links')
+        .insert(rows);
+
+      if (linkError) {
+        console.error('Error inserting conversation links:', linkError);
+        // Do not fail the request; session already created
       }
     }
 

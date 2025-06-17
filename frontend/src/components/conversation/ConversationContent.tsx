@@ -75,6 +75,7 @@ interface ConversationContentProps {
   conversationTitle?: string;
   textContext?: string;
   selectedPreviousConversations?: string[];
+  previousConversationsContext?: string;
 
   // Refresh timing helpers
   getSummaryTimeUntilNextRefresh: () => number;
@@ -101,6 +102,7 @@ export const ConversationContent: React.FC<ConversationContentProps> = ({
   conversationTitle,
   textContext,
   selectedPreviousConversations,
+  previousConversationsContext,
   getSummaryTimeUntilNextRefresh
 }) => {
   const [isRefreshing, setIsRefreshing] = React.useState(false);
@@ -813,6 +815,16 @@ export const ConversationContent: React.FC<ConversationContentProps> = ({
                         ))}
                       </div>
                     </div>
+                  )}
+
+                  {/* Accordion for Previous Conversations TL;DR */}
+                  {previousConversationsContext && selectedPreviousConversations && selectedPreviousConversations.length > 0 && (
+                    <details className="mt-6 bg-muted/30 border border-border rounded-2xl">
+                      <summary className="px-6 py-3 cursor-pointer font-medium">Previous Conversation Summaries ({selectedPreviousConversations.length})</summary>
+                      <div className="px-6 py-4 whitespace-pre-wrap text-sm text-foreground/80">
+                        {previousConversationsContext.trim()}
+                      </div>
+                    </details>
                   )}
 
                   {/* Summary Metadata */}

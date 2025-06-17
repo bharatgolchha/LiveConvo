@@ -249,10 +249,9 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json(responseData, {
       headers: {
-        'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
-        'Pragma': 'no-cache',
-        'Expires': '0',
-      }
+        // Cache for 1 minute at the edge, allow stale for 5 minutes while revalidating.
+        'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=300',
+      },
     });
 
   } catch (error) {

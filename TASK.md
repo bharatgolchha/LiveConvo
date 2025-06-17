@@ -1656,3 +1656,50 @@ None currently identified - all major issues have been resolved or moved to acti
     - ✅ No noscript required; kept code minimal and loaded `afterInteractive`
   - **Outcome**: GA4 events now fire directly without GTM; analytics configuration lives in Google Analytics UI
   - **Status**: ✅ COMPLETED - Direct GA4 tracking live
+
+- [ ] **⚡ Optimize Dashboard Page Performance** (2025-06-17) 🆕 **IN PROGRESS**
+  - **Goal**: Reduce initial dashboard bundle size, improve Time-to-Interactive, and enforce file-length guidelines by modularizing code.
+  - **Phase 1** (COMPLETED):
+    - Extracted `DashboardHeader`, `DashboardSidebar`, `ConversationInboxItem`, `EmptyState`, `ContextUploadWidget`, and `NewConversationModal` into separate client components under `src/components/dashboard/`.
+    - Added dynamic imports for `DashboardHeader` + `DashboardSidebar` to enable code-splitting.
+    - Cleaned up `dashboard/page.tsx` by commenting out legacy inline components and importing extracted ones.
+  - **Phase 2** (COMPLETED):
+    - Added edge caching headers to `/api/users/stats-v2` and `/api/users/subscription` endpoints.
+    - **Enhanced conversation list UI**: Redesigned `ConversationInboxItem` with modern card design featuring:
+      - Compact, space-efficient layout with proper 12px gaps between cards
+      - Animated status indicators with pulse effects for live sessions
+      - Conversation type icons (💼 sales, 🤝 support, 📋 meeting, etc.)
+      - Rich metadata display (duration, word count, linked conversations)
+      - Contextual action buttons that appear on hover
+      - Beautiful tooltips for linked conversation details
+      - Improved visual hierarchy and spacing
+      - Dark mode support with proper contrast
+      - Reduced card padding and icon sizes for better density
+  - **Next**:
+    - Convert to server component + client wrapper pattern
+    - Add virtualization for large conversation lists
+    - Convert page to Server Component & stream initial data.
+    - Virtualise conversation list.
+    - Add cache-control headers to usage and subscription API routes.
+  - **Status**: 🔄 IN PROGRESS – phase 1 merged; continue refactor in follow-up commits.
+
+- [x] **🐛 Fix Conversation Type Null Crash** (2025-06-07) **JUST COMPLETED**
+  - **Issue**: Dashboard crashed with `TypeError: Cannot read properties of null (reading 'toLowerCase')` when a session had a `null` or undefined `conversation_type`.
+  - **Solution Implemented**:
+    - Updated `ConversationInboxItem.tsx` to safely handle `null/undefined` conversation types by returning a default icon before calling `toLowerCase()`.
+    - Added Jest tests `ConversationInboxItem.test.tsx` to confirm the component renders without crashing and displays the correct icons for `null` and known conversation types.
+  - **Status**: ✅ COMPLETED - Dashboard no longer crashes when `conversation_type` is missing.
+
+### [2025-06-17]
+- [x] Dashboard: Implement "Create Follow-up Call" from conversation cards.
+  - Add Follow-up button in `ConversationInboxItem`.
+  - Extend `useSessions.createSession` to accept `linkedConversationIds`.
+  - Implement handler in Dashboard page.
+  - Add Jest test for button callback.
+- [x] NewConversationModal: Implement improved conversation types with custom option.
+  - Added "Coaching Session" predefined type for 1-on-1s and performance reviews.
+  - Added "Custom" type with input field for user-defined conversation types.
+  - Improved descriptions for all conversation types to be more encompassing.
+  - Enhanced UX with dynamic context placeholders and validation.
+  - **Updated UI: 2-column grid layout with smaller, more compact cards.**
+  - Added comprehensive test coverage for custom type functionality.

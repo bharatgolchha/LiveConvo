@@ -1,0 +1,163 @@
+import React, { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import {
+  MagnifyingGlassIcon,
+  ChevronDownIcon,
+  UserCircleIcon,
+  Cog6ToothIcon,
+  ArrowRightOnRectangleIcon,
+} from '@heroicons/react/24/outline';
+import { ThemeToggle } from '@/components/ui/ThemeToggle';
+import { useTheme } from '@/contexts/ThemeContext';
+import { useAuth } from '@/contexts/AuthContext';
+
+export interface DashboardUser {
+  name: string;
+  email: string;
+  avatar?: string;
+  plan: 'free' | 'pro' | 'team';
+  is_admin?: boolean;
+}
+
+interface DashboardHeaderProps {
+  user: DashboardUser;
+  onSearch: (query: string) => void;
+  onNavigateToSettings: () => void;
+}
+
+const DashboardHeader: React.FC<DashboardHeaderProps> = ({ user, onSearch, onNavigateToSettings }) => {
+  const [searchQuery, setSearchQuery] = useState('');
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const { signOut } = useAuth();
+  const { resolvedTheme } = useTheme();
+
+  const handleLogout = async () => {
+    const { error } = await signOut();
+    if (error) {
+      console.error('Logout error:', error);
+    }
+    // ProtectedRoute handles redirect
+  };
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as HTMLElement;
+      if (!target.closest('.user-menu-container')) {
+        setUserMenuOpen(false);
+      }
+    };
+
+    if (userMenuOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
+    }
+  }, [userMenuOpen]);
+
+  return (
+    <motion.header
+      initial={{ opacity: 0, y: -20 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="bg-card/95 backdrop-blur-sm border-b border-border px-6 py-4"
+    >
+      <div className="flex items-center justify-between">
+        {/* Logo */}
+        <div className="flex items-center space-x-4">
+          <img
+            src={
+              resolvedTheme === 'dark'
+                ? 'https://ucvfgfbjcrxbzppwjpuu.supabase.co/storage/v1/object/public/images/dark.png'
+                : 'https://ucvfgfbjcrxbzppwjpuu.supabase.co/storage/v1/object/public/images/light.png'
+            }
+            alt="liveprompt.ai"
+            className="w-8 h-8 object-contain"
+          />
+        </div>
+
+        {/* Search Bar */}
+        <div className="flex-1 max-w-md mx-8">
+          <div className="relative">
+            <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+            <input
+              type="text"
+              placeholder="Search conversations..."
+              value={searchQuery}
+              onChange={(e) => {
+                setSearchQuery(e.target.value);
+                onSearch(e.target.value);
+              }}
+              className="w-full pl-10 pr-4 py-2 border border-input rounded-lg focus:ring-2 focus:ring-app-primary focus:border-transparent bg-background text-foreground"
+            />
+          </div>
+        </div>
+
+        {/* Right Actions */}
+        <div className="flex items-center space-x-4">
+          {/* Theme Toggle */}
+          <ThemeToggle />
+
+          {/* User Menu */}
+          <div className="relative user-menu-container">
+            <button
+              onClick={() => setUserMenuOpen(!userMenuOpen)}
+              className="flex items-center space-x-2 p-2 rounded-lg hover:bg-accent transition-colors"
+            >
+              <UserCircleIcon className="w-8 h-8 text-muted-foreground" />
+              <div className="hidden sm:block text-left">
+                <p className="text-sm font-medium text-foreground">{user.name}</p>
+                <p className="text-xs text-muted-foreground capitalize">{user.plan} Plan</p>
+              </div>
+              <ChevronDownIcon className="w-4 h-4 text-muted-foreground" />
+            </button>
+
+            {/* Dropdown Menu */}
+            <AnimatePresence>
+              {userMenuOpen && (
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.95, y: -10 }}
+                  animate={{ opacity: 1, scale: 1, y: 0 }}
+                  exit={{ opacity: 0, scale: 0.95, y: -10 }}
+                  transition={{ duration: 0.1 }}
+                  className="absolute right-0 mt-2 w-48 bg-card rounded-lg shadow-lg border border-border py-1 z-50"
+                >
+                  <div className="px-4 py-2 border-b border-border">
+                    <p className="text-sm font-medium text-foreground">{user.name}</p>
+                    <p className="text-xs text-muted-foreground">{user.email}</p>
+                  </div>
+
+                  <button
+                    onClick={() => {
+                      onNavigateToSettings();
+                      setUserMenuOpen(false);
+                    }}
+                    className="w-full text-left px-4 py-2 text-sm text-foreground hover:bg-accent flex items-center space-x-2"
+                  >
+                    <Cog6ToothIcon className="w-4 h-4" />
+                    <span>Settings</span>
+                  </button>
+
+                  <button className="w-full text-left px-4 py-2 text-sm text-foreground hover:bg-accent flex items-center space-x-2">
+                    <UserCircleIcon className="w-4 h-4" />
+                    <span>Profile</span>
+                  </button>
+
+                  <div className="border-t border-border mt-1 pt-1">
+                    <button
+                      onClick={handleLogout}
+                      className="w-full text-left px-4 py-2 text-sm text-destructive hover:bg-destructive/10 flex items-center space-x-2"
+                    >
+                      <ArrowRightOnRectangleIcon className="w-4 h-4" />
+                      <span>Sign Out</span>
+                    </button>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+        </div>
+      </div>
+    </motion.header>
+  );
+};
+
+export default DashboardHeader; 

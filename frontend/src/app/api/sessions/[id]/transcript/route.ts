@@ -42,6 +42,7 @@ export async function GET(
     const limit = parseInt(searchParams.get('limit') || '1000');
     const offset = parseInt(searchParams.get('offset') || '0');
     const since = searchParams.get('since'); // Get transcripts since sequence number
+    const includeLinked = searchParams.get('includeLinked') === 'true';
 
     // Get current user from Supabase auth
     const authHeader = request.headers.get('authorization');
@@ -133,17 +134,69 @@ export async function GET(
       .limit(1)
       .single();
 
+    // If includeLinked, fetch transcripts for linked sessions
+    let linked: Array<{ id: string; title: string; transcripts: any[] }> = [];
+    if (includeLinked) {
+      try {
+        // Get linked session ids
+        const { data: links, error: linkError } = await authClient
+          .from('conversation_links')
+          .select('linked_session_id')
+          .eq('session_id', sessionId);
+
+        if (!linkError && links && links.length > 0) {
+          const linkedIds = links.map(l => l.linked_session_id);
+
+          // Fetch transcripts for all linked sessions
+          const { data: linkedTranscripts, error: linkedTranscriptsError } = await authClient
+            .from('transcripts')
+            .select('*')
+            .in('session_id', linkedIds)
+            .order('session_id', { ascending: true })
+            .order('sequence_number', { ascending: true });
+
+          // Fetch titles for linked sessions using service role (bypass RLS)
+          const { data: linkedSessions, error: linkedSessionsError } = await createServerSupabaseClient()
+            .from('sessions')
+            .select('id, title')
+            .in('id', linkedIds);
+
+          const titleMap = new Map<string, string>();
+          if (!linkedSessionsError && linkedSessions) {
+            linkedSessions.forEach(ls => titleMap.set(ls.id, ls.title));
+          }
+
+          // Group transcripts by session_id
+          const transcriptsBySession: Record<string, any[]> = {};
+          if (!linkedTranscriptsError && linkedTranscripts) {
+            linkedTranscripts.forEach(t => {
+              (transcriptsBySession[t.session_id] = transcriptsBySession[t.session_id] || []).push(t);
+            });
+          }
+
+          linked = linkedIds.map(id => ({
+            id,
+            title: titleMap.get(id) || 'Untitled Conversation',
+            transcripts: transcriptsBySession[id] || []
+          }));
+        }
+      } catch (err) {
+        console.error('Error fetching linked transcripts:', err);
+      }
+    }
+
     // Return in the format expected by the app
     return NextResponse.json({ 
       data: transcriptLines || [],
-      transcripts: transcriptLines || [], // Keep for backward compatibility
+      transcripts: transcriptLines || [], // existing key
       pagination: {
         total: count || 0,
         limit,
         offset,
         hasMore: (count || 0) > offset + limit
       },
-      latestSequenceNumber: latestSeq?.sequence_number || 0
+      latestSequenceNumber: latestSeq?.sequence_number || 0,
+      linked // Provide array if requested (may be empty)
     });
 
   } catch (error) {
