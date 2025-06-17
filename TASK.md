@@ -1647,3 +1647,12 @@ None currently identified - all major issues have been resolved or moved to acti
     - ✅ Used `strategy="afterInteractive"` for optimized loading without blocking paint
   - **Outcome**: GTM is now tracking user interactions across the entire site, enabling better analytics
   - **Status**: ✅ COMPLETED - GTM successfully integrated site-wide
+
+- [x] **📊 Replace GTM with direct GA4 gtag.js** (2025-06-17) 🆕 **JUST COMPLETED**
+  - **Request**: Remove Google Tag Manager and integrate GA4 directly via gtag.js snippet
+  - **Implementation**:
+    - ✅ Removed GTM `<Script>` and `<noscript>` from `frontend/src/app/layout.tsx`
+    - ✅ Added GA4 gtag.js script and initialization with Measurement ID `G-VDZ06T78WV`
+    - ✅ No noscript required; kept code minimal and loaded `afterInteractive`
+  - **Outcome**: GA4 events now fire directly without GTM; analytics configuration lives in Google Analytics UI
+  - **Status**: ✅ COMPLETED - Direct GA4 tracking live
