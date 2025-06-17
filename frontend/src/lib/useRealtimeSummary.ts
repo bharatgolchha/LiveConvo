@@ -151,7 +151,8 @@ export function useRealtimeSummary({
         body: JSON.stringify({
           transcript,
           sessionId,
-          conversationType
+          conversationType,
+          includeLinked: true
         })
       });
 

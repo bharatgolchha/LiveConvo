@@ -43,7 +43,7 @@ GENERAL SUGGESTIONS:
 
 export async function POST(request: NextRequest) {
   try {
-    const { transcript, sessionId, conversationType } = await request.json();
+    const { transcript, sessionId, conversationType, includeLinked } = await request.json();
 
     // Get current user from Supabase auth using the access token
     const authHeader = request.headers.get('authorization');
@@ -98,7 +98,50 @@ export async function POST(request: NextRequest) {
       ? transcript.map(t => `${t.speaker}: ${t.text}`).join('\n')
       : transcript;
 
+    // Fetch memory summaries for linked conversations if requested
+    let linkedSummariesPrompt = '';
+    if (includeLinked && sessionId) {
+      try {
+        // Create authenticated supabase client with token (already have above)
+        const { data: links, error: linksError } = await authClient
+          .from('conversation_links')
+          .select('linked_session_id')
+          .eq('session_id', sessionId);
+
+        if (!linksError && links && links.length > 0) {
+          const linkedIds = links.map((l: any) => l.linked_session_id);
+
+          // Fetch latest summary for each linked session
+          const { data: summaries, error: summariesError } = await authClient
+            .from('summaries')
+            .select('session_id, title, tldr, key_decisions, created_at')
+            .in('session_id', linkedIds)
+            .order('created_at', { ascending: false });
+
+          if (!summariesError && summaries && summaries.length > 0) {
+            // Keep only the latest summary per session
+            const latestBySession = new Map<string, any>();
+            summaries.forEach((s: any) => {
+              if (!latestBySession.has(s.session_id)) {
+                latestBySession.set(s.session_id, s);
+              }
+            });
+
+            linkedSummariesPrompt = Array.from(latestBySession.values()).map((s: any, idx: number) => {
+              const tldr = s.tldr || '';
+              const keyPoints = Array.isArray(s.key_decisions) ? s.key_decisions.slice(0, 5).join('; ') : '';
+              return `\n${idx + 1}. ${s.title || 'Untitled'}\nTL;DR: ${tldr}\nKey Points: ${keyPoints}`;
+            }).join('\n');
+          }
+        }
+      } catch (err) {
+        console.error('Error fetching linked summaries:', err);
+      }
+    }
+
     const systemPrompt = `You are an expert conversation analyst. Analyze the conversation transcript and provide a comprehensive summary.
+
+CONTEXT FROM PREVIOUS CONVERSATIONS (if any):${linkedSummariesPrompt || ' None'}
 
 CRITICAL: You MUST respond with valid JSON using this EXACT structure. Do not include any text before or after the JSON.
 
