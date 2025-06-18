@@ -152,7 +152,7 @@ REQUIRED JSON FORMAT:
   "decisions": ["Decision 1"],
   "actionItems": ["Action 1"],
   "nextSteps": ["Next step 1"],
-  "topics": ["Topic 1", "Topic 2"],
+  "topics": ["Topic 1", "Topic 2", "Topic 3", "Topic 4"],
   "sentiment": "positive",
   "progressStatus": "building_momentum",
   "suggestedChecklistItems": []
@@ -160,11 +160,11 @@ REQUIRED JSON FORMAT:
 
 FIELD RULES:
 - tldr: 1-2 sentences max
-- keyPoints: 3-5 main discussion points (required)
+- keyPoints: 3-10 main discussion points (aim for thorough coverage)
 - decisions: Actual decisions made (can be empty array)
 - actionItems: Specific tasks identified (can be empty array)
 - nextSteps: Clear next actions (can be empty array)  
-- topics: Main subjects discussed (1-3 topics)
+- topics: Main subjects discussed (include as many as are meaningfully covered, no strict limit)
 - sentiment: Must be "positive", "negative", or "neutral"
 - progressStatus: Must be "just_started", "building_momentum", "making_progress", or "wrapping_up"
 - suggestedChecklistItems: Leave as empty array for now

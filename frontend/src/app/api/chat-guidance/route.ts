@@ -253,14 +253,16 @@ function getChatGuidanceSystemPrompt(conversationType?: string, isRecording: boo
 MODE: ${mode}
 
 RESPONSE FORMAT (strict JSON – no markdown wrappers):
-{
-  "response": "Markdown bullet list of 2-3 actionable coaching points (<=200 words)",
-  "confidence": 75,
-  "smartSuggestion": null | {
-    "type": "response|objection|redirect|clarification",
-    "content": "One-sentence suggestion (<=20 words)",
-    "priority": "high|medium|low"
-  }
+# IMPORTANT: The response field **must** be a valid JSON string.
+# • Use *single quotes* or escape any internal double quotes with \\".
+# • Do NOT include backticks, markdown fences, or leading text.
+# • Keep newline separators (\n) between bullet items.
+"response": "Markdown bullet list of 2-3 actionable coaching points (<=200 words)",
+"confidence": 75,
+"smartSuggestion": null | {
+  "type": "response|objection|redirect|clarification",
+  "content": "One-sentence suggestion (<=20 words)",
+  "priority": "high|medium|low"
 }
 
 SMART SUGGESTION RULES:
