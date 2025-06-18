@@ -14,6 +14,8 @@ export interface GuidanceRequest {
   userContext?: string;
   conversationType?: 'sales' | 'support' | 'meeting' | 'interview';
   participantRole?: 'host' | 'participant' | 'interviewer' | 'interviewee';
+  participantMe?: string;
+  participantThem?: string;
 }
 
 export interface GuidanceSuggestion {
@@ -109,7 +111,9 @@ export class AIGuidanceEngine {
           context: contextSummary,
           userContext: request.userContext,
           conversationType: request.conversationType,
-          participantRole: request.participantRole
+          participantRole: request.participantRole,
+          participantMe: request.participantMe,
+          participantThem: request.participantThem
         })
       });
 

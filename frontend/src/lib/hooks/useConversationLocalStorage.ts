@@ -17,6 +17,8 @@ interface UseConversationLocalStorageProps {
   conversationType: ConversationType;
   conversationTitle: string;
   textContext: string;
+  participantMe?: string;
+  participantThem?: string;
 
   // Setter fns for restoration
   setTranscript: (lines: TranscriptLine[]) => void;
@@ -27,6 +29,8 @@ interface UseConversationLocalStorageProps {
   setConversationTitle: (title: string) => void;
   setTextContext: (text: string) => void;
   setSelectedPreviousConversations: (ids: string[]) => void;
+  setParticipantMe?: (name: string) => void;
+  setParticipantThem?: (name: string) => void;
 }
 
 /**
@@ -42,6 +46,8 @@ export function useConversationLocalStorage({
   conversationType,
   conversationTitle,
   textContext,
+  participantMe,
+  participantThem,
   setTranscript,
   setSessionDuration,
   setCumulativeDuration,
@@ -50,6 +56,8 @@ export function useConversationLocalStorage({
   setConversationTitle,
   setTextContext,
   setSelectedPreviousConversations,
+  setParticipantMe,
+  setParticipantThem,
 }: UseConversationLocalStorageProps) {
   /* ---------- SAVE ---------- */
   useEffect(() => {
@@ -63,6 +71,8 @@ export function useConversationLocalStorage({
       conversationType,
       conversationTitle,
       textContext,
+      participantMe,
+      participantThem,
       updatedAt: new Date().toISOString(),
     };
     try {
@@ -83,6 +93,8 @@ export function useConversationLocalStorage({
     conversationType,
     conversationTitle,
     textContext,
+    participantMe,
+    participantThem,
   ]);
 
   /* ---------- RESTORE ---------- */
@@ -113,6 +125,8 @@ export function useConversationLocalStorage({
       if (parsed.conversationType) setConversationType(parsed.conversationType);
       if (parsed.conversationTitle) setConversationTitle(parsed.conversationTitle);
       if (parsed.textContext) setTextContext(parsed.textContext);
+      if (parsed.participantMe && setParticipantMe) setParticipantMe(parsed.participantMe);
+      if (parsed.participantThem && setParticipantThem) setParticipantThem(parsed.participantThem);
       if (
         parsed.selectedPreviousConversations &&
         Array.isArray(parsed.selectedPreviousConversations)

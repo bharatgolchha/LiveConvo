@@ -4,6 +4,8 @@ interface ExportOptions {
     conversation_type: string;
     created_at: string;
     duration: number;
+    participant_me?: string;
+    participant_them?: string;
     summary: {
       tldr: string;
       overview: string;
@@ -270,7 +272,7 @@ export async function generatePDF(options: ExportOptions) {
         ${session.transcript_lines.map(line => `
           <div class="transcript-line">
             <div>
-              <div class="speaker">${line.speaker === 'user' ? 'You' : 'Guest'}</div>
+              <div class="speaker">${line.speaker.toLowerCase() === 'me' ? (session.participant_me || 'You') : (session.participant_them || 'Them')}</div>
               <div class="timestamp">${Math.floor(line.timestamp / 60)}:${(line.timestamp % 60).toString().padStart(2, '0')}</div>
             </div>
             <div class="content">${line.content}</div>

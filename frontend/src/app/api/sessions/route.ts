@@ -78,7 +78,9 @@ export async function GET(request: NextRequest) {
         created_at,
         updated_at,
         recording_started_at,
-        recording_ended_at
+        recording_ended_at,
+        participant_me,
+        participant_them
       `,
         { count: 'exact' }
       )
@@ -171,7 +173,9 @@ export async function POST(request: NextRequest) {
       conversation_type, 
       selected_template_id,
       context, // { text: string, metadata?: object }
-      linkedConversationIds
+      linkedConversationIds,
+      participant_me,
+      participant_them
     } = body;
 
     // Get current user from Supabase auth using the access token
@@ -221,7 +225,9 @@ export async function POST(request: NextRequest) {
         title,
         conversation_type,
         selected_template_id,
-        status: 'draft'
+        status: 'draft',
+        participant_me,
+        participant_them
       })
       .select()
       .single();

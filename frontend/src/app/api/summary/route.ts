@@ -45,7 +45,7 @@ GENERAL SUGGESTIONS:
 
 export async function POST(request: NextRequest) {
   try {
-    const { transcript, sessionId, conversationType, includeLinked } = await request.json();
+    const { transcript, sessionId, conversationType, includeLinked, participantMe, participantThem } = await request.json();
 
     // Get current user from Supabase auth using the access token
     const authHeader = request.headers.get('authorization');
@@ -97,7 +97,10 @@ export async function POST(request: NextRequest) {
     }
 
     const transcriptText = Array.isArray(transcript) 
-      ? transcript.map(t => `${t.speaker}: ${t.text}`).join('\n')
+      ? transcript.map(t => {
+          const speakerName = t.speaker === 'ME' ? (participantMe || 'You') : (participantThem || 'Them');
+          return `${speakerName}: ${t.text}`;
+        }).join('\n')
       : transcript;
 
     // Fetch memory summaries for linked conversations if requested
@@ -141,7 +144,10 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    const systemPrompt = `You are an expert conversation analyst. Analyze the transcript and provide a summary in the EXACT JSON format below.
+    const meLabel = participantMe || 'the primary participant';
+    const themLabel = participantThem || 'the other participant';
+    
+    const systemPrompt = `You are an expert conversation analyst. Analyze the transcript of a conversation between ${meLabel} and ${themLabel} and provide a summary in the EXACT JSON format below.
 
 CRITICAL: Return ONLY valid JSON. No markdown, no explanations, just the JSON object.
 
@@ -188,7 +194,7 @@ Return ONLY the JSON object. Ensure all strings are properly quoted and escaped.
           },
           {
             role: 'user',
-            content: `Analyze this conversation and return the summary as JSON:\n\n${transcriptText}`
+            content: `Analyze this ${conversationType || 'general'} conversation between ${meLabel} and ${themLabel} and return the summary as JSON:\n\n${transcriptText}`
           }
         ],
         temperature: 0.1,

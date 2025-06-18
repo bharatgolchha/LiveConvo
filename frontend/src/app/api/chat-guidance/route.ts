@@ -103,6 +103,8 @@ interface ChatRequest {
   uploadedFiles?: Array<{ name: string; type: string; size: number }>;
   selectedPreviousConversations?: string[];
   personalContext?: string;
+  participantMe?: string;
+  participantThem?: string;
 }
 
 // Add interface for parsed context
@@ -129,6 +131,8 @@ export async function POST(request: NextRequest) {
       uploadedFiles: z.any().optional(),
       selectedPreviousConversations: z.any().optional(),
       personalContext: z.string().optional(),
+      participantMe: z.string().optional(),
+      participantThem: z.string().optional(),
       stage: z.enum(['opening','discovery','demo','pricing','closing']).optional(),
       isRecording: z.boolean().optional(),
       transcriptLength: z.number().optional()
@@ -154,6 +158,8 @@ export async function POST(request: NextRequest) {
       uploadedFiles,
       selectedPreviousConversations,
       personalContext,
+      participantMe,
+      participantThem,
       stage,
       isRecording = false,
       transcriptLength = 0,
@@ -239,7 +245,9 @@ Remember: Start with [ and end with ] - no other text allowed.`;
       runningSummary,
       personalContext,
       textContext,
-      4000 // transcript tail
+      4000, // transcript tail
+      participantMe,
+      participantThem
     );
 
     const defaultModel = await getDefaultAiModelServer();
@@ -255,7 +263,7 @@ Remember: Start with [ and end with ] - no other text allowed.`;
       body: JSON.stringify({
         model: defaultModel,
         messages: [
-          { role: 'system', content: chipsMode ? getChipPrompt(effectiveConversationType || 'sales', stage || 'opening', textContext || '', effectiveTranscript) : getChatGuidanceSystemPrompt(effectiveConversationType, isRecording, transcriptLength) },
+          { role: 'system', content: chipsMode ? getChipPrompt(effectiveConversationType || 'sales', stage || 'opening', textContext || '', effectiveTranscript) : getChatGuidanceSystemPrompt(effectiveConversationType, isRecording, transcriptLength, participantMe, participantThem) },
           ...chatMessages,
         ],
         temperature: 0.4,
@@ -362,11 +370,13 @@ Remember: Start with [ and end with ] - no other text allowed.`;
   }
 }
 
-function getChatGuidanceSystemPrompt(conversationType?: string, isRecording: boolean = false, transcriptLength: number = 0): string {
+function getChatGuidanceSystemPrompt(conversationType?: string, isRecording: boolean = false, transcriptLength: number = 0, participantMe?: string, participantThem?: string): string {
   const live = isRecording && transcriptLength > 0;
   const mode = live ? 'LIVE' : 'PREP';
+  const meLabel = participantMe || 'the user';
+  const themLabel = participantThem || 'the other participant';
 
-  return `You are an expert ${conversationType || 'general'} conversation coach providing conversational guidance.
+  return `You are an expert ${conversationType || 'general'} conversation coach providing conversational guidance for a conversation between ${meLabel} and ${themLabel}.
 
 MODE: ${mode} ${mode === 'LIVE' ? '(Active conversation - provide immediate tactical advice)' : '(Planning phase - help with preparation and strategy)'}
 

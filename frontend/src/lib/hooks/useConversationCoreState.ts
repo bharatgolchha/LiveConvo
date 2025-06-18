@@ -53,6 +53,8 @@ export function useConversationCoreState(conversationId: string | null) {
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
   const [systemAudioStream, setSystemAudioStream] = useState<MediaStream | null>(null);
   const [personalContext, setPersonalContext] = useState<string>('');
+  const [participantMe, setParticipantMe] = useState<string>('');
+  const [participantThem, setParticipantThem] = useState<string>('');
 
   /* Summary fetched from DB */
   const [loadedSummary, setLoadedSummary] = useState<ConversationSummary | null>(null);
@@ -107,6 +109,10 @@ export function useConversationCoreState(conversationId: string | null) {
     setSystemAudioStream,
     personalContext,
     setPersonalContext,
+    participantMe,
+    setParticipantMe,
+    participantThem,
+    setParticipantThem,
 
     /* db summary */
     loadedSummary,

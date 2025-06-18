@@ -19,6 +19,8 @@ interface SmartNotesTabProps {
   previousConversationIds?: string[];
   transcript?: string;
   summary?: any; // Pass summary data for better suggestions
+  participantMe?: string;
+  participantThem?: string;
 }
 
 export const SmartNotesTab: React.FC<SmartNotesTabProps> = ({
@@ -29,7 +31,9 @@ export const SmartNotesTab: React.FC<SmartNotesTabProps> = ({
   contextText,
   previousConversationIds,
   transcript,
-  summary
+  summary,
+  participantMe,
+  participantThem
 }) => {
   const [items, setItems] = useState<SmartNote[]>([]);
   const [loading, setLoading] = useState(true);
@@ -225,7 +229,9 @@ export const SmartNotesTab: React.FC<SmartNotesTabProps> = ({
           sessionId,
           conversationType,
           transcript,
-          summary
+          summary,
+          participantMe,
+          participantThem
         })
       });
 

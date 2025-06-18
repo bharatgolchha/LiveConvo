@@ -44,7 +44,7 @@ GENERAL SUGGESTIONS:
 
 export async function POST(request: NextRequest) {
   try {
-    const { transcript, sessionId, conversationType, summary } = await request.json();
+    const { transcript, sessionId, conversationType, summary, participantMe, participantThem } = await request.json();
 
     // Get current user from Supabase auth using the access token
     const authHeader = request.headers.get('authorization');
@@ -113,7 +113,10 @@ export async function POST(request: NextRequest) {
     
     context += `Transcript:\n${transcript}`;
 
-    const systemPrompt = `You are an expert conversation analyst. Generate smart note suggestions based on the conversation.
+    const meLabel = participantMe || 'the primary participant';
+    const themLabel = participantThem || 'the other participant';
+    
+    const systemPrompt = `You are an expert conversation analyst. Generate smart note suggestions based on the conversation between ${meLabel} and ${themLabel}.
 
 CRITICAL: Return ONLY valid JSON. No markdown, no explanations, just the JSON object.
 

@@ -188,7 +188,9 @@ const DashboardPage: React.FC = () => {
             has_files: !!(config.context?.files && config.context.files.length > 0)
           }
         } : undefined,
-        linkedConversationIds: config.selectedPreviousConversations || []
+        linkedConversationIds: config.selectedPreviousConversations || [],
+        participant_me: config.participantMe,
+        participant_them: config.participantThem
       } as any);
       
       if (newSession) {
@@ -211,7 +213,9 @@ const DashboardPage: React.FC = () => {
           type: config.conversationType,
           context: config.context || { text: '', files: [] },
           selectedPreviousConversations: config.selectedPreviousConversations || [],
-          createdAt: new Date().toISOString()
+          createdAt: new Date().toISOString(),
+          participantMe: config.participantMe,
+          participantThem: config.participantThem
         };
         
         if (typeof window !== 'undefined') {
