@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { Card } from '@/components/ui/Card';
 import { formatDistanceToNow } from 'date-fns';
 import { adminFetch } from '@/lib/adminApi';
+import dynamic from 'next/dynamic';
 
 interface SystemLog {
   id: string;
@@ -24,6 +25,8 @@ interface SystemHealth {
     openrouter: { status: string };
   };
 }
+
+const SystemSettingsCard = dynamic(() => import('@/components/admin/SystemSettingsCard'));
 
 export default function AdminSystemPage() {
   const [logs, setLogs] = useState<SystemLog[]>([]);
@@ -242,6 +245,9 @@ export default function AdminSystemPage() {
           )}
         </div>
       </Card>
+
+      {/* System Settings */}
+      <SystemSettingsCard />
     </div>
   );
 }

@@ -8,6 +8,7 @@ import type {
   SummaryActionItem,
   SummaryDecision 
 } from '@/types/api';
+import { getDefaultAiModelServer } from '@/lib/systemSettingsServer';
 
 const openrouterApiKey = process.env.OPENROUTER_API_KEY;
 
@@ -165,7 +166,7 @@ export async function POST(
         risk_factors: finalData?.risk_factors || []
       }), // Store enhanced data as structured notes
       generation_status: 'completed',
-      model_used: 'google/gemini-2.5-flash-preview-05-20'
+      model_used: await getDefaultAiModelServer()
     };
 
     console.log('💾 Attempting to save summary to database:', {
@@ -383,6 +384,7 @@ Return a JSON object with this EXACT structure:
   ]
 }`;
 
+  const model = await getDefaultAiModelServer();
   const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
     method: 'POST',
     headers: {
@@ -392,7 +394,7 @@ Return a JSON object with this EXACT structure:
       'X-Title': 'liveprompt.ai Session Summary',
     },
     body: JSON.stringify({
-      model: 'google/gemini-2.5-flash-preview-05-20',
+      model,
       messages: [
         {
           role: 'system',
@@ -545,6 +547,7 @@ Return a JSON object with this structure:
   ]
 }`;
 
+  const model2 = await getDefaultAiModelServer();
   const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
     method: 'POST',
     headers: {
@@ -554,7 +557,7 @@ Return a JSON object with this structure:
       'X-Title': 'liveprompt.ai Conversation Analysis',
     },
     body: JSON.stringify({
-      model: 'google/gemini-2.5-flash-preview-05-20',
+      model: model2,
       messages: [
         {
           role: 'system',

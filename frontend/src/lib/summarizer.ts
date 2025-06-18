@@ -1,4 +1,10 @@
-import fetch from 'node-fetch';
+// Removed explicit import of `node-fetch`.
+// Node 18+ (used by Next.js) provides a global `fetch` implementation, so we
+// can rely on that to avoid an extra dependency and bundling issues.
+
+// eslint-disable-next-line @typescript-eslint/consistent-type-imports
+// Note: If you are using a Node version < 18 you must polyfill `fetch` or
+// install `node-fetch` as a dependency.
 
 /**
  * Generate an updated running summary given the previous summary and a new transcript chunk.

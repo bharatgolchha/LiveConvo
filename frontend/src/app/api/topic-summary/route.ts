@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getDefaultAiModelServer } from '@/lib/systemSettingsServer';
 
 // Health check endpoint
 export async function GET() {
@@ -61,6 +62,7 @@ export async function POST(request: NextRequest) {
     }
 
     console.log('🚀 Calling OpenRouter API...');
+    const model = await getDefaultAiModelServer();
     // Use OpenRouter to generate topic-specific summary
     const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
       method: 'POST',
@@ -71,7 +73,7 @@ export async function POST(request: NextRequest) {
         'X-Title': 'liveprompt.ai Topic Summary'
       },
       body: JSON.stringify({
-        model: 'google/gemini-2.5-flash-preview-05-20',
+        model,
         messages: [
           {
             role: 'system',
