@@ -28,7 +28,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { topic, transcript, sessionId } = requestData;
+    const { topic, transcript, sessionId, participantMe, participantThem } = requestData;
 
     console.log('📝 Request data:', { 
       topic: topic?.substring(0, 50), 
@@ -75,6 +75,10 @@ export async function POST(request: NextRequest) {
       body: JSON.stringify({
         model,
         messages: [
+          {
+            role: 'system',
+            content: `You are an expert conversation analyst. ${participantMe && participantThem ? `The conversation is between ${participantMe} and ${participantThem}.` : ''}`
+          },
           {
             role: 'system',
             content: `You are an AI assistant that analyzes conversation transcripts and provides detailed, well-structured summaries about specific topics. When given a topic and transcript, you should:

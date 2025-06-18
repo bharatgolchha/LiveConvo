@@ -28,6 +28,8 @@ interface TranscriptMessage {
 interface Props {
   messages: TranscriptMessage[];
   conversationState: ConversationState;
+  participantMe?: string;
+  participantThem?: string;
 }
 
 export interface VirtualizedTranscriptListHandle {
@@ -38,7 +40,7 @@ export interface VirtualizedTranscriptListHandle {
  * Virtualized transcript list using react-virtuoso. Handles dynamic heights out of the box.
  */
 export const VirtualizedTranscriptList = forwardRef<VirtualizedTranscriptListHandle, Props>(
-  ({ messages, conversationState }, ref) => {
+  ({ messages, conversationState, participantMe, participantThem }, ref) => {
     const virtuosoRef = useRef(null);
 
     useImperativeHandle(ref, () => ({
@@ -46,6 +48,17 @@ export const VirtualizedTranscriptList = forwardRef<VirtualizedTranscriptListHan
         virtuosoRef.current?.scrollToIndex({ index: messages.length - 1, behavior: 'smooth' });
       }
     }), [messages.length]);
+
+    // Debug logging for participant names
+    React.useEffect(() => {
+      console.log('🔍 VirtualizedTranscriptList participant names:', {
+        participantMe,
+        participantThem,
+        hasParticipantMe: !!participantMe,
+        hasParticipantThem: !!participantThem,
+        messageCount: messages.length
+      });
+    }, [participantMe, participantThem]);
 
     if (messages.length === 0) {
       return (
@@ -78,7 +91,7 @@ export const VirtualizedTranscriptList = forwardRef<VirtualizedTranscriptListHan
                 >
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-xs font-semibold opacity-80">
-                      {isMe ? 'You' : 'Participant'}
+                      {isMe ? (participantMe || 'You') : (participantThem || 'Participant')}
                     </span>
                     <span className="text-xs opacity-60">
                       {msg.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}

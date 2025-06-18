@@ -4,7 +4,7 @@ import { getDefaultAiModelServer } from '@/lib/systemSettingsServer';
 
 export async function POST(request: NextRequest) {
   try {
-    const { transcript, context, userContext, conversationType, participantRole } = await request.json();
+    const { transcript, context, userContext, conversationType, participantRole, participantMe, participantThem } = await request.json();
 
     const apiKey = process.env.OPENROUTER_API_KEY;
     if (!apiKey) {
@@ -28,13 +28,15 @@ export async function POST(request: NextRequest) {
       personalContext = userData?.personal_context || '';
     }
 
-    const systemPrompt = getSystemPrompt(conversationType, participantRole);
+    const systemPrompt = getSystemPrompt(conversationType, participantRole, participantMe, participantThem);
     const prompt = buildGuidancePrompt({ 
       transcript, 
       context, 
       userContext: userContext || personalContext, 
       conversationType, 
-      participantRole 
+      participantRole,
+      participantMe,
+      participantThem
     });
 
     const model = await getDefaultAiModelServer();
@@ -87,8 +89,11 @@ export async function POST(request: NextRequest) {
   }
 }
 
-function getSystemPrompt(conversationType?: string, participantRole?: string): string {
-  const basePrompt = `You are an expert conversation coach providing real-time guidance during live conversations. 
+function getSystemPrompt(conversationType?: string, participantRole?: string, participantMe?: string, participantThem?: string): string {
+  const meLabel = participantMe || 'the user';
+  const themLabel = participantThem || 'the other participant';
+  
+  const basePrompt = `You are an expert conversation coach providing real-time guidance during live conversations between ${meLabel} and ${themLabel}. 
 
 Your role is to analyze the conversation transcript and provide helpful, actionable suggestions to improve the conversation flow and outcomes.
 
@@ -164,6 +169,8 @@ function buildGuidancePrompt(request: {
   userContext?: string;
   conversationType?: string;
   participantRole?: string;
+  participantMe?: string;
+  participantThem?: string;
 }): string {
   return `
 CONVERSATION ANALYSIS REQUEST:

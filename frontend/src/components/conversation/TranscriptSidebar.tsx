@@ -41,6 +41,8 @@ interface TranscriptSidebarProps {
   onRefresh?: () => void;
   pendingCount?: number;
   className?: string;
+  participantMe?: string;
+  participantThem?: string;
 }
 
 export function TranscriptSidebar({
@@ -52,7 +54,9 @@ export function TranscriptSidebar({
   onExport,
   onRefresh,
   pendingCount = 0,
-  className
+  className,
+  participantMe,
+  participantThem
 }: TranscriptSidebarProps) {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -130,7 +134,7 @@ export function TranscriptSidebar({
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-0.5">
               <span className="text-xs font-medium text-gray-700">
-                {isMySpeaker ? 'You' : 'Them'}
+                {isMySpeaker ? (participantMe || 'You') : (participantThem || 'Them')}
               </span>
               <span className="text-xs text-gray-500">
                 {formatTimestamp(transcript.start_time_seconds)}
@@ -161,9 +165,11 @@ export function TranscriptSidebar({
   };
 
   const handleExport = () => {
-    const transcriptText = transcripts.map(line => 
-      `[${formatTimestamp(line.start_time_seconds)}] ${line.speaker === 'user' || line.speaker === 'ME' ? 'You' : 'Them'}: ${line.content}`
-    ).join('\n');
+    const transcriptText = transcripts.map(line => {
+      const isMySpeaker = line.speaker === 'user' || line.speaker === 'ME';
+      const speakerName = isMySpeaker ? (participantMe || 'You') : (participantThem || 'Them');
+      return `[${formatTimestamp(line.start_time_seconds)}] ${speakerName}: ${line.content}`;
+    }).join('\n');
     
     const content = `${sessionTitle}\nDuration: ${formatDuration(sessionDuration)}\nGenerated: ${new Date().toLocaleString()}\n\n${transcriptText}`;
     

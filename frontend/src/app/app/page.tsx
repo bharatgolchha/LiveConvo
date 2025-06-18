@@ -102,6 +102,9 @@ function AppContent() {
   const conversationId = searchParams.get('cid');
   const { session, loading: authLoading } = useAuth(); // Add auth hook
   
+  // UI State - Define early to avoid reference errors
+  const [selectedPreviousConversations, setSelectedPreviousConversations] = useState<string[]>([]);
+  
   // Core State handled by dedicated hook
   const {
     conversationState,
@@ -136,6 +139,10 @@ function AppContent() {
     setSystemAudioStream,
     personalContext,
     setPersonalContext,
+    participantMe,
+    setParticipantMe,
+    participantThem,
+    setParticipantThem,
     loadedSummary,
     setLoadedSummary,
     isLoadingFromSession,
@@ -280,6 +287,22 @@ function AppContent() {
         // Set the conversation details - backend data takes precedence
         setConversationTitle(sessionData.title || 'Untitled Conversation');
         
+        // Set participant names if available
+        if (sessionData.participant_me) {
+          setParticipantMe(sessionData.participant_me);
+          console.log('✅ Loaded participantMe from database:', sessionData.participant_me);
+        }
+        if (sessionData.participant_them) {
+          setParticipantThem(sessionData.participant_them);
+          console.log('✅ Loaded participantThem from database:', sessionData.participant_them);
+        }
+        console.log('🔍 Session data participant names:', {
+          participant_me: sessionData.participant_me,
+          participant_them: sessionData.participant_them,
+          hasParticipantMe: !!sessionData.participant_me,
+          hasParticipantThem: !!sessionData.participant_them
+        });
+        
         // Map conversation type from database format to app format
         const dbTypeMapping: Record<string, 'sales' | 'support' | 'meeting' | 'interview'> = {
           'sales_call': 'sales',
@@ -391,6 +414,30 @@ function AppContent() {
     preventUnloadRef,
   });
 
+  // LocalStorage persistence for conversation state
+  useConversationLocalStorage({
+    conversationId,
+    conversationState,
+    sessionDuration,
+    transcript,
+    talkStats,
+    conversationType,
+    conversationTitle,
+    textContext,
+    participantMe,
+    participantThem,
+    setTranscript,
+    setSessionDuration,
+    setCumulativeDuration,
+    setTalkStats,
+    setConversationType,
+    setConversationTitle,
+    setTextContext,
+    setSelectedPreviousConversations,
+    setParticipantMe,
+    setParticipantThem,
+  });
+
   // Temporary debug logging for auth state
   useEffect(() => {
     console.log('🔍 Auth State Debug:', {
@@ -403,6 +450,18 @@ function AppContent() {
       conversationId
     });
   }, [session, authLoading, conversationId]);
+
+  // Debug participant names state
+  useEffect(() => {
+    console.log('🔍 Participant Names State:', {
+      participantMe,
+      participantThem,
+      hasParticipantMe: !!participantMe,
+      hasParticipantThem: !!participantThem,
+      conversationId,
+      isLoadingFromSession
+    });
+  }, [participantMe, participantThem, conversationId, isLoadingFromSession]);
 
   // Load personal context when user is authenticated
   useEffect(() => {
@@ -449,7 +508,6 @@ function AppContent() {
   const [audioEnabled, setAudioEnabled] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'transcript' | 'summary' | 'checklist'>('transcript');
-  const [selectedPreviousConversations, setSelectedPreviousConversations] = useState<string[]>([]);
   const [previousConversationSearch, setPreviousConversationSearch] = useState('');
   const [aiCoachWidth, setAiCoachWidth] = useState(400); // Default AI Coach sidebar width
   const [showTranscriptModal, setShowTranscriptModal] = useState(false);
@@ -521,11 +579,14 @@ function AppContent() {
   // Combine live transcript with summaries of selected previous conversations so that
   // the realtime-summary hook can incorporate broader context.
   const fullTranscriptText = React.useMemo(() => {
-    const base = transcript.map(t => `${t.speaker}: ${t.text}`).join('\n');
+    const base = transcript.map(t => {
+      const speakerName = t.speaker === 'ME' ? (participantMe || 'Me') : (participantThem || 'Them');
+      return `${speakerName}: ${t.text}`;
+    }).join('\n');
     return previousConversationsContext
       ? `${base}\n\n=== PREVIOUS CONVERSATIONS CONTEXT ===\n${previousConversationsContext}`
       : base;
-  }, [transcript, previousConversationsContext]);
+  }, [transcript, previousConversationsContext, participantMe, participantThem]);
   
   // Only log state changes, not every render
   const lastLoggedState = useRef<{state: string, transcriptLength: number}>({state: '', transcriptLength: 0});
@@ -557,7 +618,9 @@ function AppContent() {
     // Treat completed sessions like paused so summary data is retained
     isPaused: conversationState === 'paused' || conversationState === 'completed',
     refreshIntervalMs: 45000, // 45 seconds
-    session: session // Add session for authentication
+    session: session, // Add session for authentication
+    participantMe,
+    participantThem
   });
 
 
@@ -634,7 +697,10 @@ function AppContent() {
     personalContext,
     // Recording state
     isRecording: conversationState === 'recording',
-    transcriptLength: transcript.length
+    transcriptLength: transcript.length,
+    // Participant names
+    participantMe,
+    participantThem
   });
 
 
@@ -941,6 +1007,16 @@ function AppContent() {
           const config = JSON.parse(storedConfig);
           setConversationTitle(config.title || 'New Conversation');
           
+          // Load participant names from config
+          if (config.participantMe) {
+            setParticipantMe(config.participantMe);
+            console.log('✅ Loaded participantMe from localStorage:', config.participantMe);
+          }
+          if (config.participantThem) {
+            setParticipantThem(config.participantThem);
+            console.log('✅ Loaded participantThem from localStorage:', config.participantThem);
+          }
+          
           // Map conversation type from dashboard format to app format
           const typeMapping: Record<string, 'sales' | 'support' | 'meeting' | 'interview'> = {
             'sales_call': 'sales',
@@ -1062,6 +1138,16 @@ function AppContent() {
           // Load session configuration
           if (sessionData.title) {
             setConversationTitle(sessionData.title);
+          }
+          
+          // Load participant names
+          if (sessionData.participant_me) {
+            setParticipantMe(sessionData.participant_me);
+            console.log('✅ Loaded participantMe from database (first load):', sessionData.participant_me);
+          }
+          if (sessionData.participant_them) {
+            setParticipantThem(sessionData.participant_them);
+            console.log('✅ Loaded participantThem from database (first load):', sessionData.participant_them);
           }
           
           if (sessionData.conversation_type) {
@@ -1419,6 +1505,8 @@ function AppContent() {
     conversationType,
     conversationTitle,
     textContext,
+    participantMe,
+    participantThem,
     setTranscript,
     setSessionDuration,
     setCumulativeDuration,
@@ -1427,6 +1515,8 @@ function AppContent() {
     setConversationTitle,
     setTextContext,
     setSelectedPreviousConversations,
+    setParticipantMe,
+    setParticipantThem,
   });
 
   // Helper Functions
@@ -1452,12 +1542,17 @@ function AppContent() {
     
     try {
       // Use more transcript lines for better context
-      const recentTranscript = transcript.slice(-20).map(t => `${t.speaker}: ${t.text}`).join('\n');
+      const recentTranscript = transcript.slice(-20).map(t => {
+        const speakerName = t.speaker === 'ME' ? (participantMe || 'You') : (participantThem || 'Them');
+        return `${speakerName}: ${t.text}`;
+      }).join('\n');
       
       const guidanceRequest: GuidanceRequest = {
         transcript: recentTranscript,
         context: textContext,
         conversationType: conversationType,
+        participantMe,
+        participantThem,
       };
 
       console.log('Sending guidance request:', guidanceRequest);
@@ -1808,10 +1903,18 @@ function AppContent() {
       type: conversationType,
       duration: formatDuration(sessionDuration),
       createdAt: new Date().toISOString(),
-      transcript: transcript.map(line => ({ 
-        text: line.text, 
-        timestamp: line.timestamp.toLocaleTimeString() 
-      })),
+      participants: {
+        me: participantMe || 'You',
+        them: participantThem || 'Them'
+      },
+      transcript: transcript.map(line => {
+        const speakerName = line.speaker === 'ME' ? (participantMe || 'You') : (participantThem || 'Them');
+        return {
+          speaker: speakerName,
+          text: line.text, 
+          timestamp: line.timestamp.toLocaleTimeString() 
+        };
+      }),
       context: { text: textContext, files: uploadedFiles.map(f=>f.name) }
     };
     
@@ -1920,7 +2023,9 @@ function AppContent() {
             conversationTitle,
             uploadedFiles: uploadedFiles.map(f => ({ name: f.name, type: f.type, size: f.size })),
             selectedPreviousConversations,
-            personalContext
+            personalContext,
+            participantMe,
+            participantThem
           };
 
           console.log('📤 Finalize request body:', {
@@ -2147,7 +2252,10 @@ function AppContent() {
     const forceGenerationOnLoad = async () => {
       // Get the current values directly inside the effect to avoid dependency issues
       const currentTranscriptLength = transcript.length;
-      const currentTranscriptWords = transcript.map(t => `${t.speaker}: ${t.text}`).join('\n').trim().split(' ').length;
+      const currentTranscriptWords = transcript.map(t => {
+        const speakerName = t.speaker === 'ME' ? (participantMe || 'Me') : (participantThem || 'Them');
+        return `${speakerName}: ${t.text}`;
+      }).join('\n').trim().split(' ').length;
       
       // Only force generation if we have a substantial transcript loaded from database
       // and we're not currently recording (meaning this is restored data)
@@ -2457,6 +2565,8 @@ function AppContent() {
                   selectedPreviousConversations={selectedPreviousConversations}
                   previousConversationsContext={previousConversationsContext}
                   getSummaryTimeUntilNextRefresh={getTimeUntilNextRefresh}
+                  participantMe={participantMe}
+                  participantThem={participantThem}
                 />
               </div>
             )}
@@ -2536,6 +2646,8 @@ function AppContent() {
         transcript={transcript}
         sessionDuration={sessionDuration}
         conversationTitle={conversationTitle}
+        participantMe={participantMe}
+        participantThem={participantThem}
       />
 
       {/* Loading Modal - Show during initial loading or session loading */}

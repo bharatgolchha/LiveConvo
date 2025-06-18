@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { toast } from 'sonner';
 import { Session } from '@supabase/supabase-js';
+import React from 'react';
 
 
 
@@ -36,6 +37,8 @@ interface UseRealtimeSummaryProps {
   isPaused?: boolean; // Add isPaused to differentiate from stopped
   refreshIntervalMs?: number; // Default 45 seconds
   session?: Session | null; // Supabase session for authentication
+  participantMe?: string;
+  participantThem?: string;
 }
 
 export function useRealtimeSummary({
@@ -45,12 +48,24 @@ export function useRealtimeSummary({
   isRecording,
   isPaused = false,
   refreshIntervalMs = 45000,
-  session
+  session,
+  participantMe,
+  participantThem
 }: UseRealtimeSummaryProps) {
   const [summary, setSummary] = useState<ConversationSummary | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  
+  // Debug logging for participant names
+  React.useEffect(() => {
+    console.log('🔍 useRealtimeSummary participant names:', {
+      participantMe,
+      participantThem,
+      hasParticipantMe: !!participantMe,
+      hasParticipantThem: !!participantThem
+    });
+  }, [participantMe, participantThem]);
   
   const lastTranscriptLength = useRef(0);
   const lastTranscriptLineCount = useRef(0);
@@ -143,6 +158,15 @@ export function useRealtimeSummary({
         headers['Authorization'] = `Bearer ${session.access_token}`;
       }
 
+      console.log('🔍 Real-time Summary Request:', {
+        hasParticipantMe: !!participantMe,
+        participantMe,
+        hasParticipantThem: !!participantThem,
+        participantThem,
+        transcriptLength: transcript.length,
+        conversationType
+      });
+      
       const response = await fetch('/api/summary', {
         method: 'POST',
         headers,
@@ -150,7 +174,9 @@ export function useRealtimeSummary({
           transcript,
           sessionId,
           conversationType,
-          includeLinked: true
+          includeLinked: true,
+          participantMe,
+          participantThem
         })
       });
 
@@ -227,7 +253,7 @@ export function useRealtimeSummary({
       isGenerating.current = false;
       setIsLoading(false);
     }
-  }, [transcript, sessionId, conversationType, isRecording, isPaused, session]);
+  }, [transcript, sessionId, conversationType, isRecording, isPaused, session, participantMe, participantThem]);
 
   // Auto-refresh effect
   useEffect(() => {

@@ -63,6 +63,8 @@ export interface SessionDataFull {
   recording_duration_seconds?: number;
   total_audio_seconds?: number;
   total_words_spoken?: number;
+  participant_me?: string;
+  participant_them?: string;
 }
 
 export interface TranscriptData {
@@ -105,4 +107,6 @@ export interface ConversationConfig {
   };
   selectedPreviousConversations?: string[];
   personalContext?: string;
+  participantMe?: string;
+  participantThem: string;
 }

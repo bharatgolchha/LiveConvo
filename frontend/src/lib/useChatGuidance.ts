@@ -73,6 +73,9 @@ interface UseChatGuidanceProps {
   // Recording state
   isRecording?: boolean;
   transcriptLength?: number;
+  // Participant names
+  participantMe?: string;
+  participantThem?: string;
 }
 
 export function useChatGuidance({
@@ -86,7 +89,9 @@ export function useChatGuidance({
   selectedPreviousConversations,
   personalContext,
   isRecording = false,
-  transcriptLength = 0
+  transcriptLength = 0,
+  participantMe,
+  participantThem
 }: UseChatGuidanceProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -173,7 +178,10 @@ export function useChatGuidance({
         personalContext,
         // Recording state
         isRecording,
-        transcriptLength
+        transcriptLength,
+        // Participant names
+        participantMe,
+        participantThem
       };
       
       console.log('🔍 Chat Request Payload Debug:', {
@@ -232,7 +240,7 @@ export function useChatGuidance({
     } finally {
       setIsLoading(false);
     }
-  }, [inputValue, addMessage, transcript, messages, conversationType, sessionId, textContext, conversationTitle, summary, uploadedFiles, selectedPreviousConversations]);
+  }, [inputValue, addMessage, transcript, messages, conversationType, sessionId, textContext, conversationTitle, summary, uploadedFiles, selectedPreviousConversations, personalContext, isRecording, transcriptLength, participantMe, participantThem]);
 
   // Quick actions for common requests
   const sendQuickAction = useCallback((action: string) => {

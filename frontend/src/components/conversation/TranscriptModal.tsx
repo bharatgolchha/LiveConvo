@@ -21,6 +21,8 @@ interface TranscriptModalProps {
   transcript: TranscriptLine[];
   sessionDuration: number;
   conversationTitle: string;
+  participantMe?: string;
+  participantThem?: string;
 }
 
 export function TranscriptModal({
@@ -28,7 +30,9 @@ export function TranscriptModal({
   onClose,
   transcript,
   sessionDuration,
-  conversationTitle
+  conversationTitle,
+  participantMe,
+  participantThem
 }: TranscriptModalProps) {
   const formatDuration = (seconds: number) => {
     const hours = Math.floor(seconds / 3600);
@@ -40,7 +44,7 @@ export function TranscriptModal({
 
   const handleExportTranscript = () => {
     const transcriptText = transcript.map(line => 
-      `[${line.timestamp.toLocaleTimeString()}] ${line.speaker === 'ME' ? 'You' : 'Them'}: ${line.text}`
+      `[${line.timestamp.toLocaleTimeString()}] ${line.speaker === 'ME' ? (participantMe || 'You') : (participantThem || 'Them')}: ${line.text}`
     ).join('\n');
     
     const content = `${conversationTitle}\nDuration: ${formatDuration(sessionDuration)}\nGenerated: ${new Date().toLocaleString()}\n\n${transcriptText}`;
@@ -132,13 +136,13 @@ export function TranscriptModal({
                   <div className="grid grid-cols-2 gap-4 mt-4">
                     <div className="flex items-center gap-2 text-sm">
                       <User className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-                      <span className="font-medium text-gray-900 dark:text-gray-100">You:</span>
+                      <span className="font-medium text-gray-900 dark:text-gray-100">{participantMe || 'You'}:</span>
                       <Badge variant="secondary">{stats.myLines} messages</Badge>
                       <Badge variant="outline">{stats.myWords} words</Badge>
                     </div>
                     <div className="flex items-center gap-2 text-sm">
                       <Users className="h-4 w-4 text-green-600 dark:text-green-400" />
-                      <span className="font-medium text-gray-900 dark:text-gray-100">Them:</span>
+                      <span className="font-medium text-gray-900 dark:text-gray-100">{participantThem || 'Them'}:</span>
                       <Badge variant="secondary">{stats.theirLines} messages</Badge>
                       <Badge variant="outline">{stats.theirWords} words</Badge>
                     </div>
@@ -184,7 +188,7 @@ export function TranscriptModal({
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2 mb-1">
                               <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
-                                {line.speaker === 'ME' ? 'You' : 'Them'}
+                                {line.speaker === 'ME' ? (participantMe || 'You') : (participantThem || 'Them')}
                               </span>
                               <span className="text-xs text-gray-500 dark:text-gray-400">
                                 {line.timestamp.toLocaleTimeString()}

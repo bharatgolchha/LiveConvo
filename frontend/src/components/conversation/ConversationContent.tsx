@@ -79,6 +79,10 @@ interface ConversationContentProps {
 
   // Refresh timing helpers
   getSummaryTimeUntilNextRefresh: () => number;
+  
+  // Participant names
+  participantMe?: string;
+  participantThem?: string;
 }
 
 export const ConversationContent: React.FC<ConversationContentProps> = ({
@@ -103,7 +107,9 @@ export const ConversationContent: React.FC<ConversationContentProps> = ({
   textContext,
   selectedPreviousConversations,
   previousConversationsContext,
-  getSummaryTimeUntilNextRefresh
+  getSummaryTimeUntilNextRefresh,
+  participantMe,
+  participantThem
 }) => {
   const [isRefreshing, setIsRefreshing] = React.useState(false);
   const [selectedTopic, setSelectedTopic] = React.useState<string | null>(null);
@@ -117,7 +123,10 @@ export const ConversationContent: React.FC<ConversationContentProps> = ({
     setTopicSummary(null);
     
     try {
-      const transcriptText = transcript.map(t => `${t.speaker}: ${t.text}`).join('\n');
+      const transcriptText = transcript.map(t => {
+        const speakerName = t.speaker === 'ME' ? (participantMe || 'You') : (participantThem || 'Them');
+        return `${speakerName}: ${t.text}`;
+      }).join('\n');
       
       const response = await fetch('/api/topic-summary', {
         method: 'POST',
@@ -128,7 +137,9 @@ export const ConversationContent: React.FC<ConversationContentProps> = ({
         body: JSON.stringify({
           topic,
           transcript: transcriptText,
-          sessionId
+          sessionId,
+          participantMe,
+          participantThem
         })
       });
 
@@ -156,7 +167,10 @@ export const ConversationContent: React.FC<ConversationContentProps> = ({
     } catch (error) {
       console.error('Topic summary request failed:', error);
       // Fallback: Generate a simple summary from transcript
-      const transcriptText = transcript.map(t => `${t.speaker}: ${t.text}`).join('\n');
+      const transcriptText = transcript.map(t => {
+        const speakerName = t.speaker === 'ME' ? (participantMe || 'Me') : (participantThem || 'Them');
+        return `${speakerName}: ${t.text}`;
+      }).join('\n');
       const topicMentions = transcriptText.split('\n').filter(line => 
         line.toLowerCase().includes(topic.toLowerCase())
       );
@@ -519,11 +533,11 @@ export const ConversationContent: React.FC<ConversationContentProps> = ({
                         </div>
                         <div className="flex items-center gap-2">
                           <User className="w-4 h-4" />
-                          <span>{groupedTranscript.filter(t => t.speaker === 'ME').length} you</span>
+                          <span>{groupedTranscript.filter(t => t.speaker === 'ME').length} {participantMe || 'you'}</span>
                         </div>
                         <div className="flex items-center gap-2">
                           <Users className="w-4 h-4" />
-                          <span>{groupedTranscript.filter(t => t.speaker === 'THEM').length} them</span>
+                          <span>{groupedTranscript.filter(t => t.speaker === 'THEM').length} {participantThem || 'them'}</span>
                         </div>
                         <div className="flex items-center gap-2 text-xs">
                           <Hash className="w-3 h-3" />
@@ -560,6 +574,8 @@ export const ConversationContent: React.FC<ConversationContentProps> = ({
                     ref={listRef}
                     messages={groupedTranscript}
                     conversationState={conversationState}
+                    participantMe={participantMe}
+                    participantThem={participantThem}
                   />
                 </div>
 
@@ -580,7 +596,12 @@ export const ConversationContent: React.FC<ConversationContentProps> = ({
                         onClick={() => {
                           // Copy full transcript to clipboard
                           const fullTranscript = groupedTranscript
-                            .map(line => `${line.speaker}: ${line.text}`)
+                            .map(line => {
+                              const speakerName = line.speaker === 'ME' 
+                                ? (participantMe || 'You') 
+                                : (participantThem || 'Them');
+                              return `${speakerName}: ${line.text}`;
+                            })
                             .join('\n');
                           navigator.clipboard.writeText(fullTranscript);
                         }}
@@ -867,8 +888,13 @@ export const ConversationContent: React.FC<ConversationContentProps> = ({
               title={conversationTitle}
               contextText={textContext}
               previousConversationIds={selectedPreviousConversations}
-              transcript={groupedTranscript.map(line => `${line.speaker}: ${line.text}`).join('\n')}
+              transcript={groupedTranscript.map(line => {
+                const speakerName = line.speaker === 'ME' ? (participantMe || 'You') : (participantThem || 'Them');
+                return `${speakerName}: ${line.text}`;
+              }).join('\n')}
               summary={summary}
+              participantMe={participantMe}
+              participantThem={participantThem}
             />
           </div>
         )}

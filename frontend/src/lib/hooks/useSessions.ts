@@ -25,6 +25,8 @@ export interface Session {
     generation_status: string;
     created_at: string;
   }>;
+  participant_me?: string;
+  participant_them?: string;
 }
 
 export interface SessionsResponse {
@@ -63,6 +65,8 @@ export interface SessionsHookReturn {
     selected_template_id?: string;
     context?: { text?: string; metadata?: Record<string, unknown> };
     linkedConversationIds?: string[];
+    participant_me?: string;
+    participant_them?: string;
   }) => Promise<Session | null>;
   refreshSessions: () => Promise<void>;
 }

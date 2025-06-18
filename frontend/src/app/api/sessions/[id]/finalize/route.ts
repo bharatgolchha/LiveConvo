@@ -19,6 +19,8 @@ interface FinalSummaryRequest {
   uploadedFiles?: Array<{ name: string; type: string; size: number }>;
   selectedPreviousConversations?: string[];
   personalContext?: string;
+  participantMe?: string;
+  participantThem?: string;
 }
 
 export async function POST(
@@ -27,7 +29,7 @@ export async function POST(
 ) {
   try {
     const { id: sessionId } = await params;
-    const { textContext, conversationType, conversationTitle, uploadedFiles, selectedPreviousConversations, personalContext } = await request.json();
+    const { textContext, conversationType, conversationTitle, uploadedFiles, selectedPreviousConversations, personalContext, participantMe, participantThem } = await request.json();
 
     if (!openrouterApiKey) {
       return NextResponse.json(
@@ -102,9 +104,12 @@ export async function POST(
       );
     }
 
-    // Convert transcript lines to text format
+    // Convert transcript lines to text format with participant names
     const transcriptText = transcriptLines && transcriptLines.length > 0 
-      ? transcriptLines.map(line => `${line.speaker}: ${line.content}`).join('\n')
+      ? transcriptLines.map(line => {
+          const speakerName = line.speaker === 'ME' ? (participantMe || 'You') : (participantThem || 'Them');
+          return `${speakerName}: ${line.content}`;
+        }).join('\n')
       : '';
 
     if (!transcriptText || transcriptText.trim().length === 0) {
@@ -124,8 +129,8 @@ export async function POST(
 
     // Generate summary and finalization with full context
     const fullContext = buildFullContext(textContext, personalContext, uploadedFiles, selectedPreviousConversations);
-    const summary = await generateFinalSummary(transcriptText, conversationType, fullContext);
-    const finalData = await generateFinalizationData(transcriptText, fullContext, conversationType, summary);
+    const summary = await generateFinalSummary(transcriptText, conversationType, fullContext, participantMe, participantThem);
+    const finalData = await generateFinalizationData(transcriptText, fullContext, conversationType, summary, participantMe, participantThem);
 
     console.log('🤖 AI Summary generated:', {
       hasTldr: !!summary.tldr,
@@ -269,7 +274,7 @@ function buildFullContext(textContext?: string, personalContext?: string, upload
   return fullContext || 'No additional context provided.';
 }
 
-async function generateFinalSummary(transcript: string, conversationType?: string, fullContext?: string): Promise<EnhancedSummary> {
+async function generateFinalSummary(transcript: string, conversationType?: string, fullContext?: string, participantMe?: string, participantThem?: string): Promise<EnhancedSummary> {
   const typeSpecificPrompts = {
     sales: `Pay special attention to:
 - Customer pain points and needs identified
@@ -311,8 +316,13 @@ async function generateFinalSummary(transcript: string, conversationType?: strin
   const conversationTypePrompt = typeSpecificPrompts[conversationType as keyof typeof typeSpecificPrompts] || 
     'Provide a comprehensive analysis of key discussion points, decisions, and outcomes.';
 
+  const meLabel = participantMe || 'the primary participant';
+  const themLabel = participantThem || 'the other participant';
+  
   const systemPrompt = `You are an expert conversation analyst specializing in ${conversationType || 'business'} conversations. 
 Create a comprehensive, actionable summary that provides real value.
+
+The conversation is between ${meLabel} (ME) and ${themLabel} (THEM).
 
 ${conversationTypePrompt}
 
@@ -341,7 +351,7 @@ Return a JSON object with this EXACT structure:
   "action_items": [
     {
       "task": "Specific action to be taken",
-      "owner": "Who is responsible (ME/THEM/Both)",
+      "owner": "Who is responsible (${meLabel}/ME or ${themLabel}/THEM or Both)",
       "timeline": "When it should be completed",
       "priority": "high|medium|low"
     }
@@ -491,10 +501,13 @@ Remember:
   };
 }
 
-async function generateFinalizationData(transcript: string, context: string, conversationType?: string, summary?: EnhancedSummary): Promise<FinalizationData> {
+async function generateFinalizationData(transcript: string, context: string, conversationType?: string, summary?: EnhancedSummary, participantMe?: string, participantThem?: string): Promise<FinalizationData> {
+  const meLabel = participantMe || 'the primary participant';
+  const themLabel = participantThem || 'the other participant';
+  
   const systemPrompt = `You are an expert conversation coach providing deep analysis and actionable recommendations.
 
-Analyze the conversation for patterns, techniques, and opportunities.
+Analyze the conversation between ${meLabel} (ME) and ${themLabel} (THEM) for patterns, techniques, and opportunities.
 
 Return a JSON object with this structure:
 {

@@ -198,7 +198,12 @@ export default function SummaryPage() {
       const summaryData: SessionSummary = {
         ...sessionDataResponse,
         duration: sessionDataResponse.recording_duration_seconds || 0,
-        participants: ['You', 'Guest'],
+        participant_me: sessionDataResponse.participant_me,
+        participant_them: sessionDataResponse.participant_them,
+        participants: [
+          sessionDataResponse.participant_me || 'You',
+          sessionDataResponse.participant_them || 'Guest'
+        ],
         summary: finalSummary ? {
           overview: finalSummary.tldr || `This was a ${sessionDataResponse.conversation_type || 'general'} conversation.`,
           keyPoints: finalSummary.conversation_highlights || [],

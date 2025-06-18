@@ -169,7 +169,9 @@ export function buildChatMessages(
   runningSummary?: string,
   personalContext?: string,
   textContext?: string,
-  transcriptCharLimit: number = 4000
+  transcriptCharLimit: number = 4000,
+  participantMe?: string,
+  participantThem?: string
 ): Array<{ role: 'system' | 'user' | 'assistant'; content: string }> {
   // 1. Latest few turns (verbatim)
   const latestTurns = chatHistory.slice(-4).map((m) => ({
