@@ -4,7 +4,6 @@ import useSystemSettings from '@/lib/hooks/useSystemSettings';
 import { adminFetch } from '@/lib/adminApi';
 
 const AVAILABLE_MODELS = [
-  'google/gemini-2.5-flash-preview-05-20',
   'google/gemini-2.5-flash',
   'google/gemini-1.5-flash',
   'google/gemini-pro',

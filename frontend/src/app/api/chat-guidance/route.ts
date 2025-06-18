@@ -4,6 +4,75 @@ import { updateRunningSummary } from '@/lib/summarizer';
 import { z } from 'zod';
 import { getDefaultAiModelServer } from '@/lib/systemSettingsServer';
 
+// Fallback chips for when AI generation fails
+const getFallbackChips = (conversationType: string, stage: string) => {
+  const fallbacks: Record<string, Record<string, Array<{text: string, prompt: string, impact: number}>>> = {
+    sales: {
+      opening: [
+        { text: "🎯 Start strong", prompt: "How should I start this sales conversation effectively?", impact: 90 },
+        { text: "💡 Build rapport", prompt: "What's the best way to build rapport in the opening?", impact: 85 },
+        { text: "📝 Set agenda", prompt: "How do I set a clear agenda for this call?", impact: 80 }
+      ],
+      discovery: [
+        { text: "🔍 Dig deeper", prompt: "What follow-up questions should I ask to understand their needs better?", impact: 90 },
+        { text: "💡 Uncover pain", prompt: "How can I uncover their real pain points?", impact: 85 },
+        { text: "🎯 Stay focused", prompt: "How do I keep the discovery conversation on track?", impact: 80 }
+      ],
+      demo: [
+        { text: "🎯 Show value", prompt: "How do I demonstrate value effectively in this demo?", impact: 90 },
+        { text: "💡 Handle questions", prompt: "What's the best way to handle their questions during the demo?", impact: 85 },
+        { text: "📊 Stay relevant", prompt: "How do I keep the demo relevant to their needs?", impact: 80 }
+      ],
+      pricing: [
+        { text: "💰 Present pricing", prompt: "What's the best way to present pricing in this situation?", impact: 90 },
+        { text: "🛡️ Handle objections", prompt: "How should I handle price objections?", impact: 85 },
+        { text: "🎯 Show ROI", prompt: "How can I demonstrate ROI effectively?", impact: 80 }
+      ],
+      closing: [
+        { text: "🎯 Close deal", prompt: "What closing technique should I use now?", impact: 90 },
+        { text: "🤝 Next steps", prompt: "How do I establish clear next steps?", impact: 85 },
+        { text: "📅 Timeline", prompt: "How should I discuss timeline and implementation?", impact: 80 }
+      ]
+    },
+    support: {
+      opening: [
+        { text: "😊 Set tone", prompt: "How should I set a positive tone for this support call?", impact: 90 },
+        { text: "🔍 Gather info", prompt: "What information should I gather first?", impact: 85 },
+        { text: "🎯 Understand issue", prompt: "How do I quickly understand their issue?", impact: 80 }
+      ],
+      discovery: [
+        { text: "🔍 Troubleshoot", prompt: "What troubleshooting steps should I try next?", impact: 90 },
+        { text: "💡 Find root cause", prompt: "How can I identify the root cause?", impact: 85 },
+        { text: "📝 Document", prompt: "What should I document about this issue?", impact: 80 }
+      ],
+      default: [
+        { text: "🎯 Next action", prompt: "What should be my next action?", impact: 90 },
+        { text: "💡 Best approach", prompt: "What's the best approach for this situation?", impact: 85 },
+        { text: "🤝 Help customer", prompt: "How can I best help the customer now?", impact: 80 }
+      ]
+    },
+    meeting: {
+      default: [
+        { text: "📋 Stay on track", prompt: "How do I keep this meeting on track?", impact: 90 },
+        { text: "🎯 Drive outcomes", prompt: "How can I drive toward meaningful outcomes?", impact: 85 },
+        { text: "👥 Engage all", prompt: "How do I ensure everyone is engaged?", impact: 80 }
+      ]
+    },
+    interview: {
+      default: [
+        { text: "🎯 Assess fit", prompt: "How should I assess candidate fit at this point?", impact: 90 },
+        { text: "💡 Ask better", prompt: "What questions will reveal more about the candidate?", impact: 85 },
+        { text: "📊 Evaluate", prompt: "How do I evaluate their responses effectively?", impact: 80 }
+      ]
+    }
+  };
+
+  const typeChips = fallbacks[conversationType] || fallbacks.sales;
+  const stageChips = typeChips[stage] || typeChips.default || typeChips.discovery;
+  
+  return stageChips;
+};
+
 interface ChatMessage {
   id: string;
   type: 'user' | 'ai' | 'system' | 'auto-guidance';
@@ -127,14 +196,39 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    const getChipPrompt = (conv:string, stg:string, obj:string)=>{
-      return `You are an expert ${conv || 'sales'} conversation coach.
-Current stage: ${stg}
-Objective/context: "${obj || 'n/a'}"
+    const getChipPrompt = (conv:string, stg:string, obj:string, transcript:string)=>{
+      const transcriptContext = transcript ? transcript.slice(-500) : '';
+      return `You are an expert ${conv || 'sales'} conversation coach generating contextual questions for the user to ask their AI advisor.
 
-Provide EXACTLY 3 contextual suggestions the user can tap right now, ranked by impact.
-Return ONLY a JSON array, each item:
-{"text":"<emoji> 4-6 words","prompt":"full question to ask","impact":80}`;
+Current conversation type: ${conv || 'sales'}
+Current stage: ${stg}
+Context/objective: "${obj || 'Not specified'}"
+Recent transcript: "${transcriptContext || 'No transcript yet'}"
+
+Generate EXACTLY 3 contextual questions the user can ask their AI advisor about the current conversation state. These should be strategic questions that help the user understand:
+- What they should focus on next
+- How to handle the current situation
+- What insights they might be missing
+
+Each question should be specific to the current conversation context and stage, not generic advice.
+
+CRITICAL: Return ONLY a valid JSON array. Do not include any text before or after the JSON.
+The response must start with [ and end with ]
+
+Return exactly this format:
+[
+  {"text":"<emoji> 3-5 word label","prompt":"Full strategic question to ask the AI advisor","impact":90},
+  {"text":"<emoji> 3-5 word label","prompt":"Full strategic question to ask the AI advisor","impact":80},
+  {"text":"<emoji> 3-5 word label","prompt":"Full strategic question to ask the AI advisor","impact":70}
+]
+
+Examples for ${conv} conversation at ${stg} stage:
+- If discussing pricing: {"text":"💰 Handle price concern","prompt":"How should I address their concern about the price being too high?","impact":90}
+- If in discovery: {"text":"🔍 Dig deeper","prompt":"What follow-up questions should I ask about their current challenges?","impact":85}
+- If opening: {"text":"🎯 Set direction","prompt":"How should I transition from small talk to understanding their needs?","impact":80}
+
+Make the questions specific to what's happening in the transcript, not generic.
+Remember: Start with [ and end with ] - no other text allowed.`;
     };
 
     const chatMessages = buildChatMessages(
@@ -161,7 +255,7 @@ Return ONLY a JSON array, each item:
       body: JSON.stringify({
         model: defaultModel,
         messages: [
-          { role: 'system', content: chipsMode ? getChipPrompt(effectiveConversationType || 'sales', stage || 'opening', textContext || '') : getChatGuidanceSystemPrompt(effectiveConversationType, isRecording, transcriptLength) },
+          { role: 'system', content: chipsMode ? getChipPrompt(effectiveConversationType || 'sales', stage || 'opening', textContext || '', effectiveTranscript) : getChatGuidanceSystemPrompt(effectiveConversationType, isRecording, transcriptLength) },
           ...chatMessages,
         ],
         temperature: 0.4,
@@ -190,6 +284,21 @@ Return ONLY a JSON array, each item:
     if (chipsMode) {
       // Expecting an array of chip objects
       try {
+        // First try to parse the raw content
+        let parsedContent;
+        try {
+          parsedContent = JSON.parse(rawContent);
+        } catch (parseError) {
+          // If raw parsing fails, try to extract JSON array from the response
+          const jsonMatch = rawContent.match(/\[\s*\{[\s\S]*?\}\s*\]/);
+          if (jsonMatch) {
+            parsedContent = JSON.parse(jsonMatch[0]);
+          } else {
+            throw new Error('No valid JSON array found in response');
+          }
+        }
+
+        // Validate the parsed content
         const chips = z
           .array(
             z.object({
@@ -198,13 +307,22 @@ Return ONLY a JSON array, each item:
               impact: z.number().min(0).max(100).optional(),
             })
           )
-          .parse(JSON.parse(rawContent));
+          .parse(parsedContent);
 
         console.log('chips_shown', { stage, texts: chips.map((c) => c.text) });
         return NextResponse.json({ suggestedActions: chips });
       } catch (e) {
         console.error('Chip JSON parse/validate failed:', e);
-        return NextResponse.json({}, { status: 204 });
+        console.error('Raw content was:', rawContent.substring(0, 200) + '...');
+        
+        // Return fallback chips based on conversation type and stage
+        const fallbackChips = getFallbackChips(effectiveConversationType || 'sales', stage || 'discovery');
+        console.log('Returning fallback chips:', { 
+          conversationType: effectiveConversationType, 
+          stage,
+          chips: fallbackChips.map(c => c.text) 
+        });
+        return NextResponse.json({ suggestedActions: fallbackChips });
       }
     } else {
       // Expecting full ChatResponse object
@@ -248,40 +366,42 @@ function getChatGuidanceSystemPrompt(conversationType?: string, isRecording: boo
   const live = isRecording && transcriptLength > 0;
   const mode = live ? 'LIVE' : 'PREP';
 
-  return `You are an expert ${conversationType || 'general'} conversation coach.
+  return `You are an expert ${conversationType || 'general'} conversation coach providing conversational guidance.
 
-MODE: ${mode}
+MODE: ${mode} ${mode === 'LIVE' ? '(Active conversation - provide immediate tactical advice)' : '(Planning phase - help with preparation and strategy)'}
 
-RESPONSE FORMAT (strict JSON – no markdown wrappers):
-# IMPORTANT: The response field **must** be a valid JSON string.
-# • Use *single quotes* or escape any internal double quotes with \\".
-# • Do NOT include backticks, markdown fences, or leading text.
-# • Keep newline separators (\n) between bullet items.
-"response": "Markdown bullet list of 2-3 actionable coaching points (<=200 words)",
-"confidence": 75,
-"smartSuggestion": null | {
-  "type": "response|objection|redirect|clarification",
-  "content": "One-sentence suggestion (<=20 words)",
-  "priority": "high|medium|low"
+RESPONSE STYLE:
+Write naturally and conversationally, as if advising a colleague. Use markdown effectively:
+- **Bold** for emphasis on key points
+- Short paragraphs (2-3 sentences each)
+- Lists only when actually listing items
+- Headers (##) only if organizing multiple topics
+- Keep total response to 100-150 words
+
+Focus on ONE main insight with specific, actionable next steps. Reference the actual conversation context and transcript when available.
+
+RESPONSE FORMAT (return valid JSON):
+{
+  "response": "Your concise coaching response in natural markdown",
+  "confidence": 75,
+  "smartSuggestion": null | {
+    "type": "response|objection|redirect|clarification",
+    "content": "One critical action (<=20 words)",
+    "priority": "high|medium|low"
+  }
 }
 
-SMART SUGGESTION RULES:
-- Only include when truly critical; otherwise set to null.
-- Typical triggers: user asks what to say, major objection, conversation off-track, or critical clarification needed.
+SMART SUGGESTION: Only include when user explicitly asks "what should I say" or faces a critical moment needing immediate guidance.
 
-CONFIDENCE GUIDELINES:
-90-100: Direct answer with ample context
-80-89: Good advice, context mostly available
-70-79: Some uncertainty or missing context
-<70: Limited information – be cautious
+CONFIDENCE SCALE:
+- 90-100: Clear situation with full context
+- 70-89: Good understanding, some assumptions
+- 50-69: Limited context, general advice
+- <50: Insufficient information
 
-GUIDANCE PRINCIPLES:
-• Reference personal context, transcript, and chat history provided in system messages that follow.
-• Focus on the single most useful next step.
-• Be concise and highly actionable.
-• Avoid generic platitudes.
+Be specific, reference the conversation directly, and avoid generic advice.
 
-REMEMBER: Return ONLY the JSON object.`;
+CRITICAL: Return ONLY the JSON object, no additional text.`;
 }
 
 // New function to parse context from user messages

@@ -15,73 +15,70 @@ interface PresetMap {
 const presets: PresetMap = {
   sales: {
     preparation: [
-      { text: '🎯 Set objective', prompt: 'Help me set clear objectives for this sales call' },
-      { text: '🔍 Research prospect', prompt: 'What should I research about this prospect before the call?' },
-      { text: '💡 Prepare questions', prompt: 'What discovery questions should I prepare?' },
-      { text: '📝 Plan agenda', prompt: 'Help me create an agenda for this sales conversation' },
-      { text: '💰 Value proposition', prompt: 'How should I structure my value proposition?' },
-      { text: '🛡️ Anticipate objections', prompt: 'Which objections should I prepare for and how to handle them?' }
+      { text: '🎯 Set objective', prompt: 'What objectives should I set for this sales call based on what I know?' },
+      { text: '🔍 Research tips', prompt: 'What specific information should I research about this prospect?' },
+      { text: '💡 Key questions', prompt: 'What are the most important discovery questions for this situation?' }
     ],
     live: [
-      { text: '💡 Discovery Qs', prompt: 'What discovery question should I ask next?' },
-      { text: '🎯 Closing', prompt: 'Which closing technique fits this moment?' },
-      { text: '🛡️ Objection', prompt: 'Help me handle the objection that was just raised' }
+      { text: '💡 Next question', prompt: 'Based on what they just said, what should I ask next?' },
+      { text: '🎯 Progress check', prompt: 'How am I doing so far and what should I focus on?' },
+      { text: '🛡️ Handle response', prompt: 'How should I respond to what they just said?' }
     ],
     analysis: [
-      { text: '🎯 Objective met?', prompt: 'Was the key objective achieved?' },
-      { text: '💡 Insights', prompt: 'What insights came from discovery questions?' },
-      { text: '🤝 Next steps', prompt: 'What next steps were agreed?' }
+      { text: '🎯 Key outcomes', prompt: 'What were the key outcomes from this conversation?' },
+      { text: '💡 Missed opportunities', prompt: 'What opportunities did I miss and how could I improve?' },
+      { text: '🤝 Follow-up plan', prompt: 'What specific follow-up actions should I take?' }
     ]
   },
   support: {
     preparation: [
-      { text: '📋 Review case', prompt: 'What should I review before this support call?' },
-      { text: '🔧 Prepare fix', prompt: 'Which fixes should I have ready for this issue type?' },
-      { text: '📝 Plan approach', prompt: 'Help me plan my approach for this support conversation' }
+      { text: '📋 Context needed', prompt: 'What context should I gather about this customer issue?' },
+      { text: '🔧 Solution options', prompt: 'What are the best solution approaches for this type of issue?' },
+      { text: '📝 Best approach', prompt: 'What\'s the most effective way to handle this support case?' }
     ],
     live: [
-      { text: '🔍 Troubleshoot', prompt: 'What troubleshooting step should I try next?' },
-      { text: '😊 Satisfaction', prompt: 'How can I ensure the customer is satisfied?' },
-      { text: '🔄 Follow-up', prompt: 'What follow-up actions should I take?' }
+      { text: '🔍 Next step', prompt: 'Based on their response, what troubleshooting step should I try next?' },
+      { text: '😊 Customer mood', prompt: 'How is the customer feeling and how should I adjust my approach?' },
+      { text: '🔄 Progress check', prompt: 'Are we making progress toward resolution? What should I try differently?' }
     ],
     analysis: [
-      { text: '🎯 Issue resolved?', prompt: 'Was the customer issue resolved effectively?' },
-      { text: '💡 Root cause', prompt: 'What was the root cause?' },
-      { text: '🤝 Follow-up', prompt: 'What follow-up actions are required?' }
+      { text: '🎯 Resolution quality', prompt: 'How well was the issue resolved and what could improve?' },
+      { text: '💡 Learning points', prompt: 'What can I learn from how this support case was handled?' },
+      { text: '🤝 Follow-up needed', prompt: 'What follow-up actions would ensure customer satisfaction?' }
     ]
   },
   meeting: {
     preparation: [
-      { text: '📋 Agenda', prompt: 'Help me create an effective agenda' },
-      { text: '🎯 Objectives', prompt: 'What should be the main objectives?' },
-      { text: '💡 Topics', prompt: 'Which topics should we cover?' }
+      { text: '📋 Agenda focus', prompt: 'What should be the key focus areas for this meeting agenda?' },
+      { text: '🎯 Success criteria', prompt: 'What would make this meeting successful?' },
+      { text: '💡 Key topics', prompt: 'Which topics are most critical to cover given our constraints?' }
     ],
     live: [
-      { text: '⏰ Time check', prompt: 'How should I manage the remaining time?' },
-      { text: '🤝 Actions', prompt: 'Which action items need capturing?' },
-      { text: '🎯 Decisions', prompt: 'What key decisions should we confirm now?' }
+      { text: '⏰ Time management', prompt: 'How should I adjust our pace given the remaining time and topics?' },
+      { text: '🤝 Capture actions', prompt: 'What action items should I capture from the discussion so far?' },
+      { text: '🎯 Drive decisions', prompt: 'Which decisions need to be made now and how do I facilitate them?' }
     ],
     analysis: [
-      { text: '🎯 Objectives met?', prompt: 'Were the meeting objectives achieved?' },
-      { text: '💡 Key decisions', prompt: 'List key decisions made.' },
-      { text: '🤝 Actions', prompt: 'Compile action items and owners.' }
+      { text: '🎯 Meeting effectiveness', prompt: 'How effective was this meeting and what could improve?' },
+      { text: '💡 Key takeaways', prompt: 'What were the most important outcomes and decisions?' },
+      { text: '🤝 Action clarity', prompt: 'Are all action items clear with owners and deadlines?' }
     ]
   },
   interview: {
     preparation: [
-      { text: '📝 Review CV', prompt: 'What should I review about the candidate?' },
-      { text: '❓ Prepare Qs', prompt: 'Which interview questions should I prepare?' },
-      { text: '📊 Set criteria', prompt: 'Define evaluation criteria for this role.' }
+      { text: '📝 Key areas', prompt: 'What are the most important areas to assess for this role?' },
+      { text: '❓ Best questions', prompt: 'What interview questions will best reveal candidate fit?' },
+      { text: '📊 Evaluation focus', prompt: 'How should I structure my evaluation approach?' }
     ],
     live: [
-      { text: '🎯 Assess answer', prompt: 'How should I assess their last response?' },
-      { text: '📚 Follow-up', prompt: 'What follow-up question should I ask?' },
-      { text: '💡 Culture fit', prompt: 'How do I evaluate culture fit right now?' }
+      { text: '🎯 Dig deeper', prompt: 'Based on their answer, what follow-up will reveal more insight?' },
+      { text: '📚 Assess response', prompt: 'How does their response demonstrate the skills we need?' },
+      { text: '💡 Explore fit', prompt: 'What questions would better assess cultural and role fit?' }
     ],
     analysis: [
-      { text: '🎯 Performance', prompt: 'How did the candidate perform against criteria?' },
-      { text: '💡 Insights', prompt: 'Key insights about the candidate?' },
-      { text: '🛑 Red flags', prompt: 'What red flags emerged?' }
+      { text: '🎯 Overall assessment', prompt: 'How well did the candidate match our requirements?' },
+      { text: '💡 Key strengths/gaps', prompt: 'What were the candidate\'s main strengths and gaps?' },
+      { text: '🛑 Decision factors', prompt: 'What factors should drive the hiring decision?' }
     ]
   }
 };

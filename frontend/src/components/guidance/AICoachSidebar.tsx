@@ -1520,7 +1520,8 @@ Example format for each chip: {"text": "🔥 Build rapport", "prompt": "How can 
     phase,
     latestMessage: messages.length ? messages[messages.length - 1].content : '',
     context: contextSummary?.textContext ?? '',
-    stage
+    stage,
+    transcript: lastTranscript
   });
 
   // Ensure the width is updated on mount (important for SSR where window is undefined).
@@ -1688,7 +1689,7 @@ Example format for each chip: {"text": "🔥 Build rapport", "prompt": "How can 
             <div className="flex-shrink-0 p-4 border-t border-border/30 bg-muted/30">
               <div className="flex items-center justify-between mb-3">
                 <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                  AI Tips
+                  Ask Your AI Advisor
                   {lastUpdated && (
                     <span className="ml-1 text-[10px] text-muted-foreground">• {new Date(lastUpdated).toLocaleTimeString()}</span>
                   )}

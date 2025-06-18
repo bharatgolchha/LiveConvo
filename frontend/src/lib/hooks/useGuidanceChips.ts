@@ -7,6 +7,7 @@ interface Params {
   latestMessage?: string;
   context?: string;
   stage?: string; // callStage for live
+  transcript?: string; // Recent transcript for context
 }
 
 interface Return {
@@ -31,7 +32,7 @@ const fetcher = async ([url, body]: [string, Record<string, unknown>]): Promise<
   throw new Error('invalid payload');
 };
 
-export const useGuidanceChips = ({ conversationType = 'sales', phase = 'preparation', latestMessage = '', context = '', stage }: Params): Return => {
+export const useGuidanceChips = ({ conversationType = 'sales', phase = 'preparation', latestMessage = '', context = '', stage, transcript = '' }: Params): Return => {
   // We fetch dynamic chips in all phases. When no explicit stage is supplied we
   // map phase → default stage expected by the backend chip mode parser.
   // preparation → "opening", analysis → "closing".
@@ -45,10 +46,10 @@ export const useGuidanceChips = ({ conversationType = 'sales', phase = 'preparat
           context,
           conversationType,
           stage: effectiveStage,
-          transcript: '',
+          transcript: transcript || '',
           chatHistory: [],
           isRecording: false,
-          transcriptLength: 0
+          transcriptLength: transcript ? transcript.length : 0
         }];
 
   const { data, error, isLoading, mutate } = useSWR<GuidanceChip[]>(swrKey, fetcher, {

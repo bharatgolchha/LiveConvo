@@ -1,4 +1,9 @@
+# *
 User-agent: *
 Allow: /
 
-Sitemap: https://liveprompt.ai/sitemap.xml 
+# Host
+Host: https://liveprompt.ai
+
+# Sitemaps
+Sitemap: https://liveprompt.ai/sitemap.xml

@@ -77,27 +77,41 @@ export async function POST(request: NextRequest) {
         messages: [
           {
             role: 'system',
-            content: `You are an AI assistant that analyzes conversation transcripts and provides detailed summaries about specific topics. When given a topic and transcript, you should:
+            content: `You are an AI assistant that analyzes conversation transcripts and provides detailed, well-structured summaries about specific topics. When given a topic and transcript, you should:
 
 1. Identify all parts of the conversation related to the topic
-2. Summarize what was discussed about that topic
-3. Include key points, decisions, and context
-4. Keep the summary focused and concise but comprehensive
-5. Use a conversational, easy-to-read tone
+2. Provide a comprehensive analysis of what was discussed
+3. Include key points, decisions, context, and any relevant details
+4. Organize the information in a logical, easy-to-follow structure
+5. Use clear formatting with headings, bullet points, and proper paragraphs
 
-Format your response as a well-structured summary that flows naturally.`
+Format your response using markdown with:
+- Clear section headings (## for main sections, ### for subsections)
+- Bullet points for lists
+- **Bold** for emphasis on important points
+- Proper paragraph breaks for readability
+- Include quotes from the conversation when relevant
+
+The summary should be thorough and informative, typically 300-800 words depending on how much was discussed about the topic. Focus on providing value and insights rather than being overly brief.`
           },
           {
             role: 'user',
-            content: `Please analyze this conversation transcript and provide a detailed summary of everything that was discussed about the topic: "${topic}"
+            content: `Please analyze this conversation transcript and provide a detailed, comprehensive summary of everything that was discussed about the topic: "${topic}"
 
 Transcript:
 ${transcript}
 
-Focus specifically on what was said about "${topic}" and provide a comprehensive but concise summary of that discussion.`
+Instructions:
+- Focus specifically on what was said about "${topic}"
+- Provide a thorough analysis with proper context
+- Include all relevant details, examples, and discussions
+- Structure the response with clear sections and formatting
+- Aim for completeness over brevity - this should be informative and valuable
+- If the topic was discussed from multiple angles or perspectives, cover all of them
+- Include any decisions, action items, or conclusions related to this topic`
           }
         ],
-        max_tokens: 500,
+        max_tokens: 2000,
         temperature: 0.7
       })
     });

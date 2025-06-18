@@ -31,6 +31,6 @@ export async function getDefaultAiModelServer(): Promise<string> {
   return (
     dbValue ||
     process.env.NEXT_PUBLIC_OPENROUTER_MODEL ||
-    'google/gemini-2.5-flash-preview-05-20'
+    'google/gemini-2.5-flash'
   );
 } 
