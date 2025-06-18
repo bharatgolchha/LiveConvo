@@ -6,6 +6,8 @@
 // Note: If you are using a Node version < 18 you must polyfill `fetch` or
 // install `node-fetch` as a dependency.
 
+import { getDefaultAiModelServer } from '@/lib/systemSettingsServer';
+
 /**
  * Generate an updated running summary given the previous summary and a new transcript chunk.
  * The resulting summary should stay concise (<= 400 tokens) and cumulative – it must already
@@ -26,6 +28,8 @@ Return a concise cumulative summary (max 250 words) that preserves key decisions
 
   const userPrompt = `EXISTING SUMMARY:\n${prevSummary || 'None yet.'}\n\nNEW TRANSCRIPT CHUNK:\n${newTranscriptChunk}`;
 
+  const model = await getDefaultAiModelServer();
+
   const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
     method: 'POST',
     headers: {
@@ -35,7 +39,7 @@ Return a concise cumulative summary (max 250 words) that preserves key decisions
       'X-Title': 'liveprompt.ai summarizer',
     },
     body: JSON.stringify({
-      model: 'google/gemini-pro',
+      model,
       messages: [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userPrompt },
