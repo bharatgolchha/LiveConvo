@@ -4,7 +4,7 @@ import { Session } from '@supabase/supabase-js';
 
 
 
-export interface SuggestedChecklistItem {
+export interface SuggestedSmartNote {
   text: string;
   priority: 'high' | 'medium' | 'low';
   type: 'preparation' | 'followup' | 'research' | 'decision' | 'action';
@@ -20,8 +20,6 @@ export interface ConversationSummary {
   topics: string[];
   sentiment: 'positive' | 'neutral' | 'negative';
   progressStatus: 'just_started' | 'building_momentum' | 'making_progress' | 'wrapping_up';
-
-  suggestedChecklistItems?: SuggestedChecklistItem[]; // Add this field
 }
 
 interface SummaryResponse {
@@ -276,8 +274,7 @@ export function useRealtimeSummary({
         nextSteps: [],
         topics: [],
         sentiment: 'neutral' as const,
-        progressStatus: 'just_started' as const,
-
+        progressStatus: 'just_started' as const
       };
       
       // Only update if we need to clear the data (avoid unnecessary re-renders)

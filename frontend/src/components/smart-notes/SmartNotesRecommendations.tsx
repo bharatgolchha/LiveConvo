@@ -2,13 +2,13 @@
 
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Plus, X, CheckSquare, Clock, Star, Brain, Lightbulb } from 'lucide-react';
+import { Plus, X, FileText, Clock, Star, Brain, Lightbulb } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/badge';
-import { SuggestedSmartNote } from '@/lib/useRealtimeSummary';
+import { SuggestedSmartNote } from '@/types/api';
 import { cn } from '@/lib/utils';
 
-interface ChecklistRecommendationsProps {
+interface SmartNotesRecommendationsProps {
   suggestions: SuggestedSmartNote[];
   onAddItem: (text: string) => Promise<void>;
   onDismiss: (index: number) => void;
@@ -16,7 +16,7 @@ interface ChecklistRecommendationsProps {
   authToken?: string;
 }
 
-export const ChecklistRecommendations: React.FC<ChecklistRecommendationsProps> = ({
+export const SmartNotesRecommendations: React.FC<SmartNotesRecommendationsProps> = ({
   suggestions,
   onAddItem,
   onDismiss,
@@ -38,7 +38,7 @@ export const ChecklistRecommendations: React.FC<ChecklistRecommendationsProps> =
       // Auto-dismiss after successful add
       setTimeout(() => onDismiss(index), 500);
     } catch (error) {
-      console.error('Error adding suggested checklist item:', error);
+      console.error('Error adding suggested smart note:', error);
     } finally {
       setAddingItems(prev => {
         const newSet = new Set(prev);
@@ -57,8 +57,8 @@ export const ChecklistRecommendations: React.FC<ChecklistRecommendationsProps> =
     switch (priority) {
       case 'high': return <Star className="w-3 h-3 text-red-500" />;
       case 'medium': return <Clock className="w-3 h-3 text-yellow-500" />;
-      case 'low': return <CheckSquare className="w-3 h-3 text-blue-500" />;
-      default: return <CheckSquare className="w-3 h-3 text-gray-500" />;
+      case 'low': return <FileText className="w-3 h-3 text-blue-500" />;
+      default: return <FileText className="w-3 h-3 text-gray-500" />;
     }
   };
 
@@ -89,7 +89,7 @@ export const ChecklistRecommendations: React.FC<ChecklistRecommendationsProps> =
       <div className="flex items-center gap-2 mb-3">
         <Lightbulb className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
         <h3 className="text-sm font-semibold text-indigo-900 dark:text-indigo-100">
-          AI Checklist Suggestions
+          AI Smart Notes Suggestions
         </h3>
         <Badge variant="secondary" className="text-xs">
           {visibleSuggestions.length} {visibleSuggestions.length === 1 ? 'suggestion' : 'suggestions'}
@@ -168,7 +168,7 @@ export const ChecklistRecommendations: React.FC<ChecklistRecommendationsProps> =
       {visibleSuggestions.length > 2 && (
         <div className="flex justify-between items-center mt-3 pt-3 border-t border-indigo-200/30 dark:border-indigo-800/30">
           <span className="text-xs text-muted-foreground">
-            AI found {visibleSuggestions.length} actionable items from your conversation
+            AI found {visibleSuggestions.length} noteworthy items from your conversation
           </span>
           <Button
             size="sm"

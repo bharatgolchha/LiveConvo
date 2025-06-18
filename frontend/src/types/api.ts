@@ -218,7 +218,6 @@ export interface RealtimeSummary {
   topics: string[];
   sentiment: 'positive' | 'negative' | 'neutral';
   progressStatus: 'just_started' | 'building_momentum' | 'making_progress' | 'wrapping_up';
-  suggestedChecklistItems: SuggestedChecklistItem[];
 }
 
 export interface SummaryResponse {
@@ -321,8 +320,8 @@ export interface FinalizationData {
   risk_factors: string[];
 }
 
-// Checklist Types
-export interface ChecklistItem {
+// Smart Notes Types
+export interface SmartNote {
   id: string;
   text: string;
   completed: boolean;
@@ -333,13 +332,13 @@ export interface ChecklistItem {
   status?: string;
 }
 
-export interface ChecklistGenerationItem {
+export interface SmartNoteGenerationItem {
   text: string;
   priority: 'high' | 'medium' | 'low';
   type: 'preparation' | 'followup' | 'research' | 'decision' | 'action';
 }
 
-export interface SuggestedChecklistItem extends ChecklistGenerationItem {
+export interface SuggestedSmartNote extends SmartNoteGenerationItem {
   relevance: number;
 }
 

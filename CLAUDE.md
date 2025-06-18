@@ -28,6 +28,16 @@ Please use Supabase MCP for anything database related.
 }
 
 SUPABASE_URL=https://ucvfgfbjcrxbzppwjpuu.supabase.co
+### Core Technologies
+- **Frontend**: Next.js 15.3.2, TypeScript, Tailwind CSS, Radix UI
+- **Backend**: Next.js API routes, Supabase PostgreSQL
+- **AI**: OpenRouter API with Google Gemini 2.5 Flash models
+- **Transcription**: Deepgram API
+- **Deployment**: Vercel + Supabase
+
+### Database Environments
+- **Development**: `ucvfgfbjcrxbzppwjpuu` (VoiceConvo Dev)
+- **Production**: `txacbzmkbbhtuvvbscwi` (LiveConvo Production)
 
 
 ## Tech Stack
