@@ -19,7 +19,8 @@ const nextConfig: NextConfig = {
     ],
   },
   compiler: {
-    removeConsole: process.env.NODE_ENV === 'production' ? { exclude: ['error', 'warn'] } : false,
+    // Disable console stripping in production for easier live debugging. Set this back when ready.
+    removeConsole: false,
   },
 };
 
