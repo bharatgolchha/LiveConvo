@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import type { RealtimeSummary, SuggestedChecklistItem, SummaryResponse } from '@/types/api';
+import type { RealtimeSummary, SuggestedSmartNote, SummaryResponse } from '@/types/api';
 import { getDefaultAiModelServer } from '@/lib/systemSettingsServer';
 import JSON5 from 'json5';
 
@@ -154,8 +154,7 @@ REQUIRED JSON FORMAT:
   "nextSteps": ["Next step 1"],
   "topics": ["Topic 1", "Topic 2", "Topic 3", "Topic 4"],
   "sentiment": "positive",
-  "progressStatus": "building_momentum",
-  "suggestedChecklistItems": []
+  "progressStatus": "building_momentum"
 }
 
 FIELD RULES:
@@ -167,7 +166,6 @@ FIELD RULES:
 - topics: Main subjects discussed (include as many as are meaningfully covered, no strict limit)
 - sentiment: Must be "positive", "negative", or "neutral"
 - progressStatus: Must be "just_started", "building_momentum", "making_progress", or "wrapping_up"
-- suggestedChecklistItems: Leave as empty array for now
 
 Return ONLY the JSON object. Ensure all strings are properly quoted and escaped.`;
 
@@ -270,8 +268,7 @@ Return ONLY the JSON object. Ensure all strings are properly quoted and escaped.
         nextSteps: [],
         topics: ['General conversation'],
         sentiment: 'neutral',
-        progressStatus: 'building_momentum',
-        suggestedChecklistItems: []
+        progressStatus: 'building_momentum'
       };
     }
     
@@ -284,16 +281,7 @@ Return ONLY the JSON object. Ensure all strings are properly quoted and escaped.
       nextSteps: Array.isArray(summaryData.nextSteps) ? summaryData.nextSteps : [],
       topics: Array.isArray(summaryData.topics) ? summaryData.topics : ['General'],
       sentiment: ['positive', 'negative', 'neutral'].includes(summaryData.sentiment) ? summaryData.sentiment : 'neutral',
-      progressStatus: ['just_started', 'building_momentum', 'making_progress', 'wrapping_up'].includes(summaryData.progressStatus) ? summaryData.progressStatus : 'building_momentum',
-      suggestedChecklistItems: Array.isArray(summaryData.suggestedChecklistItems) ? summaryData.suggestedChecklistItems.filter((item: SuggestedChecklistItem) => 
-        item && 
-        typeof item.text === 'string' && 
-        (['high', 'medium', 'low'] as const).includes(item.priority) &&
-        (['preparation', 'followup', 'research', 'decision', 'action'] as const).includes(item.type) &&
-        typeof item.relevance === 'number' && 
-        item.relevance >= 0 && 
-        item.relevance <= 100
-      ) : []
+      progressStatus: ['just_started', 'building_momentum', 'making_progress', 'wrapping_up'].includes(summaryData.progressStatus) ? summaryData.progressStatus : 'building_momentum'
     };
     
     // Return in the expected format for useRealtimeSummary hook

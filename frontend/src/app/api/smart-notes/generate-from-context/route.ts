@@ -76,13 +76,13 @@ ${transcript ? `\nCurrent Conversation Transcript:\n${transcript}` : ''}
 
     // Prepare conversation type specific prompts
     const conversationTypePrompts: Record<string, string> = {
-      sales_call: 'Focus on discovery questions, value propositions, objection handling, and next steps.',
-      interview: 'Focus on candidate assessment, technical questions, behavioral questions, and evaluation criteria.',
-      meeting: 'Focus on agenda items, action items, decisions to be made, and follow-ups.',
-      consultation: 'Focus on client needs assessment, solution recommendations, implementation steps, and deliverables.',
+      sales_call: 'Focus on discovery insights, value propositions, objection points, and strategic next steps.',
+      interview: 'Focus on candidate insights, key qualifications, areas of concern, and evaluation notes.',
+      meeting: 'Focus on key decisions, important discussions, action items, and strategic outcomes.',
+      consultation: 'Focus on client needs, solution recommendations, implementation insights, and strategic deliverables.',
     }
 
-    const typeSpecificPrompt = conversationTypePrompts[conversationType] || 'Focus on key discussion points and action items.'
+    const typeSpecificPrompt = conversationTypePrompts[conversationType] || 'Focus on key insights and strategic action items.'
 
     const model = await getDefaultAiModelServer();
     let openRouterResponse;
@@ -93,16 +93,16 @@ ${transcript ? `\nCurrent Conversation Transcript:\n${transcript}` : ''}
           'Authorization': `Bearer ${process.env.OPENROUTER_API_KEY}`,
           'Content-Type': 'application/json',
           'HTTP-Referer': process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000',
-          'X-Title': 'liveprompt.ai AI Checklist Generator'
+          'X-Title': 'liveprompt.ai Smart Notes Generator'
         },
         body: JSON.stringify({
           model,
           messages: [
             {
               role: 'system',
-              content: `You are an AI assistant that generates actionable smart notes for conversations based on all available context.
+              content: `You are an AI assistant that generates insightful smart notes for conversations based on all available context.
               
-              Your task is to analyze the conversation context (including any transcript from an ongoing conversation) and create 5-10 specific, actionable smart notes that will help the user.
+              Your task is to analyze the conversation context (including any transcript from an ongoing conversation) and create 5-10 specific, actionable smart notes that capture key insights and actions.
               
               Guidelines:
               - Create clear, insightful notes that capture important information
@@ -110,10 +110,10 @@ ${transcript ? `\nCurrent Conversation Transcript:\n${transcript}` : ''}
               - If a transcript is provided, analyze what has been discussed and create relevant notes
               - If no transcript is provided, focus on preparation notes
               - ${typeSpecificPrompt}
-              - Include items for before, during, and after the conversation
-              - Prioritize items based on importance and timing
-              - For each item, assign a type: preparation, followup, research, decision, or action
-              - For each item, assign a priority: high, medium, or low
+              - Include notes for key insights, decisions, and follow-up actions
+              - Prioritize notes based on importance and strategic value
+              - For each note, assign a type: preparation, followup, research, decision, or action
+              - For each note, assign a priority: high, medium, or low
               - Consider any background context, previous conversations, and current transcript
               - Be specific - reference actual topics, names, or issues mentioned in the context/transcript
               
@@ -121,7 +121,7 @@ ${transcript ? `\nCurrent Conversation Transcript:\n${transcript}` : ''}
               {
                 "items": [
                   {
-                    "text": "Specific actionable task",
+                    "text": "Specific insight or action",
                     "priority": "high|medium|low",
                     "type": "preparation|followup|research|decision|action"
                   }
@@ -181,10 +181,10 @@ ${transcript ? `\nCurrent Conversation Transcript:\n${transcript}` : ''}
       }
       
       const parsedContent = JSON.parse(cleanContent)
-      const checklistItems = parsedContent.items || []
+      const smartNotes = parsedContent.items || []
       
       // Validate and clean the items
-      const validItems: SmartNoteGenerationItem[] = checklistItems
+      const validItems: SmartNoteGenerationItem[] = smartNotes
         .filter((item: SmartNoteGenerationItem) => item.text && item.text.trim().length > 0)
         .slice(0, 10) // Max 10 items
         .map((item: SmartNoteGenerationItem) => ({
@@ -197,7 +197,7 @@ ${transcript ? `\nCurrent Conversation Transcript:\n${transcript}` : ''}
       if (validItems.length > 0) {
         console.log('💾 Saving', validItems.length, 'items to database for session:', sessionId)
         
-        // Insert items into prep_checklist table
+        // Insert items into prep_checklist table (still using same table for now)
         const { data, error: insertError } = await supabase
           .from('prep_checklist')
           .insert(
@@ -211,16 +211,16 @@ ${transcript ? `\nCurrent Conversation Transcript:\n${transcript}` : ''}
           .select()
 
         if (insertError) {
-          console.error('❌ Failed to save checklist items:', insertError)
+          console.error('❌ Failed to save smart notes:', insertError)
           // Still return the items even if saving failed
         } else {
-          console.log('✅ Successfully saved', data?.length || 0, 'checklist items to database')
+          console.log('✅ Successfully saved', data?.length || 0, 'smart notes to database')
         }
       }
 
       return NextResponse.json({ 
         items: validItems,
-        message: `Generated ${validItems.length} checklist items based on conversation context`
+        message: `Generated ${validItems.length} smart notes based on conversation context`
       })
     } catch (parseError) {
       console.error('Failed to parse AI response:', parseError)
@@ -229,7 +229,7 @@ ${transcript ? `\nCurrent Conversation Transcript:\n${transcript}` : ''}
     }
 
   } catch (error) {
-    console.error('Error generating checklist items from context:', error)
+    console.error('Error generating smart notes from context:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }

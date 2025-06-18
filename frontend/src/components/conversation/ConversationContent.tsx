@@ -28,7 +28,7 @@ import { Button } from '@/components/ui/Button';
 import { cn } from '@/lib/utils';
 import { ConversationSummary } from '@/lib/useRealtimeSummary';
 import { ProcessingAnimation } from './ProcessingAnimation';
-import { ChecklistTab } from '@/components/checklist/ChecklistTab';
+import { SmartNotesTab } from '@/components/smart-notes/SmartNotesTab';
 import { VirtualizedTranscriptList, VirtualizedTranscriptListHandle } from './VirtualizedTranscriptList';
 
 interface TranscriptLine {
@@ -376,7 +376,7 @@ export const ConversationContent: React.FC<ConversationContentProps> = ({
                   )}
                 >
                   <CheckSquare className="w-4 h-4" />
-                  <span>Checklist</span>
+                  <span>Smart Notes</span>
                 </button>
               </div>
 
@@ -857,10 +857,10 @@ export const ConversationContent: React.FC<ConversationContentProps> = ({
           </div>
         )}
 
-        {/* Checklist Tab */}
+        {/* Smart Notes Tab */}
         {activeTab === 'checklist' && !isSummarizing && sessionId && (
           <div className="h-full max-h-full flex flex-col overflow-hidden bg-gradient-to-br from-background via-muted/10 to-muted/20">
-            <ChecklistTab
+            <SmartNotesTab
               sessionId={sessionId}
               authToken={authToken}
               conversationType={conversationType}
@@ -868,6 +868,7 @@ export const ConversationContent: React.FC<ConversationContentProps> = ({
               contextText={textContext}
               previousConversationIds={selectedPreviousConversations}
               transcript={groupedTranscript.map(line => `${line.speaker}: ${line.text}`).join('\n')}
+              summary={summary}
             />
           </div>
         )}
