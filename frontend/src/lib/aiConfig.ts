@@ -10,6 +10,6 @@ export function getDefaultAiModel(systemSettings?: { default_ai_model?: string }
   return (
     systemSettings?.default_ai_model ||
     process.env.NEXT_PUBLIC_OPENROUTER_MODEL ||
-    'google/gemini-2.5-flash'
+    'google/gemini-2.5-flash-preview-05-20'
   );
 } 
