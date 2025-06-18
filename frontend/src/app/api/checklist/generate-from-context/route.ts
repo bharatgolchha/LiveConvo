@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import type { ChecklistGenerationItem, PreviousSession } from '@/types/api'
+import { getDefaultAiModelServer } from '@/lib/systemSettingsServer'
 
 export async function POST(request: NextRequest) {
   try {
@@ -83,6 +84,7 @@ ${transcript ? `\nCurrent Conversation Transcript:\n${transcript}` : ''}
 
     const typeSpecificPrompt = conversationTypePrompts[conversationType] || 'Focus on key discussion points and action items.'
 
+    const model = await getDefaultAiModelServer();
     let openRouterResponse;
     try {
       openRouterResponse = await fetch('https://openrouter.ai/api/v1/chat/completions', {
@@ -94,7 +96,7 @@ ${transcript ? `\nCurrent Conversation Transcript:\n${transcript}` : ''}
           'X-Title': 'liveprompt.ai AI Checklist Generator'
         },
         body: JSON.stringify({
-          model: 'google/gemini-2.5-flash-preview-05-20',
+          model,
           messages: [
             {
               role: 'system',

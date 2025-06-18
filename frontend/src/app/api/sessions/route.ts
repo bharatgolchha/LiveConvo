@@ -67,7 +67,8 @@ export async function GET(request: NextRequest) {
     // Build the query (filter by organization instead of just user)
     let query = authClient
       .from('sessions')
-      .select(`
+      .select(
+        `
         id,
         title,
         conversation_type,
@@ -78,7 +79,9 @@ export async function GET(request: NextRequest) {
         updated_at,
         recording_started_at,
         recording_ended_at
-      `)
+      `,
+        { count: 'exact' }
+      )
       .eq('organization_id', userData.current_organization_id)
       .is('deleted_at', null)  // Only get non-deleted sessions
       .order('created_at', { ascending: false });
@@ -96,13 +99,11 @@ export async function GET(request: NextRequest) {
       query = query.ilike('title', `%${search}%`);
     }
 
-    // Get total count for pagination
-    const { count } = await query;
-
-    // Apply pagination
+    // Apply pagination **before** executing the query
     query = query.range(offset, offset + limit - 1);
 
-    const { data: sessions, error } = await query;
+    // Execute a single request to get both data and count
+    const { data: sessions, count, error } = await query;
 
     if (error) {
       console.error('Database error:', error);

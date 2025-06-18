@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { getDefaultAiModelServer } from '@/lib/systemSettingsServer'
 
 export async function POST(request: NextRequest) {
   try {
@@ -31,6 +32,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'AI service not configured' }, { status: 500 })
     }
 
+    const model = await getDefaultAiModelServer()
     let openRouterResponse;
     try {
       openRouterResponse = await fetch('https://openrouter.ai/api/v1/chat/completions', {
@@ -42,7 +44,7 @@ export async function POST(request: NextRequest) {
         'X-Title': 'liveprompt.ai AI Checklist Generator'
       },
       body: JSON.stringify({
-        model: 'google/gemini-2.5-flash-preview-05-20',
+        model,
         messages: [
           {
             role: 'system',

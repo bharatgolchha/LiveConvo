@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
+import { getDefaultAiModelServer } from '@/lib/systemSettingsServer';
 
 export async function POST(request: NextRequest) {
   try {
@@ -36,6 +37,7 @@ export async function POST(request: NextRequest) {
       participantRole 
     });
 
+    const model = await getDefaultAiModelServer();
     const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -45,7 +47,7 @@ export async function POST(request: NextRequest) {
         'X-Title': 'liveprompt.ai AI Guidance', // Optional: for app identification
       },
       body: JSON.stringify({
-        model: 'google/gemini-2.5-flash-preview-05-20',
+        model,
         messages: [
           {
             role: 'system',

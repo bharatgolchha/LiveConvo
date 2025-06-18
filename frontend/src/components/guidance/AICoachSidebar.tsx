@@ -144,7 +144,10 @@ const AIThinkingAnimation = () => (
 
 // Constants defined outside component to prevent recreation on every render
 const MIN_WIDTH = 320;
-const MAX_WIDTH = 600;
+// The sidebar should be allowed to span up to the entire viewport, so we no longer
+// impose a fixed MAX_WIDTH. Instead, we will use the current viewport width when
+// needed to constrain resizing.
+const MAX_WIDTH = Number.POSITIVE_INFINITY;
 const COLLAPSED_WIDTH = 60;
 
 export default function AICoachSidebar({
@@ -165,7 +168,10 @@ export default function AICoachSidebar({
 }: AICoachSidebarProps) {
   // Detect if we're viewing a finalized/completed conversation
   const isViewingFinalized = conversationState === "completed";
-  const [width, setWidth] = useState(400);
+  // Initialise width to 50% of the viewport (or MIN_WIDTH on the server).
+  const [width, setWidth] = useState(() =>
+    typeof window === "undefined" ? 400 : Math.max(MIN_WIDTH, window.innerWidth * 0.5),
+  );
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
   const [newMessage, setNewMessage] = useState("");
@@ -750,7 +756,9 @@ Example format for each chip: {"text": "🔥 Build rapport", "prompt": "How can 
       const rect = sidebar.getBoundingClientRect();
       const newWidth = window.innerWidth - e.clientX;
 
-      if (newWidth >= MIN_WIDTH && newWidth <= MAX_WIDTH) {
+      // Allow resizing anywhere between MIN_WIDTH and the full viewport width.
+      const maxAllowed = window.innerWidth;
+      if (newWidth >= MIN_WIDTH && newWidth <= maxAllowed) {
         setWidth(newWidth);
       }
     },
@@ -1515,6 +1523,13 @@ Example format for each chip: {"text": "🔥 Build rapport", "prompt": "How can 
     stage
   });
 
+  // Ensure the width is updated on mount (important for SSR where window is undefined).
+  useEffect(() => {
+    const initial = Math.max(MIN_WIDTH, window.innerWidth * 0.5);
+    setWidth(initial);
+    onWidthChange?.(initial);
+  }, [onWidthChange]);
+
   return (
     <>
       {/* Resize Handle - Minimal Design */}
@@ -1551,7 +1566,7 @@ Example format for each chip: {"text": "🔥 Build rapport", "prompt": "How can 
             : isCollapsed
               ? `${COLLAPSED_WIDTH}px`
               : `${width}px`,
-          maxWidth: isExpanded ? "100vw" : `${MAX_WIDTH}px`,
+          maxWidth: isExpanded ? "100vw" : `${width}px`,
         }}
       >
         {!isCollapsed && (

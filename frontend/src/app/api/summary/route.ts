@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import type { RealtimeSummary, SuggestedChecklistItem, SummaryResponse } from '@/types/api';
+import { getDefaultAiModelServer } from '@/lib/systemSettingsServer';
+import JSON5 from 'json5';
 
 const getContextSpecificGuidelines = (conversationType: string) => {
   switch (conversationType) {
@@ -139,72 +141,48 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    const systemPrompt = `You are an expert conversation analyst. Analyze the conversation transcript and provide a comprehensive summary.
+    const systemPrompt = `You are an expert conversation analyst. Analyze the transcript and provide a summary in the EXACT JSON format below.
 
-CONTEXT FROM PREVIOUS CONVERSATIONS (if any):${linkedSummariesPrompt || ' None'}
+CRITICAL: Return ONLY valid JSON. No markdown, no explanations, just the JSON object.
 
-CRITICAL: You MUST respond with valid JSON using this EXACT structure. Do not include any text before or after the JSON.
-
+REQUIRED JSON FORMAT:
 {
-  "tldr": "Brief 1-2 sentence summary of the conversation",
-  "keyPoints": ["Specific point 1", "Specific point 2", "Specific point 3"],
-  "decisions": ["Decision 1", "Decision 2"],
-  "actionItems": ["Actionable item 1", "Actionable item 2"],
-  "nextSteps": ["Next step 1", "Next step 2"],
-  "topics": ["Topic 1", "Topic 2", "Topic 3"],
-  "sentiment": "positive|negative|neutral",
-  "progressStatus": "just_started|building_momentum|making_progress|wrapping_up",
-  "suggestedChecklistItems": [
-    {
-      "text": "Checklist item text",
-      "priority": "high|medium|low",
-      "type": "preparation|followup|research|decision|action",
-      "relevance": 85
-    }
-  ]
+  "tldr": "Brief 1-2 sentence summary",
+  "keyPoints": ["Point 1", "Point 2", "Point 3"],
+  "decisions": ["Decision 1"],
+  "actionItems": ["Action 1"],
+  "nextSteps": ["Next step 1"],
+  "topics": ["Topic 1", "Topic 2"],
+  "sentiment": "positive",
+  "progressStatus": "building_momentum",
+  "suggestedChecklistItems": []
 }
 
-FIELD REQUIREMENTS:
-- tldr: Always include a meaningful summary, even for short conversations
-- keyPoints: Extract 3-5 concrete points mentioned in the conversation
-- decisions: Only include actual decisions made (can be empty array)
-- actionItems: Specific tasks or follow-ups identified (can be empty array)
-- nextSteps: Clear next actions to be taken (can be empty array)
-- topics: Main subjects discussed (always include at least 1-2)
-- sentiment: Choose the most appropriate overall tone
-- progressStatus: Assess where the conversation stands
+FIELD RULES:
+- tldr: 1-2 sentences max
+- keyPoints: 3-5 main discussion points (required)
+- decisions: Actual decisions made (can be empty array)
+- actionItems: Specific tasks identified (can be empty array)
+- nextSteps: Clear next actions (can be empty array)  
+- topics: Main subjects discussed (1-3 topics)
+- sentiment: Must be "positive", "negative", or "neutral"
+- progressStatus: Must be "just_started", "building_momentum", "making_progress", or "wrapping_up"
+- suggestedChecklistItems: Leave as empty array for now
 
-CHECKLIST RECOMMENDATIONS GUIDELINES:
-- Generate 2-5 contextual checklist items based on conversation content
-- Focus on actionable items that emerge naturally from the discussion
-- Include both preparation items (for ongoing conversations) and follow-up items
-- Prioritize items that are specific, achievable, and time-relevant
-- Use relevance scores (0-100) to rank suggestions by importance
-- Types: preparation, followup, research, decision, action
-- Only suggest items that add value - avoid generic suggestions
-- Consider conversation type (${conversationType}) for context-appropriate suggestions
+Return ONLY the JSON object. Ensure all strings are properly quoted and escaped.`;
 
-EXAMPLES BY TYPE:
-- preparation: "Review quarterly sales numbers before next meeting"
-- followup: "Send meeting notes to all attendees" 
-- research: "Research competitor pricing for Project X"
-- decision: "Decide on final budget allocation by Friday"
-- action: "Schedule follow-up call with client"
-
-${getContextSpecificGuidelines(conversationType || 'general')}
-
-Focus on extracting concrete, actionable information. Return only valid JSON.`;
+    const model = await getDefaultAiModelServer();
 
     const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${apiKey}`,
         'Content-Type': 'application/json',
-        'HTTP-Referer': 'https://liveconvo.app', // Optional: for app identification
-        'X-Title': 'liveprompt.ai Summary', // Optional: for app identification
+        'HTTP-Referer': 'https://liveconvo.app',
+        'X-Title': 'liveprompt.ai Summary',
       },
       body: JSON.stringify({
-        model: 'google/gemini-2.5-flash-preview-05-20',
+        model,
         messages: [
           {
             role: 'system',
@@ -212,11 +190,11 @@ Focus on extracting concrete, actionable information. Return only valid JSON.`;
           },
           {
             role: 'user',
-            content: `Please analyze this conversation transcript and provide a summary:\n\n${transcriptText}`
+            content: `Analyze this conversation and return the summary as JSON:\n\n${transcriptText}`
           }
         ],
-        temperature: 0.3,
-        max_tokens: 1000,
+        temperature: 0.1,
+        max_tokens: 1500,
         response_format: { type: 'json_object' }
       })
     });
@@ -232,12 +210,44 @@ Focus on extracting concrete, actionable information. Return only valid JSON.`;
 
     const data = await response.json();
     console.debug('Summary model response received', {
-      length: data.choices[0].message.content.length
+      length: data.choices[0].message.content.length,
+      finishReason: data.choices[0].finish_reason
     });
     
     let summaryData;
     try {
-      summaryData = JSON.parse(data.choices[0].message.content);
+      const rawContent = data.choices[0].message.content.trim();
+      console.log('Raw content to parse:', rawContent.substring(0, 500) + (rawContent.length > 500 ? '...' : ''));
+      
+      // Check if response was truncated
+      if (data.choices[0].finish_reason === 'length') {
+        console.warn('⚠️ Response was truncated due to token limit');
+        
+        // Try to complete the JSON if it was cut off
+        let fixedContent = rawContent;
+        if (!rawContent.endsWith('}')) {
+          // Find the last complete field and close the JSON
+          const lastCompleteField = rawContent.lastIndexOf('",');
+          if (lastCompleteField > 0) {
+            fixedContent = rawContent.substring(0, lastCompleteField + 1) + '\n}';
+            console.log('🔧 Attempted to fix truncated JSON');
+          }
+        }
+        
+        try {
+          summaryData = JSON.parse(fixedContent);
+          console.log('✅ Successfully parsed fixed JSON');
+        } catch (fixError) {
+          console.error('❌ Failed to fix truncated JSON:', fixError);
+          throw fixError;
+        }
+      } else {
+        // Normal parsing
+        const cleanContent = rawContent.replace(/```json\n?|```\n?/g, '');
+        summaryData = JSON.parse(cleanContent);
+        console.log('✅ Successfully parsed JSON');
+      }
+      
       console.log('📊 Parsed Summary Data:', {
         hasTldr: !!summaryData.tldr,
         keyPointsCount: summaryData.keyPoints?.length || 0,
@@ -246,18 +256,22 @@ Focus on extracting concrete, actionable information. Return only valid JSON.`;
         sentiment: summaryData.sentiment,
         progressStatus: summaryData.progressStatus
       });
+      
     } catch (parseError) {
-      console.error('💥 JSON Parse Error for Summary:', parseError);
-      // Fallback to a basic summary structure
+      console.error('💥 JSON Parse Error:', parseError);
+      console.error('🔍 Raw content that failed:', data.choices[0].message.content);
+      
+      // Create a fallback summary
       summaryData = {
-        tldr: 'Summary generation encountered a formatting issue. Please try again.',
-        keyPoints: ['Conversation analysis in progress'],
+        tldr: 'Summary generation encountered a formatting issue. The conversation was analyzed but the detailed breakdown is not available.',
+        keyPoints: ['Conversation analysis completed'],
         decisions: [],
         actionItems: [],
         nextSteps: [],
         topics: ['General conversation'],
         sentiment: 'neutral',
-        progressStatus: 'building_momentum'
+        progressStatus: 'building_momentum',
+        suggestedChecklistItems: []
       };
     }
     
@@ -286,7 +300,6 @@ Focus on extracting concrete, actionable information. Return only valid JSON.`;
     const responseData: SummaryResponse = {
       summary: validatedSummary,
       generatedAt: new Date().toISOString(),
-      sessionId
     };
     
     return NextResponse.json(responseData);
