@@ -41,6 +41,12 @@ interface SetupModalProps {
   setConversationType: (type: ConversationType) => void;
   conversationState: ConversationState;
   
+  // Participant names
+  participantMe?: string;
+  setParticipantMe?: (name: string) => void;
+  participantThem?: string;
+  setParticipantThem?: (name: string) => void;
+  
   // Context
   textContext: string;
   handleTextContextChange: (text: string) => void;
@@ -77,6 +83,10 @@ export const SetupModal: React.FC<SetupModalProps> = ({
   conversationType,
   setConversationType,
   conversationState,
+  participantMe,
+  setParticipantMe,
+  participantThem,
+  setParticipantThem,
   textContext,
   handleTextContextChange,
   handleSaveContextNow,
@@ -96,6 +106,15 @@ export const SetupModal: React.FC<SetupModalProps> = ({
   sessionDuration
 }) => {
   const [activeTab, setActiveTab] = useState<'setup' | 'files' | 'previous'>('setup');
+  
+  // Debug tab visibility
+  useEffect(() => {
+    console.log('🔍 Tab Debug:', {
+      activeTab,
+      ENABLE_DOCUMENT_UPLOAD,
+      isModalOpen: isOpen
+    });
+  }, [activeTab, isOpen]);
   const [dragOver, setDragOver] = useState(false);
   const modalRef = useRef<HTMLDivElement>(null);
   const previousFocusRef = useRef<Element | null>(null);
@@ -109,6 +128,16 @@ export const SetupModal: React.FC<SetupModalProps> = ({
     { value: 'meeting', label: 'Meeting', icon: Briefcase, color: 'text-purple-600 bg-purple-50 border-purple-200' },
     { value: 'interview', label: 'Interview', icon: Phone, color: 'text-orange-600 bg-orange-50 border-orange-200' },
   ];
+
+  // Debug logging for sessions
+  useEffect(() => {
+    console.log('📋 SetupModal Sessions Debug:', {
+      sessionsCount: sessions.length,
+      sessionsLoading,
+      activeTab,
+      firstFewSessions: sessions.slice(0, 3).map(s => ({ id: s.id, title: s.title, status: s.status }))
+    });
+  }, [sessions, sessionsLoading, activeTab]);
 
   const filteredPreviousSessions = sessions.filter(session => {
     if (session.status !== 'completed') return false; // Remove hasSummary requirement to show all completed calls
@@ -218,13 +247,21 @@ export const SetupModal: React.FC<SetupModalProps> = ({
     e.target.value = '';
   };
 
-  if (!isOpen) return null;
-
   return (
     <AnimatePresence>
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      {isOpen && (
+        <>
+          <style jsx global>{`
+            @keyframes shimmer {
+              100% {
+                transform: translateX(100%);
+              }
+            }
+          `}</style>
+          <div key="modal-container" className="fixed inset-0 z-50 flex items-center justify-center p-4">
         {/* Backdrop */}
         <motion.div
+          key="modal-backdrop"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
@@ -234,12 +271,13 @@ export const SetupModal: React.FC<SetupModalProps> = ({
         
         {/* Modal */}
         <motion.div
+          key="modal-content"
           ref={modalRef}
           initial={{ opacity: 0, scale: 0.95, y: 20 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.95, y: 20 }}
           transition={{ type: "spring", stiffness: 300, damping: 30 }}
-          className="relative bg-card/95 backdrop-blur-xl rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col border border-border/50"
+          className="relative bg-card/95 backdrop-blur-xl rounded-2xl shadow-2xl w-full max-w-5xl max-h-[85vh] flex flex-col border border-border/50 overflow-hidden"
           tabIndex={-1}
           role="dialog"
           aria-modal="true"
@@ -270,34 +308,55 @@ export const SetupModal: React.FC<SetupModalProps> = ({
           </div>
 
           {/* Tab Navigation */}
-          <div className="flex-shrink-0 bg-muted/70 backdrop-blur-sm border-b border-border/50">
+          <div className="flex-shrink-0 bg-gradient-to-r from-muted/70 to-muted/50 backdrop-blur-sm border-b border-border/50">
             <div className="flex">
               {[
-                { id: 'setup', label: 'Setup', icon: Settings2 },
-                ...(ENABLE_DOCUMENT_UPLOAD ? [{ id: 'files', label: 'Files', icon: FileText, badge: uploadedFiles.length }] : []),
-                { id: 'previous', label: 'History', icon: Clock, badge: selectedPreviousConversations.length }
-              ].map(({ id, label, icon: Icon, badge }) => (
+                { id: 'setup', label: 'Configuration', icon: Settings2, description: 'Names, type & context' },
+                ...(ENABLE_DOCUMENT_UPLOAD ? [{ id: 'files' as const, label: 'Documents', icon: FileText, badge: uploadedFiles.length, description: 'Upload files' }] : []),
+                { id: 'previous' as const, label: 'Link History', icon: Clock, badge: selectedPreviousConversations.length, description: 'Previous conversations' }
+              ].filter(Boolean).map(({ id, label, icon: Icon, badge, description }) => (
                 <button
                   key={id}
                   onClick={() => setActiveTab(id as 'setup' | 'files' | 'previous')}
                   className={cn(
-                    "flex-1 flex items-center justify-center gap-3 px-6 py-4 text-sm font-medium transition-all relative min-h-[60px]",
+                    "flex-1 relative group transition-all",
                     activeTab === id
-                      ? "text-blue-600 bg-card/80 backdrop-blur-sm border-b-2 border-blue-500 shadow-sm"
-                      : "text-muted-foreground hover:text-foreground hover:bg-card/40"
+                      ? "text-blue-600"
+                      : "text-muted-foreground hover:text-foreground"
                   )}
                 >
-                  <Icon className="w-5 h-5" />
-                  <span>{label}</span>
-                  {badge !== undefined && badge > 0 && (
+                  <div className={cn(
+                    "flex flex-col items-center justify-center gap-1 px-4 py-3 min-h-[80px] transition-all",
+                    activeTab === id
+                      ? "bg-card/80 backdrop-blur-sm shadow-sm"
+                      : "hover:bg-card/40"
+                  )}>
+                    <div className="relative">
+                      <Icon className={cn(
+                        "w-6 h-6 transition-all",
+                        activeTab === id ? "text-blue-600" : "text-muted-foreground group-hover:text-foreground"
+                      )} />
+                      {badge !== undefined && badge > 0 && (
+                        <span className={cn(
+                          "absolute -top-2 -right-2 min-w-[20px] h-5 px-1 rounded-full text-xs font-bold flex items-center justify-center shadow-sm",
+                          activeTab === id 
+                            ? "bg-blue-500 text-white" 
+                            : "bg-muted-foreground/80 text-white"
+                        )}>
+                          {badge}
+                        </span>
+                      )}
+                    </div>
+                    <span className="text-sm font-medium">{label}</span>
                     <span className={cn(
-                      "absolute -top-1 -right-1 w-6 h-6 rounded-full text-xs font-bold flex items-center justify-center shadow-sm",
-                      activeTab === id 
-                        ? "bg-blue-500 text-white" 
-                        : "bg-muted-foreground text-white"
+                      "text-xs transition-opacity",
+                      activeTab === id ? "opacity-70" : "opacity-50 group-hover:opacity-70"
                     )}>
-                      {badge}
+                      {description}
                     </span>
+                  </div>
+                  {activeTab === id && (
+                    <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-500" />
                   )}
                 </button>
               ))}
@@ -308,34 +367,76 @@ export const SetupModal: React.FC<SetupModalProps> = ({
           <div className="flex-1 overflow-y-auto">
             {/* Setup Tab */}
             {activeTab === 'setup' && (
-              <div className="p-8 space-y-8">
-                {/* Conversation Title */}
-                <div className="space-y-3">
-                  <label htmlFor="convTitle" className="text-sm font-semibold text-foreground flex items-center gap-2">
-                    <div className="w-6 h-6 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-500 flex items-center justify-center">
-                      <MessageSquare className="w-3 h-3 text-white" />
+              <div className="p-8 space-y-6">
+                {/* Essential Information Section */}
+                <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/20 dark:to-indigo-950/20 rounded-xl p-6 border border-blue-200 dark:border-blue-800">
+                  <h3 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
+                    <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-sm">
+                      <MessageSquare className="w-4 h-4 text-white" />
                     </div>
-                    Conversation Title
-                  </label>
-                  <input 
-                    id="convTitle"
-                    type="text" 
-                    value={conversationTitle} 
-                    onChange={(e) => setConversationTitle(e.target.value)} 
-                    placeholder="E.g., Sales Call with Acme Corp"
-                    className="w-full px-4 py-3 bg-card border-2 border-border rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all text-sm shadow-sm"
-                    disabled={conversationState === 'recording' || conversationState === 'paused'}
-                  />
+                    Essential Information
+                  </h3>
+                  
+                  <div className="space-y-4">
+                    {/* Conversation Title */}
+                    <div className="space-y-2">
+                      <label htmlFor="convTitle" className="text-sm font-medium text-foreground">
+                        Conversation Title
+                      </label>
+                      <input 
+                        id="convTitle"
+                        type="text" 
+                        value={conversationTitle} 
+                        onChange={(e) => setConversationTitle(e.target.value)} 
+                        placeholder="E.g., Q4 Planning Meeting with Team"
+                        className="w-full px-4 py-3 bg-white dark:bg-card border-2 border-border rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all text-sm shadow-sm"
+                        disabled={conversationState === 'recording' || conversationState === 'paused'}
+                      />
+                    </div>
+
+                    {/* Participant Names */}
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-foreground">
+                        Participant Names
+                      </label>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <input
+                            id="participantMe"
+                            type="text"
+                            value={participantMe || ''}
+                            onChange={(e) => setParticipantMe?.(e.target.value)}
+                            placeholder="Your name"
+                            className="w-full px-4 py-3 bg-white dark:bg-card border-2 border-border rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all text-sm shadow-sm"
+                            disabled={conversationState === 'recording' || conversationState === 'paused'}
+                          />
+                          <p className="text-xs text-muted-foreground mt-1">You / Host</p>
+                        </div>
+                        <div>
+                          <input
+                            id="participantThem"
+                            type="text"
+                            value={participantThem || ''}
+                            onChange={(e) => setParticipantThem?.(e.target.value)}
+                            placeholder="Their name"
+                            className="w-full px-4 py-3 bg-white dark:bg-card border-2 border-border rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all text-sm shadow-sm"
+                            disabled={conversationState === 'recording' || conversationState === 'paused'}
+                          />
+                          <p className="text-xs text-muted-foreground mt-1">Guest / Client</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
                 </div>
 
                 {/* Conversation Type */}
-                <div className="space-y-3">
-                  <label htmlFor="convType" className="text-sm font-semibold text-foreground flex items-center gap-2">
-                    <div className="w-6 h-6 rounded-lg bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center">
-                      <Sparkles className="w-3 h-3 text-white" />
+                <div className="bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-950/20 dark:to-pink-950/20 rounded-xl p-6 border border-purple-200 dark:border-purple-800">
+                  <h3 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
+                    <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-purple-500 to-pink-600 flex items-center justify-center shadow-sm">
+                      <Sparkles className="w-4 h-4 text-white" />
                     </div>
                     Conversation Type
-                  </label>
+                  </h3>
                   <div className="grid grid-cols-2 gap-3">
                     {conversationTypeOptions.map(({ value, label, icon: Icon, color }) => (
                       <button
@@ -343,46 +444,57 @@ export const SetupModal: React.FC<SetupModalProps> = ({
                         onClick={() => setConversationType(value as ConversationType)}
                         disabled={conversationState === 'recording' || conversationState === 'paused'}
                         className={cn(
-                          "flex items-center gap-3 p-4 rounded-xl border-2 transition-all text-sm font-medium text-left",
+                          "relative overflow-hidden group flex items-center gap-3 p-4 rounded-xl border-2 transition-all text-sm font-medium text-left",
                           conversationType === value
-                            ? `${color} border-current shadow-md`
-                            : "text-muted-foreground bg-muted border-border hover:bg-muted/80",
+                            ? `${color} border-current shadow-lg scale-[1.02]`
+                            : "bg-white dark:bg-card border-border hover:border-gray-300 dark:hover:border-gray-600",
                           (conversationState === 'recording' || conversationState === 'paused') && "opacity-50 cursor-not-allowed"
                         )}
                       >
+                        {conversationType === value && (
+                          <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full animate-[shimmer_2s_infinite]" />
+                        )}
                         <div className={cn(
-                          "w-10 h-10 rounded-xl flex items-center justify-center",
-                          conversationType === value ? color : "bg-muted text-muted-foreground"
+                          "w-10 h-10 rounded-xl flex items-center justify-center transition-transform group-hover:scale-110",
+                          conversationType === value ? color : "bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400"
                         )}>
                           <Icon className="w-5 h-5" />
                         </div>
-                        <span>{label}</span>
+                        <div className="flex-1">
+                          <span className={cn(
+                            "block",
+                            conversationType === value ? "font-semibold" : ""
+                          )}>{label}</span>
+                          {conversationType === value && (
+                            <span className="text-xs opacity-70">Selected</span>
+                          )}
+                        </div>
                       </button>
                     ))}
                   </div>
                 </div>
 
                 {/* Background Notes */}
-                <div className="space-y-3">
-                  <label htmlFor="textContext" className="text-sm font-semibold text-foreground flex items-center gap-2">
-                    <div className="w-6 h-6 rounded-lg bg-gradient-to-br from-green-500 to-emerald-500 flex items-center justify-center">
-                      <FileText className="w-3 h-3 text-white" />
+                <div className="bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-950/20 dark:to-emerald-950/20 rounded-xl p-6 border border-green-200 dark:border-green-800">
+                  <h3 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
+                    <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-green-500 to-emerald-600 flex items-center justify-center shadow-sm">
+                      <FileText className="w-4 h-4 text-white" />
                     </div>
-                    Background Notes
-                  </label>
+                    Context & Background
+                  </h3>
                   <textarea 
                     id="textContext"
                     value={textContext} 
                     onChange={(e) => handleTextContextChange(e.target.value)} 
                     placeholder="Add key talking points, goals, context, or background information to help AI provide better guidance..."
-                    rows={6} 
-                    className="w-full px-4 py-3 bg-card border-2 border-border rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all resize-none text-sm shadow-sm"
+                    rows={5} 
+                    className="w-full px-4 py-3 bg-white dark:bg-card border-2 border-border rounded-xl focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all resize-none text-sm shadow-sm"
                     disabled={conversationState === 'recording' || conversationState === 'paused'}
                   />
-                  <div className="flex items-center gap-2 p-3 bg-blue-50 dark:bg-blue-950/20 rounded-lg border border-blue-200 dark:border-blue-800">
-                    <span className="text-blue-500">💡</span>
-                    <p className="text-xs text-blue-700 dark:text-blue-300">
-                      Tip: The more context you provide, the better AI can assist you during the conversation
+                  <div className="mt-3 flex items-start gap-2">
+                    <span className="text-green-600 text-sm">💡</span>
+                    <p className="text-xs text-green-700 dark:text-green-300">
+                      Examples: Meeting agenda, client background, key objectives, important topics to cover
                     </p>
                   </div>
                 </div>
@@ -581,9 +693,9 @@ export const SetupModal: React.FC<SetupModalProps> = ({
                     <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-green-500 to-emerald-500 flex items-center justify-center shadow-sm">
                       <Clock className="w-4 h-4 text-white" />
                     </div>
-                    Previous Conversations
+                    Link Previous Conversations
                   </h3>
-                  <p className="text-sm text-gray-600 mb-6">
+                  <p className="text-sm text-muted-foreground mb-6">
                     Select previous conversations to provide context for AI guidance
                   </p>
 
@@ -599,17 +711,32 @@ export const SetupModal: React.FC<SetupModalProps> = ({
                     />
                   </div>
 
+                  {/* Debug info */}
+                  <div className="text-xs text-muted-foreground bg-muted/50 p-2 rounded mb-4">
+                    Debug: {sessions.length} total sessions, {filteredPreviousSessions.length} completed
+                  </div>
+
                   {/* Conversations List */}
                   {sessionsLoading ? (
                     <div className="text-center py-12">
                       <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-500 mx-auto"></div>
                       <p className="text-sm text-muted-foreground mt-3">Loading conversations...</p>
                     </div>
+                  ) : sessions.length === 0 ? (
+                    <div className="text-center py-12">
+                      <Clock className="w-16 h-16 mx-auto text-muted-foreground mb-4" />
+                      <p className="text-sm text-muted-foreground">
+                        No conversations found. Complete a conversation first to link it here.
+                      </p>
+                    </div>
                   ) : filteredPreviousSessions.length === 0 ? (
                     <div className="text-center py-12">
                       <Clock className="w-16 h-16 mx-auto text-muted-foreground mb-4" />
                       <p className="text-sm text-muted-foreground">
-                        {previousConversationSearch ? 'No conversations match your search' : 'No previous conversations found'}
+                        {previousConversationSearch ? 'No completed conversations match your search' : 'No completed conversations available to link'}
+                      </p>
+                      <p className="text-xs text-muted-foreground mt-2">
+                        (Found {sessions.length} sessions, but none are completed)
                       </p>
                     </div>
                   ) : (
@@ -690,6 +817,8 @@ export const SetupModal: React.FC<SetupModalProps> = ({
           </div>
         </motion.div>
       </div>
+      </>
+      )}
     </AnimatePresence>
   );
 }; 

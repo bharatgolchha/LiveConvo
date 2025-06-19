@@ -80,7 +80,7 @@ export const VirtualizedTranscriptList = forwardRef<VirtualizedTranscriptListHan
           itemContent={(index, msg: TranscriptMessage) => {
             const isMe = msg.speaker === 'ME';
             return (
-              <div className="px-4 py-2 w-full" key={msg.id}>
+              <div className="px-4 py-2 w-full">
                 <div
                   className={cn(
                     'w-full p-4 rounded-lg shadow-sm',
