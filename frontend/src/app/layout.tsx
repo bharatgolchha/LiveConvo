@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono, Poppins } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "@/contexts/AuthContext";
@@ -25,8 +25,24 @@ const poppins = Poppins({
 });
 
 export const metadata: Metadata = {
-  title: "liveprompt.ai - Real-time Conversation Intelligence",
-  description: "Transform your conversations with AI-powered real-time guidance and intelligent summaries",
+  metadataBase: new URL('https://liveprompt.ai'),
+  title: "liveprompt.ai - AI-Powered Real-Time Conversation Intelligence | Sales Coaching & Meeting Assistant",
+  description: "Get instant AI guidance during sales calls, interviews, and client meetings. Real-time coaching, automated summaries, and actionable insights. Works with Zoom, Google Meet, Teams. Try free for 14 days.",
+  keywords: "AI conversation intelligence, real-time sales coaching, meeting assistant, AI call assistant, sales enablement software, conversation analytics, interview assistant, automated meeting notes, CRM integration, objection handling AI",
+  authors: [{ name: "liveprompt.ai" }],
+  creator: "NexGenAI LLC",
+  publisher: "NexGenAI LLC",
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      'max-video-preview': -1,
+      'max-image-preview': 'large',
+      'max-snippet': -1,
+    },
+  },
   icons: {
     icon: [
       {
@@ -60,7 +76,6 @@ export const metadata: Metadata = {
     ],
   },
   manifest: '/site.webmanifest',
-  themeColor: '#000000',
   appleWebApp: {
     capable: true,
     statusBarStyle: 'default',
@@ -70,9 +85,9 @@ export const metadata: Metadata = {
     canonical: 'https://liveprompt.ai/',
   },
   openGraph: {
-    title: 'liveprompt.ai - Real-time Conversation Intelligence',
+    title: 'liveprompt.ai - AI-Powered Real-Time Conversation Intelligence',
     description:
-      'Transform your conversations with AI-powered real-time guidance and intelligent summaries',
+      'Get instant AI guidance during sales calls, interviews, and meetings. Real-time coaching that helps you close more deals. Works with Zoom, Google Meet, Teams. Try free.',
     url: 'https://liveprompt.ai/',
     siteName: 'liveprompt.ai',
     images: [
@@ -80,6 +95,7 @@ export const metadata: Metadata = {
         url: '/og-image.png',
         width: 1200,
         height: 630,
+        alt: 'liveprompt.ai - AI conversation intelligence platform',
       },
     ],
     locale: 'en_US',
@@ -87,12 +103,21 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'liveprompt.ai - Real-time Conversation Intelligence',
+    title: 'liveprompt.ai - AI-Powered Conversation Intelligence',
     description:
-      'Transform your conversations with AI-powered real-time guidance and intelligent summaries',
+      'Real-time AI coaching for sales calls & meetings. Get instant guidance, automated summaries, and close more deals. Try free for 14 days.',
     creator: '@livepromptai',
+    site: '@livepromptai',
     images: ['/og-image.png'],
   },
+};
+
+export const viewport: Viewport = {
+  themeColor: '#000000',
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
 };
 
 export default function RootLayout({
