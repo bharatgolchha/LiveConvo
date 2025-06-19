@@ -19,6 +19,7 @@ interface AuthContextType {
   signOut: () => Promise<{ error: AuthError | null }>
   sessionExpiredMessage: string | null
   setSessionExpiredMessage: (message: string | null) => void
+  refreshSession: () => Promise<void>
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
@@ -232,6 +233,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }
 
+  const refreshSession = async () => {
+    if (!isSupabaseConfigured) return;
+    
+    try {
+      const { data: { session: newSession }, error } = await supabase.auth.refreshSession();
+      if (error) {
+        console.error('Failed to refresh session:', error);
+        if (error.message?.includes('Refresh Token') || error.message?.includes('refresh token')) {
+          setSessionExpiredMessage('Your session has expired. Please sign in again.');
+          setUser(null);
+          setSession(null);
+          clearAuthData();
+        }
+      } else if (newSession) {
+        setSession(newSession);
+        setUser(newSession.user);
+        setSessionExpiredMessage(null);
+      }
+    } catch (error) {
+      console.error('Error refreshing session:', error);
+    }
+  }
+
   const value = {
     user,
     session,
@@ -242,6 +266,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     signOut: handleSignOut,
     sessionExpiredMessage,
     setSessionExpiredMessage,
+    refreshSession,
   }
 
   return (

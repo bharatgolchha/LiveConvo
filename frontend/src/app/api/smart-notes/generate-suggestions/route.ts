@@ -113,10 +113,14 @@ export async function POST(request: NextRequest) {
     
     context += `Transcript:\n${transcript}`;
 
-    const meLabel = participantMe || 'the primary participant';
-    const themLabel = participantThem || 'the other participant';
+    const meLabel = participantMe || 'You';
+    const themLabel = participantThem || 'The other participant';
     
     const systemPrompt = `You are an expert conversation analyst. Generate smart note suggestions based on the conversation between ${meLabel} and ${themLabel}.
+
+PARTICIPANT ROLES:
+- "${meLabel}" = The person who recorded this conversation (who needs these smart notes)
+- "${themLabel}" = The person ${meLabel} was speaking with
 
 CRITICAL: Return ONLY valid JSON. No markdown, no explanations, just the JSON object.
 
@@ -124,7 +128,7 @@ REQUIRED JSON FORMAT:
 {
   "suggestions": [
     {
-      "text": "Specific actionable insight or task",
+      "text": "Specific actionable insight or task for ${meLabel}",
       "priority": "high",
       "type": "followup",
       "relevance": 95
@@ -133,14 +137,15 @@ REQUIRED JSON FORMAT:
 }
 
 RULES FOR SUGGESTIONS:
-- Generate 5-8 highly relevant smart notes based on the conversation
-- Each note should be specific and actionable
+- Generate 5-8 highly relevant smart notes primarily for ${meLabel}'s action
+- Each note should be specific and actionable for ${meLabel}
 - Text must be concise (max 80 characters)
 - Priority: "high" for critical items, "medium" for important, "low" for nice-to-have
 - Type must be one of: "preparation", "followup", "research", "decision", "action"
-- Relevance score 80-100 based on importance to the conversation
-- Focus on concrete, specific actions rather than generic tasks
-- Reference specific names, topics, or details from the conversation
+- Relevance score 80-100 based on importance to ${meLabel}
+- Focus on concrete, specific actions ${meLabel} should take
+- Reference ${themLabel} by name when relevant (e.g., "Follow up with ${themLabel} on...")
+- Consider what ${meLabel} committed to or what ${themLabel} requested
 ${conversationType ? `- ${getContextSpecificGuidelines(conversationType)}` : ''}
 
 Return ONLY the JSON object. Ensure all strings are properly quoted and escaped.`;

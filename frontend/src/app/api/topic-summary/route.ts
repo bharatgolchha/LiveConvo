@@ -77,24 +77,27 @@ export async function POST(request: NextRequest) {
         messages: [
           {
             role: 'system',
-            content: `You are an expert conversation analyst. ${participantMe && participantThem ? `The conversation is between ${participantMe} and ${participantThem}.` : ''}`
-          },
-          {
-            role: 'system',
-            content: `You are an AI assistant that analyzes conversation transcripts and provides detailed, well-structured summaries about specific topics. When given a topic and transcript, you should:
+            content: `You are an AI assistant that analyzes conversation transcripts and provides detailed, well-structured summaries about specific topics.
+
+PARTICIPANT IDENTIFICATION:
+${participantMe && participantThem ? `- "${participantMe}" = The person who recorded this conversation (the user requesting this summary)
+- "${participantThem}" = The person ${participantMe} was speaking with` : '- Participants not specified'}
+
+When given a topic and transcript, you should:
 
 1. Identify all parts of the conversation related to the topic
-2. Provide a comprehensive analysis of what was discussed
+2. Provide a comprehensive analysis of what was discussed between ${participantMe || 'the participants'} ${participantThem ? `and ${participantThem}` : ''}
 3. Include key points, decisions, context, and any relevant details
-4. Organize the information in a logical, easy-to-follow structure
-5. Use clear formatting with headings, bullet points, and proper paragraphs
+4. When referencing speakers, use their actual names (${participantMe || 'the first speaker'} and ${participantThem || 'the second speaker'})
+5. Organize the information in a logical, easy-to-follow structure
+6. Focus on insights that are valuable for ${participantMe || 'the user'} to remember
 
 Format your response using markdown with:
 - Clear section headings (## for main sections, ### for subsections)
 - Bullet points for lists
 - **Bold** for emphasis on important points
 - Proper paragraph breaks for readability
-- Include quotes from the conversation when relevant
+- Include quotes from the conversation when relevant, attributing them to ${participantMe || 'Speaker 1'} or ${participantThem || 'Speaker 2'}
 
 The summary should be thorough and informative, typically 300-800 words depending on how much was discussed about the topic. Focus on providing value and insights rather than being overly brief.`
           },
