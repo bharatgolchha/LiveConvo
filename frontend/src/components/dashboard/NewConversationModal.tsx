@@ -176,7 +176,7 @@ const Step1QuickStart: React.FC<Step1Props> = React.memo(({
       <label className="text-sm font-medium text-foreground">
         Select conversation type
       </label>
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-2 gap-4">
         {conversationTypes.map((type) => {
           const isSelected = conversationType === type.id;
           
@@ -184,39 +184,54 @@ const Step1QuickStart: React.FC<Step1Props> = React.memo(({
             <motion.button
               key={type.id}
               onClick={() => setConversationType(type.id)}
-              className={`relative p-4 rounded-xl border-2 transition-all text-left group ${
+              className={`relative p-5 rounded-2xl border-2 transition-all text-left ${
                 isSelected 
-                  ? `${type.borderColor} ${type.bgColor}` 
-                  : `border-border ${type.hoverBg}`
+                  ? `${type.borderColor} ${type.bgColor} shadow-lg` 
+                  : `border-border hover:border-primary/20 hover:shadow-md bg-card/50`
               }`}
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
+              whileHover={{ scale: 1.01 }}
+              whileTap={{ scale: 0.99 }}
             >
               {type.popular && !isSelected && (
-                <span className="absolute -top-2 -right-2 px-2 py-0.5 text-xs font-medium bg-primary text-primary-foreground rounded-full">
+                <span className="absolute -top-2.5 -right-2.5 px-2.5 py-1 text-xs font-semibold bg-gradient-to-r from-primary to-primary/80 text-primary-foreground rounded-full shadow-sm">
                   Popular
                 </span>
               )}
               
-              <div className="flex items-center gap-3">
-                <div className="text-2xl">{type.emoji}</div>
-                <div className="flex-1">
-                  <h3 className={`font-medium ${isSelected ? type.textColor : 'text-foreground'}`}>
-                    {type.title}
-                  </h3>
-                  <p className="text-xs text-muted-foreground mt-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                    {type.description}
-                  </p>
+              <div className="space-y-3">
+                <div className="flex items-start justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className={`text-3xl p-2 rounded-lg ${
+                      isSelected 
+                        ? 'bg-white/20 dark:bg-white/10' 
+                        : 'bg-muted/50'
+                    }`}>
+                      {type.emoji}
+                    </div>
+                    <h3 className={`font-semibold text-base ${
+                      isSelected ? type.textColor : 'text-foreground'
+                    }`}>
+                      {type.title}
+                    </h3>
+                  </div>
+                  {isSelected && (
+                    <motion.div
+                      initial={{ scale: 0, rotate: -180 }}
+                      animate={{ scale: 1, rotate: 0 }}
+                      transition={{ type: "spring", stiffness: 500, damping: 25 }}
+                      className="p-1.5 bg-primary rounded-full flex-shrink-0"
+                    >
+                      <CheckIcon className="w-3.5 h-3.5 text-white" />
+                    </motion.div>
+                  )}
                 </div>
-                {isSelected && (
-                  <motion.div
-                    initial={{ scale: 0 }}
-                    animate={{ scale: 1 }}
-                    className="p-1 bg-primary rounded-full flex-shrink-0"
-                  >
-                    <CheckIcon className="w-3 h-3 text-white" />
-                  </motion.div>
-                )}
+                <p className={`text-xs leading-relaxed ${
+                  isSelected 
+                    ? 'text-current opacity-80' 
+                    : 'text-muted-foreground'
+                }`}>
+                  {type.description}
+                </p>
               </div>
             </motion.button>
           );

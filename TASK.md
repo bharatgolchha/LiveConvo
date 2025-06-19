@@ -1703,3 +1703,16 @@ None currently identified - all major issues have been resolved or moved to acti
   - Enhanced UX with dynamic context placeholders and validation.
   - **Updated UI: 2-column grid layout with smaller, more compact cards.**
   - Added comprehensive test coverage for custom type functionality.
+
+### 2025-06-19: Build Optimized Use-Case Landing Pages
+**Status**: 🆕 PLANNING  
+**Priority**: MEDIUM  
+**Description**: Create dedicated landing pages for core use cases (sales, consulting, recruiting, support, education) as outlined in `landingPage.md`.
+
+**Next Actions**:
+1. Design persona-specific hero sections and demo assets.
+2. Implement route groups under `src/app/solutions/*` using a shared `LandingTemplate` component.
+3. Update `next-sitemap.config.js` and add JSON-LD metadata for each page.
+
+**Files Created/Modified**:
+- `landingPage.md` (new)
