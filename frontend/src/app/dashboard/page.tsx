@@ -445,13 +445,15 @@ const DashboardPage: React.FC = () => {
         title: `${originalSession.title} – Follow-up`,
         conversation_type: originalSession.conversation_type,
         linkedConversationIds: previousIds,
+        participant_me: originalSession.participant_me,
+        participant_them: originalSession.participant_them,
         context: {
           metadata: {
             selectedPreviousConversations: previousIds,
             created_from: 'follow_up'
           }
         }
-      } as any);
+      });
 
       if (newSession) {
         if (typeof window !== 'undefined') {

@@ -326,7 +326,7 @@ const EmptyState: React.FC<Props> = ({ onNewConversation }) => {
         
         {/* Features hint */}
         <motion.div 
-          className="mt-12 grid grid-cols-1 sm:grid-cols-3 gap-6 max-w-4xl"
+          className="mt-12 grid grid-cols-1 sm:grid-cols-3 gap-4 max-w-5xl w-full"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 0.7 }}
@@ -336,37 +336,57 @@ const EmptyState: React.FC<Props> = ({ onNewConversation }) => {
               icon: "🤖", 
               title: "Real-time AI Advisor", 
               desc: "Get live AI coaching and guidance during your conversations",
-              highlight: true
+              gradient: "from-indigo-500/10 via-purple-500/10 to-pink-500/10",
+              borderGradient: "from-indigo-500/20 via-purple-500/20 to-pink-500/20",
+              iconBg: "from-indigo-500/20 to-purple-500/20"
             },
             { 
               icon: "🎙️", 
               title: "Live Transcription", 
-              desc: "Real-time speech-to-text with speaker identification" 
+              desc: "Real-time speech-to-text with speaker identification",
+              gradient: "from-cyan-500/10 via-blue-500/10 to-indigo-500/10",
+              borderGradient: "from-cyan-500/20 via-blue-500/20 to-indigo-500/20",
+              iconBg: "from-cyan-500/20 to-blue-500/20"
             },
             { 
               icon: "📋", 
               title: "Smart Summaries", 
-              desc: "Auto-generated insights, action items, and follow-ups" 
+              desc: "Auto-generated insights, action items, and follow-ups",
+              gradient: "from-emerald-500/10 via-teal-500/10 to-cyan-500/10",
+              borderGradient: "from-emerald-500/20 via-teal-500/20 to-cyan-500/20",
+              iconBg: "from-emerald-500/20 to-teal-500/20"
             }
           ].map((feature, index) => (
             <motion.div
               key={feature.title}
-              className={`text-center p-4 rounded-lg border transition-all hover:scale-105 ${
-                feature.highlight 
-                  ? 'bg-primary/10 border-primary/30 ring-1 ring-primary/20' 
-                  : 'bg-muted/30 border-border/50'
-              }`}
+              className="relative group"
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.8 + index * 0.1 }}
             >
-              <div className="text-3xl mb-3">{feature.icon}</div>
-              <h3 className={`font-semibold mb-2 ${
-                feature.highlight ? 'text-primary' : 'text-foreground'
-              }`}>
-                {feature.title}
-              </h3>
-              <p className="text-sm text-muted-foreground leading-relaxed">{feature.desc}</p>
+              {/* Gradient border wrapper */}
+              <div className={`absolute inset-0 bg-gradient-to-br ${feature.borderGradient} rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-500`} />
+              
+              {/* Card content */}
+              <div className={`relative bg-gradient-to-br ${feature.gradient} backdrop-blur-sm border border-white/10 rounded-2xl p-6 h-full transition-all duration-300 group-hover:translate-y-[-2px] group-hover:shadow-xl`}>
+                {/* Icon with gradient background */}
+                <div className={`w-14 h-14 bg-gradient-to-br ${feature.iconBg} rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300`}>
+                  <div className="text-2xl">{feature.icon}</div>
+                </div>
+                
+                {/* Title */}
+                <h3 className="font-semibold text-foreground mb-2 text-base">
+                  {feature.title}
+                </h3>
+                
+                {/* Description */}
+                <p className="text-sm text-muted-foreground/80 leading-relaxed">
+                  {feature.desc}
+                </p>
+                
+                {/* Subtle shine effect on hover */}
+                <div className="absolute inset-0 bg-gradient-to-tr from-white/0 via-white/5 to-white/0 opacity-0 group-hover:opacity-100 transition-opacity duration-700 rounded-2xl pointer-events-none" />
+              </div>
             </motion.div>
           ))}
         </motion.div>

@@ -6,6 +6,7 @@ import {
   Dialog,
   DialogContent,
   DialogTitle,
+  DialogDescription,
 } from "@/components/ui/dialog"
 
 interface LoadingModalProps {
@@ -38,6 +39,9 @@ export function LoadingModal({
         <DialogTitle className="sr-only">
           {title || (isNewSession ? "Starting New Session" : "Loading Session")}
         </DialogTitle>
+        <DialogDescription className="sr-only">
+          {description || `Please wait while we ${isNewSession ? 'start your new session' : 'load your session'}...`}
+        </DialogDescription>
         <div className="flex flex-col items-center justify-center py-8 px-4 space-y-6">
           {/* Animated Logo/Icon */}
           <div className="relative">

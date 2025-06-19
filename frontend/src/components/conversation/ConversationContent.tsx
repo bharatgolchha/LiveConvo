@@ -8,8 +8,6 @@ import {
   Clock3,
   RefreshCw,
   Download,
-  Maximize2,
-  Minimize2,
   CheckCircle,
   XCircle,
   TrendingUp,
@@ -49,6 +47,7 @@ interface ConversationContentProps {
   // Conversation state
   conversationState: ConversationState;
   isSummarizing: boolean;
+  isFinalized?: boolean;
   
   // Transcript data
   transcript: TranscriptLine[];
@@ -90,6 +89,7 @@ export const ConversationContent: React.FC<ConversationContentProps> = ({
   setActiveTab,
   conversationState,
   isSummarizing,
+  isFinalized,
   transcript,
   summary,
   isSummaryLoading,
@@ -442,15 +442,6 @@ export const ConversationContent: React.FC<ConversationContentProps> = ({
               >
                 <Download className="w-4 h-4" />
               </Button>
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                onClick={() => setIsFullscreen(!isFullscreen)} 
-                className="h-9 w-9 p-0 hover:bg-muted/80 transition-all duration-200"
-                title={isFullscreen ? "Exit Fullscreen" : "Enter Fullscreen"}
-              >
-                {isFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
-              </Button>
             </div>
           </div>
         </div>
@@ -505,7 +496,7 @@ export const ConversationContent: React.FC<ConversationContentProps> = ({
                   </div>
 
                   {/* CTA */}
-                  {conversationState === 'ready' && (
+                  {conversationState === 'ready' && !isFinalized && (
                     <div className="mt-8">
                       <Button 
                         onClick={handleStartRecording}
@@ -669,7 +660,7 @@ export const ConversationContent: React.FC<ConversationContentProps> = ({
                   </div>
 
                   {/* CTA */}
-                  {conversationState === 'ready' && (
+                  {conversationState === 'ready' && !isFinalized && (
                     <Button 
                       onClick={handleStartRecording}
                       size="lg"

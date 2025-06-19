@@ -257,6 +257,8 @@ export function useSessions(): SessionsHookReturn {
     selected_template_id?: string;
     context?: { text?: string; metadata?: Record<string, unknown> };
     linkedConversationIds?: string[];
+    participant_me?: string;
+    participant_them?: string;
   }): Promise<Session | null> => {
     if (!user || authLoading) {
       return null;

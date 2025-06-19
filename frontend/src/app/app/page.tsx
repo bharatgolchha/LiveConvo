@@ -319,8 +319,11 @@ function AppContent() {
         setConversationType(mappedType);
         
         // Set state based on session status - this is the authoritative source
-        if (sessionData.status === 'completed') {
-          console.log('🔍 Loading completed session:', sessionId);
+        if (sessionData.status === 'completed' || sessionData.finalized_at) {
+          console.log('🔍 Loading completed/finalized session:', sessionId, {
+            status: sessionData.status,
+            finalized_at: sessionData.finalized_at
+          });
           setConversationState('completed');
           setIsFinalized(true); // Mark as finalized when loading completed session
           setSessionDuration(sessionData.recording_duration_seconds || 0);
@@ -376,13 +379,15 @@ function AppContent() {
         console.log('Transcript data received:', transcriptData);
         
         // Convert transcript data to TranscriptLine format (current conversation)
-        const formattedTranscript = transcriptData.transcripts.map((item: TranscriptData, index: number) => ({
-          id: `loaded-${sessionId}-${index}-${Date.now()}`,
-          text: item.content,
-          timestamp: new Date(item.created_at),
-          speaker: item.speaker === 'user' ? 'ME' : 'THEM',
-          confidence: item.confidence_score || 0.85
-        }));
+        const formattedTranscript = transcriptData.transcripts
+          .filter((item: TranscriptData) => item.content && item.content.trim()) // Filter out empty lines
+          .map((item: TranscriptData, index: number) => ({
+            id: `loaded-${sessionId}-${index}-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`,
+            text: item.content,
+            timestamp: new Date(item.created_at),
+            speaker: item.speaker === 'user' ? 'ME' : 'THEM',
+            confidence: item.confidence_score || 0.85
+          }));
         
         setTranscript(formattedTranscript);
         
@@ -1175,10 +1180,13 @@ function AppContent() {
           // CRITICAL FIX: Update conversation state based on DB, overriding localStorage if necessary for loaded sessions.
           // Only avoid this if currently recording in this tab.
           if (!isCurrentlyRecordingRef.current) {
-            if (sessionData.status === 'completed') {
+            if (sessionData.status === 'completed' || sessionData.finalized_at) {
               setConversationState('completed');
               setIsFinalized(true); // Mark as finalized when loading completed session
-              console.log('DB Load: Session is completed. Setting state to "completed".');
+              console.log('DB Load: Session is completed/finalized. Setting state to "completed".', {
+                status: sessionData.status,
+                finalized_at: sessionData.finalized_at
+              });
             } else if (sessionData.status === 'active') {
               // An 'active' session from DB means it was recording elsewhere or previously.
               // Treat as 'paused' in this tab to allow viewing/resuming.
@@ -1209,14 +1217,16 @@ function AppContent() {
               if (transcriptResponse.ok) {
                 const transcriptData = await transcriptResponse.json();
                 if (transcriptData.data && Array.isArray(transcriptData.data) && transcriptData.data.length > 0) {
-                  const loadedTranscript: TranscriptLine[] = transcriptData.data.map((line: TranscriptData, index: number) => ({
-                    // Always use index-based ID to ensure uniqueness when loading from DB
-                    id: `loaded-${conversationId}-${index}-${Date.now()}`,
-                    text: line.content || '',
-                    timestamp: new Date(line.created_at || Date.now()),
-                    speaker: (line.speaker === 'user' || line.speaker === 'me') ? 'ME' : 'THEM',
-                    confidence: line.confidence_score || 0.85
-                  }));
+                  const loadedTranscript: TranscriptLine[] = transcriptData.data
+                    .filter((line: TranscriptData) => line.content && line.content.trim()) // Filter out empty lines
+                    .map((line: TranscriptData, index: number) => ({
+                      // Always use index-based ID to ensure uniqueness when loading from DB
+                      id: `loaded-${conversationId}-${index}-${Date.now()}-${Math.random().toString(36).substring(7)}`,
+                      text: line.content.trim(),
+                      timestamp: new Date(line.created_at || Date.now()),
+                      speaker: (line.speaker === 'user' || line.speaker === 'me') ? 'ME' : 'THEM',
+                      confidence: line.confidence_score || 0.85
+                    }));
                   setTranscript(loadedTranscript);
                   setLastSavedTranscriptIndex(loadedTranscript.length);
                   
@@ -2167,6 +2177,21 @@ function AppContent() {
     if (conversationState === 'loading') {
       return null; // Don't show action button while loading
     }
+    
+    // Check if this is a finalized conversation
+    if (isFinalized && conversationId && (conversationState === 'completed' || conversationState === 'ready')) {
+      return (
+        <Button 
+          onClick={() => router.push(`/summary/${conversationId}`)}
+          size="lg" 
+          className="px-8 bg-primary hover:bg-primary/90 text-primary-foreground"
+        >
+          <FileText className="w-5 h-5 mr-2" />
+          View Final Summary
+        </Button>
+      );
+    }
+    
     if (conversationState === 'setup') {
       return <Button onClick={() => { if (textContext) addUserContext(textContext); setConversationState('ready');}} size="lg" className="px-8 bg-primary hover:bg-primary/90 text-primary-foreground"><Play className="w-5 h-5 mr-2" />Get Ready</Button>;
     }
@@ -2378,7 +2403,20 @@ function AppContent() {
                   
                   {/* Enhanced Recording Controls */}
                   <div className="hidden sm:flex items-center gap-2 ml-4">
-                    {(conversationState === 'setup' || conversationState === 'ready') && (
+                    {/* Show View Final Summary button for finalized conversations */}
+                    {isFinalized && conversationId && (conversationState === 'completed' || conversationState === 'ready') && (
+                      <Button 
+                        onClick={() => router.push(`/summary/${conversationId}`)}
+                        size="sm" 
+                        className="bg-primary hover:bg-primary/90 text-primary-foreground font-medium px-4"
+                      >
+                        <FileText className="w-4 h-4 mr-1.5" />
+                        View Final Summary
+                      </Button>
+                    )}
+                    
+                    {/* Only show recording controls for non-finalized conversations */}
+                    {!isFinalized && (conversationState === 'setup' || conversationState === 'ready') && (
                       <Button 
                         onClick={conversationState === 'setup' ? () => { if (textContext) addUserContext(textContext); setConversationState('ready'); } : handleInitiateRecording}
                         size="sm" 
@@ -2482,6 +2520,10 @@ function AppContent() {
           conversationType={conversationType}
           setConversationType={setConversationType}
           conversationState={conversationState}
+          participantMe={participantMe}
+          setParticipantMe={setParticipantMe}
+          participantThem={participantThem}
+          setParticipantThem={setParticipantThem}
           textContext={textContext}
           handleTextContextChange={handleTextContextChange}
           handleSaveContextNow={handleSaveContextNow}
@@ -2538,7 +2580,7 @@ function AppContent() {
                 <MainActionButton />
               </motion.div>
             )}
-
+            
               {/* Main Content Area - Now using extracted component */}
             {(conversationState === 'ready' || conversationState === 'recording' || conversationState === 'paused' || conversationState === 'processing' || conversationState === 'completed') && (
               <div className="h-full max-h-full overflow-hidden">
@@ -2547,6 +2589,7 @@ function AppContent() {
                   setActiveTab={setActiveTab}
                   conversationState={conversationState}
                   isSummarizing={isSummarizing}
+                  isFinalized={isFinalized}
                   transcript={transcript}
                   summary={effectiveSummary}
                   isSummaryLoading={isSummaryLoading}

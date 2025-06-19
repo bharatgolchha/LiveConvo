@@ -265,16 +265,40 @@ const ConversationInboxItem: React.FC<Props> = ({
           )}
 
           {session.status === 'completed' && (
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                onViewSummary(session.id);
-              }}
-              className="inline-flex items-center px-2 py-1 text-xs font-medium text-blue-700 bg-blue-100 hover:bg-blue-200 rounded transition-colors duration-150"
-            >
-              <EyeIcon className="w-3 h-3 mr-0.5" />
-              View
-            </button>
+            <>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onViewSummary(session.id);
+                }}
+                className="inline-flex items-center px-2 py-1 text-xs font-medium text-blue-700 bg-blue-100 hover:bg-blue-200 rounded transition-colors duration-150"
+              >
+                <EyeIcon className="w-3 h-3 mr-0.5" />
+                Summary
+              </button>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onResume(session.id);
+                }}
+                className="inline-flex items-center px-2 py-1 text-xs font-medium text-green-700 bg-green-100 hover:bg-green-200 rounded transition-colors duration-150"
+              >
+                <ArrowTopRightOnSquareIcon className="w-3 h-3 mr-0.5" />
+                Open
+              </button>
+              {onCreateFollowUp && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onCreateFollowUp(session);
+                  }}
+                  className="inline-flex items-center px-2 py-1 text-xs font-medium text-purple-700 bg-purple-100 hover:bg-purple-200 rounded transition-colors duration-150"
+                >
+                  <ArrowPathIcon className="w-3 h-3 mr-0.5" />
+                  Follow-Up
+                </button>
+              )}
+            </>
           )}
 
           {session.status === 'draft' && (
@@ -303,32 +327,6 @@ const ConversationInboxItem: React.FC<Props> = ({
 
             {/* Dropdown menu - positioned above to avoid being hidden */}
             <div className="absolute right-0 bottom-full mb-1 w-36 bg-white dark:bg-gray-800 rounded-md shadow-lg border border-gray-200 dark:border-gray-700 opacity-0 group-hover/menu:opacity-100 pointer-events-none group-hover/menu:pointer-events-auto transition-opacity duration-150 z-50">
-              {session.status === 'completed' && (
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onResume(session.id);
-                  }}
-                  className="w-full text-left px-3 py-2 text-xs text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2"
-                >
-                  <ArrowTopRightOnSquareIcon className="w-3 h-3" />
-                  Open
-                </button>
-              )}
-              
-              {session.status === 'completed' && onCreateFollowUp && (
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onCreateFollowUp(session);
-                  }}
-                  className="w-full text-left px-3 py-2 text-xs text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2"
-                >
-                  <ArrowPathIcon className="w-3 h-3" />
-                  Follow-Up
-                </button>
-              )}
-              
               <button
                 onClick={(e) => {
                   e.stopPropagation();
