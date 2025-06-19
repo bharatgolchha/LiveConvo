@@ -25,7 +25,7 @@ export function useMinuteTracking({
   onLimitReached,
   onApproachingLimit
 }: UseMinuteTrackingProps) {
-  const { session: authSession } = useAuth();
+  const { session: authSession, refreshSession } = useAuth();
   const [state, setState] = useState<MinuteTrackingState>({
     currentSessionMinutes: 0,
     currentSessionSeconds: 0,
@@ -65,6 +65,22 @@ export function useMinuteTracking({
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({ message: 'Unknown error' }));
+        
+        // Handle 401 specifically - session might be expired
+        if (response.status === 401) {
+          console.warn('⚠️ Auth token expired during usage check, attempting refresh...');
+          // Try to refresh the session
+          await refreshSession();
+          // Return default values without throwing error
+          return {
+            can_record: true,
+            minutes_used: 0,
+            minutes_limit: 600,
+            minutes_remaining: 600,
+            percentage_used: 0
+          };
+        }
+        
         console.error('❌ Usage limit check failed:', response.status, errorData);
         
         // For development, allow recording if the API fails
@@ -136,7 +152,7 @@ export function useMinuteTracking({
       
       return null;
     }
-  }, [authSession, onApproachingLimit, onLimitReached]);
+  }, [authSession, onApproachingLimit, onLimitReached, refreshSession]);
 
   // Track a minute of usage
   const trackMinute = useCallback(async (seconds: number) => {
@@ -178,15 +194,18 @@ export function useMinuteTracking({
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({ message: 'Unknown error' }));
         
-        // Only log error in development or if it's not a 401
-        if (process.env.NODE_ENV === 'development' || response.status !== 401) {
-          console.error('❌ Track minute API error:', response.status, errorData);
+        // Handle 401 specifically - session might be expired
+        if (response.status === 401) {
+          console.warn('⚠️ Auth token expired during minute tracking, attempting refresh...');
+          // Try to refresh the session
+          await refreshSession();
+          // Don't show error message for 401 as it's handled by AuthContext
+          return;
         }
         
-        // Don't show error for 401 in production (user might be logging out)
-        if (response.status !== 401) {
-          setError(`Failed to track usage: ${errorData.message}`);
-        }
+        // Only log other errors
+        console.error('❌ Track minute API error:', response.status, errorData);
+        setError(`Failed to track usage: ${errorData.message}`);
         
         throw new Error(errorData.message || 'Failed to track minute');
       }
@@ -220,11 +239,14 @@ export function useMinuteTracking({
 
       return data;
     } catch (err) {
-      console.error('Error tracking minute:', err);
-      setError('Failed to track usage');
+      // Don't log expected auth errors
+      if (err instanceof Error && !err.message.includes('401')) {
+        console.error('Error tracking minute:', err);
+        setError('Failed to track usage');
+      }
       return null;
     }
-  }, [authSession, sessionId, onLimitReached]);
+  }, [authSession, sessionId, onLimitReached, refreshSession]);
 
   // Start recording timer
   const startTracking = useCallback(() => {

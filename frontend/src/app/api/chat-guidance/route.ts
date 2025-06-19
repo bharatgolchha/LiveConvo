@@ -202,38 +202,42 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    const getChipPrompt = (conv:string, stg:string, obj:string, transcript:string)=>{
+    const getChipPrompt = (conv:string, stg:string, obj:string, transcript:string, meLabel:string, themLabel:string)=>{
       const transcriptContext = transcript ? transcript.slice(-500) : '';
-      return `You are an expert ${conv || 'sales'} conversation coach generating contextual questions for the user to ask their AI advisor.
+      return `You are an expert ${conv || 'sales'} conversation coach generating contextual questions for ${meLabel} to ask their AI advisor about their conversation with ${themLabel}.
+
+PARTICIPANTS:
+- "${meLabel}" = The person using this AI advisor
+- "${themLabel}" = The person ${meLabel} is speaking with
 
 Current conversation type: ${conv || 'sales'}
 Current stage: ${stg}
 Context/objective: "${obj || 'Not specified'}"
-Recent transcript: "${transcriptContext || 'No transcript yet'}"
+Recent transcript between ${meLabel} and ${themLabel}: "${transcriptContext || 'No transcript yet'}"
 
-Generate EXACTLY 3 contextual questions the user can ask their AI advisor about the current conversation state. These should be strategic questions that help the user understand:
-- What they should focus on next
-- How to handle the current situation
-- What insights they might be missing
+Generate EXACTLY 3 contextual questions ${meLabel} can ask their AI advisor about the current conversation state with ${themLabel}. These should be strategic questions that help ${meLabel} understand:
+- What ${meLabel} should focus on next with ${themLabel}
+- How ${meLabel} can handle the current situation
+- What insights ${meLabel} might be missing about ${themLabel}'s perspective
 
-Each question should be specific to the current conversation context and stage, not generic advice.
+Each question should be specific to ${meLabel}'s conversation with ${themLabel} and the current stage.
 
 CRITICAL: Return ONLY a valid JSON array. Do not include any text before or after the JSON.
 The response must start with [ and end with ]
 
 Return exactly this format:
 [
-  {"text":"<emoji> 3-5 word label","prompt":"Full strategic question to ask the AI advisor","impact":90},
-  {"text":"<emoji> 3-5 word label","prompt":"Full strategic question to ask the AI advisor","impact":80},
-  {"text":"<emoji> 3-5 word label","prompt":"Full strategic question to ask the AI advisor","impact":70}
+  {"text":"<emoji> 3-5 word label","prompt":"Full strategic question ${meLabel} can ask about their conversation with ${themLabel}","impact":90},
+  {"text":"<emoji> 3-5 word label","prompt":"Full strategic question ${meLabel} can ask about their conversation with ${themLabel}","impact":80},
+  {"text":"<emoji> 3-5 word label","prompt":"Full strategic question ${meLabel} can ask about their conversation with ${themLabel}","impact":70}
 ]
 
 Examples for ${conv} conversation at ${stg} stage:
-- If discussing pricing: {"text":"💰 Handle price concern","prompt":"How should I address their concern about the price being too high?","impact":90}
-- If in discovery: {"text":"🔍 Dig deeper","prompt":"What follow-up questions should I ask about their current challenges?","impact":85}
-- If opening: {"text":"🎯 Set direction","prompt":"How should I transition from small talk to understanding their needs?","impact":80}
+- If ${themLabel} is discussing pricing: {"text":"💰 Handle price concern","prompt":"How should I address ${themLabel}'s concern about the price being too high?","impact":90}
+- If in discovery: {"text":"🔍 Dig deeper","prompt":"What follow-up questions should I ask ${themLabel} about their current challenges?","impact":85}
+- If opening: {"text":"🎯 Set direction","prompt":"How should I transition from small talk to understanding ${themLabel}'s needs?","impact":80}
 
-Make the questions specific to what's happening in the transcript, not generic.
+Make the questions specific to what's happening between ${meLabel} and ${themLabel} in the transcript.
 Remember: Start with [ and end with ] - no other text allowed.`;
     };
 
@@ -263,7 +267,7 @@ Remember: Start with [ and end with ] - no other text allowed.`;
       body: JSON.stringify({
         model: defaultModel,
         messages: [
-          { role: 'system', content: chipsMode ? getChipPrompt(effectiveConversationType || 'sales', stage || 'opening', textContext || '', effectiveTranscript) : getChatGuidanceSystemPrompt(effectiveConversationType, isRecording, transcriptLength, participantMe, participantThem) },
+          { role: 'system', content: chipsMode ? getChipPrompt(effectiveConversationType || 'sales', stage || 'opening', textContext || '', effectiveTranscript, participantMe || 'You', participantThem || 'The other participant') : getChatGuidanceSystemPrompt(effectiveConversationType, isRecording, transcriptLength, participantMe, participantThem) },
           ...chatMessages,
         ],
         temperature: 0.4,
@@ -373,35 +377,34 @@ Remember: Start with [ and end with ] - no other text allowed.`;
 function getChatGuidanceSystemPrompt(conversationType?: string, isRecording: boolean = false, transcriptLength: number = 0, participantMe?: string, participantThem?: string): string {
   const live = isRecording && transcriptLength > 0;
   const mode = live ? 'LIVE' : 'PREP';
-  const meLabel = participantMe || 'the user';
-  const themLabel = participantThem || 'the other participant';
+  const meLabel = participantMe || 'You';
+  const themLabel = participantThem || 'The other participant';
 
-  return `You are an expert ${conversationType || 'general'} conversation coach providing conversational guidance for a conversation between ${meLabel} and ${themLabel}.
+  return `You are an expert ${conversationType || 'general'} conversation coach providing guidance specifically for ${meLabel} in their conversation with ${themLabel}.
 
-MODE: ${mode} ${mode === 'LIVE' ? '(Active conversation - provide immediate tactical advice)' : '(Planning phase - help with preparation and strategy)'}
+PARTICIPANT ROLES (CRITICAL):
+- "${meLabel}" = The person asking for your guidance (your advisee)
+- "${themLabel}" = The person ${meLabel} is speaking/will speak with
+
+MODE: ${mode} ${mode === 'LIVE' ? `(Active conversation - ${meLabel} is currently speaking with ${themLabel})` : `(Planning phase - ${meLabel} is preparing to speak with ${themLabel})`}
 
 RESPONSE STYLE:
-Write naturally and conversationally, as if advising a colleague. Use markdown effectively:
+Write naturally to ${meLabel}, as if advising a colleague. Use markdown effectively:
 - **Bold** for emphasis on key points
 - Short paragraphs (2-3 sentences each)
 - Lists only when actually listing items
 - Headers (##) only if organizing multiple topics
 - Keep total response to 100-150 words
 
-Focus on ONE main insight with specific, actionable next steps. Reference the actual conversation context and transcript when available.
+Focus on ONE main insight for ${meLabel} with specific, actionable next steps. When referencing the transcript, be clear about who said what (${meLabel} vs ${themLabel}).
 
 RESPONSE FORMAT (return valid JSON):
 {
-  "response": "Your concise coaching response in natural markdown",
-  "confidence": 75,
-  "smartSuggestion": null | {
-    "type": "response|objection|redirect|clarification",
-    "content": "One critical action (<=20 words)",
-    "priority": "high|medium|low"
-  }
+  "response": "Your concise coaching response to ${meLabel} in natural markdown",
+  "confidence": 75
 }
 
-SMART SUGGESTION: Only include when user explicitly asks "what should I say" or faces a critical moment needing immediate guidance.
+NO SMART SUGGESTIONS: Keep responses simple and in plain markdown format only.
 
 CONFIDENCE SCALE:
 - 90-100: Clear situation with full context
@@ -409,7 +412,7 @@ CONFIDENCE SCALE:
 - 50-69: Limited context, general advice
 - <50: Insufficient information
 
-Be specific, reference the conversation directly, and avoid generic advice.
+Be specific to ${meLabel}'s situation, reference the conversation directly, and avoid generic advice.
 
 CRITICAL: Return ONLY the JSON object, no additional text.`;
 }

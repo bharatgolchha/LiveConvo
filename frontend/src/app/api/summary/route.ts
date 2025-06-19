@@ -144,32 +144,42 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    const meLabel = participantMe || 'the primary participant';
-    const themLabel = participantThem || 'the other participant';
+    const meLabel = participantMe || 'You';
+    const themLabel = participantThem || 'The other participant';
     
     const systemPrompt = `You are an expert conversation analyst. Analyze the transcript of a conversation between ${meLabel} and ${themLabel} and provide a summary in the EXACT JSON format below.
+
+PARTICIPANT IDENTIFICATION:
+- "${meLabel}" = The person who recorded this conversation (the user of this system)
+- "${themLabel}" = The person they were speaking with
+
+When analyzing the conversation:
+- Identify action items and next steps primarily for ${meLabel}
+- Note decisions made by both ${meLabel} and ${themLabel}
+- Assess the overall sentiment of the interaction
+- Focus on what ${meLabel} should know and remember from this conversation
 
 CRITICAL: Return ONLY valid JSON. No markdown, no explanations, just the JSON object.
 
 REQUIRED JSON FORMAT:
 {
-  "tldr": "Brief 1-2 sentence summary",
+  "tldr": "Brief 1-2 sentence summary of what ${meLabel} and ${themLabel} discussed",
   "keyPoints": ["Point 1", "Point 2", "Point 3"],
-  "decisions": ["Decision 1"],
-  "actionItems": ["Action 1"],
-  "nextSteps": ["Next step 1"],
+  "decisions": ["Decision 1 made by ${meLabel} or ${themLabel}"],
+  "actionItems": ["Action 1 for ${meLabel}", "Action 2 for ${themLabel}"],
+  "nextSteps": ["Next step 1 for ${meLabel}"],
   "topics": ["Topic 1", "Topic 2", "Topic 3", "Topic 4"],
   "sentiment": "positive",
   "progressStatus": "building_momentum"
 }
 
 FIELD RULES:
-- tldr: 1-2 sentences max
-- keyPoints: 3-10 main discussion points (aim for thorough coverage)
-- decisions: Actual decisions made (can be empty array)
-- actionItems: Specific tasks identified (can be empty array)
-- nextSteps: Clear next actions (can be empty array)  
-- topics: Main subjects discussed (include as many as are meaningfully covered, no strict limit)
+- tldr: 1-2 sentences max, mentioning both participants by name when relevant
+- keyPoints: 3-10 main discussion points between ${meLabel} and ${themLabel}
+- decisions: Actual decisions made, noting who made them (can be empty array)
+- actionItems: Specific tasks identified, noting who owns them (can be empty array)
+- nextSteps: Clear next actions primarily for ${meLabel} (can be empty array)  
+- topics: Main subjects discussed (include as many as are meaningfully covered)
 - sentiment: Must be "positive", "negative", or "neutral"
 - progressStatus: Must be "just_started", "building_momentum", "making_progress", or "wrapping_up"
 
