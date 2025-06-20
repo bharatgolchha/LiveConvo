@@ -1,6 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabase, createServerSupabaseClient, createAuthenticatedSupabaseClient } from '@/lib/supabase';
 import type { SessionData, SessionContext, LinkedConversation, LinkedConversationsData } from '@/types/api';
+import { RecallSessionManager } from '@/lib/recall-ai/session-manager';
+
+// Helper function to detect meeting platform from URL
+function detectMeetingPlatform(url: string): string | null {
+  if (url.includes('zoom.us') || url.includes('zoom.com')) return 'zoom';
+  if (url.includes('meet.google.com')) return 'google_meet';
+  if (url.includes('teams.microsoft.com')) return 'teams';
+  return null;
+}
 
 /**
  * GET /api/sessions - Fetch user sessions/conversations
@@ -168,6 +177,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
+    console.log('📥 Session creation request body:', body);
     const { 
       title, 
       conversation_type, 
@@ -175,8 +185,10 @@ export async function POST(request: NextRequest) {
       context, // { text: string, metadata?: object }
       linkedConversationIds,
       participant_me,
-      participant_them
+      participant_them,
+      meeting_url // New field for Recall.ai integration
     } = body;
+    console.log('🔗 Meeting URL received:', meeting_url);
 
     // Get current user from Supabase auth using the access token
     const authHeader = request.headers.get('authorization');
@@ -227,7 +239,9 @@ export async function POST(request: NextRequest) {
         selected_template_id,
         status: 'draft',
         participant_me,
-        participant_them
+        participant_them,
+        meeting_url: meeting_url || null,
+        meeting_platform: meeting_url ? detectMeetingPlatform(meeting_url) : null
       })
       .select()
       .single();
@@ -281,9 +295,15 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // Meeting URL is saved, but bot creation is now manual via "Join Meeting" button
+    if (meeting_url) {
+      console.log('🔗 Meeting URL saved. Bot will be created when user clicks "Join Meeting"');
+    }
+
     return NextResponse.json({ 
       session,
       context: sessionContext,
+      recallBot,
       message: sessionContext 
         ? 'Session and context created successfully' 
         : 'Session created successfully'

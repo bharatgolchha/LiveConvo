@@ -47,6 +47,8 @@ const ConversationInboxItem = dynamic(() => import('@/components/dashboard/Conve
 const EmptyState = dynamic(() => import('@/components/dashboard/EmptyState'));
 const NewConversationModal = dynamic(() => import('@/components/dashboard/NewConversationModal'));
 const ContextUploadWidget = dynamic(() => import('@/components/dashboard/ContextUploadWidget'));
+const NewConversationButton = dynamic(() => import('@/components/dashboard/NewConversationButton').then(mod => ({ default: mod.NewConversationButton })));
+const CreateMeetingModal = dynamic(() => import('@/components/meeting/create/CreateMeetingModal').then(mod => ({ default: mod.CreateMeetingModal })));
 
 // Types (using Session from useSessions hook)
 
@@ -77,6 +79,7 @@ const DashboardPage: React.FC = () => {
   const router = useRouter();
   const [activePath, setActivePath] = useState('conversations');
   const [showNewConversationModal, setShowNewConversationModal] = useState(false);
+  const [showNewMeetingModal, setShowNewMeetingModal] = useState(false);
   const [showOnboardingModal, setShowOnboardingModal] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedSessions, setSelectedSessions] = useState<Set<string>>(new Set());
@@ -169,6 +172,10 @@ const DashboardPage: React.FC = () => {
     setShowNewConversationModal(true);
   };
 
+  const handleNewMeeting = () => {
+    setShowNewMeetingModal(true);
+  };
+
   const handleStartConversation = async (config: ConversationConfig) => {
     try {
       setIsNavigating(true);
@@ -185,12 +192,14 @@ const DashboardPage: React.FC = () => {
           metadata: {
             conversation_type: config.conversationType,
             created_from: 'dashboard',
-            has_files: !!(config.context?.files && config.context.files.length > 0)
+            has_files: !!(config.context?.files && config.context.files.length > 0),
+            selectedPreviousConversations: config.selectedPreviousConversations || []
           }
         } : undefined,
         linkedConversationIds: config.selectedPreviousConversations || [],
         participant_me: config.participantMe,
-        participant_them: config.participantThem
+        participant_them: config.participantThem,
+        meeting_url: config.meetingUrl
       } as any);
       
       if (newSession) {
@@ -215,7 +224,8 @@ const DashboardPage: React.FC = () => {
           selectedPreviousConversations: config.selectedPreviousConversations || [],
           createdAt: new Date().toISOString(),
           participantMe: config.participantMe,
-          participantThem: config.participantThem
+          participantThem: config.participantThem,
+          meetingUrl: config.meetingUrl
         };
         
         if (typeof window !== 'undefined') {
@@ -236,6 +246,42 @@ const DashboardPage: React.FC = () => {
     }
   };
 
+  const handleStartMeeting = async (data: any) => {
+    try {
+      setIsNavigating(true);
+      setNavigationSessionTitle(data.title);
+      setIsNewSession(true);
+
+      // Create meeting via API
+      const headers: HeadersInit = { 'Content-Type': 'application/json' };
+      if (authSession?.access_token) {
+        headers['Authorization'] = `Bearer ${authSession.access_token}`;
+      }
+
+      const response = await fetch('/api/meeting/create', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(data)
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to create meeting');
+      }
+
+      const { meeting } = await response.json();
+
+      if (meeting && typeof window !== 'undefined') {
+        // Navigate to meeting page
+        window.location.href = `/meeting/${meeting.id}`;
+      }
+    } catch (error) {
+      console.error('❌ Failed to create meeting:', error);
+      setIsNavigating(false);
+      setIsNewSession(false);
+      // TODO: Show error toast to user
+    }
+  };
+
   const handleResumeSession = (sessionId: string) => {
     // Find the session to get its details
     const session = sessions.find(s => s.id === sessionId);
@@ -243,27 +289,36 @@ const DashboardPage: React.FC = () => {
       setIsNavigating(true);
       setNavigationSessionTitle(session.title);
       setIsNewSession(false);
-      // For completed sessions, just navigate without storing resuming config
-      if (session.status === 'completed') {
-        // Clear any existing localStorage state for completed sessions
-        localStorage.removeItem(`conversation_${sessionId}`);
-        localStorage.removeItem(`conversation_state_${sessionId}`);
-      } else {
-        // Only store resuming config for non-completed sessions
-        const conversationConfig = {
-          id: sessionId,
-          title: session.title,
-          type: session.conversation_type,
-          context: { text: '', files: [] }, // Context will be loaded from backend in conversation page
-          createdAt: session.created_at,
-          isResuming: true
-        };
-        
-        localStorage.setItem(`conversation_${sessionId}`, JSON.stringify(conversationConfig));
-      }
       
-      // Navigate to conversation page
-      window.location.href = `/app?cid=${sessionId}`;
+      // Check if this is a video conference session
+      const isVideoConference = !!(session as any).meeting_url || !!(session as any).meeting_platform;
+      
+      if (isVideoConference) {
+        // Navigate to meeting page for video conferences
+        window.location.href = `/meeting/${sessionId}`;
+      } else {
+        // For regular conversations
+        if (session.status === 'completed') {
+          // Clear any existing localStorage state for completed sessions
+          localStorage.removeItem(`conversation_${sessionId}`);
+          localStorage.removeItem(`conversation_state_${sessionId}`);
+        } else {
+          // Only store resuming config for non-completed sessions
+          const conversationConfig = {
+            id: sessionId,
+            title: session.title,
+            type: session.conversation_type,
+            context: { text: '', files: [] }, // Context will be loaded from backend in conversation page
+            createdAt: session.created_at,
+            isResuming: true
+          };
+          
+          localStorage.setItem(`conversation_${sessionId}`, JSON.stringify(conversationConfig));
+        }
+        
+        // Navigate to conversation page
+        window.location.href = `/app?cid=${sessionId}`;
+      }
     }
   };
 
@@ -560,13 +615,10 @@ const DashboardPage: React.FC = () => {
                         : 'Ready to start a new conversation?'}
                     </p>
                   </div>
-                  <Button 
-                    onClick={handleNewConversation}
-                    className="bg-primary hover:bg-primary/90 text-primary-foreground"
-                  >
-                    <PlusIcon className="w-5 h-5 mr-2" />
-                    New Conversation
-                  </Button>
+                  <NewConversationButton 
+                    onNewConversation={handleNewConversation}
+                    onNewMeeting={handleNewMeeting}
+                  />
                 </div>
               </motion.div>
             )}
@@ -580,7 +632,7 @@ const DashboardPage: React.FC = () => {
                 }}
               />
             ) : !hasAnySessions ? (
-              <EmptyState onNewConversation={handleNewConversation} />
+              <EmptyState onNewConversation={handleNewConversation} onNewMeeting={handleNewMeeting} />
             ) : (
               <div className="flex flex-col flex-1">
                 {/* Search Results Header */}
@@ -722,6 +774,13 @@ const DashboardPage: React.FC = () => {
         onClose={() => setShowNewConversationModal(false)}
         onStart={handleStartConversation}
         sessions={sessions}
+      />
+
+      {/* Create Meeting Modal */}
+      <CreateMeetingModal
+        isOpen={showNewMeetingModal}
+        onClose={() => setShowNewMeetingModal(false)}
+        onStart={handleStartMeeting}
       />
 
       {/* Onboarding Modal */}

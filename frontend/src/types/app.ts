@@ -109,4 +109,5 @@ export interface ConversationConfig {
   personalContext?: string;
   participantMe?: string;
   participantThem: string;
+  meetingUrl?: string; // New field for Recall.ai integration
 }

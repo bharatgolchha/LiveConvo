@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
 import { PlusIcon, QuestionMarkCircleIcon } from '@heroicons/react/24/outline';
 import { motion } from 'framer-motion';
+import { NewConversationButton } from './NewConversationButton';
 
 interface Props {
   onNewConversation: () => void;
+  onNewMeeting?: () => void;
 }
 
 // Elegant SVG illustration for empty state
@@ -265,7 +267,7 @@ const LearnMoreModal: React.FC<{ isOpen: boolean; onClose: () => void }> = ({
   );
 };
 
-const EmptyState: React.FC<Props> = ({ onNewConversation }) => {
+const EmptyState: React.FC<Props> = ({ onNewConversation, onNewMeeting }) => {
   const [isLearnMoreOpen, setIsLearnMoreOpen] = useState(false);
 
   return (
@@ -302,18 +304,25 @@ const EmptyState: React.FC<Props> = ({ onNewConversation }) => {
         
         {/* Action buttons */}
         <motion.div 
-          className="flex flex-col sm:flex-row gap-3 mt-8"
+          className="flex flex-col sm:flex-row gap-3 mt-8 items-center"
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.5 }}
         >
-          <button
-            onClick={onNewConversation}
-            className="flex items-center justify-center space-x-2 bg-primary text-primary-foreground px-6 py-3 rounded-lg hover:bg-primary/90 transition-all transform hover:scale-105 shadow-lg"
-          >
-            <PlusIcon className="w-5 h-5" />
-            <span className="font-medium">Start Your First Conversation</span>
-          </button>
+          {onNewMeeting ? (
+            <NewConversationButton
+              onNewConversation={onNewConversation}
+              onNewMeeting={onNewMeeting}
+            />
+          ) : (
+            <button
+              onClick={onNewConversation}
+              className="flex items-center justify-center space-x-2 bg-primary text-primary-foreground px-6 py-3 rounded-lg hover:bg-primary/90 transition-all transform hover:scale-105 shadow-lg"
+            >
+              <PlusIcon className="w-5 h-5" />
+              <span className="font-medium">Start Your First Conversation</span>
+            </button>
+          )}
           
           <button
             onClick={() => setIsLearnMoreOpen(true)}

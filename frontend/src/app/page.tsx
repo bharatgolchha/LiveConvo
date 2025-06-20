@@ -19,6 +19,7 @@ import {
   Users
 } from 'lucide-react';
 import SeoJsonLd from '@/components/SeoJsonLd';
+import { Header } from '@/components/layout/Header';
 
 export default function LandingPage() {
   const router = useRouter();
@@ -82,44 +83,7 @@ export default function LandingPage() {
     <>
       <SeoJsonLd />
       <div className="min-h-screen bg-gray-950 text-white">
-        {/* Header */}
-        <header className="fixed top-0 left-0 right-0 z-50 bg-gray-950/80 backdrop-blur-sm border-b border-gray-800">
-          <nav className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="flex items-center justify-between h-16">
-              <Link href="/" className="flex items-center gap-2">
-                <Image 
-                  src="https://ucvfgfbjcrxbzppwjpuu.supabase.co/storage/v1/object/public/images//dark.png"
-                  alt="liveprompt.ai - AI-powered conversation intelligence platform"
-                  width={32}
-                  height={32}
-                  className="object-contain"
-                />
-                <span className="text-xl font-bold">liveprompt.ai</span>
-              </Link>
-              
-              <div className="flex items-center gap-4">
-                <Link
-                  href="/pricing"
-                  className="hidden sm:block text-gray-300 hover:text-white transition-colors px-4 py-2"
-                >
-                  Pricing
-                </Link>
-                <button
-                  onClick={() => router.push('/auth/login')}
-                  className="hidden sm:block text-gray-300 hover:text-white transition-colors px-4 py-2"
-                >
-                  Sign In
-                </button>
-                <button
-                  onClick={() => document.getElementById('waitlist')?.scrollIntoView({ behavior: 'smooth' })}
-                  className="bg-blue-600 hover:bg-blue-700 px-6 py-2 rounded-lg font-medium transition-colors"
-                >
-                  Get Early Access
-                </button>
-              </div>
-            </div>
-          </nav>
-        </header>
+        <Header />
 
         {/* Hero Section - Simplified */}
         <section className="relative pt-32 pb-20 px-4 sm:px-6 lg:px-8">
