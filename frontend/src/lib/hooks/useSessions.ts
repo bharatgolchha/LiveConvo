@@ -27,6 +27,8 @@ export interface Session {
   }>;
   participant_me?: string;
   participant_them?: string;
+  meeting_url?: string;
+  meeting_platform?: 'zoom' | 'google_meet' | 'teams';
 }
 
 export interface SessionsResponse {
@@ -191,7 +193,8 @@ export function useSessions(): SessionsHookReturn {
       })
 
       if (!response.ok) {
-        throw response;
+        const errorData = await response.json();
+        throw new Error(errorData.error || errorData.message || 'Failed to update session');
       }
 
       const { session: updatedSession } = await response.json();
@@ -204,10 +207,12 @@ export function useSessions(): SessionsHookReturn {
       return updatedSession;
 
     } catch (err) {
-      handleApiError(err, 'update', err instanceof Response ? err : undefined);
+      const errorMessage = err instanceof Error ? err.message : 'Failed to update session';
+      setError(errorMessage);
+      console.error('Session update error:', err);
       return null;
     }
-  }, [user, authLoading, handleApiError, setSessionExpiredMessage]);
+  }, [user, authLoading, session?.access_token]);
 
   /**
    * Delete a session (now with hard delete support)
@@ -231,7 +236,8 @@ export function useSessions(): SessionsHookReturn {
       })
 
       if (!response.ok) {
-        throw response;
+        const errorData = await response.json();
+        throw new Error(errorData.error || errorData.message || 'Failed to delete session');
       }
 
       if (user) setSessionExpiredMessage(null);
@@ -243,10 +249,12 @@ export function useSessions(): SessionsHookReturn {
       return true;
 
     } catch (err) {
-      handleApiError(err, 'delete', err instanceof Response ? err : undefined);
+      const errorMessage = err instanceof Error ? err.message : 'Failed to delete session';
+      setError(errorMessage);
+      console.error('Session delete error:', err);
       return false;
     }
-  }, [user, authLoading, handleApiError, setSessionExpiredMessage]);
+  }, [user, authLoading, session?.access_token]);
 
   /**
    * Create a new session
@@ -259,6 +267,7 @@ export function useSessions(): SessionsHookReturn {
     linkedConversationIds?: string[];
     participant_me?: string;
     participant_them?: string;
+    meeting_url?: string;
   }): Promise<Session | null> => {
     if (!user || authLoading) {
       return null;
@@ -270,6 +279,7 @@ export function useSessions(): SessionsHookReturn {
         headers['Authorization'] = `Bearer ${session.access_token}`
       }
 
+      console.log('🚀 Creating session with data:', data);
       const response = await fetch('/api/sessions', {
         method: 'POST',
         headers,
@@ -277,7 +287,8 @@ export function useSessions(): SessionsHookReturn {
       })
 
       if (!response.ok) {
-        throw response;
+        const errorData = await response.json();
+        throw new Error(errorData.error || errorData.message || 'Failed to create session');
       }
 
       const { session: newSession } = await response.json();
@@ -291,10 +302,12 @@ export function useSessions(): SessionsHookReturn {
       return newSession;
 
     } catch (err) {
-      handleApiError(err, 'create', err instanceof Response ? err : undefined);
+      const errorMessage = err instanceof Error ? err.message : 'Failed to create session';
+      setError(errorMessage);
+      console.error('Session create error:', err);
       return null;
     }
-  }, [user, authLoading, handleApiError, setSessionExpiredMessage]);
+  }, [user, authLoading, session?.access_token]);
 
   /**
    * Refresh sessions with current filters

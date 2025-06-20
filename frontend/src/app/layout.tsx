@@ -8,6 +8,17 @@ import { Toaster } from "sonner";
 import { BrowserCompatibilityNotice } from "@/components/ui/BrowserCompatibilityNotice";
 import Script from "next/script";
 
+// Suppress React DevTools warning in development
+if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
+  // @ts-ignore
+  window.__REACT_DEVTOOLS_GLOBAL_HOOK__ = window.__REACT_DEVTOOLS_GLOBAL_HOOK__ || {
+    supportsFiber: true,
+    inject: () => {},
+    onCommitFiberRoot: () => {},
+    onCommitFiberUnmount: () => {},
+  };
+}
+
 const geistSans = Geist({
   variable: "--font-geist-sans",
   subsets: ["latin"],

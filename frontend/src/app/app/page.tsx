@@ -43,7 +43,8 @@ import {
   Quote,
   Download,
   ChevronRight,
-  Search
+  Search,
+  VideoIcon
 } from 'lucide-react';
 
 import { Button } from '@/components/ui/Button';
@@ -71,6 +72,8 @@ import { ConversationHeaderDate } from '@/components/ui/ConversationDateIndicato
 import { useConversationLifecycle } from '@/lib/hooks/useConversationLifecycle';
 import { useConversationLocalStorage } from '@/lib/hooks/useConversationLocalStorage';
 import { useFileUploads } from '@/lib/hooks/useFileUploads';
+import { useRecallBotStatus } from '@/lib/hooks/useRecallBotStatus';
+import { useRecallTranscriptStream } from '@/lib/hooks/useRecallTranscriptStream';
 
 import dynamic from 'next/dynamic';
 import type { SessionDataFull, ConversationSummary as ConversationSummaryType, TranscriptData, LocalStorageData, SessionFile } from '@/types/app';
@@ -145,6 +148,8 @@ function AppContent() {
     setParticipantThem,
     loadedSummary,
     setLoadedSummary,
+    recallBotStatus,
+    setRecallBotStatus,
     isLoadingFromSession,
     setIsLoadingFromSession,
     isTabVisible,
@@ -281,8 +286,18 @@ function AppContent() {
           created_at: sessionData.created_at,
           recording_started_at: sessionData.recording_started_at,
           recording_ended_at: sessionData.recording_ended_at,
-          finalized_at: sessionData.finalized_at
+          finalized_at: sessionData.finalized_at,
+          meeting_url: sessionData.meeting_url,
+          meeting_platform: sessionData.meeting_platform,
+          recall_bot_id: sessionData.recall_bot_id,
+          recall_recording_id: sessionData.recall_recording_id
         });
+        
+        // Set initial recall bot status if available
+        if (sessionData.recall_bot_status) {
+          setRecallBotStatus(sessionData.recall_bot_status);
+          console.log('✅ Loaded recall bot status from database:', sessionData.recall_bot_status);
+        }
         
         // Set the conversation details - backend data takes precedence
         setConversationTitle(sessionData.title || 'Untitled Conversation');
@@ -385,7 +400,7 @@ function AppContent() {
             id: `loaded-${sessionId}-${index}-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`,
             text: item.content,
             timestamp: new Date(item.created_at),
-            speaker: item.speaker === 'user' ? 'ME' : 'THEM',
+            speaker: (item.speaker === 'user' || item.speaker === participantMe || item.speaker === 'ME') ? 'ME' : 'THEM',
             confidence: item.confidence_score || 0.85
           }));
         
@@ -559,6 +574,9 @@ function AppContent() {
     { type: 'warn', message: "Be mindful of the time, we have 10 minutes left.", confidence: 90 },
   ];
 
+  // Check if we should use Recall for transcription
+  const useRecallTranscription = !!currentSessionData?.recall_bot_id && !!currentSessionData?.meeting_url;
+
   // Realtime transcription hooks for local (ME) and remote (THEM) audio
   const {
     transcript: myLiveTranscript,
@@ -576,6 +594,25 @@ function AppContent() {
     disconnect: disconnectThem,
     setCustomAudioStream: setThemAudioStream
   } = useTranscription();
+
+  // Recall transcript stream for meeting bots
+  useRecallTranscriptStream({
+    sessionId: conversationId,
+    enabled: useRecallTranscription && (recallBotStatus === 'in_call' || recallBotStatus === 'created' || recallBotStatus === 'joining'),
+    onTranscript: (line) => {
+      console.log('📝 Received transcript from Recall:', line);
+      // Add transcript line from Recall
+      setTranscript(prev => [...prev, line]);
+      
+      // Update talk stats
+      const wordCount = line.text.split(' ').filter(w => w.length > 0).length;
+      setTalkStats(prev => ({
+        meWords: line.speaker === 'ME' ? prev.meWords + wordCount : prev.meWords,
+        themWords: line.speaker === 'THEM' ? prev.themWords + wordCount : prev.themWords
+      }));
+    },
+    authToken: session?.access_token
+  });
 
   const lastMyTranscriptLen = useRef(0);
   const lastTheirTranscriptLen = useRef(0);
@@ -1003,6 +1040,18 @@ function AppContent() {
     return () => clearInterval(interval);
   }, [conversationState]);
 
+  // Monitor Recall bot status
+  useRecallBotStatus({
+    sessionId: conversationId,
+    botId: currentSessionData?.recall_bot_id,
+    enabled: !!currentSessionData?.recall_bot_id && !!conversationId,
+    onStatusChange: (status) => {
+      setRecallBotStatus(status);
+      console.log('Bot status updated:', status);
+    },
+    authToken: session?.access_token
+  });
+
   // Load conversation config from localStorage if conversationId is provided
   useEffect(() => {
     if (conversationId && typeof window !== 'undefined') {
@@ -1020,6 +1069,11 @@ function AppContent() {
           if (config.participantThem) {
             setParticipantThem(config.participantThem);
             console.log('✅ Loaded participantThem from localStorage:', config.participantThem);
+          }
+
+          // Load meeting URL if present
+          if (config.meetingUrl) {
+            console.log('✅ Loaded meetingUrl from localStorage:', config.meetingUrl);
           }
           
           // Map conversation type from dashboard format to app format
@@ -1144,6 +1198,33 @@ function AppContent() {
           if (sessionData.title) {
             setConversationTitle(sessionData.title);
           }
+
+          // Update session data with meeting info
+          console.log('🤖 Session meeting data:', {
+            meeting_url: sessionData.meeting_url,
+            meeting_platform: sessionData.meeting_platform,
+            recall_bot_id: sessionData.recall_bot_id,
+            recall_recording_id: sessionData.recall_recording_id
+          });
+          
+          setCurrentSessionData({
+            id: sessionData.id,
+            status: sessionData.status,
+            created_at: sessionData.created_at,
+            recording_started_at: sessionData.recording_started_at,
+            recording_ended_at: sessionData.recording_ended_at,
+            finalized_at: sessionData.finalized_at,
+            meeting_url: sessionData.meeting_url,
+            meeting_platform: sessionData.meeting_platform,
+            recall_bot_id: sessionData.recall_bot_id,
+            recall_recording_id: sessionData.recall_recording_id
+          });
+          
+          // Set initial recall bot status if available
+          if (sessionData.recall_bot_status) {
+            setRecallBotStatus(sessionData.recall_bot_status);
+            console.log('✅ Loaded recall bot status from database:', sessionData.recall_bot_status);
+          }
           
           // Load participant names
           if (sessionData.participant_me) {
@@ -1224,7 +1305,7 @@ function AppContent() {
                       id: `loaded-${conversationId}-${index}-${Date.now()}-${Math.random().toString(36).substring(7)}`,
                       text: line.content.trim(),
                       timestamp: new Date(line.created_at || Date.now()),
-                      speaker: (line.speaker === 'user' || line.speaker === 'me') ? 'ME' : 'THEM',
+                      speaker: (line.speaker === 'user' || line.speaker === 'me' || line.speaker === participantMe || line.speaker === 'ME') ? 'ME' : 'THEM',
                       confidence: line.confidence_score || 0.85
                     }));
                   setTranscript(loadedTranscript);
@@ -1662,42 +1743,64 @@ function AppContent() {
 
       setConversationState('processing');
 
-      console.log('🔄 Connecting to transcription services...');
-
-      // Capture system audio for remote speaker
-      let systemStream: MediaStream | null = null;
-      if (navigator.mediaDevices && navigator.mediaDevices.getDisplayMedia) {
-        try {
-          const displayStream = await navigator.mediaDevices.getDisplayMedia({ audio: true, video: true });
-          systemStream = new MediaStream(displayStream.getAudioTracks());
-          // Stop video tracks immediately
-          displayStream.getVideoTracks().forEach((track: MediaStreamTrack) => track.stop());
-        } catch (err) {
-          console.warn('System audio capture failed', err);
+      // Check if we're using Recall transcription
+      if (useRecallTranscription) {
+        console.log('🤖 Using Recall.ai transcription for meeting:', currentSessionData?.meeting_url);
+        
+        // For Recall, we just need to wait for the bot to be in the call
+        if (recallBotStatus === 'in_call') {
+          console.log('✅ Recall bot is already in the call, starting recording');
+          setConversationState('recording');
+          setLastSavedTranscriptIndex(transcript.length);
+        } else {
+          console.log('⏳ Waiting for Recall bot to join the meeting...');
+          toast.info('Waiting for bot to join the meeting...', {
+            description: 'Transcription will start automatically once the bot is in the call.',
+            duration: 5000
+          });
+          // The bot status hook will update the state when ready
+          setConversationState('recording');
+          setLastSavedTranscriptIndex(transcript.length);
         }
+        
+        setLoadedSummary(null);
+        console.log('✅ Recording started with Recall.ai');
+      } else {
+        // Original Deepgram flow
+        console.log('🔄 Connecting to Deepgram transcription services...');
+
+        // Capture system audio for remote speaker
+        let systemStream: MediaStream | null = null;
+        if (navigator.mediaDevices && navigator.mediaDevices.getDisplayMedia) {
+          try {
+            const displayStream = await navigator.mediaDevices.getDisplayMedia({ audio: true, video: true });
+            systemStream = new MediaStream(displayStream.getAudioTracks());
+            // Stop video tracks immediately
+            displayStream.getVideoTracks().forEach((track: MediaStreamTrack) => track.stop());
+          } catch (err) {
+            console.warn('System audio capture failed', err);
+          }
+        }
+
+        if (systemStream) {
+          setThemAudioStream(systemStream);
+          setSystemAudioStream(systemStream); // Store for resume
+        }
+
+        await Promise.all([connectMy(), connectThem()]);
+
+        await new Promise(resolve => setTimeout(resolve, 200));
+
+        await Promise.all([startMyRecording(), startThemRecording()]);
+
+        setLoadedSummary(null);
+        setConversationState('recording');
+        // Reset transcript length trackers for new recording session
+        lastMyTranscriptLen.current = 0;
+        lastTheirTranscriptLen.current = 0;
+        setLastSavedTranscriptIndex(transcript.length);
+        console.log('✅ Recording started with Deepgram');
       }
-
-      if (systemStream) {
-        setThemAudioStream(systemStream);
-        setSystemAudioStream(systemStream); // Store for resume
-      }
-
-      await Promise.all([connectMy(), connectThem()]);
-
-      await new Promise(resolve => setTimeout(resolve, 200));
-
-      await Promise.all([startMyRecording(), startThemRecording()]);
-
-      setLoadedSummary(null);
-      setConversationState('recording');
-      // Reset transcript length trackers for new recording session
-      lastMyTranscriptLen.current = 0;
-      lastTheirTranscriptLen.current = 0;
-      setLastSavedTranscriptIndex(transcript.length);
-      // Don't reset duration when resuming recording - maintain cumulative time
-      // resetMinuteTracking() is also removed to maintain minute tracking continuity
-      // FIXED: Transcript is NEVER cleared in handleStartRecording - preserves all conversation data
-      console.log('✅ Recording started successfully');
     } catch (err) {
       console.error('Failed to start realtime transcription', err);
       setErrorMessage(`Failed to start realtime transcription: ${err instanceof Error ? err.message : 'Unknown error'}`);
@@ -1706,21 +1809,27 @@ function AppContent() {
   };
 
   const handleStopRecording = async () => {
-    stopMyRecording();
-    stopThemRecording();
-    disconnectMy();
-    disconnectThem();
-    setConversationState('completed');
-    
-    // Cleanup system audio stream
-    if (systemAudioStream) {
-      systemAudioStream.getTracks().forEach(track => track.stop());
-      setSystemAudioStream(null);
+    if (!useRecallTranscription) {
+      // Only stop Deepgram if we're using it
+      stopMyRecording();
+      stopThemRecording();
+      disconnectMy();
+      disconnectThem();
+      
+      // Cleanup system audio stream
+      if (systemAudioStream) {
+        systemAudioStream.getTracks().forEach(track => track.stop());
+        setSystemAudioStream(null);
+      }
+    } else {
+      console.log('🤖 Recall bot will continue recording in the meeting');
     }
+    
+    setConversationState('completed');
   };
 
   const handlePauseRecording = async () => {
-    console.log('⏸️ Pausing recording and disconnecting from Deepgram...');
+    console.log('⏸️ Pausing recording...');
 
     // Save transcript immediately before pausing
     if (conversationId && transcript.length > lastSavedTranscriptIndex && session) {
@@ -1733,58 +1842,77 @@ function AppContent() {
       }
     }
 
-    // Stop the recording and disconnect from Deepgram
-    stopMyRecording();
-    stopThemRecording();
-    disconnectMy();
-    disconnectThem();
+    if (!useRecallTranscription) {
+      // Only disconnect from Deepgram if we're using it
+      console.log('🔌 Disconnecting from Deepgram...');
+      stopMyRecording();
+      stopThemRecording();
+      disconnectMy();
+      disconnectThem();
+      console.log('✅ Deepgram disconnected');
+    } else {
+      console.log('🤖 Recall transcription will continue in the background');
+      toast.info('Meeting transcription continues', {
+        description: 'The bot will keep transcribing while paused.',
+        duration: 3000
+      });
+    }
     
     setConversationState('paused');
-    console.log('✅ Recording paused and Deepgram disconnected');
+    console.log('✅ Recording paused');
   };
 
   const handleResumeRecording = async () => {
-    console.log('▶️ Resuming recording and reconnecting to Deepgram...');
+    console.log('▶️ Resuming recording...');
     
     try {
       setConversationState('processing');
 
-      console.log('🔄 Connecting to transcription services...');
+      if (useRecallTranscription) {
+        console.log('🤖 Resuming with Recall transcription');
+        // For Recall, we just need to update the state
+        setConversationState('recording');
+        setLastSavedTranscriptIndex(transcript.length);
+        console.log('✅ Recording resumed with Recall.ai');
+      } else {
+        // Original Deepgram reconnection flow
+        console.log('🔄 Reconnecting to Deepgram services...');
 
-      // Capture system audio for remote speaker if we don't have it preserved
-      let systemStream: MediaStream | null = systemAudioStream;
-      if (!systemStream && navigator.mediaDevices && navigator.mediaDevices.getDisplayMedia) {
-        try {
-          const displayStream = await navigator.mediaDevices.getDisplayMedia({ audio: true, video: true });
-          systemStream = new MediaStream(displayStream.getAudioTracks());
-          // Stop video tracks immediately
-          displayStream.getVideoTracks().forEach((track: MediaStreamTrack) => track.stop());
-          setSystemAudioStream(systemStream); // Store for future pauses
-        } catch (err) {
-          console.warn('System audio capture failed on resume', err);
+        // Capture system audio for remote speaker if we don't have it preserved
+        let systemStream: MediaStream | null = systemAudioStream;
+        if (!systemStream && navigator.mediaDevices && navigator.mediaDevices.getDisplayMedia) {
+          try {
+            const displayStream = await navigator.mediaDevices.getDisplayMedia({ audio: true, video: true });
+            systemStream = new MediaStream(displayStream.getAudioTracks());
+            // Stop video tracks immediately
+            displayStream.getVideoTracks().forEach((track: MediaStreamTrack) => track.stop());
+            setSystemAudioStream(systemStream); // Store for future pauses
+          } catch (err) {
+            console.warn('System audio capture failed on resume', err);
+          }
         }
+
+        if (systemStream) {
+          setThemAudioStream(systemStream);
+        }
+
+        // Reconnect to Deepgram services
+        await Promise.all([connectMy(), connectThem()]);
+
+        // Wait a moment for connections to establish
+        await new Promise(resolve => setTimeout(resolve, 200));
+
+        // Resume recording
+        await Promise.all([startMyRecording(), startThemRecording()]);
+
+        setLoadedSummary(null);
+        setConversationState('recording');
+        // Reset length trackers so new transcript is captured after resume
+        lastMyTranscriptLen.current = 0;
+        lastTheirTranscriptLen.current = 0;
+        setLastSavedTranscriptIndex(transcript.length);
+        console.log('✅ Recording resumed with Deepgram');
       }
-
-      if (systemStream) {
-        setThemAudioStream(systemStream);
-      }
-
-      // Reconnect to Deepgram services
-      await Promise.all([connectMy(), connectThem()]);
-
-      // Wait a moment for connections to establish
-      await new Promise(resolve => setTimeout(resolve, 200));
-
-      // Resume recording
-      await Promise.all([startMyRecording(), startThemRecording()]);
-
-      setLoadedSummary(null);
-      setConversationState('recording');
-      // Reset length trackers so new transcript is captured after resume
-      lastMyTranscriptLen.current = 0;
-      lastTheirTranscriptLen.current = 0;
-      setLastSavedTranscriptIndex(transcript.length);
-      console.log('✅ Recording resumed and Deepgram reconnected');
     } catch (err) {
       console.error('Failed to resume realtime transcription', err);
       setErrorMessage(`Failed to resume realtime transcription: ${err instanceof Error ? err.message : 'Unknown error'}`);
@@ -1907,6 +2035,120 @@ function AppContent() {
     return true;
   }); // Remove the .slice(0, 10) limit to show all conversations // Limit to 10 most recent
 
+  const handleUpdateMeetingUrl = async (newUrl: string) => {
+    if (!conversationId) return;
+    
+    try {
+      // Call API to update meeting URL
+      const response = await authenticatedFetch(`/api/sessions/${conversationId}/meeting-url`, session, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ meeting_url: newUrl })
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to update meeting URL');
+      }
+      
+      const { meeting_url, meeting_platform } = await response.json();
+      
+      // Update current session data
+      setCurrentSessionData(prev => prev ? {
+        ...prev,
+        meeting_url,
+        meeting_platform
+      } : null);
+      
+      // Update localStorage
+      if (newUrl) {
+        localStorage.setItem('meetingUrl', newUrl);
+      } else {
+        localStorage.removeItem('meetingUrl');
+      }
+      
+      toast.success('Meeting URL updated', {
+        description: newUrl ? 'You can now join the meeting' : 'Meeting URL removed'
+      });
+    } catch (error) {
+      console.error('Failed to update meeting URL:', error);
+      toast.error('Failed to update meeting URL', {
+        description: error instanceof Error ? error.message : 'Please try again'
+      });
+      throw error; // Re-throw so the editor can handle it
+    }
+  };
+
+  const handleJoinMeeting = async () => {
+    if (!conversationId || !currentSessionData?.meeting_url) return;
+    
+    try {
+      // Call API to create and join bot
+      const response = await authenticatedFetch(`/api/sessions/${conversationId}/join-meeting`, session, {
+        method: 'POST'
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to join meeting');
+      }
+      
+      const { botId } = await response.json();
+      
+      // Update local state to show bot is created
+      setRecallBotStatus('created');
+      
+      // Refresh session data to get the bot ID
+      const sessionResponse = await authenticatedFetch(`/api/sessions/${conversationId}`, session);
+      if (sessionResponse.ok) {
+        const { session: updatedSession } = await sessionResponse.json();
+        setCurrentSessionData(prev => prev ? {
+          ...prev,
+          recall_bot_id: updatedSession.recall_bot_id,
+          recall_bot_status: updatedSession.recall_bot_status
+        } : null);
+      }
+      
+      toast.success('Joining meeting', {
+        description: 'Bot is joining the meeting. Please admit it when it appears.'
+      });
+    } catch (error) {
+      console.error('Failed to join meeting:', error);
+      toast.error('Failed to join meeting', {
+        description: error instanceof Error ? error.message : 'Please try again'
+      });
+    }
+  };
+
+  const handleStopBot = async () => {
+    if (!conversationId || !currentSessionData?.recall_bot_id) return;
+    
+    try {
+      // Call API to stop the bot
+      const response = await authenticatedFetch(`/api/sessions/${conversationId}/stop-bot`, session, {
+        method: 'POST'
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to stop bot');
+      }
+      
+      // Update bot status
+      setRecallBotStatus('completed');
+      
+      toast.success('Bot stopped', {
+        description: 'The meeting bot has left the call'
+      });
+    } catch (error) {
+      console.error('Failed to stop bot:', error);
+      toast.error('Failed to stop bot', {
+        description: 'Please try again'
+      });
+    }
+  };
+
   const handleExportSession = () => {
     const sessionData = {
       title: conversationTitle,
@@ -1980,6 +2222,17 @@ function AppContent() {
 
     // First stop the recording
     await handleStopRecording();
+    
+    // Stop Recall bot if it's running
+    if (currentSessionData?.recall_bot_id && recallBotStatus === 'in_call') {
+      console.log('🤖 Stopping Recall bot before finalization...');
+      try {
+        await handleStopBot();
+      } catch (error) {
+        console.error('Failed to stop Recall bot:', error);
+        // Continue with finalization even if bot stop fails
+      }
+    }
     
     // Set to summarizing state to trigger the beautiful processing animation
     setIsSummarizing(true);
@@ -2415,8 +2668,8 @@ function AppContent() {
                       </Button>
                     )}
                     
-                    {/* Only show recording controls for non-finalized conversations */}
-                    {!isFinalized && (conversationState === 'setup' || conversationState === 'ready') && (
+                    {/* Only show recording controls for non-finalized conversations WITHOUT meeting URL */}
+                    {!isFinalized && (conversationState === 'setup' || conversationState === 'ready') && !currentSessionData?.meeting_url && (
                       <Button 
                         onClick={conversationState === 'setup' ? () => { if (textContext) addUserContext(textContext); setConversationState('ready'); } : handleInitiateRecording}
                         size="sm" 
@@ -2424,6 +2677,19 @@ function AppContent() {
                       >
                         <Mic className="w-4 h-4 mr-1.5" />
                         {conversationState === 'setup' ? 'Get Ready' : 'Start Recording'}
+                      </Button>
+                    )}
+                    
+                    {/* Show Join Meeting button for meeting URLs */}
+                    {!isFinalized && currentSessionData?.meeting_url && 
+                     (!currentSessionData?.recall_bot_id || recallBotStatus === 'completed' || recallBotStatus === 'failed' || recallBotStatus === 'timeout') && (
+                      <Button 
+                        onClick={handleJoinMeeting}
+                        size="sm" 
+                        className="bg-primary hover:bg-primary/90 text-primary-foreground font-medium px-4"
+                      >
+                        <VideoIcon className="w-4 h-4 mr-1.5" />
+                        {(recallBotStatus === 'completed' || recallBotStatus === 'failed' || recallBotStatus === 'timeout') ? 'Rejoin Meeting' : 'Join Meeting'}
                       </Button>
                     )}
                     
@@ -2610,6 +2876,13 @@ function AppContent() {
                   getSummaryTimeUntilNextRefresh={getTimeUntilNextRefresh}
                   participantMe={participantMe}
                   participantThem={participantThem}
+                  meetingUrl={currentSessionData?.meeting_url}
+                  meetingPlatform={currentSessionData?.meeting_platform}
+                  recallBotId={currentSessionData?.recall_bot_id}
+                  recallBotStatus={recallBotStatus}
+                  onStopBot={handleStopBot}
+                  onJoinMeeting={handleJoinMeeting}
+                  onUpdateMeetingUrl={handleUpdateMeetingUrl}
                 />
               </div>
             )}

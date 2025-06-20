@@ -9,6 +9,7 @@ import {
   ChatBubbleLeftRightIcon,
   ArrowTopRightOnSquareIcon,
   ArrowPathIcon,
+  VideoCameraIcon,
 } from '@heroicons/react/24/outline';
 import { motion } from 'framer-motion';
 import { formatDistanceToNow } from 'date-fns';
@@ -157,6 +158,10 @@ const ConversationInboxItem: React.FC<Props> = ({
                 <div className="absolute inset-0 w-2 h-2 rounded-full bg-emerald-400 animate-ping opacity-40" />
               )}
             </div>
+            {/* Video conference icon if it has meeting_url */}
+            {session.meeting_url && (
+              <VideoCameraIcon className="w-4 h-4 text-blue-600 dark:text-blue-400 flex-shrink-0" />
+            )}
             <h3 className="text-sm font-medium text-gray-900 dark:text-white truncate flex-1">
               {session.title}
             </h3>

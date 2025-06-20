@@ -29,6 +29,7 @@ import {
 import type { ConversationConfig } from '@/types/app';
 import type { Session } from '@/lib/hooks/useSessions';
 import { useAuth } from '@/contexts/AuthContext';
+import { MeetingUrlInput } from './MeetingUrlInput';
 
 interface Props {
   isOpen: boolean;
@@ -272,6 +273,8 @@ interface Step2Props {
   setParticipantThem: (value: string) => void;
   relationshipTag: string;
   setRelationshipTag: (value: string) => void;
+  meetingUrl: string;
+  setMeetingUrl: (value: string) => void;
 }
 
 const Step2Participants: React.FC<Step2Props> = React.memo(({ 
@@ -280,7 +283,9 @@ const Step2Participants: React.FC<Step2Props> = React.memo(({
   participantThem, 
   setParticipantThem,
   relationshipTag,
-  setRelationshipTag
+  setRelationshipTag,
+  meetingUrl,
+  setMeetingUrl
 }) => (
   <motion.div
     initial={{ opacity: 0, x: -20 }}
@@ -372,6 +377,21 @@ const Step2Participants: React.FC<Step2Props> = React.memo(({
           </button>
         ))}
       </div>
+    </div>
+
+    {/* Meeting URL (Optional) */}
+    <div className="space-y-2">
+      <label className="text-sm font-medium text-foreground">
+        Meeting Link <span className="text-muted-foreground font-normal">(optional)</span>
+      </label>
+      <MeetingUrlInput
+        value={meetingUrl}
+        onChange={setMeetingUrl}
+        className="w-full"
+      />
+      <p className="text-xs text-muted-foreground">
+        If you're joining a video call, paste the link and LivePrompt will join automatically
+      </p>
     </div>
   </motion.div>
 ));
@@ -538,6 +558,7 @@ const NewConversationModal: React.FC<Props> = ({ isOpen, onClose, onStart, sessi
   const [contextText, setContextText] = useState('');
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [search, setSearch] = useState('');
+  const [meetingUrl, setMeetingUrl] = useState('');
 
   // Set the user's name when component mounts or user changes
   useEffect(() => {
@@ -572,7 +593,8 @@ const NewConversationModal: React.FC<Props> = ({ isOpen, onClose, onStart, sessi
         title: title.trim(),
         selectedPreviousConversations: selectedIds,
         participantMe: participantMe.trim() || undefined,
-        participantThem: participantThem.trim()
+        participantThem: participantThem.trim(),
+        meetingUrl: meetingUrl.trim() || undefined
       } as unknown as ConversationConfig);
       onClose();
     } catch (error) {
@@ -597,6 +619,7 @@ const NewConversationModal: React.FC<Props> = ({ isOpen, onClose, onStart, sessi
     setIsStarting(false);
     setParticipantThem('');
     setRelationshipTag('');
+    setMeetingUrl('');
   };
 
   const canProceedStep1 = title.trim() && (conversationType !== 'custom' || customType.trim());
@@ -685,6 +708,8 @@ const NewConversationModal: React.FC<Props> = ({ isOpen, onClose, onStart, sessi
                       setParticipantThem={setParticipantThem}
                       relationshipTag={relationshipTag}
                       setRelationshipTag={setRelationshipTag}
+                      meetingUrl={meetingUrl}
+                      setMeetingUrl={setMeetingUrl}
                     />
                   )}
                   {step === 2 && (
