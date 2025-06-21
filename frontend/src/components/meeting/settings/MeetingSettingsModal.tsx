@@ -113,13 +113,14 @@ export function MeetingSettingsModal({ isOpen, onClose }: MeetingSettingsModalPr
       }
 
       const { meeting: updated } = await res.json();
+      console.log('✅ Meeting updated successfully:', updated);
       setMeeting({
         ...meeting,
-        title: updated.title,
-        type: updated.conversation_type,
-        customType: updated.conversation_type_custom,
-        meetingUrl: updated.meeting_url,
-        context: updated.context,
+        title: updated.title || title,
+        type: updated.conversation_type || type,
+        customType: updated.conversation_type_custom || customType,
+        meetingUrl: updated.meeting_url || meetingUrl,
+        context: updated.context || context,
         scheduledAt: undefined
       });
       onClose();

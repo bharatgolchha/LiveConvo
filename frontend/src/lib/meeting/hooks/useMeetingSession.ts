@@ -48,7 +48,13 @@ export function useMeetingSession(meetingId: string) {
         }
 
         const { meeting: data } = await response.json();
-        console.log('✅ useMeetingSession: Meeting data received:', data?.id, data?.title);
+        console.log('✅ useMeetingSession: Meeting data received:', {
+          id: data?.id,
+          title: data?.title,
+          hasContext: !!data?.context,
+          contextLength: data?.context?.length || 0,
+          contextPreview: data?.context ? data.context.substring(0, 100) + '...' : 'null'
+        });
 
         if (!data) {
           throw new Error('Meeting not found');

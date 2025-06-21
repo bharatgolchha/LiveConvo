@@ -144,6 +144,7 @@ export async function POST(req: NextRequest) {
         type: session.conversation_type,
         platform,
         meetingUrl: data.meetingUrl && data.meetingUrl.trim() ? data.meetingUrl : null,
+        context: data.context || null,
         status: session.status,
         botId: session.recall_bot_id,
         createdAt: session.created_at
