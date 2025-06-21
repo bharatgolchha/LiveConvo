@@ -30,17 +30,7 @@ export function CreateMeetingModal({ isOpen, onClose, onStart }: CreateMeetingMo
   const [meetingType, setMeetingType] = useState<MeetingType>('team_meeting');
   const [customType, setCustomType] = useState('');
   const [context, setContext] = useState('');
-  const [scheduledAt, setScheduledAt] = useState('');
   const [meetingUrl, setMeetingUrl] = useState('');
-  const [participantMe, setParticipantMe] = useState('');
-  const [participantThem, setParticipantThem] = useState('');
-
-  // Set the user's name when component mounts
-  useEffect(() => {
-    if (user?.user_metadata?.full_name) {
-      setParticipantMe(user.user_metadata.full_name);
-    }
-  }, [user]);
 
   const handleStart = async () => {
     setIsStarting(true);
@@ -50,11 +40,8 @@ export function CreateMeetingModal({ isOpen, onClose, onStart }: CreateMeetingMo
         title: title.trim(),
         type: meetingType,
         customType: meetingType === 'custom' ? customType.trim() : undefined,
-        meetingUrl: meetingUrl.trim(),
-        context: context.trim(),
-        scheduledAt: scheduledAt || undefined,
-        participantMe: participantMe.trim(),
-        participantThem: participantThem.trim()
+        meetingUrl: meetingUrl.trim() || undefined,
+        context: context.trim() || undefined,
       });
       onClose();
     } catch (error) {
@@ -74,9 +61,7 @@ export function CreateMeetingModal({ isOpen, onClose, onStart }: CreateMeetingMo
     setMeetingType('team_meeting');
     setCustomType('');
     setContext('');
-    setScheduledAt('');
     setMeetingUrl('');
-    setParticipantThem('');
     setStep(0);
     setIsStarting(false);
   };
@@ -84,7 +69,7 @@ export function CreateMeetingModal({ isOpen, onClose, onStart }: CreateMeetingMo
   // Validation for each step
   const canProceedStep0 = title.trim() && (meetingType !== 'custom' || customType.trim());
   const canProceedStep1 = context.trim().length > 0 || true; // Context is optional
-  const canProceedStep2 = validateMeetingUrl(meetingUrl).valid && participantMe.trim() && participantThem.trim();
+  const canProceedStep2 = !meetingUrl.trim() || validateMeetingUrl(meetingUrl).valid; // Meeting URL is optional
 
   const stepTitles = ['Meeting Basics', 'Context & Agenda', 'Meeting Details'];
 
@@ -123,7 +108,7 @@ export function CreateMeetingModal({ isOpen, onClose, onStart }: CreateMeetingMo
                   <div className="flex items-center gap-3 mb-3">
                     <VideoCameraIcon className="w-6 h-6 text-primary" />
                     <h2 className="text-2xl font-semibold text-foreground">
-                      New Video Conference
+                      New Meeting
                     </h2>
                   </div>
                   
@@ -165,8 +150,6 @@ export function CreateMeetingModal({ isOpen, onClose, onStart }: CreateMeetingMo
                       key="step1"
                       context={context}
                       setContext={setContext}
-                      scheduledAt={scheduledAt}
-                      setScheduledAt={setScheduledAt}
                     />
                   )}
                   {step === 2 && (
@@ -174,10 +157,6 @@ export function CreateMeetingModal({ isOpen, onClose, onStart }: CreateMeetingMo
                       key="step2"
                       meetingUrl={meetingUrl}
                       setMeetingUrl={setMeetingUrl}
-                      participantMe={participantMe}
-                      setParticipantMe={setParticipantMe}
-                      participantThem={participantThem}
-                      setParticipantThem={setParticipantThem}
                     />
                   )}
                 </AnimatePresence>
@@ -231,7 +210,7 @@ export function CreateMeetingModal({ isOpen, onClose, onStart }: CreateMeetingMo
                     ) : (
                       <button
                         onClick={handleStart}
-                        disabled={!canProceedStep2 || isStarting}
+                        disabled={isStarting}
                         className="flex items-center gap-2 px-6 py-2.5 bg-gradient-to-r from-primary to-primary/90 text-primary-foreground rounded-xl font-medium hover:from-primary/90 hover:to-primary/80 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-primary/20"
                       >
                         {isStarting ? (

@@ -4,7 +4,7 @@ import { motion } from 'framer-motion'
 import { LucideIcon } from 'lucide-react'
 
 interface PainPoint {
-  icon: LucideIcon
+  icon: React.ElementType
   title: string
   description: string
 }

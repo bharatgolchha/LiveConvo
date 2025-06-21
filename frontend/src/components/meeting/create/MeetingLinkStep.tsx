@@ -7,19 +7,11 @@ import { MeetingPlatform } from '@/lib/meeting/types/meeting.types';
 interface MeetingLinkStepProps {
   meetingUrl: string;
   setMeetingUrl: (url: string) => void;
-  participantMe: string;
-  setParticipantMe: (name: string) => void;
-  participantThem: string;
-  setParticipantThem: (name: string) => void;
 }
 
 export function MeetingLinkStep({
   meetingUrl,
-  setMeetingUrl,
-  participantMe,
-  setParticipantMe,
-  participantThem,
-  setParticipantThem
+  setMeetingUrl
 }: MeetingLinkStepProps) {
   const [urlValidation, setUrlValidation] = useState<{ valid: boolean; platform?: MeetingPlatform; error?: string } | null>(null);
   const [touched, setTouched] = useState(false);
@@ -29,7 +21,8 @@ export function MeetingLinkStep({
       const validation = validateMeetingUrl(meetingUrl);
       setUrlValidation(validation);
     } else if (!meetingUrl && touched) {
-      setUrlValidation({ valid: false, error: 'Meeting URL is required' });
+      // Clear validation when URL is empty (it's optional)
+      setUrlValidation(null);
     }
   }, [meetingUrl, touched]);
 
@@ -49,7 +42,7 @@ export function MeetingLinkStep({
       <div className="space-y-2">
         <label className="text-sm font-medium text-foreground flex items-center gap-2">
           <LinkIcon className="w-4 h-4" />
-          Meeting Link
+          Meeting Link <span className="text-xs text-muted-foreground font-normal">(Optional)</span>
         </label>
         <div className="relative">
           <input
@@ -57,7 +50,7 @@ export function MeetingLinkStep({
             value={meetingUrl}
             onChange={(e) => handleUrlChange(e.target.value)}
             onBlur={() => setTouched(true)}
-            placeholder="Paste your Zoom, Google Meet, or Teams link..."
+            placeholder="Paste your Zoom, Google Meet, or Teams link (or add later in the meeting)..."
             className={`w-full pl-4 pr-10 py-3 bg-background border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all placeholder:text-muted-foreground ${
               urlValidation && !urlValidation.valid
                 ? 'border-red-500 dark:border-red-400'
@@ -96,53 +89,18 @@ export function MeetingLinkStep({
         )}
       </div>
 
-      {/* Participants */}
-      <div className="space-y-4">
-        <label className="text-sm font-medium text-foreground">
-          Meeting Participants
-        </label>
-        
-        <div className="grid grid-cols-2 gap-4">
-          <div className="space-y-2">
-            <label className="text-xs text-muted-foreground">
-              You (Host)
-            </label>
-            <input
-              type="text"
-              value={participantMe}
-              onChange={(e) => setParticipantMe(e.target.value)}
-              placeholder="Your name"
-              className="w-full px-4 py-3 bg-background border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all placeholder:text-muted-foreground"
-              maxLength={50}
-            />
-          </div>
-          
-          <div className="space-y-2">
-            <label className="text-xs text-muted-foreground">
-              Other Participant(s)
-            </label>
-            <input
-              type="text"
-              value={participantThem}
-              onChange={(e) => setParticipantThem(e.target.value)}
-              placeholder="Their name or company"
-              className="w-full px-4 py-3 bg-background border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all placeholder:text-muted-foreground"
-              maxLength={50}
-            />
-          </div>
-        </div>
-      </div>
+
 
       {/* Info Box */}
       <div className="bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-xl p-4 space-y-2">
         <h4 className="text-sm font-medium text-blue-700 dark:text-blue-300">
-          How it works
+          Meeting Setup
         </h4>
         <ul className="space-y-1 text-xs text-blue-600 dark:text-blue-400">
-          <li>• LivePrompt will join your meeting as a participant</li>
+          <li>• You can add the meeting link now or later in the meeting interface</li>
+          <li>• LivePrompt will join your meeting as a participant when you're ready</li>
           <li>• Real-time transcription begins automatically</li>
           <li>• AI guidance appears as the conversation progresses</li>
-          <li>• All data is processed securely and privately</li>
         </ul>
       </div>
     </motion.div>

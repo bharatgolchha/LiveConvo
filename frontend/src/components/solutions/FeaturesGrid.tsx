@@ -1,12 +1,10 @@
 'use client'
 
 import { motion } from 'framer-motion'
-import { LucideIcon } from 'lucide-react'
-
 interface Feature {
   title: string
   description: string
-  icon: LucideIcon
+  icon: React.ElementType
 }
 
 interface FeaturesGridProps {

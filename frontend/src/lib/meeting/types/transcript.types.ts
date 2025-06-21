@@ -8,6 +8,10 @@ export interface TranscriptMessage {
   isFinal: boolean;
   isPartial?: boolean;
   confidence?: number;
+  /**
+   * Human-readable display name of the speaker. Provided by Recall.ai when available.
+   */
+  displayName?: string;
 }
 
 export interface TranscriptSpeaker {

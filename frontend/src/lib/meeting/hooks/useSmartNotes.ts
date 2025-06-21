@@ -1,9 +1,11 @@
 import { useState, useCallback } from 'react';
 import { useMeetingContext } from '../context/MeetingContext';
 import { SmartNote } from '../types/transcript.types';
+import { useAuth } from '@/contexts/AuthContext';
 
 export function useSmartNotes() {
   const { meeting, transcript, addSmartNote } = useMeetingContext();
+  const { session } = useAuth();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
 
@@ -17,9 +19,13 @@ export function useSmartNotes() {
     setError(null);
 
     try {
+      const headers: HeadersInit = { 'Content-Type': 'application/json' };
+      if (session?.access_token) {
+        headers['Authorization'] = `Bearer ${session.access_token}`;
+      }
       const response = await fetch(`/api/meeting/${meeting.id}/smart-notes`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({
           transcriptCount: transcript.length,
           context: meeting.context
@@ -49,7 +55,7 @@ export function useSmartNotes() {
     } finally {
       setLoading(false);
     }
-  }, [meeting, transcript, addSmartNote]);
+  }, [meeting, transcript, addSmartNote, session]);
 
   return { loading, error, generateNotes };
 }

@@ -160,15 +160,19 @@ async function handleTranscriptData(sessionId: string, eventData: TranscriptData
   const endTime = data.words[data.words.length - 1]?.end_timestamp?.relative || 
                   data.words[data.words.length - 1]?.start_timestamp?.relative || 0;
 
-  // Determine speaker (ME/THEM based on host status)
-  const speaker = data.participant.is_host ? 'ME' : 'THEM';
-  const speakerName = data.participant.name || (data.participant.is_host ? 
-    (session?.participant_me || 'Host') : 
-    (session?.participant_them || 'Participant'));
+  // Determine alias (ME/THEM) and the human-readable name to store/display
+  const speakerAlias: 'ME' | 'THEM' = data.participant.is_host ? 'ME' : 'THEM';
+
+  // Prefer the name provided by Recall.ai; if absent fall back to the name saved on the session.
+  const speakerName = (data.participant.name && data.participant.name.trim().length > 0)
+    ? data.participant.name.trim()
+    : data.participant.is_host
+      ? (session?.participant_me || 'Host')
+      : (session?.participant_them || 'Participant');
 
   // For partial data, just broadcast without storing
   if (isPartial) {
-    const partialId = `partial-${Date.now()}-${speaker}`;
+    const partialId = `partial-${Date.now()}-${speakerAlias}`;
     console.log('📨 Broadcasting partial transcript:', partialId, 'Text:', fullText);
     
     broadcastTranscript(sessionId, {
@@ -177,11 +181,12 @@ async function handleTranscriptData(sessionId: string, eventData: TranscriptData
         id: partialId,
         text: fullText,
         timestamp: new Date().toISOString(),
-        speaker: speaker,
+        speaker: speakerAlias,
         confidence: 0.85, // Lower confidence for partials
         isFinal: false,
         isPartial: true,
-        timeSeconds: startTime
+        timeSeconds: startTime,
+        displayName: speakerName,
       }
     });
     return;
@@ -223,7 +228,7 @@ async function handleTranscriptData(sessionId: string, eventData: TranscriptData
   } else if (insertedTranscript) {
     console.log('Transcript inserted successfully:', insertedTranscript.id);
     // Broadcast to connected clients in the app's format
-    console.log('📡 Broadcasting transcript to session:', sessionId, 'Speaker:', speaker, 'Text:', fullText);
+    console.log('📡 Broadcasting transcript to session:', sessionId, 'Speaker:', speakerAlias, 'Text:', fullText);
     
     const broadcastData = {
       type: 'transcript',
@@ -231,10 +236,12 @@ async function handleTranscriptData(sessionId: string, eventData: TranscriptData
         id: insertedTranscript.id,
         text: fullText,
         timestamp: new Date().toISOString(),
-        speaker: speaker, // 'ME' or 'THEM'
+        speaker: speakerAlias,
+        displayName: speakerName,
         confidence: 0.95,
         isFinal: true,
-        timeSeconds: startTime
+        timeSeconds: startTime,
+        sequenceNumber: nextSequence
       }
     };
     

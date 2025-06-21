@@ -3,7 +3,7 @@ import { Metadata } from 'next';
 
 export const metadata: Metadata = {
   title: 'Meeting - LivePrompt',
-  description: 'Real-time AI guidance for your video conferences',
+  description: 'Real-time AI guidance for your meetings',
 };
 
 export default function MeetingLayout({

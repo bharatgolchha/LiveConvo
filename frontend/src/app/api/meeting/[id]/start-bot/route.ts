@@ -46,12 +46,41 @@ export async function POST(
       );
     }
 
-    // Check if bot is already deployed
+    // Check if there's an old bot ID
     if (session.recall_bot_id) {
-      return NextResponse.json(
-        { error: 'Bot already deployed for this session' },
-        { status: 400 }
-      );
+      console.log('Found existing bot ID:', session.recall_bot_id);
+      
+      // Clear the old bot ID first to ensure we create a fresh bot
+      const { error: clearError } = await supabase
+        .from('sessions')
+        .update({ 
+          recall_bot_id: null,
+          recall_bot_status: null 
+        })
+        .eq('id', session.id);
+        
+      if (clearError) {
+        console.error('Failed to clear old bot ID:', clearError);
+      }
+      
+      // Optionally try to stop the old bot if it exists
+      const sessionManager = new RecallSessionManager();
+      try {
+        const botStatus = await sessionManager.getBotStatus(session.recall_bot_id);
+        const apiResponse = botStatus as any;
+        
+        // Check if bot is still active
+        if (apiResponse.status?.code && 
+            apiResponse.status.code !== 'done' && 
+            apiResponse.status.code !== 'error' && 
+            apiResponse.status.code !== 'fatal') {
+          // Try to stop it
+          await sessionManager.stopRecallBot(session.id);
+          console.log('Stopped old bot before creating new one');
+        }
+      } catch (err) {
+        console.log('Old bot may no longer exist or be accessible:', err);
+      }
     }
 
     // Check if meeting URL exists
@@ -78,12 +107,31 @@ export async function POST(
 
       // The session is already updated by enhanceSessionWithRecall
       // Just update the recording start time
-      await supabase
+      const { data: updatedSession, error: updateError } = await supabase
         .from('sessions')
         .update({ 
           recording_started_at: new Date().toISOString()
         })
-        .eq('id', session.id);
+        .eq('id', session.id)
+        .select()
+        .single();
+
+      if (updateError) {
+        console.error('Failed to update recording start time:', updateError);
+      }
+
+      // Ensure we have the latest session data
+      const { data: latestSession } = await supabase
+        .from('sessions')
+        .select('recall_bot_id')
+        .eq('id', session.id)
+        .single();
+
+      console.log('✅ Bot created and session updated:', {
+        botId: bot.id,
+        sessionBotId: latestSession?.recall_bot_id,
+        match: bot.id === latestSession?.recall_bot_id
+      });
 
       return NextResponse.json({
         success: true,

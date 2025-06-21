@@ -25,6 +25,7 @@ export async function GET(
     }
 
     if (!session.recall_bot_id) {
+      console.log('⚠️ No bot ID found for session:', sessionId);
       return NextResponse.json(
         { status: null, message: 'No bot associated with this session' },
         { status: 200 }
@@ -39,33 +40,66 @@ export async function GET(
     });
 
     try {
+      console.log('🔍 Fetching bot status for:', session.recall_bot_id);
       const bot = await recallClient.getBot(session.recall_bot_id);
+      console.log('📊 Bot data from Recall.ai:', JSON.stringify(bot, null, 2));
       
-      // Map Recall.ai status to our simplified status
+      // Map Recall.ai status codes → simplified status
+      // 1. Prefer bot.status.code if available (newer API format)
+      // 2. Otherwise, fall back to the latest entry in bot.status_changes
+
       let status: 'created' | 'joining' | 'in_call' | 'completed' | 'failed' = 'created';
-      
-      // Get the latest status from status_changes array
-      if (bot.status_changes && bot.status_changes.length > 0) {
-        const latestStatus = bot.status_changes[bot.status_changes.length - 1];
-        const statusCode = latestStatus.code;
-        
-        if (statusCode === 'joining_call') {
-          status = 'joining';
-        } else if (statusCode === 'in_waiting_room') {
-          status = 'joining';
-        } else if (statusCode === 'in_call_not_recording' || statusCode === 'in_call_recording') {
-          status = 'in_call';
-        } else if (statusCode === 'done' || statusCode === 'call_ended') {
-          status = 'completed';
-        } else if (statusCode === 'failed') {
-          status = 'failed';
+
+      // Helper to map Recall status codes → simplified status
+      const mapCodeToStatus = (code?: string | null) => {
+        switch (code) {
+          case 'ready':
+          case 'created':
+            return 'created';
+          case 'joining_call':
+            return 'joining';
+          case 'in_call':
+          case 'in_waiting_room':
+          case 'in_call_recording':
+          case 'in_call_not_recording':
+            return 'in_call';
+          case 'done':
+          case 'call_ended':
+          case 'completed':
+            return 'completed';
+          case 'error':
+          case 'fatal':
+            return 'failed';
+          default:
+            return 'created';
         }
+      };
+
+      const botData = bot as any;
+
+      if (botData.status?.code) {
+        status = mapCodeToStatus(botData.status.code);
+      } else if (Array.isArray(botData.status_changes) && botData.status_changes.length > 0) {
+        const latest = botData.status_changes[botData.status_changes.length - 1];
+        status = mapCodeToStatus(latest.code);
       }
 
-      return NextResponse.json({ 
+      // Derive recording ID if not provided directly
+      const recordingId =
+        // Prefer direct field from API if it exists
+        botData.recording_id ??
+        // Otherwise attempt to pull first recording id
+        botData.recordings?.[0]?.id ??
+        // Or video mixed shortcut id as last resort
+        botData.media_shortcuts?.video_mixed?.id;
+
+      console.log('✅ Returning bot status:', status);
+
+      return NextResponse.json({
         status,
         botId: bot.id,
-        recordingId: bot.recordingId
+        recordingId,
+        completedAt: (bot as any).completed_at ?? undefined
       });
     } catch (recallError: any) {
       console.error('Recall.ai API error:', recallError);

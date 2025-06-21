@@ -58,7 +58,7 @@ export function MeetingDebugInfo() {
             <strong>Transcript Count:</strong> {transcript.length}
           </div>
           <div>
-            <strong>Meeting URL:</strong> {meeting?.meeting_url || 'None'}
+            <strong>Meeting URL:</strong> {meeting?.meetingUrl || 'None'}
           </div>
           <div>
             <strong>Webhook URL:</strong> {meeting ? `${window.location.origin}/api/webhooks/recall/${meeting.id}` : 'None'}
