@@ -1,10 +1,13 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { CalendarDaysIcon, ClockIcon } from '@heroicons/react/24/outline';
+import { PreviousConversationsMultiSelect } from './PreviousConversationsMultiSelect';
 
 interface MeetingContextStepProps {
   context: string;
   setContext: (context: string) => void;
+  selectedPrevious: { id: string; title: string }[];
+  setSelectedPrevious: (sessions: { id: string; title: string }[]) => void;
   scheduledAt?: string;
   setScheduledAt?: (date: string) => void;
 }
@@ -20,6 +23,8 @@ const contextExamples = [
 export function MeetingContextStep({
   context,
   setContext,
+  selectedPrevious,
+  setSelectedPrevious,
   scheduledAt,
   setScheduledAt
 }: MeetingContextStepProps) {
@@ -61,6 +66,9 @@ export function MeetingContextStep({
           </span>
         </div>
       </div>
+
+      {/* Previous conversations selector */}
+      <PreviousConversationsMultiSelect selected={selectedPrevious} setSelected={setSelectedPrevious} />
 
       {/* Schedule (Optional) */}
       {setScheduledAt && (

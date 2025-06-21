@@ -3,6 +3,7 @@ import { buildChatMessages } from '@/lib/chatPromptBuilder';
 import { updateRunningSummary } from '@/lib/summarizer';
 import { z } from 'zod';
 import { getDefaultAiModelServer } from '@/lib/systemSettingsServer';
+import { createAuthenticatedSupabaseClient } from '@/lib/supabase';
 
 // Fallback chips for when AI generation fails
 const getFallbackChips = (conversationType: string, stage: string) => {
@@ -184,6 +185,47 @@ export async function POST(request: NextRequest) {
       transcriptLength = 0,
     } = parsedBody;
 
+    // ------------------------------------------------------------------
+    // Build previous conversation summaries section (if any)
+    // ------------------------------------------------------------------
+    let previousSummariesSection = '';
+
+    if (selectedPreviousConversations && selectedPreviousConversations.length > 0) {
+      try {
+        const authHeader = request.headers.get('authorization');
+        const token = authHeader?.split(' ')[1];
+
+        if (token) {
+          const supabase = createAuthenticatedSupabaseClient(token);
+
+          // Fetch summaries (tldr) and session titles for the selected IDs (limit 5 for brevity)
+          const { data: summaries } = await supabase
+            .from('summaries')
+            .select('session_id, tldr')
+            .in('session_id', selectedPreviousConversations.slice(0, 5));
+
+          const { data: titles } = await supabase
+            .from('sessions')
+            .select('id, title')
+            .in('id', selectedPreviousConversations.slice(0, 5));
+
+          const titleMap = new Map<string, string>();
+          titles?.forEach((s: any) => titleMap.set(s.id, s.title || 'Untitled'));
+
+          if (summaries && summaries.length > 0) {
+            previousSummariesSection = '\n📚 PREVIOUS MEETINGS SUMMARY:\n';
+            summaries.forEach((s: any, idx: number) => {
+              const title = titleMap.get(s.session_id) || `Conversation ${idx + 1}`;
+              const tldr = s.tldr?.replace(/\n/g, ' ') || '(no summary)';
+              previousSummariesSection += `• ${title}: ${tldr}\n`;
+            });
+          }
+        }
+      } catch (prevErr) {
+        console.error('Failed to build previous summaries section', prevErr);
+      }
+    }
+
     // Debug logging for personal context
     console.log('🔍 Chat API Debug:', {
       hasPersonalContext: !!personalContext,
@@ -343,9 +385,13 @@ Remember: Start with [ and end with ] - no other text allowed.`;
     }
 
     // Generate system prompt
-    const systemPrompt = chipsMode 
+    const baseSystemPrompt = chipsMode 
       ? getChipPrompt(effectiveConversationType || 'meeting', stage || 'opening', textContext || '', effectiveTranscript, participantMe || 'You', participantThem || 'The other participant')
       : getChatGuidanceSystemPrompt(effectiveConversationType, isRecording, transcriptLength, participantMe, participantThem, conversationTitle || undefined, textContext || undefined, meetingUrl || undefined);
+
+    const systemPrompt = previousSummariesSection
+      ? `${baseSystemPrompt}\n${previousSummariesSection}`
+      : baseSystemPrompt;
 
     // Debug: Log the system prompt
     console.log('🤖 AI Advisor System Prompt:');

@@ -52,19 +52,19 @@ export function MeetingBotStatus({
   const getStatusMessage = () => {
     switch (recallStatus) {
       case 'created':
-        return 'Bot created, preparing to join...';
+        return 'AI bot created, preparing to join...';
       case 'joining':
-        return 'Bot is joining the meeting...';
+        return 'AI bot is joining the meeting...';
       case 'in_call':
-        return 'Bot is in the meeting';
+        return 'AI bot is in the meeting';
       case 'completed':
         return 'Meeting ended';
       case 'failed':
         return 'Failed to join meeting';
       case 'timeout':
-        return 'Bot timed out trying to join';
+        return 'AI bot timed out trying to join';
       default:
-        return 'Initializing bot...';
+        return 'Initializing AI bot...';
     }
   };
 
@@ -165,7 +165,7 @@ export function MeetingBotStatus({
                     className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/30"
                   >
                     <PhoneOff className="w-4 h-4 mr-1" />
-                    Stop Bot
+                    Stop AI Bot
                   </Button>
                 )}
                 <Button

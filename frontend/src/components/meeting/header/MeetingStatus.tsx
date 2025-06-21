@@ -28,20 +28,20 @@ export function MeetingStatus() {
       case 'joining':
         return {
           icon: <Loader2 className="w-4 h-4 animate-spin" />,
-          text: 'Bot joining meeting...',
+          text: 'AI bot joining meeting...',
           color: 'text-blue-600 dark:text-blue-400'
         };
       case 'in_call':
         return {
           icon: <CheckCircleIcon className="w-4 h-4" />,
-          text: 'Bot connected',
+          text: 'AI bot connected',
           color: 'text-green-600 dark:text-green-400'
         };
       case 'failed':
       case 'timeout':
         return {
           icon: <XCircleIcon className="w-4 h-4" />,
-          text: 'Bot failed to join',
+          text: 'AI bot failed to join',
           color: 'text-red-600 dark:text-red-400'
         };
       case 'completed':

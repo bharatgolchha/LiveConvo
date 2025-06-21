@@ -492,7 +492,7 @@ const DashboardPage: React.FC = () => {
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
           <div className="w-8 h-8 border-2 border-app-primary border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-          <p className="text-muted-foreground">Loading your conversations...</p>
+          <p className="text-muted-foreground">Loading your meetings...</p>
         </div>
       </div>
     );
@@ -535,8 +535,8 @@ const DashboardPage: React.FC = () => {
                     <h1 className="text-2xl font-bold mb-2 text-foreground">Welcome back, {currentUser.name}!</h1>
                     <p className="text-muted-foreground">
                       {activeSessions.length > 0 
-                        ? `You have ${activeSessions.length} active conversation${activeSessions.length === 1 ? '' : 's'}`
-                        : 'Ready to start a new conversation?'}
+                        ? `You have ${activeSessions.length} active meeting${activeSessions.length === 1 ? '' : 's'}`
+                        : 'Ready to start a new meeting?'}
                     </p>
                   </div>
                   <NewConversationButton 
@@ -572,7 +572,7 @@ const DashboardPage: React.FC = () => {
                   </motion.div>
                 )}
 
-                {/* Conversations Inbox List */}
+                {/* Meetings Inbox List */}
                 {filteredSessions.length > 0 ? (
                   <motion.div 
                     initial={{ opacity: 0, y: 20 }}
@@ -598,8 +598,8 @@ const DashboardPage: React.FC = () => {
                               `${selectedSessions.size} selected`
                             ) : (
                               activePath === 'archive' 
-                                ? `Archived Conversations (${filteredSessions.length})`
-                                : `Conversations (${filteredSessions.length})`
+                                ? `Archived Meetings (${filteredSessions.length})`
+                                : `Meetings (${filteredSessions.length})`
                             )}
                           </h2>
                           
@@ -649,7 +649,7 @@ const DashboardPage: React.FC = () => {
                       </div>
                     </div>
 
-                    {/* Conversation List */}
+                    {/* Meeting List */}
                     <div className="flex-1 overflow-y-auto p-4 space-y-3">
                       {filteredSessions.map((session) => (
                         <ConversationInboxItem
@@ -674,14 +674,14 @@ const DashboardPage: React.FC = () => {
                   >
                     <div className="text-center py-16">
                       <MagnifyingGlassIcon className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
-                      <h3 className="text-lg font-medium text-foreground mb-2">No conversations found</h3>
-                      <p className="text-muted-foreground mb-6">Try adjusting your search terms or start a new conversation.</p>
-                      <Button
+                      <h3 className="text-lg font-medium text-foreground mb-2">No meetings found</h3>
+                      <p className="text-muted-foreground mb-6">Try adjusting your search terms or start a new meeting.</p>
+                                              <Button
                         onClick={handleNewConversation}
                         className="bg-primary hover:bg-primary/90 text-primary-foreground"
                       >
                         <PlusIcon className="w-4 h-4 mr-2" />
-                        Start New Conversation
+                        Start New Meeting
                       </Button>
                     </div>
                   </motion.div>

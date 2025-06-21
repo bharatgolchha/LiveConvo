@@ -294,7 +294,7 @@ export function MeetingBotControl() {
 
       case 'completed':
         return {
-          showStartButton: true,
+          showStartButton: false,
           statusElement: null // Status shown in main header badge
         };
 

@@ -17,6 +17,65 @@ Return a JSON array of notes, each with:
 
 Focus on practical, actionable information. Be concise but specific.`;
 
+// ----------------------------------------------------------------------
+// GET /api/meeting/[id]/smart-notes
+// Returns the list of smart notes for a meeting that the authenticated
+// user has access to.
+// ----------------------------------------------------------------------
+
+export async function GET(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    // Extract and verify bearer token
+    const authHeader = req.headers.get('authorization');
+    const token = authHeader?.split(' ')[1];
+
+    if (!token) {
+      return NextResponse.json(
+        { error: 'No authorization token provided' },
+        { status: 401 }
+      );
+    }
+
+    const supabase = createAuthenticatedSupabaseClient(token);
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+
+    if (authError || !user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const { id } = await params;
+
+    // Make sure the user has access to this meeting's session via RLS.
+    // smart_notes table already has RLS policies ensuring access, so we can
+    // directly select. However we additionally filter by session_id for safety.
+
+    const { data: notes, error } = await supabase
+      .from('smart_notes')
+      .select('*')
+      .eq('session_id', id)
+      .order('created_at', { ascending: true });
+
+    if (error) {
+      console.error('Failed to fetch smart notes:', error);
+      return NextResponse.json(
+        { error: 'Failed to fetch smart notes' },
+        { status: 500 }
+      );
+    }
+
+    return NextResponse.json(notes || []);
+  } catch (err) {
+    console.error('Smart notes GET error:', err);
+    return NextResponse.json(
+      { error: 'Failed to fetch smart notes' },
+      { status: 500 }
+    );
+  }
+}
+
 export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }

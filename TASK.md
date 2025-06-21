@@ -4,6 +4,124 @@
 
 ### 🚀 New Features
 
+- [x] **🤖 Fix Bot Recording Usage Integration with Dashboard Audio Time** (2025-06-21) 🆕 **JUST COMPLETED**
+  - **Request**: Ensure bot recording minutes are properly included in dashboard "Audio Time" and subscription usage calculations
+  - **Issues Solved**:
+    - Dashboard showed 0 bot minutes despite successful bot recording sessions
+    - Bot usage tracking was isolated from main audio time calculation
+    - Monthly usage cache wasn't including bot recording minutes
+    - Dashboard "Audio Time" didn't reflect actual total usage including bot sessions
+  - **Root Cause Analysis**:
+    - Bot usage tracking system was working correctly and creating entries in `usage_tracking` table
+    - Monthly usage cache wasn't being updated to include bot usage data
+    - 21 bot sessions totaling 76+ minutes were tracked but not reflected in dashboard
+    - Organization API was failing due to schema mismatch (no `organization_id` in `users` table)
+  - **Solution Implemented**:
+    - ✅ **Fixed Organization API**: Updated `/api/users/organization` to query `subscriptions` table
+      - Changed from non-existent `users.organization_id` to `subscriptions.organization_id`
+      - Added proper fallback logic for users without subscriptions
+      - Fixed 500 errors that prevented organization lookup
+    - ✅ **Fixed Bot Usage API**: Updated `/api/usage/bot-minutes` to use subscription-based organization lookup
+      - Consistent organization ID resolution across all APIs
+      - Proper error handling and debugging logs
+      - Fixed organization filtering in bot usage queries
+    - ✅ **Created Usage Cache Refresh Script**: Built `refresh-usage-cache.js` to sync bot usage
+      - Recalculates monthly usage cache from all `usage_tracking` entries
+      - Properly includes both regular recording and bot recording minutes
+      - Shows breakdown: regular vs bot minutes for transparency
+      - Handles cache updates and creates missing entries
+    - ✅ **Verified Bot Usage Integration**: Confirmed bot minutes are included in total audio time
+      - User now shows 88 total minutes (12 regular + 76 bot) in cache
+      - Bot usage tracking creates proper `usage_tracking` entries with `source: 'recall_ai_bot'`
+      - Monthly usage cache now reflects combined usage for accurate limit checking
+      - Dashboard "Audio Time" will now include bot recording minutes
+  - **Technical Implementation**:
+    - Fixed schema mismatch in organization lookup APIs
+    - Created comprehensive usage cache refresh mechanism
+    - Verified integration between bot usage tracking and main usage system
+    - Added detailed logging and error handling throughout the process
+  - **User Experience Benefits**:
+    - Dashboard now accurately shows total audio time including bot recordings
+    - Subscription usage limits properly account for bot recording minutes
+    - Transparent breakdown of regular vs bot usage in admin tools
+    - Proper billing and usage tracking for all recording types
+  - **Data Verification**:
+    - 21 bot sessions successfully processed with 76+ billable minutes
+    - Usage tracking entries created with proper source attribution
+    - Monthly cache updated to reflect 88 total minutes for user
+    - Bot usage API working correctly with organization filtering
+  - **Status**: ✅ COMPLETED - Bot recording usage now properly integrated with dashboard audio time and subscription limits
+
+### 🚀 New Features
+
+- [x] **🏁 Enhanced End Meeting Flow with Beautiful Report Generation** (2025-01-21) 🆕 **JUST COMPLETED**
+  - **Request**: Create amazing end meeting button functionality that generates and shows final reports
+  - **Issues Solved**:
+    - End meeting button only redirected to summary without proper finalization
+    - No comprehensive meeting report page for participants
+    - Missing proper flow for stopping bots, finalizing sessions, and generating summaries
+    - No beautiful UX during the end meeting process
+  - **Solution Implemented**:
+    - ✅ **Complete End Meeting API**: New `/api/meeting/[id]/end` endpoint handles full finalization
+      - Stops active recording bots automatically
+      - Updates session status to 'completed' with proper timestamps
+      - Generates comprehensive summary using existing finalization logic
+      - Returns structured response with redirect URL and completion data
+      - Handles edge cases (already completed meetings, missing summaries)
+      - Proper error handling and logging throughout the process
+    - ✅ **Enhanced End Meeting Button**: Improved UX with loading states and feedback
+      - Beautiful confirmation dialog explaining what will happen
+      - Multi-step loading states with descriptive messages
+      - Success animation with celebration feedback
+      - Automatic redirect to report page after completion
+      - Different button states for active vs completed meetings
+      - "View Report" button for already completed meetings
+    - ✅ **Beautiful Meeting Report Page**: Comprehensive `/report/[id]` page with analytics
+      - Gradient background with professional design
+      - Success banner celebrating meeting completion
+      - Quick stats cards (duration, participants, words, action items)
+      - Executive summary with key insights and TL;DR
+      - Key decisions and action items with priority indicators
+      - Meeting effectiveness metrics with animated progress bars
+      - Speaking time analysis with visual breakdowns
+      - Follow-up questions and conversation highlights
+      - Quick action buttons (view transcript, watch recording, share)
+      - Responsive design with beautiful animations
+    - ✅ **Custom useEndMeeting Hook**: Reusable hook for meeting termination logic
+      - Centralized state management for ending process
+      - Configurable success/error callbacks
+      - Loading states and error handling
+      - Confirmation dialog management
+      - Automatic redirect handling
+    - ✅ **Beautiful Status Components**: Enhanced UX during end meeting process
+      - EndMeetingStatus component with animated progress indicators
+      - Success celebrations with confetti-style feedback
+      - Error states with proper recovery options
+      - Backdrop blur effects for focus
+      - Loading page for report generation with progress steps
+  - **Technical Implementation**:
+    - Created `/api/meeting/[id]/end` endpoint with comprehensive finalization logic
+    - Enhanced MeetingActions component with new hook integration
+    - Built `/report/[id]` page with beautiful analytics and insights
+    - Added useEndMeeting hook for reusable meeting termination logic
+    - Created EndMeetingStatus and loading components for better UX
+    - Updated meeting flow to redirect to report instead of summary
+  - **User Experience Benefits**:
+    - Clear, professional end meeting process with proper feedback
+    - Beautiful report page that participants will want to share
+    - Comprehensive analytics and insights for meeting effectiveness
+    - Smooth animations and transitions throughout the process
+    - Mobile-responsive design that works on all devices
+    - Proper error handling with recovery options
+  - **Analytics & Insights**:
+    - Meeting effectiveness scoring with multiple metrics
+    - Speaking time analysis with visual breakdowns
+    - Action items tracking with priority indicators
+    - Key decisions summary with bullet points
+    - Follow-up questions for continued engagement
+    - Conversation highlights and memorable moments
+  - **Status**: ✅ COMPLETED - End meeting flow now provides comprehensive finalization with beautiful report generation
+
 - [x] **🗑️ Remove Deprecated /app Page and Old AI Advisor Components** (2025-06-16) 🆕 **JUST COMPLETED**
   - **Request**: Clean up codebase by removing deprecated `/app` page and old AICoachSidebar component
   - **Solution Implemented**:

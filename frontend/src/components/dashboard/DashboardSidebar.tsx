@@ -40,7 +40,7 @@ const DashboardSidebar: React.FC<DashboardSidebarProps> = ({ usageStats, activeP
   };
 
   const navItems = [
-    { path: 'conversations', label: 'Conversations', icon: MicrophoneIcon, count: activeCount },
+    { path: 'conversations', label: 'Meetings', icon: MicrophoneIcon, count: activeCount },
     { path: 'archive', label: 'Archive', icon: ArchiveBoxIcon, count: archivedCount },
     { path: 'settings', label: 'Settings', icon: Cog6ToothIcon },
   ];

@@ -11,6 +11,8 @@ import { useMeetingContext } from '@/lib/meeting/context/MeetingContext';
 import { MeetingType } from '@/lib/meeting/types/meeting.types';
 import { validateMeetingUrl } from '@/lib/meeting/utils/platform-detector';
 import { useAuth } from '@/contexts/AuthContext';
+import { PreviousConversationsMultiSelect } from '../create/PreviousConversationsMultiSelect';
+import { useLinkedConversations } from '@/lib/meeting/hooks/useLinkedConversations';
 
 interface MeetingSettingsModalProps {
   isOpen: boolean;
@@ -29,6 +31,7 @@ const meetingTypeOptions: { id: MeetingType; label: string }[] = [
 export function MeetingSettingsModal({ isOpen, onClose }: MeetingSettingsModalProps) {
   const { meeting, setMeeting, botStatus } = useMeetingContext();
   const { session: authSession } = useAuth();
+  const { linkedConversations, addLinks, removeLinks, fetchLinks } = useLinkedConversations();
 
   // Local form state
   const [title, setTitle] = useState('');
@@ -50,6 +53,13 @@ export function MeetingSettingsModal({ isOpen, onClose }: MeetingSettingsModalPr
       setError(null);
     }
   }, [meeting, isOpen]);
+
+  // Fetch links when modal opens
+  useEffect(() => {
+    if (isOpen) {
+      fetchLinks();
+    }
+  }, [isOpen, fetchLinks]);
 
   const canEditUrl = !(botStatus?.status === 'in_call' || botStatus?.status === 'joining');
 
@@ -218,6 +228,24 @@ export function MeetingSettingsModal({ isOpen, onClose }: MeetingSettingsModalPr
                     value={context}
                     onChange={(e) => setContext(e.target.value)}
                     disabled={disabled}
+                  />
+                </div>
+
+                {/* Linked previous meetings */}
+                <div>
+                  <PreviousConversationsMultiSelect
+                    selected={linkedConversations}
+                    setSelected={(sessions) => {
+                      // diff add/remove
+                      const currentIds = linkedConversations.map(s => s.id);
+                      const newIds = sessions.map(s => s.id);
+
+                      const toAdd = newIds.filter(id => !currentIds.includes(id));
+                      const toRemove = currentIds.filter(id => !newIds.includes(id));
+
+                      if (toAdd.length) addLinks(toAdd);
+                      if (toRemove.length) removeLinks(toRemove);
+                    }}
                   />
                 </div>
 

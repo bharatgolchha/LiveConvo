@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { useMeetingContext } from '../context/MeetingContext';
 import { SmartNote } from '../types/transcript.types';
 import { useAuth } from '@/contexts/AuthContext';
@@ -57,5 +57,53 @@ export function useSmartNotes() {
     }
   }, [meeting, transcript, addSmartNote, session]);
 
-  return { loading, error, generateNotes };
+  /** Load existing smart notes from database */
+  const loadNotes = useCallback(async () => {
+    if (!meeting?.id || !session?.access_token) return;
+
+    try {
+      setLoading(true);
+      setError(null);
+
+      const headers: HeadersInit = {
+        Authorization: `Bearer ${session.access_token}`,
+      };
+
+      console.log('[useSmartNotes] Fetching existing smart notes...');
+      const response = await fetch(`/api/meeting/${meeting.id}/smart-notes`, {
+        headers,
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch smart notes');
+      }
+
+      const notes: any[] = await response.json();
+
+      notes.forEach((note) => {
+        const smartNote: SmartNote = {
+          id: note.id,
+          category: note.category,
+          content: note.content,
+          importance: (note.importance || 'medium') as 'high' | 'medium' | 'low',
+          timestamp: note.created_at || new Date().toISOString(),
+        };
+        addSmartNote(smartNote);
+      });
+    } catch (err) {
+      console.error('Error loading smart notes:', err);
+      setError(err as Error);
+    } finally {
+      setLoading(false);
+    }
+  }, [meeting?.id, session?.access_token, addSmartNote]);
+
+  // Load notes once when meeting + auth ready
+  useEffect(() => {
+    if (meeting?.id && session?.access_token) {
+      loadNotes();
+    }
+  }, [meeting?.id, session?.access_token, loadNotes]);
+
+  return { loading, error, generateNotes, loadNotes };
 }

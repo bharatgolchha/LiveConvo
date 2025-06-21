@@ -1,0 +1,222 @@
+import { NextRequest, NextResponse } from 'next/server';
+import { createClient } from '@supabase/supabase-js';
+
+export async function POST(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id: sessionId } = await params;
+    
+    // Get authentication token
+    const authHeader = request.headers.get('authorization');
+    const token = authHeader?.split(' ')[1];
+    
+    if (!token) {
+      return NextResponse.json(
+        { error: 'Unauthorized', message: 'Missing authentication token' },
+        { status: 401 }
+      );
+    }
+
+    // Create authenticated client
+    const authenticatedSupabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        global: {
+          headers: {
+            Authorization: `Bearer ${token}`
+          }
+        }
+      }
+    );
+
+    // Verify user authentication
+    const { data: { user }, error: authError } = await authenticatedSupabase.auth.getUser(token);
+    
+    if (authError || !user) {
+      console.error('❌ Authentication error:', authError);
+      return NextResponse.json(
+        { error: 'Unauthorized', message: 'Please sign in to end meeting' },
+        { status: 401 }
+      );
+    }
+
+    // Get session data and verify ownership
+    const { data: session, error: sessionError } = await authenticatedSupabase
+      .from('sessions')
+      .select(`
+        id, 
+        user_id, 
+        organization_id, 
+        title,
+        conversation_type,
+        status,
+        participant_me,
+        participant_them,
+        recall_bot_id,
+        recall_bot_status,
+        recording_started_at,
+        meeting_url,
+        meeting_platform
+      `)
+      .eq('id', sessionId)
+      .single();
+
+    if (sessionError || !session) {
+      console.error('❌ Session query error:', sessionError);
+      return NextResponse.json(
+        { error: 'Not found', message: 'Session not found or access denied' },
+        { status: 404 }
+      );
+    }
+
+    // Check if meeting is already completed
+    if (session.status === 'completed') {
+      return NextResponse.json(
+        { 
+          message: 'Meeting already completed', 
+          sessionId,
+          redirectUrl: `/report/${sessionId}`
+        },
+        { status: 200 }
+      );
+    }
+
+    console.log('🔄 Ending meeting:', { sessionId, status: session.status, botId: session.recall_bot_id });
+
+    // Step 1: Stop the bot if it's active
+    let botStopped = false;
+    if (session.recall_bot_id && (session.recall_bot_status === 'in_call' || session.recall_bot_status === 'joining')) {
+      try {
+        console.log('🤖 Stopping bot:', session.recall_bot_id);
+        
+        const stopBotResponse = await fetch(`${request.nextUrl.origin}/api/meeting/${sessionId}/stop-bot`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        });
+
+        if (stopBotResponse.ok) {
+          botStopped = true;
+          console.log('✅ Bot stopped successfully');
+        } else {
+          console.warn('⚠️ Failed to stop bot, continuing with meeting end');
+        }
+      } catch (error) {
+        console.warn('⚠️ Error stopping bot:', error);
+        // Continue even if bot stop fails
+      }
+    }
+
+    // Step 2: Update session status to completed
+    const now = new Date().toISOString();
+    const { error: updateError } = await authenticatedSupabase
+      .from('sessions')
+      .update({ 
+        status: 'completed',
+        recording_ended_at: now,
+        finalized_at: now,
+        updated_at: now
+      })
+      .eq('id', sessionId);
+
+    if (updateError) {
+      console.error('❌ Failed to update session status:', updateError);
+      return NextResponse.json(
+        { error: 'Failed to update session status', message: updateError.message },
+        { status: 500 }
+      );
+    }
+
+    console.log('✅ Session marked as completed');
+
+    // Step 3: Check if summary already exists
+    const { data: existingSummary } = await authenticatedSupabase
+      .from('summaries')
+      .select('id, generation_status')
+      .eq('session_id', sessionId)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .single();
+
+    let summaryGenerated = false;
+    
+    // Step 4: Generate summary if it doesn't exist or is incomplete
+    if (!existingSummary || existingSummary.generation_status !== 'completed') {
+      try {
+        console.log('📝 Generating final summary...');
+        
+        // Get session context for summary generation
+        const { data: sessionContext } = await authenticatedSupabase
+          .from('session_context')
+          .select('text_context')
+          .eq('session_id', sessionId)
+          .single();
+
+        const finalizationPayload = {
+          conversationType: session.conversation_type,
+          conversationTitle: session.title,
+          textContext: sessionContext?.text_context,
+          participantMe: session.participant_me,
+          participantThem: session.participant_them
+        };
+
+        const finalizeResponse = await fetch(`${request.nextUrl.origin}/api/sessions/${sessionId}/finalize`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(finalizationPayload)
+        });
+
+        if (finalizeResponse.ok) {
+          summaryGenerated = true;
+          console.log('✅ Summary generated successfully');
+        } else {
+          const errorData = await finalizeResponse.text();
+          console.warn('⚠️ Failed to generate summary:', errorData);
+        }
+      } catch (error) {
+        console.warn('⚠️ Error generating summary:', error);
+        // Continue even if summary generation fails
+      }
+    } else {
+      summaryGenerated = true;
+      console.log('✅ Summary already exists');
+    }
+
+    // Step 5: Return success response with next steps
+    return NextResponse.json({
+      success: true,
+      message: 'Meeting ended successfully',
+      sessionId,
+      botStopped,
+      summaryGenerated,
+      redirectUrl: `/report/${sessionId}`,
+      data: {
+        endedAt: now,
+        title: session.title,
+        platform: session.meeting_platform,
+        participants: {
+          me: session.participant_me,
+          them: session.participant_them
+        }
+      }
+    });
+
+  } catch (error) {
+    console.error('❌ Unexpected error ending meeting:', error);
+    return NextResponse.json(
+      { 
+        error: 'Internal server error', 
+        message: error instanceof Error ? error.message : 'An unexpected error occurred' 
+      },
+      { status: 500 }
+    );
+  }
+} 
