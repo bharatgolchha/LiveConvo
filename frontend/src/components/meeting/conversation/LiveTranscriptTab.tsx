@@ -2,24 +2,26 @@ import React, { useEffect, useRef, useState, useMemo } from 'react';
 import { useMeetingContext } from '@/lib/meeting/context/MeetingContext';
 import { TranscriptMessage } from './TranscriptMessage';
 import { LoadingStates, LoadingSkeleton } from '../common/LoadingStates';
-import { useMeetingTranscript } from '@/lib/meeting/hooks/useMeetingTranscript';
+import { useRealtimeTranscript } from '@/lib/meeting/hooks/useRealtimeTranscript';
 import { 
   MagnifyingGlassIcon, 
   ArrowDownIcon,
   UsersIcon,
   ClockIcon,
   ChatBubbleLeftRightIcon,
-  XMarkIcon
+  XMarkIcon,
+  ArrowPathIcon
 } from '@heroicons/react/24/outline';
 import { motion, AnimatePresence } from 'framer-motion';
 
 export function LiveTranscriptTab() {
   const { meeting, transcript } = useMeetingContext();
-  const { loading, error } = useMeetingTranscript(meeting?.id || '');
+  const { loading, error, refresh } = useRealtimeTranscript(meeting?.id || '');
   const scrollRef = useRef<HTMLDivElement>(null);
   const [autoScroll, setAutoScroll] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [showStats, setShowStats] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   
   // Calculate transcript statistics
   const transcriptStats = useMemo(() => {
@@ -69,6 +71,19 @@ export function LiveTranscriptTab() {
     setSearchQuery('');
   };
 
+  // Handle manual refresh
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    try {
+      await refresh();
+      console.log('🔄 Manual refresh completed');
+    } catch (err) {
+      console.error('❌ Manual refresh failed:', err);
+    } finally {
+      setTimeout(() => setIsRefreshing(false), 1000); // Show loading for at least 1s for UX
+    }
+  };
+
   if (loading && transcript.length === 0) {
     return <LoadingStates type="transcript" />;
   }
@@ -84,12 +99,22 @@ export function LiveTranscriptTab() {
             <p className="text-lg font-medium text-foreground">Failed to load transcript</p>
             <p className="text-sm text-muted-foreground">{error.message}</p>
           </div>
-          <button 
-            onClick={() => window.location.reload()}
-            className="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
-          >
-            Try Again
-          </button>
+          <div className="flex gap-2 justify-center">
+            <button 
+              onClick={handleRefresh}
+              disabled={isRefreshing}
+              className="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50 flex items-center gap-2"
+            >
+              <ArrowPathIcon className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+              {isRefreshing ? 'Refreshing...' : 'Refresh'}
+            </button>
+            <button
+              onClick={() => window.location.reload()}
+              className="px-4 py-2 bg-secondary text-secondary-foreground rounded-lg hover:bg-secondary/90 transition-colors"
+            >
+              Reload Page
+            </button>
+          </div>
         </div>
       </div>
     );
@@ -121,7 +146,7 @@ export function LiveTranscriptTab() {
           </div>
         </div>
 
-        {/* Stats Bar */}
+        {/* Stats and Controls Bar */}
         {transcriptStats && (
           <div className="px-4 pb-4">
             <div className="flex items-center justify-between text-xs text-muted-foreground">
@@ -142,11 +167,24 @@ export function LiveTranscriptTab() {
                 )}
               </div>
               
-              {searchQuery && (
-                <span className="text-primary font-medium">
-                  {filteredTranscript.length} result{filteredTranscript.length !== 1 ? 's' : ''}
-                </span>
-              )}
+              <div className="flex items-center gap-3">
+                {searchQuery && (
+                  <span className="text-primary font-medium">
+                    {filteredTranscript.length} result{filteredTranscript.length !== 1 ? 's' : ''}
+                  </span>
+                )}
+                
+                {/* Manual Refresh Button */}
+                <button
+                  onClick={handleRefresh}
+                  disabled={isRefreshing}
+                  className="flex items-center gap-1 px-2 py-1 text-xs bg-muted hover:bg-muted/80 rounded-md transition-colors disabled:opacity-50"
+                  title="Refresh transcript from database"
+                >
+                  <ArrowPathIcon className={`w-3 h-3 ${isRefreshing ? 'animate-spin' : ''}`} />
+                  <span className="hidden sm:inline">{isRefreshing ? 'Refreshing...' : 'Refresh'}</span>
+                </button>
+              </div>
             </div>
           </div>
         )}
@@ -182,12 +220,21 @@ export function LiveTranscriptTab() {
                   }
                 </p>
               </div>
-              {searchQuery && (
+              {searchQuery ? (
                 <button
                   onClick={clearSearch}
                   className="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
                 >
                   Clear Search
+                </button>
+              ) : (
+                <button
+                  onClick={handleRefresh}
+                  disabled={isRefreshing}
+                  className="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50 flex items-center gap-2"
+                >
+                  <ArrowPathIcon className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+                  {isRefreshing ? 'Checking...' : 'Check for Updates'}
                 </button>
               )}
             </motion.div>

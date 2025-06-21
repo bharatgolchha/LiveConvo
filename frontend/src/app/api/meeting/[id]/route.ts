@@ -154,6 +154,12 @@ export async function PATCH(
 
     // Handle context update separately
     if (context !== undefined) {
+      console.log('📝 Updating meeting context:', {
+        session_id: id,
+        context_length: context?.length || 0,
+        context_preview: context ? (context.substring(0, 100) + (context.length > 100 ? '...' : '')) : 'null'
+      });
+
       // Get user's organization
       const { data: orgMember } = await supabase
         .from('organization_members')
@@ -176,12 +182,17 @@ export async function PATCH(
         .single();
 
       if (existingContext) {
+        console.log('🔄 Updating existing session context');
         // Update existing context
         const { error: contextError } = await supabase
           .from('session_context')
           .update({
             text_context: context,
-            updated_at: new Date().toISOString()
+            updated_at: new Date().toISOString(),
+            context_metadata: {
+              updated_from: 'meeting_settings',
+              updated_at: new Date().toISOString()
+            }
           })
           .eq('session_id', id);
 
@@ -191,8 +202,11 @@ export async function PATCH(
             { error: 'Failed to update context', details: contextError.message },
             { status: 500 }
           );
+        } else {
+          console.log('✅ Session context updated successfully');
         }
       } else {
+        console.log('➕ Creating new session context');
         // Create new context entry
         const { error: contextError } = await supabase
           .from('session_context')
@@ -200,7 +214,11 @@ export async function PATCH(
             session_id: id,
             user_id: user.id,
             organization_id: orgMember.organization_id,
-            text_context: context
+            text_context: context,
+            context_metadata: {
+              created_from: 'meeting_settings',
+              created_at: new Date().toISOString()
+            }
           });
 
         if (contextError) {
@@ -209,6 +227,8 @@ export async function PATCH(
             { error: 'Failed to create context', details: contextError.message },
             { status: 500 }
           );
+        } else {
+          console.log('✅ Session context created successfully');
         }
       }
     }

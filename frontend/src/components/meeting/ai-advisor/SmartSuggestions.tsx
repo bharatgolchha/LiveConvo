@@ -8,9 +8,16 @@ import {
   ChatBubbleLeftRightIcon,
   ExclamationTriangleIcon,
   CheckCircleIcon,
-  ArrowPathIcon
+  ArrowPathIcon,
+  PlayIcon
 } from '@heroicons/react/24/outline';
 import { useMeetingContext } from '@/lib/meeting/context/MeetingContext';
+
+interface SuggestionChip {
+  text: string;
+  prompt: string;
+  impact?: number;
+}
 
 interface Suggestion {
   id: string;
@@ -25,15 +32,16 @@ interface Suggestion {
 
 export function SmartSuggestions() {
   const { meeting, transcript, botStatus } = useMeetingContext();
-  const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
+  const [suggestions, setSuggestions] = useState<SuggestionChip[]>([]);
   const [loading, setLoading] = useState(false);
   const [lastUpdateLength, setLastUpdateLength] = useState(0);
+  const [error, setError] = useState<string | null>(null);
 
   // Generate suggestions based on transcript changes
   useEffect(() => {
     const shouldUpdate = transcript.length > 0 && 
                         transcript.length !== lastUpdateLength &&
-                        transcript.length % 5 === 0; // Update every 5 new messages
+                        transcript.length % 10 === 0; // Update every 10 new messages
 
     if (shouldUpdate && botStatus?.status === 'in_call') {
       generateSuggestions();
@@ -45,41 +53,65 @@ export function SmartSuggestions() {
     if (loading) return;
     
     setLoading(true);
+    setError(null);
+    
     try {
-      const recentTranscript = transcript.slice(-10).map(t => ({
-        speaker: t.displayName || t.speaker,
-        text: t.text
-      }));
+      // Build recent transcript for context
+      const recentTranscript = transcript.slice(-20).map(t => 
+        `${t.displayName || t.speaker}: ${t.text}`
+      ).join('\n');
+
+      console.log('🔍 Generating suggestions with:', {
+        transcriptLength: transcript.length,
+        meetingType: meeting?.type,
+        stage: getConversationStage()
+      });
 
       const response = await fetch('/api/chat-guidance', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          message: 'Generate 3 contextual suggestions based on the current conversation',
+          message: 'Generate contextual suggestions',
           sessionId: meeting?.id,
           conversationType: meeting?.type || 'meeting',
-          stage: getConversationStage(),
-          recentTranscript,
+          conversationTitle: meeting?.title,
+          textContext: meeting?.context,
+          transcript: recentTranscript,
+          stage: getConversationStage(), // This triggers "chips mode"
           isRecording: true,
-          transcriptLength: transcript.length
+          transcriptLength: transcript.length,
+          participantMe: meeting?.participantMe || 'You',
+          participantThem: meeting?.participantThem || 'Participant'
         })
       });
 
-      if (response.ok) {
-        const { suggestions: newSuggestions } = await response.json();
-        if (newSuggestions && Array.isArray(newSuggestions)) {
-          setSuggestions(prev => [...newSuggestions, ...prev].slice(0, 10)); // Keep max 10
-        }
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      console.log('📝 Suggestions response:', data);
+
+      if (data.suggestedActions && Array.isArray(data.suggestedActions)) {
+        setSuggestions(data.suggestedActions);
+        console.log('✅ Suggestions updated:', data.suggestedActions.length);
+      } else {
+        console.warn('⚠️ No suggestions in response:', data);
+        // Use fallback suggestions
+        setSuggestions(getFallbackSuggestions());
       }
     } catch (error) {
-      console.error('Error generating suggestions:', error);
+      console.error('❌ Error generating suggestions:', error);
+      setError(error instanceof Error ? error.message : 'Failed to generate suggestions');
+      // Use fallback suggestions on error
+      setSuggestions(getFallbackSuggestions());
     } finally {
       setLoading(false);
     }
   };
 
   const getConversationStage = () => {
-    // Simple heuristic to determine conversation stage
+    // Simple heuristic to determine conversation stage based on transcript length and content
     const length = transcript.length;
     if (length < 5) return 'opening';
     if (length < 15) return 'discovery';
@@ -87,50 +119,77 @@ export function SmartSuggestions() {
     return 'closing';
   };
 
-  const getSuggestionIcon = (type: string) => {
-    switch (type) {
-      case 'question': return ChatBubbleLeftRightIcon;
-      case 'action': return ArrowRightIcon;
-      case 'warning': return ExclamationTriangleIcon;
-      case 'tip': return LightBulbIcon;
-      default: return SparklesIcon;
-    }
-  };
-
-  const getSuggestionColor = (type: string, priority: string) => {
-    if (type === 'warning') return 'text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/20 border-amber-200 dark:border-amber-800';
-    if (priority === 'high') return 'text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-950/20 border-red-200 dark:border-red-800';
-    if (priority === 'medium') return 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/20 border-blue-200 dark:border-blue-800';
-    return 'text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-950/20 border-green-200 dark:border-green-800';
-  };
-
-  const useSuggestion = async (suggestion: Suggestion) => {
-    if (suggestion.prompt) {
-      // Trigger AI chat with the suggestion prompt
-      try {
-        const response = await fetch('/api/chat-guidance', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            message: suggestion.prompt,
-            sessionId: meeting?.id,
-            conversationType: meeting?.type || 'meeting',
-            recentTranscript: transcript.slice(-20).map(t => ({
-              speaker: t.displayName || t.speaker,
-              text: t.text
-            }))
-          })
-        });
-
-        if (response.ok) {
-          // Mark as used
-          setSuggestions(prev => 
-            prev.map(s => s.id === suggestion.id ? { ...s, isUsed: true } : s)
-          );
-        }
-      } catch (error) {
-        console.error('Error using suggestion:', error);
+  const getFallbackSuggestions = (): SuggestionChip[] => {
+    const stage = getConversationStage();
+    const type = meeting?.type || 'meeting';
+    
+    const fallbackMap: Record<string, Record<string, SuggestionChip[]>> = {
+      sales: {
+        opening: [
+          { text: "🎯 Set agenda", prompt: "How should I structure this sales call?", impact: 90 },
+          { text: "🤝 Build rapport", prompt: "What's the best way to build rapport with this prospect?", impact: 85 },
+          { text: "📋 Qualify needs", prompt: "What qualifying questions should I ask first?", impact: 80 }
+        ],
+        discovery: [
+          { text: "🔍 Dig deeper", prompt: "What follow-up questions should I ask about their challenges?", impact: 90 },
+          { text: "💰 Understand budget", prompt: "How can I tactfully explore their budget range?", impact: 85 },
+          { text: "⏰ Timeline check", prompt: "What should I ask about their implementation timeline?", impact: 80 }
+        ],
+        discussion: [
+          { text: "💡 Present solution", prompt: "How should I position our solution for their needs?", impact: 90 },
+          { text: "🛡️ Handle objections", prompt: "How can I address their main concerns?", impact: 85 },
+          { text: "📊 Show value", prompt: "What ROI examples should I share?", impact: 80 }
+        ],
+        closing: [
+          { text: "🎯 Close deal", prompt: "What closing technique should I use now?", impact: 90 },
+          { text: "📅 Next steps", prompt: "How should I establish clear next steps?", impact: 85 },
+          { text: "📋 Follow-up plan", prompt: "What follow-up should I commit to?", impact: 80 }
+        ]
+      },
+      meeting: {
+        opening: [
+          { text: "📋 Set agenda", prompt: "How should I structure this meeting?", impact: 90 },
+          { text: "🎯 Clarify goals", prompt: "How can I ensure everyone understands our objectives?", impact: 85 },
+          { text: "⏰ Time management", prompt: "How should I manage our time effectively?", impact: 80 }
+        ],
+        discovery: [
+          { text: "💭 Gather input", prompt: "How can I encourage more participation?", impact: 90 },
+          { text: "🔍 Explore ideas", prompt: "What questions will help us explore this topic deeper?", impact: 85 },
+          { text: "📝 Capture insights", prompt: "What key points should I be documenting?", impact: 80 }
+        ],
+        discussion: [
+          { text: "⚖️ Facilitate decisions", prompt: "How can I help the group reach a decision?", impact: 90 },
+          { text: "🎯 Stay focused", prompt: "How do I bring the discussion back on track?", impact: 85 },
+          { text: "👥 Include everyone", prompt: "How can I ensure all voices are heard?", impact: 80 }
+        ],
+        closing: [
+          { text: "📋 Summarize actions", prompt: "What action items should I confirm?", impact: 90 },
+          { text: "📅 Schedule follow-up", prompt: "What follow-up meetings do we need?", impact: 85 },
+          { text: "📤 Share notes", prompt: "How should I distribute the meeting summary?", impact: 80 }
+        ]
       }
+    };
+
+    return fallbackMap[type]?.[stage] || fallbackMap.meeting[stage] || [];
+  };
+
+  const useSuggestion = async (suggestion: SuggestionChip) => {
+    if (!suggestion.prompt) return;
+
+    try {
+      // Mark as used (visual feedback)
+      setSuggestions(prev => 
+        prev.map(s => s.text === suggestion.text ? { ...s, isUsed: true } : s)
+      );
+
+      // This could trigger the AI chat with the suggestion prompt
+      // For now, we'll just log it
+      console.log('💡 Using suggestion:', suggestion.prompt);
+      
+      // You could integrate this with the AI chat component
+      // by dispatching an event or calling a callback
+    } catch (error) {
+      console.error('Error using suggestion:', error);
     }
   };
 
@@ -142,38 +201,7 @@ export function SmartSuggestions() {
     });
   };
 
-  // Default suggestions when no transcript yet
-  const defaultSuggestions: Suggestion[] = [
-    {
-      id: 'default-1',
-      type: 'tip',
-      title: 'Start with an icebreaker',
-      description: 'Open with a warm greeting and agenda overview',
-      prompt: 'What\'s a good way to start this meeting?',
-      priority: 'medium',
-      timestamp: new Date().toISOString()
-    },
-    {
-      id: 'default-2',
-      type: 'question',
-      title: 'Clarify objectives',
-      description: 'Ensure everyone understands the meeting goals',
-      prompt: 'How can I clarify the meeting objectives?',
-      priority: 'high',
-      timestamp: new Date().toISOString()
-    },
-    {
-      id: 'default-3',
-      type: 'action',
-      title: 'Set expectations',
-      description: 'Establish ground rules and time boundaries',
-      prompt: 'What expectations should I set for this meeting?',
-      priority: 'medium',
-      timestamp: new Date().toISOString()
-    }
-  ];
-
-  const displaySuggestions = suggestions.length > 0 ? suggestions : defaultSuggestions;
+  const displaySuggestions = suggestions.length > 0 ? suggestions : getFallbackSuggestions();
 
   return (
     <div className="flex flex-col h-full">
@@ -188,7 +216,7 @@ export function SmartSuggestions() {
             {loading && <ArrowPathIcon className="w-4 h-4 animate-spin text-muted-foreground" />}
             <button
               onClick={generateSuggestions}
-              disabled={loading || transcript.length === 0}
+              disabled={loading}
               className="p-1 hover:bg-muted rounded text-xs disabled:opacity-50"
               title="Refresh suggestions"
             >
@@ -199,110 +227,118 @@ export function SmartSuggestions() {
         
         {transcript.length === 0 && (
           <p className="text-xs text-muted-foreground mt-2">
-            Default suggestions shown. Start recording for contextual recommendations.
+            Start the meeting to get contextual suggestions
           </p>
         )}
-      </div>
 
-      {/* Suggestions List */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-3">
-        <AnimatePresence>
-          {displaySuggestions.map((suggestion, index) => {
-            const Icon = getSuggestionIcon(suggestion.type);
-            return (
-              <motion.div
-                key={suggestion.id}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -20 }}
-                transition={{ delay: index * 0.1 }}
-                className={`relative p-4 rounded-lg border transition-all hover:shadow-sm ${
-                  suggestion.isUsed 
-                    ? 'bg-muted/50 border-border opacity-75' 
-                    : `${getSuggestionColor(suggestion.type, suggestion.priority)} hover:shadow-md cursor-pointer`
-                }`}
-                onClick={() => !suggestion.isUsed && useSuggestion(suggestion)}
-              >
-                <div className="flex items-start gap-3">
-                  <div className={`flex-shrink-0 p-2 rounded-md ${
-                    suggestion.isUsed ? 'bg-muted' : 'bg-white/80 dark:bg-black/20'
-                  }`}>
-                    {suggestion.isUsed ? (
-                      <CheckCircleIcon className="w-4 h-4 text-green-600 dark:text-green-400" />
-                    ) : (
-                      <Icon className="w-4 h-4" />
-                    )}
-                  </div>
-                  
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between mb-1">
-                      <h4 className="font-medium text-sm truncate">
-                        {suggestion.title}
-                      </h4>
-                      <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
-                        suggestion.priority === 'high' 
-                          ? 'bg-red-100 dark:bg-red-950/20 text-red-700 dark:text-red-400'
-                          : suggestion.priority === 'medium'
-                          ? 'bg-yellow-100 dark:bg-yellow-950/20 text-yellow-700 dark:text-yellow-400'
-                          : 'bg-green-100 dark:bg-green-950/20 text-green-700 dark:text-green-400'
-                      }`}>
-                        {suggestion.priority}
-                      </span>
-                    </div>
-                    
-                    <p className="text-sm text-muted-foreground leading-relaxed mb-2">
-                      {suggestion.description}
-                    </p>
-                    
-                    <div className="flex items-center justify-between text-xs text-muted-foreground">
-                      <div className="flex items-center gap-1">
-                        <ClockIcon className="w-3 h-3" />
-                        <span>{formatTime(suggestion.timestamp)}</span>
-                      </div>
-                      
-                      {!suggestion.isUsed && suggestion.prompt && (
-                        <span className="flex items-center gap-1 text-primary">
-                          <span>Click to explore</span>
-                          <ArrowRightIcon className="w-3 h-3" />
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                </div>
-                
-                {suggestion.isUsed && (
-                  <div className="absolute top-2 right-2">
-                    <CheckCircleIcon className="w-4 h-4 text-green-600 dark:text-green-400" />
-                  </div>
-                )}
-              </motion.div>
-            );
-          })}
-        </AnimatePresence>
-
-        {displaySuggestions.length === 0 && !loading && (
-          <div className="text-center py-8">
-            <LightBulbIcon className="w-8 h-8 text-muted-foreground mx-auto mb-2" />
-            <p className="text-sm text-muted-foreground">
-              No suggestions available yet
-            </p>
-            <p className="text-xs text-muted-foreground mt-1">
-              Start your recording to get contextual recommendations
-            </p>
+        {error && (
+          <div className="mt-2 p-2 bg-destructive/10 text-destructive text-xs rounded border border-destructive/20">
+            {error}
           </div>
         )}
       </div>
 
-      {/* Quick Actions */}
-      <div className="flex-shrink-0 p-4 border-t border-border bg-card/50">
-        <div className="flex gap-2">
-          <button
-            onClick={generateSuggestions}
-            disabled={loading}
-            className="flex-1 px-3 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 disabled:opacity-50 transition-all"
-          >
-            {loading ? 'Generating...' : 'Get More Suggestions'}
-          </button>
+      {/* Suggestions List */}
+      <div className="flex-1 overflow-y-auto p-4">
+        <div className="space-y-3">
+          <AnimatePresence>
+            {displaySuggestions.map((suggestion, index) => (
+              <motion.div
+                key={`${suggestion.text}-${index}`}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -20 }}
+                transition={{ delay: index * 0.1 }}
+                className={`group relative p-3 rounded-lg border transition-all cursor-pointer hover:shadow-sm ${
+                  (suggestion as any).isUsed 
+                    ? 'bg-muted/50 border-muted text-muted-foreground'
+                    : 'bg-card border-border hover:border-primary/50 hover:bg-card/80'
+                }`}
+                onClick={() => useSuggestion(suggestion)}
+              >
+                <div className="flex items-start gap-3">
+                  <div className="flex-shrink-0 mt-0.5">
+                    <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs ${
+                      (suggestion as any).isUsed
+                        ? 'bg-muted text-muted-foreground'
+                        : 'bg-primary/10 text-primary'
+                    }`}>
+                      {(suggestion as any).isUsed ? (
+                        <CheckCircleIcon className="w-4 h-4" />
+                      ) : (
+                        <PlayIcon className="w-3 h-3" />
+                      )}
+                    </div>
+                  </div>
+                  
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1">
+                      <h4 className="font-medium text-sm truncate">
+                        {suggestion.text}
+                      </h4>
+                      {suggestion.impact && (
+                        <span className="text-xs text-muted-foreground">
+                          {suggestion.impact}%
+                        </span>
+                      )}
+                    </div>
+                    
+                    {suggestion.prompt && (
+                      <p className="text-xs text-muted-foreground line-clamp-2">
+                        {suggestion.prompt}
+                      </p>
+                    )}
+                  </div>
+                  
+                  <div className="flex-shrink-0">
+                    <ArrowRightIcon className={`w-4 h-4 transition-transform group-hover:translate-x-1 ${
+                      (suggestion as any).isUsed ? 'text-muted-foreground' : 'text-muted-foreground'
+                    }`} />
+                  </div>
+                </div>
+              </motion.div>
+            ))}
+          </AnimatePresence>
+        </div>
+
+        {/* Empty State */}
+        {displaySuggestions.length === 0 && !loading && (
+          <div className="flex flex-col items-center justify-center py-8 text-center">
+            <LightBulbIcon className="w-8 h-8 text-muted-foreground mb-3" />
+            <h4 className="font-medium text-sm mb-1">No Suggestions Yet</h4>
+            <p className="text-xs text-muted-foreground mb-4">
+              {transcript.length === 0 
+                ? 'Start recording to get smart suggestions'
+                : 'Continue the conversation to get contextual advice'
+              }
+            </p>
+            {transcript.length > 0 && (
+              <button
+                onClick={generateSuggestions}
+                disabled={loading}
+                className="px-3 py-1.5 text-xs bg-primary text-primary-foreground rounded-md hover:bg-primary/90 disabled:opacity-50"
+              >
+                Generate Suggestions
+              </button>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Footer Info */}
+      <div className="flex-shrink-0 p-3 border-t border-border bg-muted/20">
+        <div className="flex items-center justify-between text-xs text-muted-foreground">
+          <span>
+            {botStatus?.status === 'in_call' ? (
+              <>
+                <div className="inline-block w-2 h-2 bg-green-500 rounded-full mr-2 animate-pulse" />
+                Live suggestions
+              </>
+            ) : (
+              'Ready for suggestions'
+            )}
+          </span>
+          <span>{displaySuggestions.length} suggestions</span>
         </div>
       </div>
     </div>

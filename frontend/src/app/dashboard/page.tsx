@@ -230,7 +230,7 @@ const DashboardPage: React.FC = () => {
       // Check if this is a meeting session
       const isVideoConference = !!(session as any).meeting_url || !!(session as any).meeting_platform;
       
-      // All conversations now go to the meeting page since /app is deprecated
+      // All conversations now use the meeting interface
       window.location.href = `/meeting/${sessionId}`;
     }
   };

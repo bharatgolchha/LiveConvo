@@ -12,14 +12,16 @@ export function useMeetingTranscript(sessionId: string) {
   const lastPolledSequence = useRef<number>(0);
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const supabaseChannelRef = useRef<RealtimeChannel | null>(null);
-  const currentPollDelay = useRef<number>(3000); // start with 3s
+  const currentPollDelay = useRef<number>(2000); // Reduced from 3s to 2s for faster updates
   const isSSEConnected = useRef<boolean>(false);
+  const lastTranscriptLength = useRef<number>(0);
 
   // Load existing transcript from database
   const loadTranscript = useCallback(async () => {
     if (!sessionId) return;
 
     try {
+      console.log('📊 Loading transcript for session:', sessionId);
       const { data, error: fetchError } = await supabase
         .from('transcripts')
         .select('*')
@@ -45,31 +47,34 @@ export function useMeetingTranscript(sessionId: string) {
         
         // Replace entire transcript instead of adding individually
         setTranscript(messages);
+        lastTranscriptLength.current = messages.length;
         // Update last polled sequence
         if (data.length > 0) {
           const maxSequence = Math.max(...data.map(t => t.sequence_number || 0));
           lastPolledSequence.current = maxSequence;
-          console.log('📊 Loaded transcript, max sequence:', maxSequence);
+          console.log('📊 Loaded transcript:', messages.length, 'messages, max sequence:', maxSequence);
         }
       } else {
         // Clear transcript if no data
         setTranscript([]);
         lastPolledSequence.current = 0;
+        lastTranscriptLength.current = 0;
+        console.log('📊 No transcript data found');
       }
     } catch (err) {
-      console.error('Error loading transcript:', err);
+      console.error('❌ Error loading transcript:', err);
       setError(err as Error);
     } finally {
       setLoading(false);
     }
   }, [sessionId, setTranscript]);
 
-  // Poll for new transcript updates (fallback mechanism)
+  // Poll for new transcript updates (enhanced fallback mechanism)
   const pollForUpdates = useCallback(async () => {
     if (!sessionId || isSSEConnected.current) return;
 
     try {
-      console.log('[Polling] Checking for updates. Seq >', lastPolledSequence.current, 'Delay', currentPollDelay.current);
+      console.log('🔄 [Polling] Checking for updates. Session:', sessionId.substring(0, 8), 'Seq >', lastPolledSequence.current);
       
       const { data, error: fetchError } = await supabase
         .from('transcripts')
@@ -81,7 +86,7 @@ export function useMeetingTranscript(sessionId: string) {
       if (fetchError) throw fetchError;
 
       if (data && data.length > 0) {
-        console.log('[Polling] New transcript rows:', data.length);
+        console.log('🔄 [Polling] New transcript rows:', data.length);
         
         data.forEach(transcript => {
           const message: TranscriptMessage = {
@@ -96,19 +101,26 @@ export function useMeetingTranscript(sessionId: string) {
             displayName: transcript.speaker
           };
           
+          console.log('➕ [Polling] Adding message:', message.speaker, ':', message.text.substring(0, 50) + '...');
           addTranscriptMessage(message);
         });
         
         const maxSequence = Math.max(...data.map(t => t.sequence_number || 0));
         lastPolledSequence.current = maxSequence;
+        lastTranscriptLength.current += data.length;
         // Reset delay back to minimum on new data
-        currentPollDelay.current = 3000;
+        currentPollDelay.current = 2000;
+        
+        console.log('✅ [Polling] Updated sequence to:', maxSequence, 'Total messages:', lastTranscriptLength.current);
       } else {
-        // No data, increase delay (max 15s) to reduce load
-        currentPollDelay.current = Math.min(currentPollDelay.current + 2000, 15000);
+        // No data, increase delay (max 10s) to reduce load
+        currentPollDelay.current = Math.min(currentPollDelay.current + 1000, 10000);
+        console.log('🔄 [Polling] No new data, delay increased to:', currentPollDelay.current);
       }
     } catch (err) {
-      console.error('Error polling for transcript updates:', err);
+      console.error('❌ [Polling] Error:', err);
+      // Continue polling even on error
+      currentPollDelay.current = Math.min(currentPollDelay.current + 2000, 10000);
     } finally {
       // Reschedule next poll with adaptive delay if still polling
       if (!isSSEConnected.current && !supabaseChannelRef.current) {
@@ -117,7 +129,69 @@ export function useMeetingTranscript(sessionId: string) {
     }
   }, [sessionId, addTranscriptMessage]);
 
-  // Connect to SSE for real-time updates
+  // Enhanced Supabase realtime connection
+  const connectSupabaseRealtime = useCallback(() => {
+    if (!sessionId || supabaseChannelRef.current) return;
+
+    console.log('🔌 Setting up Supabase realtime for transcripts, session:', sessionId.substring(0, 8));
+    const channel = supabase.channel(`transcripts-${sessionId}`)
+      .on('postgres_changes', {
+        event: 'INSERT',
+        schema: 'public',
+        table: 'transcripts',
+        filter: `session_id=eq.${sessionId}`
+      }, payload => {
+        const row: any = payload.new;
+        if (!row) return;
+        
+        console.log('📡 [Supabase Realtime] New transcript:', row.speaker, ':', row.content?.substring(0, 50) + '...');
+        
+        // Skip if already processed to avoid duplicates
+        if (row.sequence_number <= lastPolledSequence.current) {
+          console.log('⏭️ [Supabase Realtime] Skipping duplicate, seq:', row.sequence_number, 'last:', lastPolledSequence.current);
+          return;
+        }
+
+        const message: TranscriptMessage = {
+          id: row.id,
+          sessionId: row.session_id,
+          speaker: row.speaker,
+          text: row.content,
+          timestamp: row.created_at,
+          timeSeconds: row.start_time_seconds || 0,
+          isFinal: true,
+          confidence: row.confidence_score,
+          displayName: row.speaker
+        };
+        
+        console.log('➕ [Supabase Realtime] Adding message to UI');
+        addTranscriptMessage(message);
+        lastPolledSequence.current = row.sequence_number || lastPolledSequence.current;
+        lastTranscriptLength.current++;
+      })
+      .subscribe(status => {
+        console.log('📡 [Supabase Realtime] Subscription status:', status);
+        if (status === 'SUBSCRIBED') {
+          console.log('✅ [Supabase Realtime] Successfully subscribed');
+          // Stop polling when realtime is connected
+          if (pollingIntervalRef.current) {
+            clearTimeout(pollingIntervalRef.current);
+            pollingIntervalRef.current = null;
+            console.log('⏹️ [Supabase Realtime] Stopped polling');
+          }
+        } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+          console.log('❌ [Supabase Realtime] Connection failed, starting polling fallback');
+          // Start polling fallback on error
+          if (!pollingIntervalRef.current) {
+            pollingIntervalRef.current = setTimeout(pollForUpdates, currentPollDelay.current);
+          }
+        }
+      });
+
+    supabaseChannelRef.current = channel;
+  }, [sessionId, addTranscriptMessage, pollForUpdates]);
+
+  // Connect to SSE for real-time updates (enhanced)
   const connectToStream = useCallback(() => {
     if (!sessionId) return;
     
@@ -128,19 +202,22 @@ export function useMeetingTranscript(sessionId: string) {
       eventSourceRef.current = null;
     }
 
-    console.log('🔌 Connecting to transcript stream for session:', sessionId);
-    console.log('🌐 Current origin:', window.location.origin);
-    console.log('📡 Expected webhook URL:', `${window.location.origin}/api/webhooks/recall/${sessionId}`);
+    console.log('🔌 Connecting to transcript stream for session:', sessionId.substring(0, 8));
     const es = new EventSource(`/api/sessions/${sessionId}/transcript-stream`);
     
     es.onopen = () => {
       console.log('✅ SSE connection opened');
       isSSEConnected.current = true;
-      // Stop polling when SSE is connected
+      // Stop polling and Supabase realtime when SSE is connected
       if (pollingIntervalRef.current) {
-        clearInterval(pollingIntervalRef.current);
+        clearTimeout(pollingIntervalRef.current);
         pollingIntervalRef.current = null;
-        console.log('⏹️ Stopped polling - SSE connected');
+        console.log('⏹️ SSE connected - stopped polling');
+      }
+      if (supabaseChannelRef.current) {
+        supabaseChannelRef.current.unsubscribe();
+        supabaseChannelRef.current = null;
+        console.log('⏹️ SSE connected - stopped Supabase realtime');
       }
     };
     
@@ -167,12 +244,11 @@ export function useMeetingTranscript(sessionId: string) {
 
           if (message.isPartial && message.id.startsWith('partial-')) {
             console.log('🔄 Updating partial message:', message.id);
-            // Find and update existing partial from same speaker
             updateTranscriptMessage(message.id, message);
           } else {
             console.log('➕ Adding new message:', message.id);
-            // Add new message
             addTranscriptMessage(message);
+            lastTranscriptLength.current++;
             // Update sequence tracking for polling fallback
             if (data.data.sequenceNumber && data.data.sequenceNumber > lastPolledSequence.current) {
               lastPolledSequence.current = data.data.sequenceNumber;
@@ -180,115 +256,98 @@ export function useMeetingTranscript(sessionId: string) {
           }
         }
       } catch (err) {
-        console.error('Error parsing SSE message:', err);
+        console.error('❌ Error parsing SSE message:', err);
       }
     };
 
     es.onerror = (err) => {
-      console.error('SSE error:', err);
+      console.error('❌ SSE error:', err);
       isSSEConnected.current = false;
       es.close();
       
-      // Start Supabase realtime fallback first
+      // Start Supabase realtime fallback first (more reliable than polling)
       if (!supabaseChannelRef.current) {
+        console.log('🔄 SSE failed, starting Supabase realtime fallback');
         connectSupabaseRealtime();
       }
-      // Additionally use adaptive polling as safety net
+      
+      // Additionally use polling as final safety net
       if (!pollingIntervalRef.current) {
-        console.log('🔄 SSE failed, starting adaptive polling');
+        console.log('🔄 SSE failed, starting polling fallback');
         pollingIntervalRef.current = setTimeout(pollForUpdates, currentPollDelay.current);
       }
       
-      // Reconnect after 5 seconds
+      // Reconnect SSE after 10 seconds
       setTimeout(() => {
+        console.log('🔄 Reconnecting SSE after error');
         connectToStream();
-      }, 5000);
+      }, 10000);
     };
 
     eventSourceRef.current = es;
-  }, [sessionId, addTranscriptMessage, updateTranscriptMessage, pollForUpdates]);
+  }, [sessionId, addTranscriptMessage, updateTranscriptMessage, pollForUpdates, connectSupabaseRealtime]);
 
-  // Start polling fallback if SSE doesn't connect within 10 seconds
+  // Enhanced initialization with immediate fallback
   useEffect(() => {
     if (!sessionId) return;
     
-    const fallbackTimer = setTimeout(() => {
-      if (!isSSEConnected.current && !pollingIntervalRef.current) {
-        console.log('⚠️ SSE connection timeout, starting polling fallback');
-        pollingIntervalRef.current = setInterval(pollForUpdates, 3000);
-      }
-    }, 10000); // 10 second timeout
-
-    return () => {
-      clearTimeout(fallbackTimer);
-    };
-  }, [sessionId, pollForUpdates]);
-
-  // Load transcript on mount
-  useEffect(() => {
+    // Load existing transcript first
     loadTranscript();
-  }, [loadTranscript]);
-
-  // Connect to stream
-  useEffect(() => {
+    
+    // Start real-time connections immediately
     connectToStream();
+    
+    // Start Supabase realtime as primary fallback
+    const realtimeTimer = setTimeout(() => {
+      if (!isSSEConnected.current) {
+        console.log('⚠️ SSE not connected in 5s, starting Supabase realtime');
+        connectSupabaseRealtime();
+      }
+    }, 5000);
+    
+    // Start polling as secondary fallback
+    const pollingTimer = setTimeout(() => {
+      if (!isSSEConnected.current && !supabaseChannelRef.current) {
+        console.log('⚠️ No real-time connection in 10s, starting polling');
+        pollingIntervalRef.current = setTimeout(pollForUpdates, currentPollDelay.current);
+      }
+    }, 10000);
 
     return () => {
+      clearTimeout(realtimeTimer);
+      clearTimeout(pollingTimer);
+    };
+  }, [sessionId, loadTranscript, connectToStream, connectSupabaseRealtime, pollForUpdates]);
+
+  // Cleanup connections on unmount
+  useEffect(() => {
+    return () => {
+      console.log('🧹 Cleaning up transcript connections');
+      
       if (eventSourceRef.current) {
-        console.log('🔌 Closing SSE connection on unmount');
         eventSourceRef.current.close();
         eventSourceRef.current = null;
       }
+      
       if (pollingIntervalRef.current) {
-        console.log('⏹️ Stopping polling on unmount');
         clearTimeout(pollingIntervalRef.current);
         pollingIntervalRef.current = null;
       }
+      
       if (supabaseChannelRef.current) {
-        console.log('⏹️ Unsubscribing Supabase realtime');
         supabaseChannelRef.current.unsubscribe();
         supabaseChannelRef.current = null;
       }
+      
       isSSEConnected.current = false;
     };
-  }, [sessionId, connectToStream]); // Include connectToStream in deps
+  }, []);
 
-  // Supabase realtime fallback
-  const connectSupabaseRealtime = useCallback(() => {
-    if (!sessionId || isSSEConnected.current) return;
+  // Force refresh function for manual testing
+  const forceRefresh = useCallback(() => {
+    console.log('🔄 Force refreshing transcript...');
+    loadTranscript();
+  }, [loadTranscript]);
 
-    console.log('🔌 Setting up Supabase realtime for transcripts');
-    const channel = supabase.channel(`transcripts-${sessionId}`)
-      .on('postgres_changes', {
-        event: 'INSERT',
-        schema: 'public',
-        table: 'transcripts',
-        filter: `session_id=eq.${sessionId}`
-      }, payload => {
-        const row: any = payload.new;
-        if (!row) return;
-        if (row.sequence_number <= lastPolledSequence.current) return; // already processed
-
-        const message: TranscriptMessage = {
-          id: row.id,
-          sessionId: row.session_id,
-          speaker: row.speaker,
-          text: row.content,
-          timestamp: row.created_at,
-          timeSeconds: row.start_time_seconds || 0,
-          isFinal: true,
-          confidence: row.confidence_score,
-          displayName: row.speaker
-        };
-        addTranscriptMessage(message);
-        lastPolledSequence.current = row.sequence_number || lastPolledSequence.current;
-      })
-      .subscribe(status => {
-        console.log('[Supabase Realtime] subscription status', status);
-      });
-
-    supabaseChannelRef.current = channel;
-  }, [sessionId, addTranscriptMessage]);
-
-  return { loading, error };
+  return { loading, error, forceRefresh };
 }

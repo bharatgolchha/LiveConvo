@@ -77,34 +77,37 @@ export function EnhancedAIChat() {
     setIsTyping(true);
 
     try {
-      // Build full transcript string (limit to ~5000 chars to keep request size reasonable)
-      let transcriptSlice = transcript;
+      // Build formatted transcript (last 5000 chars to avoid token limits)
       let transcriptText = '';
-      
-      // Group consecutive messages from same speaker and format with speaker names  
-      // Start from the end and work backwards until we hit ~5000 chars
-      for (let startIdx = 0; startIdx <= transcript.length; startIdx++) {
-        const slice = transcript.slice(startIdx);
-        const formattedTranscript = slice.reduce((acc, curr, idx) => {
-          const speaker = curr.displayName || curr.speaker || 'Unknown';
-          const prevSpeaker = idx > 0 ? (slice[idx-1].displayName || slice[idx-1].speaker || 'Unknown') : null;
-          
-          // If same speaker as previous, append to last entry
-          if (speaker === prevSpeaker && acc.length > 0) {
-            acc[acc.length - 1] += ` ${curr.text}`;
-          } else {
-            // New speaker turn
-            acc.push(`${speaker}: ${curr.text}`);
-          }
-          return acc;
-        }, [] as string[]);
+      if (transcript.length > 0) {
+        // Take last portion of transcript to stay within limits
+        const maxLines = 100;
+        let startIdx = Math.max(0, transcript.length - maxLines);
         
-        const testTranscript = formattedTranscript.join('\n\n');
-        if (testTranscript.length <= 5000 || startIdx === 0) {
-          transcriptText = testTranscript;
-          break;
-        }
+                 // Try different chunk sizes to fit within character limit
+         for (; startIdx < transcript.length; startIdx += 10) {
+           const formattedTranscript = transcript.slice(startIdx).reduce((acc, msg, idx) => {
+             const timestamp = new Date(msg.timestamp).toLocaleTimeString('en-US', { hour12: false });
+             const speaker = msg.displayName || msg.speaker || 'Participant';
+             return [...acc, `[${timestamp}] ${speaker}: ${msg.text}`];
+           }, [] as string[]);
+           
+           const testTranscript = formattedTranscript.join('\n\n');
+           if (testTranscript.length <= 5000 || startIdx === 0) {
+             transcriptText = testTranscript;
+             break;
+           }
+         }
       }
+
+      // Debug log to ensure context is being passed
+      console.log('🤖 AI Chat Request Debug:', {
+        hasContext: !!meeting?.context,
+        contextLength: meeting?.context?.length || 0,
+        contextPreview: meeting?.context?.substring(0, 100) + (meeting?.context && meeting.context.length > 100 ? '...' : ''),
+        meetingTitle: meeting?.title,
+        transcriptLines: transcript.length
+      });
 
       const response = await fetch('/api/chat-guidance', {
         method: 'POST',
