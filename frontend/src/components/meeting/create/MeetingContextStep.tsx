@@ -30,6 +30,7 @@ export function MeetingContextStep({
 }: MeetingContextStepProps) {
   const handleExampleClick = () => {
     const randomExample = contextExamples[Math.floor(Math.random() * contextExamples.length)];
+    console.log('📝 MeetingContextStep: Setting example context:', randomExample.substring(0, 50) + '...');
     setContext(randomExample);
   };
 
@@ -47,7 +48,10 @@ export function MeetingContextStep({
         </label>
         <textarea
           value={context}
-          onChange={(e) => setContext(e.target.value)}
+          onChange={(e) => {
+            console.log('📝 MeetingContextStep: Context changed, length:', e.target.value.length);
+            setContext(e.target.value);
+          }}
           placeholder="Add background information, goals, or specific topics you want to cover..."
           rows={6}
           className="w-full px-4 py-3 bg-background border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all placeholder:text-muted-foreground resize-none"

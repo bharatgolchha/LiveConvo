@@ -48,10 +48,18 @@ export async function GET(
       );
     }
 
+    const contextValue = session.session_context?.[0]?.text_context || null;
+    console.log('📖 Meeting fetch - Context data:', {
+      sessionId: id,
+      hasSessionContext: !!session.session_context,
+      contextLength: contextValue?.length || 0,
+      contextPreview: contextValue ? contextValue.substring(0, 100) + '...' : 'null'
+    });
+
     return NextResponse.json({ 
       meeting: {
         ...session,
-        context: session.session_context?.[0]?.text_context || null
+        context: contextValue
       }
     });
   } catch (error) {
@@ -235,22 +243,19 @@ export async function PATCH(
 
     console.log('✅ Meeting updated successfully');
     
-    // Fetch the updated context if it was modified
-    let finalContext = null;
-    if (context !== undefined) {
-      const { data: contextData } = await supabase
-        .from('session_context')
-        .select('text_context')
-        .eq('session_id', id)
-        .single();
-      
-      finalContext = contextData?.text_context || null;
-    }
+    // Always fetch the current context to ensure we return the latest value
+    const { data: currentContextData } = await supabase
+      .from('session_context')
+      .select('text_context')
+      .eq('session_id', id)
+      .single();
+    
+    const finalContext = currentContextData?.text_context || null;
     
     return NextResponse.json({ 
       meeting: {
         ...updatedSession,
-        context: finalContext !== null ? finalContext : (updatedSession as any).context
+        context: finalContext
       }
     });
   } catch (error) {
