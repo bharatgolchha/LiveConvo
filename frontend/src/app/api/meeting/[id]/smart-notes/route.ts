@@ -59,11 +59,23 @@ export async function POST(
       throw new Error('Failed to fetch transcripts');
     }
 
+    // Ensure transcripts is an array
+    const transcriptArray = transcripts || [];
+
     // Format transcript for AI
-    const transcriptText = transcripts
+    const transcriptText = transcriptArray
       .reverse()
       .map(t => `${t.speaker}: ${t.content}`)
       .join('\n');
+
+    // Check OpenRouter API key
+    if (!process.env.OPENROUTER_API_KEY) {
+      console.error('❌ OPENROUTER_API_KEY environment variable is not set');
+      return NextResponse.json(
+        { error: 'AI service not configured. Please set OPENROUTER_API_KEY.' },
+        { status: 500 }
+      );
+    }
 
     // Generate smart notes using AI
     const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
@@ -71,11 +83,11 @@ export async function POST(
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${process.env.OPENROUTER_API_KEY}`,
-        'HTTP-Referer': process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3001',
+        'HTTP-Referer': process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000',
         'X-Title': 'LivePrompt Meeting Notes'
       },
       body: JSON.stringify({
-        model: 'google/gemini-2.0-flash-exp:free',
+        model: 'google/gemini-2.5-flash',
         messages: [
           {
             role: 'system',
@@ -93,17 +105,48 @@ export async function POST(
     });
 
     if (!response.ok) {
-      throw new Error('Failed to generate smart notes');
+      const errorText = await response.text();
+      console.error('OpenRouter API error:', errorText);
+      return NextResponse.json(
+        { error: 'OpenRouter API error', details: errorText },
+        { status: 502 }
+      );
     }
 
     const aiResponse = await response.json();
     let notes = [];
 
+    if (!aiResponse || !aiResponse.choices) {
+      console.error('Invalid response from OpenRouter:', aiResponse);
+      return NextResponse.json(
+        { error: 'Failed to generate smart notes (invalid AI response)' },
+        { status: 500 }
+      );
+    }
+
+    // Extract JSON from AI response
+    const rawContent: string = aiResponse.choices[0].message.content || '';
+    let jsonString = rawContent.trim();
+    // Remove triple backticks and optional json hint
+    if (jsonString.startsWith('```')) {
+      jsonString = jsonString.replace(/^```(?:json)?/i, '').replace(/```$/i, '').trim();
+    }
+    // Attempt to find the first JSON object/array in the string
+    const firstBrace = jsonString.indexOf('{');
+    const firstBracket = jsonString.indexOf('[');
+    const startIndex = (firstBrace === -1) ? firstBracket : (firstBracket === -1 ? firstBrace : Math.min(firstBrace, firstBracket));
+    if (startIndex > 0) {
+      jsonString = jsonString.slice(startIndex);
+    }
     try {
-      const parsed = JSON.parse(aiResponse.choices[0].message.content);
-      notes = parsed.notes || parsed || [];
+      const parsed = JSON.parse(jsonString);
+      notes = Array.isArray(parsed) ? parsed : (parsed.notes || []);
     } catch (e) {
-      console.error('Failed to parse AI response:', e);
+      console.error('Failed to parse AI response after cleaning:', {
+        error: e,
+        rawContent,
+        jsonString
+      });
       notes = [];
     }
 
@@ -134,6 +177,8 @@ export async function POST(
       }));
 
       await supabase.from('smart_notes').insert(notesToInsert);
+    } else {
+      console.warn('AI returned no smart notes');
     }
 
     return NextResponse.json({ notes });

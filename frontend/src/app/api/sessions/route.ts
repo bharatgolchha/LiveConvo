@@ -136,14 +136,19 @@ export async function GET(request: NextRequest) {
     // Get linked conversations info for all sessions
     const sessionIds = enhancedSessions.map(s => s.id);
     const linkedConversationsData = await getLinkedConversations(sessionIds, userData.current_organization_id, authClient);
+    
+    // Get transcript speakers for all sessions
+    const transcriptSpeakersData = await getTranscriptSpeakers(sessionIds, authClient);
 
-    // Add linked conversations data to each session
+    // Add linked conversations and transcript speakers data to each session
     const sessionsWithLinkedInfo = enhancedSessions.map(session => {
       const linkedData = linkedConversationsData.get(session.id) || { count: 0, conversations: [] };
+      const speakersData = transcriptSpeakersData.get(session.id) || [];
       return {
         ...session,
         linkedConversationsCount: linkedData.count,
-        linkedConversations: linkedData.conversations
+        linkedConversations: linkedData.conversations,
+        transcript_speakers: speakersData
       };
     });
 
@@ -238,8 +243,8 @@ export async function POST(request: NextRequest) {
         conversation_type,
         selected_template_id,
         status: 'draft',
-        participant_me,
-        participant_them,
+        participant_me: participant_me || null,
+        participant_them: participant_them || null,
         meeting_url: meeting_url || null,
         meeting_platform: meeting_url ? detectMeetingPlatform(meeting_url) : null
       })
@@ -303,7 +308,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ 
       session,
       context: sessionContext,
-      recallBot,
       message: sessionContext 
         ? 'Session and context created successfully' 
         : 'Session created successfully'
@@ -383,6 +387,50 @@ async function getLinkedConversations(sessionIds: string[], organizationId: stri
     return linkedData;
   } catch (error) {
     console.error('Error in getLinkedConversations:', error);
+    return new Map();
+  }
+}
+
+/**
+ * Get unique speakers from transcripts for each session
+ */
+async function getTranscriptSpeakers(sessionIds: string[], authClient: ReturnType<typeof createAuthenticatedSupabaseClient>): Promise<Map<string, string[]>> {
+  try {
+    if (sessionIds.length === 0) {
+      return new Map();
+    }
+
+    // Get unique speakers from transcripts for all sessions
+    const { data: transcripts, error } = await authClient
+      .from('transcripts')
+      .select('session_id, speaker')
+      .in('session_id', sessionIds)
+      .not('speaker', 'is', null)
+      .neq('speaker', '');
+
+    if (error) {
+      console.error('Error fetching transcript speakers:', error);
+      return new Map();
+    }
+
+    // Group speakers by session and get unique values
+    const speakersMap = new Map<string, string[]>();
+    
+    transcripts?.forEach(transcript => {
+      const sessionId = transcript.session_id;
+      const speaker = transcript.speaker?.trim();
+      
+      if (speaker && !['me', 'them', 'user', 'other'].includes(speaker.toLowerCase())) {
+        const existingSpeakers = speakersMap.get(sessionId) || [];
+        if (!existingSpeakers.includes(speaker)) {
+          speakersMap.set(sessionId, [...existingSpeakers, speaker]);
+        }
+      }
+    });
+
+    return speakersMap;
+  } catch (error) {
+    console.error('Error in getTranscriptSpeakers:', error);
     return new Map();
   }
 }

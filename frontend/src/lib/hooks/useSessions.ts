@@ -27,6 +27,7 @@ export interface Session {
   }>;
   participant_me?: string;
   participant_them?: string;
+  transcript_speakers?: string[];
   meeting_url?: string;
   meeting_platform?: 'zoom' | 'google_meet' | 'teams';
 }

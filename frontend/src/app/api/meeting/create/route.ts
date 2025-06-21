@@ -32,20 +32,23 @@ export async function POST(req: NextRequest) {
     const data: CreateMeetingData = await req.json();
     
     // Validate required fields
-    if (!data.title || !data.meetingUrl || !data.participantMe || !data.participantThem) {
+    if (!data.title) {
       return NextResponse.json(
-        { error: 'Missing required fields' },
+        { error: 'Missing required field: title is required' },
         { status: 400 }
       );
     }
 
-    // Detect meeting platform
-    const platform = detectMeetingPlatform(data.meetingUrl);
-    if (!platform) {
-      return NextResponse.json(
-        { error: 'Unsupported meeting platform' },
-        { status: 400 }
-      );
+    // Detect meeting platform (only if URL is provided)
+    let platform = null;
+    if (data.meetingUrl && data.meetingUrl.trim()) {
+      platform = detectMeetingPlatform(data.meetingUrl);
+      if (!platform) {
+        return NextResponse.json(
+          { error: 'Unsupported meeting platform' },
+          { status: 400 }
+        );
+      }
     }
 
     // Get user's organization
@@ -71,9 +74,9 @@ export async function POST(req: NextRequest) {
         title: data.title,
         conversation_type: data.type === 'custom' ? data.customType : data.type,
         status: 'active',
-        participant_me: data.participantMe,
-        participant_them: data.participantThem,
-        meeting_url: data.meetingUrl,
+        participant_me: data.participantMe || null,
+        participant_them: data.participantThem || null,
+        meeting_url: data.meetingUrl && data.meetingUrl.trim() ? data.meetingUrl : null,
         meeting_platform: platform,
         transcription_provider: 'recall_ai'
       })
@@ -124,7 +127,7 @@ export async function POST(req: NextRequest) {
         title: session.title,
         type: session.conversation_type,
         platform,
-        meetingUrl: data.meetingUrl,
+        meetingUrl: data.meetingUrl && data.meetingUrl.trim() ? data.meetingUrl : null,
         status: session.status,
         botId: session.recall_bot_id,
         createdAt: session.created_at

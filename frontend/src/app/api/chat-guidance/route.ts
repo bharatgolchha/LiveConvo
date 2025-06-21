@@ -105,6 +105,7 @@ interface ChatRequest {
   personalContext?: string;
   participantMe?: string;
   participantThem?: string;
+  smartNotes?: Array<any>;
 }
 
 // Add interface for parsed context
@@ -125,14 +126,16 @@ export async function POST(request: NextRequest) {
       chatHistory: z.any().default([]),
       conversationType: z.string().optional(),
       sessionId: z.string().optional(),
-      textContext: z.string().optional(),
-      conversationTitle: z.string().optional(),
+      textContext: z.string().nullable().optional(),
+      conversationTitle: z.string().nullable().optional(),
+      meetingUrl: z.string().nullable().optional().default(''),
       summary: z.any().optional(),
       uploadedFiles: z.any().optional(),
       selectedPreviousConversations: z.any().optional(),
-      personalContext: z.string().optional(),
+      personalContext: z.string().nullable().optional(),
       participantMe: z.string().optional(),
       participantThem: z.string().optional(),
+      smartNotes: z.array(z.any()).optional(),
       stage: z.enum(['opening','discovery','demo','pricing','closing']).optional(),
       isRecording: z.boolean().optional(),
       transcriptLength: z.number().optional()
@@ -142,8 +145,13 @@ export async function POST(request: NextRequest) {
     try {
       parsedBody = BodySchema.parse(body);
     } catch (e) {
-      console.error('Validation error', e);
-      return NextResponse.json({ error: 'Invalid request body' }, { status: 400 });
+      console.error('❌ Chat API Validation error:', e);
+      console.error('📝 Request body received:', JSON.stringify(body, null, 2));
+      return NextResponse.json({ 
+        error: 'Invalid request body', 
+        details: e instanceof Error ? e.message : 'Unknown validation error',
+        received: body
+      }, { status: 400 });
     }
 
     const {
@@ -154,12 +162,14 @@ export async function POST(request: NextRequest) {
       sessionId,
       textContext,
       conversationTitle,
+      meetingUrl,
       summary,
       uploadedFiles,
       selectedPreviousConversations,
       personalContext,
       participantMe,
       participantThem,
+      smartNotes,
       stage,
       isRecording = false,
       transcriptLength = 0,
@@ -247,14 +257,38 @@ Remember: Start with [ and end with ] - no other text allowed.`;
       chatHistory,
       effectiveConversationType,
       runningSummary,
-      personalContext,
-      textContext,
+      personalContext || undefined,
+      textContext || undefined,
       4000, // transcript tail
       participantMe,
       participantThem
     );
 
     const defaultModel = await getDefaultAiModelServer();
+
+    // Build smart notes context if provided
+    let smartNotesPrompt = '';
+    if (smartNotes && smartNotes.length > 0) {
+      const topNotes = smartNotes.slice(0, 5);
+      const notesText = topNotes.map((n: any, idx: number) => `${idx + 1}. (${n.category || 'note'}) ${n.content || n.text || ''}`).join('\n');
+      smartNotesPrompt = `SMART NOTES (last ${topNotes.length}):\n${notesText}`;
+    }
+
+    // Generate system prompt
+    const systemPrompt = chipsMode 
+      ? getChipPrompt(effectiveConversationType || 'sales', stage || 'opening', textContext || '', effectiveTranscript, participantMe || 'You', participantThem || 'The other participant')
+      : getChatGuidanceSystemPrompt(effectiveConversationType, isRecording, transcriptLength, participantMe, participantThem, conversationTitle || undefined, textContext || undefined, meetingUrl || undefined);
+
+    // Debug: Log the system prompt
+    console.log('🤖 AI Advisor System Prompt:');
+    console.log('='.repeat(80));
+    console.log(systemPrompt);
+    console.log('='.repeat(80));
+    if (smartNotesPrompt) {
+      console.log('📝 Smart Notes Context:');
+      console.log(smartNotesPrompt);
+      console.log('='.repeat(80));
+    }
 
     const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
       method: 'POST',
@@ -267,12 +301,13 @@ Remember: Start with [ and end with ] - no other text allowed.`;
       body: JSON.stringify({
         model: defaultModel,
         messages: [
-          { role: 'system', content: chipsMode ? getChipPrompt(effectiveConversationType || 'sales', stage || 'opening', textContext || '', effectiveTranscript, participantMe || 'You', participantThem || 'The other participant') : getChatGuidanceSystemPrompt(effectiveConversationType, isRecording, transcriptLength, participantMe, participantThem) },
+          ...(smartNotesPrompt ? [{ role: 'system', content: smartNotesPrompt }] : []),
+          { role: 'system', content: systemPrompt },
           ...chatMessages,
         ],
         temperature: 0.4,
         max_tokens: 1500,
-        response_format: { type: 'json_object' }
+        ...(defaultModel.startsWith('google/') ? {} : { response_format: { type: 'json_object' } })
       })
     });
 
@@ -374,47 +409,58 @@ Remember: Start with [ and end with ] - no other text allowed.`;
   }
 }
 
-function getChatGuidanceSystemPrompt(conversationType?: string, isRecording: boolean = false, transcriptLength: number = 0, participantMe?: string, participantThem?: string): string {
+function getChatGuidanceSystemPrompt(
+  conversationType?: string, 
+  isRecording: boolean = false, 
+  transcriptLength: number = 0, 
+  participantMe?: string, 
+  participantThem?: string,
+  meetingTitle?: string,
+  meetingContext?: string,
+  meetingUrl?: string
+): string {
   const live = isRecording && transcriptLength > 0;
-  const mode = live ? 'LIVE' : 'PREP';
+  const modeDescriptor = live ? '🎥 LIVE (conversation in progress)' : '📝 PREP (planning before the call)';
   const meLabel = participantMe || 'You';
   const themLabel = participantThem || 'The other participant';
 
-  return `You are an expert ${conversationType || 'general'} conversation coach providing guidance specifically for ${meLabel} in their conversation with ${themLabel}.
+  // Build meeting context section
+  let meetingContextSection = '';
+  if (meetingTitle || meetingContext || meetingUrl) {
+    meetingContextSection = '\nMEETING DETAILS:\n';
+    if (meetingTitle) meetingContextSection += `- Title: "${meetingTitle}"\n`;
+    if (meetingContext) meetingContextSection += `- Context/Purpose: ${meetingContext}\n`;
+    if (meetingUrl) meetingContextSection += `- Meeting Platform: ${meetingUrl}\n`;
+    meetingContextSection += '\n';
+  }
 
-PARTICIPANT ROLES (CRITICAL):
-- "${meLabel}" = The person asking for your guidance (your advisee)
-- "${themLabel}" = The person ${meLabel} is speaking/will speak with
+  /*
+  Prompt design rationale  
+  1. Give model clear role + objective 
+  2. Keep answers concise with headline + 1-2 insights
+  3. Markdown allowed because UI renders it
+  4. NO JSON in the model output – we'll wrap it server-side for the UI.
+  */
 
-MODE: ${mode} ${mode === 'LIVE' ? `(Active conversation - ${meLabel} is currently speaking with ${themLabel})` : `(Planning phase - ${meLabel} is preparing to speak with ${themLabel})`}
+  return `You are ${meLabel}'s helpful AI meeting advisor. Your job is to be genuinely useful - answer questions directly, give practical advice, and help ${meLabel} navigate their conversation with ${themLabel}.
 
-RESPONSE STYLE:
-Write naturally to ${meLabel}, as if advising a colleague. Use markdown effectively:
-- **Bold** for emphasis on key points
-- Short paragraphs (2-3 sentences each)
-- Lists only when actually listing items
-- Headers (##) only if organizing multiple topics
-- Keep total response to 100-150 words
+CURRENT SITUATION: ${modeDescriptor}${meetingContextSection}
+BE CONVERSATIONAL AND HELPFUL:
+- Answer questions directly and practically
+- Give specific advice based on what's actually happening
+- Reference the transcript when relevant (e.g., "When ${themLabel} mentioned X, that suggests...")
+- Use the meeting context and purpose to provide more targeted advice
+- If asked "who said what", just summarize the key points from each person
+- Keep responses under 100 words unless more detail is genuinely needed
+- Write like you're a smart colleague, not a formal coach
 
-Focus on ONE main insight for ${meLabel} with specific, actionable next steps. When referencing the transcript, be clear about who said what (${meLabel} vs ${themLabel}).
+EXAMPLES OF GOOD RESPONSES:
+- "Based on the transcript, ${themLabel} seems most interested in the pricing discussion. I'd focus on that next."
+- "Here's what happened: ${meLabel} asked about timeline, ${themLabel} said they need it by March. You should clarify if that's flexible."
+- "The conversation stalled when ${themLabel} mentioned budget concerns. Try asking what specific budget range they're working with."
+- "Given this meeting is about [meeting purpose], you should focus on [specific advice based on context]."
 
-RESPONSE FORMAT (return valid JSON):
-{
-  "response": "Your concise coaching response to ${meLabel} in natural markdown",
-  "confidence": 75
-}
-
-NO SMART SUGGESTIONS: Keep responses simple and in plain markdown format only.
-
-CONFIDENCE SCALE:
-- 90-100: Clear situation with full context
-- 70-89: Good understanding, some assumptions
-- 50-69: Limited context, general advice
-- <50: Insufficient information
-
-Be specific to ${meLabel}'s situation, reference the conversation directly, and avoid generic advice.
-
-CRITICAL: Return ONLY the JSON object, no additional text.`;
+Just be helpful and direct. No coaching jargon, no meta-commentary about being a coach.`;
 }
 
 // New function to parse context from user messages

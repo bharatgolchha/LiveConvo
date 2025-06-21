@@ -71,6 +71,10 @@ export class RecallSessionManager {
         throw lastError;
       }
 
+      if (!bot) {
+        throw new Error('Failed to create bot after retries');
+      }
+
       // Update session with Recall info
       const { error } = await supabase
         .from('sessions')
@@ -191,5 +195,9 @@ export class RecallSessionManager {
     if (session?.recall_bot_id) {
       await this.recallClient.stopBot(session.recall_bot_id);
     }
+  }
+
+  async getBotStatus(botId: string) {
+    return await this.recallClient.getBot(botId);
   }
 }

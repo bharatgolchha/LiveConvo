@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import {
   PlayCircleIcon,
   EyeIcon,
@@ -10,6 +10,7 @@ import {
   ArrowTopRightOnSquareIcon,
   ArrowPathIcon,
   VideoCameraIcon,
+  UserGroupIcon,
 } from '@heroicons/react/24/outline';
 import { motion } from 'framer-motion';
 import { formatDistanceToNow } from 'date-fns';
@@ -36,45 +37,92 @@ const ConversationInboxItem: React.FC<Props> = ({
   isSelected = false,
   onClick,
 }) => {
+  // Helper function to get unique participants from transcript speakers data only
+  const getParticipants = useMemo(() => {
+    // Use transcript_speakers as the single source of truth for participants
+    if (session.transcript_speakers && Array.isArray(session.transcript_speakers)) {
+      const uniqueSpeakers = session.transcript_speakers
+        .filter((speaker: string) => speaker && speaker.trim() && !['me', 'them', 'user', 'other'].includes(speaker.toLowerCase()))
+        .map((speaker: string) => speaker.trim());
+      
+      return [...new Set(uniqueSpeakers)];
+    }
+    
+    // Return empty array if no transcript speakers available
+    return [];
+  }, [session.transcript_speakers]);
+
+  // Helper function to get participant initials for avatar
+  const getInitials = (name: string): string => {
+    if (!name) return '?';
+    const words = name.trim().split(' ');
+    if (words.length === 1) {
+      return words[0].substring(0, 2).toUpperCase();
+    }
+    return words.map(word => word.charAt(0)).join('').substring(0, 2).toUpperCase();
+  };
+
+  // Helper function to get avatar color based on name
+  const getAvatarColor = (name: string): string => {
+    const colors = [
+      'bg-blue-500',
+      'bg-green-500', 
+      'bg-purple-500',
+      'bg-orange-500',
+      'bg-pink-500',
+      'bg-indigo-500',
+      'bg-teal-500',
+      'bg-red-500'
+    ];
+    
+    let hash = 0;
+    for (let i = 0; i < name.length; i++) {
+      hash = ((hash << 5) - hash) + name.charCodeAt(i);
+      hash = hash & hash; // Convert to 32-bit integer
+    }
+    
+    return colors[Math.abs(hash) % colors.length];
+  };
+
   const getStatusConfig = (status: Session['status']) => {
     switch (status) {
       case 'active':
         return {
           color: 'bg-emerald-500',
-          textColor: 'text-emerald-700',
-          bgColor: 'bg-emerald-50',
+          textColor: 'text-emerald-700 dark:text-emerald-400',
+          bgColor: 'bg-emerald-50 dark:bg-emerald-950/20',
           label: 'Live',
           pulse: true,
         };
       case 'completed':
         return {
           color: 'bg-blue-500',
-          textColor: 'text-blue-700',
-          bgColor: 'bg-blue-50',
+          textColor: 'text-blue-700 dark:text-blue-400',
+          bgColor: 'bg-blue-50 dark:bg-blue-950/20',
           label: 'Done',
           pulse: false,
         };
       case 'archived':
         return {
           color: 'bg-gray-400',
-          textColor: 'text-gray-600',
-          bgColor: 'bg-gray-50',
+          textColor: 'text-gray-600 dark:text-gray-400',
+          bgColor: 'bg-gray-50 dark:bg-gray-950/20',
           label: 'Archived',
           pulse: false,
         };
       case 'draft':
         return {
           color: 'bg-amber-500',
-          textColor: 'text-amber-700',
-          bgColor: 'bg-amber-50',
+          textColor: 'text-amber-700 dark:text-amber-400',
+          bgColor: 'bg-amber-50 dark:bg-amber-950/20',
           label: 'Draft',
           pulse: false,
         };
       default:
         return {
           color: 'bg-gray-400',
-          textColor: 'text-gray-600',
-          bgColor: 'bg-gray-50',
+          textColor: 'text-gray-600 dark:text-gray-400',
+          bgColor: 'bg-gray-50 dark:bg-gray-950/20',
           label: 'Unknown',
           pulse: false,
         };
@@ -96,24 +144,37 @@ const ConversationInboxItem: React.FC<Props> = ({
   // Safely return an icon based on the conversation type string.
   // Gracefully handles null/undefined values to avoid runtime errors.
   const getConversationTypeIcon = (type?: string | null) => {
-    if (!type) return '💬';
+    if (!type) return <ChatBubbleLeftRightIcon className="w-4 h-4" />;
 
     const normalized = type.toLowerCase();
 
     switch (normalized) {
       case 'sales':
       case 'sales_call':
-        return '💼';
+        return <span className="text-base">💼</span>;
       case 'support':
-        return '🤝';
+        return <span className="text-base">🤝</span>;
+      case 'team_meeting':
       case 'meeting':
-        return '📋';
+        return <span className="text-base">📋</span>;
       case 'interview':
-        return '👥';
+        return <span className="text-base">👥</span>;
       case 'consultation':
-        return '💡';
+        return <span className="text-base">💡</span>;
+      case 'one_on_one':
+        return <span className="text-base">👤</span>;
+      case 'training':
+        return <span className="text-base">🎓</span>;
+      case 'brainstorming':
+        return <span className="text-base">🧠</span>;
+      case 'demo':
+        return <span className="text-base">🎯</span>;
+      case 'standup':
+        return <span className="text-base">⚡</span>;
+      case 'custom':
+        return <span className="text-base">⚙️</span>;
       default:
-        return '💬';
+        return <ChatBubbleLeftRightIcon className="w-4 h-4" />;
     }
   };
 
@@ -125,15 +186,26 @@ const ConversationInboxItem: React.FC<Props> = ({
       'sales': 'Sales Call',
       'sales_call': 'Sales Call',
       'support': 'Support',
+      'team_meeting': 'Team Meeting',
       'meeting': 'Meeting',
       'interview': 'Interview',
-      'consultation': 'Consultation'
+      'consultation': 'Consultation',
+      'one_on_one': 'One-on-One',
+      'training': 'Training',
+      'brainstorming': 'Brainstorming',
+      'demo': 'Demo',
+      'standup': 'Standup',
+      'custom': 'Custom'
     };
 
     return typeMap[type.toLowerCase()] || type.charAt(0).toUpperCase() + type.slice(1).replace(/_/g, ' ');
   };
 
   const statusConfig = getStatusConfig(session.status);
+  const participants = getParticipants;
+  const maxDisplayParticipants = 4;
+  const displayParticipants = participants.slice(0, maxDisplayParticipants);
+  const remainingCount = Math.max(0, participants.length - maxDisplayParticipants);
 
   return (
     <motion.div
@@ -148,7 +220,7 @@ const ConversationInboxItem: React.FC<Props> = ({
     >
       {/* Header Row */}
       <div className="flex items-start justify-between gap-2 mb-1.5">
-        {/* Left: Title with status dot */}
+        {/* Left: Title with status dot and type */}
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
             {/* Status dot integrated with title */}
@@ -158,38 +230,75 @@ const ConversationInboxItem: React.FC<Props> = ({
                 <div className="absolute inset-0 w-2 h-2 rounded-full bg-emerald-400 animate-ping opacity-40" />
               )}
             </div>
-            {/* Video conference icon if it has meeting_url */}
+            
+            {/* Meeting Type Icon */}
+            <div className="flex items-center justify-center w-5 h-5 flex-shrink-0" title={formatConversationType(session.conversation_type)}>
+              {getConversationTypeIcon(session.conversation_type)}
+            </div>
+            
+            {/* Meeting platform icon if it has meeting_url */}
             {session.meeting_url && (
               <VideoCameraIcon className="w-4 h-4 text-blue-600 dark:text-blue-400 flex-shrink-0" />
             )}
+            
             <h3 className="text-sm font-medium text-gray-900 dark:text-white truncate flex-1">
               {session.title}
             </h3>
           </div>
+          
+          {/* Meeting Type Label - Show below title for better visibility */}
+          {session.conversation_type && (
+            <div className="flex items-center gap-2 mt-1">
+              <span className="text-xs text-muted-foreground bg-muted/50 px-2 py-0.5 rounded-full">
+                {formatConversationType(session.conversation_type)}
+              </span>
+            </div>
+          )}
         </div>
 
-        {/* Right: Time and Type */}
+        {/* Right: Time */}
         <div className="flex items-center gap-2 flex-shrink-0">
-          {/* Conversation Type Icon */}
-          {session.conversation_type && (
-            <span className="text-xs opacity-60" title={formatConversationType(session.conversation_type)}>
-              {getConversationTypeIcon(session.conversation_type)}
-            </span>
-          )}
-          
-          {/* Time */}
           <span className="text-xs text-gray-500 dark:text-gray-400">
             {formatDistanceToNow(new Date(session.updated_at), { addSuffix: true })}
           </span>
         </div>
       </div>
 
-      {/* Participants Row - Only show if present */}
-      {(session.participant_me || session.participant_them) && (
-        <div className="flex items-center gap-1 text-xs text-gray-600 dark:text-gray-400 mb-1.5">
-          <span className="font-medium">{session.participant_me || 'You'}</span>
-          <span className="text-gray-400">→</span>
-          <span>{session.participant_them || 'Participant'}</span>
+      {/* Participants Row - Enhanced with avatars */}
+      {participants.length > 0 && (
+        <div className="flex items-center gap-2 mb-1.5">
+          <UserGroupIcon className="w-3 h-3 text-gray-400 dark:text-gray-500 flex-shrink-0" />
+          <div className="flex items-center gap-1 flex-1 min-w-0">
+            {/* Participant Avatars */}
+            <div className="flex items-center -space-x-1">
+              {displayParticipants.map((participant: string, index: number) => (
+                <div
+                  key={`${participant}-${index}`}
+                  className={`w-6 h-6 rounded-full ${getAvatarColor(participant)} flex items-center justify-center border-2 border-white dark:border-gray-800 relative`}
+                  title={participant}
+                >
+                  <span className="text-xs font-medium text-white">
+                    {getInitials(participant)}
+                  </span>
+                </div>
+              ))}
+              
+              {/* +X More indicator */}
+              {remainingCount > 0 && (
+                <div className="w-6 h-6 rounded-full bg-gray-300 dark:bg-gray-600 flex items-center justify-center border-2 border-white dark:border-gray-800 text-xs font-medium text-gray-600 dark:text-gray-300">
+                  +{remainingCount}
+                </div>
+              )}
+            </div>
+            
+            {/* Participant Names (truncated for small screens) */}
+            <div className="flex items-center gap-1 text-xs text-gray-600 dark:text-gray-400 min-w-0 ml-2">
+              <span className="truncate">
+                {displayParticipants.join(', ')}
+                {remainingCount > 0 && `, +${remainingCount} more`}
+              </span>
+            </div>
+          </div>
         </div>
       )}
 

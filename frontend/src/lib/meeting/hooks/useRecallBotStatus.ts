@@ -5,14 +5,22 @@ export function useRecallBotStatus(sessionId: string, botId: string | undefined)
   const [status, setStatus] = useState<BotStatus | null>(null);
   const [error, setError] = useState<Error | null>(null);
   const [loading, setLoading] = useState(false);
+  
+  // Log when parameters change
+  useEffect(() => {
+    console.log('📊 useRecallBotStatus params changed:', { sessionId, botId });
+  }, [sessionId, botId]);
 
   const fetchStatus = useCallback(async () => {
-    if (!sessionId || !botId) {
+    // We only need sessionId - the API will fetch the botId from the database
+    if (!sessionId) {
+      console.log('🚫 useRecallBotStatus: Missing sessionId', { sessionId });
       setStatus(null);
       setLoading(false);
       return;
     }
 
+    console.log('🔄 useRecallBotStatus: Fetching status for', { sessionId, botId });
     setLoading(true);
     try {
       const response = await fetch(`/api/sessions/${sessionId}/bot-status`);
@@ -22,27 +30,47 @@ export function useRecallBotStatus(sessionId: string, botId: string | undefined)
       }
 
       const data = await response.json();
-      setStatus(data);
-      setError(null);
+      console.log('✅ useRecallBotStatus: Got status', data);
+      
+      // Only update status if we have a valid status response
+      if (data.status) {
+        setStatus(data);
+        setError(null);
+      } else if (data.message === 'No bot associated with this session') {
+        // No bot yet, clear status
+        setStatus(null);
+        setError(null);
+      }
     } catch (err) {
       console.error('Error fetching bot status:', err);
       setError(err as Error);
     } finally {
       setLoading(false);
     }
-  }, [sessionId, botId]);
+  }, [sessionId, botId]); // Keep botId in deps to trigger refetch when it changes
 
   useEffect(() => {
     fetchStatus();
+  }, [fetchStatus]);
 
-    // Poll for status updates while bot is joining
-    const shouldPoll = status?.status === 'created' || status?.status === 'joining';
+  // Separate effect for polling
+  useEffect(() => {
+    // Only poll if we have an active bot that's not completed
+    const shouldPoll = sessionId && status && (
+      status.status === 'created' || 
+      status.status === 'joining' ||
+      status.status === 'in_call'
+    );
     
     if (shouldPoll) {
+      console.log('🔄 Starting bot status polling for active bot');
       const interval = setInterval(fetchStatus, 3000); // Poll every 3 seconds
-      return () => clearInterval(interval);
+      return () => {
+        console.log('🛑 Stopping bot status polling');
+        clearInterval(interval);
+      };
     }
-  }, [fetchStatus, status?.status]);
+  }, [sessionId, status, fetchStatus]);
 
   return {
     status,

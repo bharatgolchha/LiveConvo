@@ -1,5 +1,3 @@
-import { TranscriptionProvider } from '@/types/transcription';
-
 export interface RecallAIConfig {
   apiKey: string;
   region: 'us-west-2' | 'us-east-1' | 'eu-west-1';

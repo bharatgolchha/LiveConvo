@@ -23,11 +23,11 @@ export interface CreateMeetingData {
   title: string;
   type: MeetingType;
   customType?: string;
-  meetingUrl: string;
+  meetingUrl?: string;
   context?: string;
   scheduledAt?: string;
-  participantMe: string;
-  participantThem: string;
+  participantMe?: string;
+  participantThem?: string;
 }
 
 export interface MeetingTypeOption {
@@ -43,9 +43,10 @@ export interface MeetingTypeOption {
 }
 
 export interface BotStatus {
-  id: string;
   status: 'created' | 'joining' | 'in_call' | 'completed' | 'failed' | 'timeout';
   error?: string;
   participantCount?: number;
   recordingId?: string;
+  botId?: string;
+  completedAt?: string;
 }

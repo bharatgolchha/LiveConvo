@@ -20,7 +20,8 @@ export function buildChatPrompt(
   summary?: { tldr?: string; key_points?: string[]; sentiment?: string; keyPoints?: string[]; decisions?: string[]; actionItems?: string[] }, 
   uploadedFiles?: Array<{ name: string; type: string; size: number }>, 
   selectedPreviousConversations?: string[], 
-  personalContext?: string
+  personalContext?: string,
+  smartNotes?: Array<{ category: string; content: string; importance?: string }>
 ): string {
   // Detect if user is in live conversation or preparation mode
   const hasActiveTranscript = transcript && transcript.trim().length > 0;
@@ -110,6 +111,13 @@ CONTEXT:
       const role = msg.type === 'user' ? 'User' : 'Coach';
       prompt += `${role}: ${msg.content}\n`;
     });
+  }
+
+  // Add smart notes if available
+  if (smartNotes && smartNotes.length > 0) {
+    const topNotes = smartNotes.slice(0, 5);
+    const notesText = topNotes.map((n, idx) => `${idx + 1}. (${n.category}) ${n.content}`).join('\n');
+    prompt += `Smart Notes (top ${topNotes.length}):\n${notesText}\n`;
   }
 
   prompt += `\nCurrent User Message: "${message}"

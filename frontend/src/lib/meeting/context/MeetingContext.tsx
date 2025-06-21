@@ -39,8 +39,6 @@ interface MeetingContextValue {
   // UI State
   activeTab: 'transcript' | 'summary' | 'notes';
   setActiveTab: (tab: 'transcript' | 'summary' | 'notes') => void;
-  isAIAdvisorOpen: boolean;
-  setIsAIAdvisorOpen: (open: boolean) => void;
 }
 
 const MeetingContext = createContext<MeetingContextValue | undefined>(undefined);
@@ -79,7 +77,6 @@ export function MeetingProvider({ children }: MeetingProviderProps) {
   
   // UI State
   const [activeTab, setActiveTab] = useState<'transcript' | 'summary' | 'notes'>('transcript');
-  const [isAIAdvisorOpen, setIsAIAdvisorOpen] = useState(true);
 
   // Transcript methods
   const setTranscriptMessages = useCallback((messages: TranscriptMessage[]) => {
@@ -147,9 +144,7 @@ export function MeetingProvider({ children }: MeetingProviderProps) {
     chatMessages,
     addChatMessage,
     activeTab,
-    setActiveTab,
-    isAIAdvisorOpen,
-    setIsAIAdvisorOpen
+    setActiveTab
   };
 
   return (

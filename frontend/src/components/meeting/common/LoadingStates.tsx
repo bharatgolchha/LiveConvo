@@ -13,7 +13,7 @@ export function LoadingStates({ type, message }: LoadingStatesProps) {
         return {
           icon: '🎥',
           text: message || 'Loading meeting...',
-          subtext: 'Setting up your video conference'
+          subtext: 'Setting up your meeting'
         };
       case 'transcript':
         return {
@@ -106,15 +106,33 @@ export function LoadingStates({ type, message }: LoadingStatesProps) {
 export function LoadingSkeleton({ type }: { type: 'message' | 'card' | 'list' }) {
   if (type === 'message') {
     return (
-      <div className="animate-pulse">
-        <div className="flex items-start gap-3 p-4">
-          <div className="w-8 h-8 bg-muted rounded-full" />
-          <div className="flex-1 space-y-2">
-            <div className="h-4 bg-muted rounded w-1/4" />
-            <div className="h-4 bg-muted rounded w-3/4" />
-            <div className="h-4 bg-muted rounded w-2/3" />
+      <div className="space-y-6">
+        {[1, 2].map((i) => (
+          <div key={i} className="animate-pulse">
+            <div className="flex items-start gap-4">
+              {/* Avatar skeleton */}
+              <div className="w-10 h-10 bg-muted rounded-full flex-shrink-0" />
+              
+              {/* Message content skeleton */}
+              <div className="flex-1 max-w-[85%]">
+                {/* Header skeleton */}
+                <div className="flex items-center gap-3 mb-2">
+                  <div className="h-4 bg-muted rounded w-20" />
+                  <div className="h-3 bg-muted rounded w-16" />
+                </div>
+                
+                {/* Message bubble skeleton */}
+                <div className="bg-card border border-border rounded-2xl p-4 shadow-sm">
+                  <div className="space-y-2">
+                    <div className="h-4 bg-muted rounded w-full" />
+                    <div className="h-4 bg-muted rounded w-3/4" />
+                    <div className="h-4 bg-muted rounded w-1/2" />
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
-        </div>
+        ))}
       </div>
     );
   }

@@ -1,85 +1,9 @@
-# Robots.txt for liveprompt.ai
-# Last Updated: 2025-01-19
-
-# Allow all search engines
+# *
 User-agent: *
 Allow: /
-Disallow: /api/
-Disallow: /admin/
-Disallow: /auth/callback
-Disallow: /_next/
-Disallow: /static/
-Disallow: /*.json$
-Disallow: /*?*utm_
-Disallow: /*?*ref=
-Crawl-delay: 1
-
-# Google
-User-agent: Googlebot
-Allow: /
-Disallow: /api/
-Disallow: /admin/
-Disallow: /auth/callback
-Crawl-delay: 0
-
-# Google Image
-User-agent: Googlebot-Image
-Allow: /
-Allow: /*.jpg$
-Allow: /*.jpeg$
-Allow: /*.png$
-Allow: /*.gif$
-Allow: /*.webp$
-
-# Bing
-User-agent: Bingbot
-Allow: /
-Disallow: /api/
-Disallow: /admin/
-Disallow: /auth/callback
-Crawl-delay: 1
-
-# OpenAI GPT Bot
-User-agent: GPTBot
-Allow: /
-Disallow: /api/
-Disallow: /admin/
-Disallow: /auth/
-Disallow: /dashboard
-Disallow: /app
-
-# Social Media Bots
-User-agent: facebookexternalhit
-Allow: /
-
-User-agent: Twitterbot
-Allow: /
-
-User-agent: LinkedInBot
-Allow: /
-
-User-agent: WhatsApp
-Allow: /
-
-User-agent: Slackbot
-Allow: /
-
-# Block bad bots
-User-agent: AhrefsBot
-Disallow: /
-
-User-agent: SemrushBot
-Disallow: /
-
-User-agent: DotBot
-Disallow: /
-
-User-agent: MJ12bot
-Disallow: /
 
 # Host
 Host: https://liveprompt.ai
 
 # Sitemaps
 Sitemap: https://liveprompt.ai/sitemap.xml
-Sitemap: https://liveprompt.ai/sitemap-0.xml

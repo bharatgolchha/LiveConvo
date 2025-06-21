@@ -169,7 +169,8 @@ const DashboardPage: React.FC = () => {
   };
 
   const handleNewConversation = () => {
-    setShowNewConversationModal(true);
+    // Regular conversations are deprecated, redirect to meeting
+    setShowNewMeetingModal(true);
   };
 
   const handleNewMeeting = () => {
@@ -177,73 +178,9 @@ const DashboardPage: React.FC = () => {
   };
 
   const handleStartConversation = async (config: ConversationConfig) => {
-    try {
-      setIsNavigating(true);
-      setNavigationSessionTitle(config.title);
-      setIsNewSession(true);
-      
-      // Create a new session with context data
-      const newSession = await createSession({
-        title: config.title,
-        conversation_type: config.conversationType,
-        selected_template_id: config.templateId,
-        context: config.context?.text ? {
-          text: config.context.text,
-          metadata: {
-            conversation_type: config.conversationType,
-            created_from: 'dashboard',
-            has_files: !!(config.context?.files && config.context.files.length > 0),
-            selectedPreviousConversations: config.selectedPreviousConversations || []
-          }
-        } : undefined,
-        linkedConversationIds: config.selectedPreviousConversations || [],
-        participant_me: config.participantMe,
-        participant_them: config.participantThem,
-        meeting_url: config.meetingUrl
-      } as any);
-      
-      if (newSession) {
-        // Upload files if any were provided
-        const files = config.context?.files;
-        if (files && files.length > 0) {
-          try {
-            await uploadDocuments(newSession.id, files);
-            console.log('✅ Files uploaded successfully for session:', newSession.id);
-          } catch (error) {
-            console.error('❌ Failed to upload files:', error);
-            // Don't block navigation if file upload fails
-          }
-        }
-
-        // Store conversation config in localStorage for the conversation page to pick up
-        const conversationConfig = {
-          id: newSession.id,
-          title: config.title,
-          type: config.conversationType,
-          context: config.context || { text: '', files: [] },
-          selectedPreviousConversations: config.selectedPreviousConversations || [],
-          createdAt: new Date().toISOString(),
-          participantMe: config.participantMe,
-          participantThem: config.participantThem,
-          meetingUrl: config.meetingUrl
-        };
-        
-        if (typeof window !== 'undefined') {
-          localStorage.setItem(`conversation_${newSession.id}`, JSON.stringify(conversationConfig));
-          
-          // Navigate to the conversation page with the session ID
-          window.location.href = `/app?cid=${newSession.id}`;
-        }
-      } else {
-        setIsNavigating(false);
-        setIsNewSession(false);
-      }
-    } catch (error) {
-      console.error('❌ Failed to create conversation:', error);
-      setIsNavigating(false);
-      setIsNewSession(false);
-      // TODO: Show error toast to user
-    }
+    // Regular conversations are deprecated - redirect to meeting creation
+    console.warn('Regular conversations are deprecated. Please use meetings.');
+    setShowNewMeetingModal(true);
   };
 
   const handleStartMeeting = async (data: any) => {
@@ -290,35 +227,11 @@ const DashboardPage: React.FC = () => {
       setNavigationSessionTitle(session.title);
       setIsNewSession(false);
       
-      // Check if this is a video conference session
+      // Check if this is a meeting session
       const isVideoConference = !!(session as any).meeting_url || !!(session as any).meeting_platform;
       
-      if (isVideoConference) {
-        // Navigate to meeting page for video conferences
-        window.location.href = `/meeting/${sessionId}`;
-      } else {
-        // For regular conversations
-        if (session.status === 'completed') {
-          // Clear any existing localStorage state for completed sessions
-          localStorage.removeItem(`conversation_${sessionId}`);
-          localStorage.removeItem(`conversation_state_${sessionId}`);
-        } else {
-          // Only store resuming config for non-completed sessions
-          const conversationConfig = {
-            id: sessionId,
-            title: session.title,
-            type: session.conversation_type,
-            context: { text: '', files: [] }, // Context will be loaded from backend in conversation page
-            createdAt: session.created_at,
-            isResuming: true
-          };
-          
-          localStorage.setItem(`conversation_${sessionId}`, JSON.stringify(conversationConfig));
-        }
-        
-        // Navigate to conversation page
-        window.location.href = `/app?cid=${sessionId}`;
-      }
+      // All conversations now go to the meeting page since /app is deprecated
+      window.location.href = `/meeting/${sessionId}`;
     }
   };
 
@@ -496,30 +409,41 @@ const DashboardPage: React.FC = () => {
         ...(originalSession.linkedConversations?.map(c => c.id) || [])
       ];
 
-      const newSession = await createSession({
-        title: `${originalSession.title} – Follow-up`,
-        conversation_type: originalSession.conversation_type,
-        linkedConversationIds: previousIds,
-        participant_me: originalSession.participant_me,
-        participant_them: originalSession.participant_them,
-        context: {
-          metadata: {
-            selectedPreviousConversations: previousIds,
-            created_from: 'follow_up'
+      // Create follow-up as a meeting (since regular conversations are deprecated)
+      const headers: HeadersInit = { 'Content-Type': 'application/json' };
+      if (authSession?.access_token) {
+        headers['Authorization'] = `Bearer ${authSession.access_token}`;
+      }
+
+      const response = await fetch('/api/meeting/create', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          title: `${originalSession.title} – Follow-up`,
+          type: originalSession.conversation_type || 'meeting',
+          linkedConversationIds: previousIds,
+          participantMe: originalSession.participant_me,
+          participantThem: originalSession.participant_them,
+          context: {
+            metadata: {
+              selectedPreviousConversations: previousIds,
+              created_from: 'follow_up'
+            }
           }
-        }
+        })
       });
 
-      if (newSession) {
-        if (typeof window !== 'undefined') {
-          window.location.href = `/app?cid=${newSession.id}`;
-        }
-      } else {
-        setIsNavigating(false);
-        setIsNewSession(false);
+      if (!response.ok) {
+        throw new Error('Failed to create follow-up meeting');
+      }
+
+      const { meeting } = await response.json();
+
+      if (meeting && typeof window !== 'undefined') {
+        window.location.href = `/meeting/${meeting.id}`;
       }
     } catch (error) {
-      console.error('❌ Failed to create follow-up conversation:', error);
+      console.error('❌ Failed to create follow-up meeting:', error);
       setIsNavigating(false);
       setIsNewSession(false);
     }

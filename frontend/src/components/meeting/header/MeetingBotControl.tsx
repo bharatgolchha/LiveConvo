@@ -11,6 +11,7 @@ import { Loader2 } from 'lucide-react';
 import { useMeetingContext } from '@/lib/meeting/context/MeetingContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRecallBotStatus } from '@/lib/meeting/hooks/useRecallBotStatus';
+import { supabase } from '@/lib/supabase';
 
 export function MeetingBotControl() {
   const { meeting, setMeeting, botStatus, setBotStatus } = useMeetingContext();
@@ -25,6 +26,16 @@ export function MeetingBotControl() {
     meeting?.botId
   );
   
+  // Debug logging
+  React.useEffect(() => {
+    console.log('🔍 MeetingBotControl Debug:', {
+      meetingId: meeting?.id,
+      botId: meeting?.botId,
+      botStatus,
+      recallStatus
+    });
+  }, [meeting?.id, meeting?.botId, botStatus, recallStatus]);
+  
   // Update bot status when recall status changes
   React.useEffect(() => {
     if (recallStatus) {
@@ -36,7 +47,7 @@ export function MeetingBotControl() {
     if (!meeting || isStarting) return;
     
     console.log('🚀 Starting bot for meeting:', meeting.id);
-    console.log('📍 Meeting URL:', meeting.meeting_url);
+    console.log('📍 Meeting URL:', meeting.meetingUrl);
     console.log('🔗 Webhook URL will be:', `${window.location.origin}/api/webhooks/recall/${meeting.id}`);
     
     setIsStarting(true);
@@ -62,22 +73,66 @@ export function MeetingBotControl() {
       console.log('✅ Bot created successfully:', bot);
       console.log('🆔 Bot ID:', bot.id);
       
-      // Update bot status
-      setBotStatus({
-        status: 'joining',
-        participantCount: 0
-      });
-
-      // Update meeting with bot ID
+      // Update meeting with bot ID FIRST
       if (meeting) {
-        setMeeting({
+        const updatedMeeting = {
           ...meeting,
           botId: bot.id
+        };
+        setMeeting(updatedMeeting);
+        
+        // Update bot status after meeting is updated
+        setBotStatus({
+          status: 'joining',
+          participantCount: 0
         });
       }
       
-      // Trigger status refetch
-      setTimeout(() => refetch(), 1000);
+      // Manually refetch the meeting data from the database
+      // to ensure we have the latest state
+      const { data: latestSession } = await supabase
+        .from('sessions')
+        .select('recall_bot_id')
+        .eq('id', meeting.id)
+        .single();
+      
+      if (latestSession?.recall_bot_id) {
+        const updatedMeeting = {
+          ...meeting,
+          botId: latestSession.recall_bot_id
+        };
+        setMeeting(updatedMeeting);
+      }
+      
+      // Force immediate status check with the new bot ID
+      // This ensures we start polling even if the meeting context hasn't updated yet
+      if (bot.id) {
+        const fetchBotStatus = async () => {
+          try {
+            const response = await fetch(`/api/sessions/${meeting.id}/bot-status`);
+            if (response.ok) {
+              const data = await response.json();
+              if (data.status) {
+                setBotStatus(data);
+              }
+            }
+          } catch (error) {
+            console.error('Failed to fetch bot status:', error);
+          }
+        };
+        
+        // Fetch immediately
+        fetchBotStatus();
+        
+        // Trigger refetch from the hook
+        refetch();
+        
+        // Force another refetch after a short delay to ensure status is updated
+        setTimeout(() => {
+          fetchBotStatus();
+          refetch();
+        }, 2000);
+      }
     } catch (err) {
       console.error('Failed to start bot:', err);
       setError(err instanceof Error ? err.message : 'Failed to start recording');
@@ -116,13 +171,8 @@ export function MeetingBotControl() {
         participantCount: 0
       });
       
-      // Clear bot ID from meeting
-      if (meeting) {
-        setMeeting({
-          ...meeting,
-          botId: undefined
-        });
-      }
+      // Don't clear bot ID - we keep it to track the completed status
+      // This allows us to restart recording later
     } catch (err) {
       console.error('Failed to stop bot:', err);
       setError(err instanceof Error ? err.message : 'Failed to stop recording');
@@ -131,67 +181,134 @@ export function MeetingBotControl() {
     }
   };
 
+  const handleCancelBot = async () => {
+    if (!meeting || !meeting.botId || isStopping) return;
+    
+    const confirmed = window.confirm('Cancel bot joining? You can start a new bot immediately after.');
+    if (!confirmed) return;
+
+    setIsStopping(true);
+    setError(null);
+
+    try {
+      const headers: HeadersInit = { 'Content-Type': 'application/json' };
+      if (authSession?.access_token) {
+        headers['Authorization'] = `Bearer ${authSession.access_token}`;
+      }
+
+      // Use the stop-bot endpoint to cancel
+      const response = await fetch(`/api/meeting/${meeting.id}/stop-bot`, {
+        method: 'POST',
+        headers
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to cancel bot');
+      }
+
+      // Clear the bot ID from the session to allow immediate restart
+      const { data: clearedSession } = await supabase
+        .from('sessions')
+        .update({ 
+          recall_bot_id: null,
+          recall_bot_status: 'cancelled'
+        })
+        .eq('id', meeting.id)
+        .select()
+        .single();
+
+      // Update local state
+      setBotStatus(null);
+      if (meeting) {
+        setMeeting({
+          ...meeting,
+          botId: undefined
+        });
+      }
+      
+      // Show success message briefly then clear
+      setError('Bot cancelled. You can start a new one.');
+      setTimeout(() => setError(null), 3000);
+    } catch (err) {
+      console.error('Failed to cancel bot:', err);
+      setError(err instanceof Error ? err.message : 'Failed to cancel bot');
+    } finally {
+      setIsStopping(false);
+    }
+  };
+
   const getStatusDisplay = () => {
-    if (!botStatus) {
+    // If we have a botId but no status yet, show loading state
+    if (meeting?.botId && !botStatus) {
       return {
-        showStartButton: true,
-        statusElement: null
+        showStartButton: false,
+        statusElement: (
+          <button disabled className="flex items-center gap-2 px-3 py-1.5 bg-muted/50 rounded-lg text-muted-foreground">
+            <Loader2 className="w-4 h-4 animate-spin" />
+            <span className="text-sm font-medium">Connecting...</span>
+          </button>
+        )
       };
     }
 
-    switch (botStatus.status) {
-      case 'created':
+    switch (botStatus?.status) {
       case 'joining':
         return {
           showStartButton: false,
           statusElement: (
-            <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-blue-100 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400">
-              <Loader2 className="w-4 h-4 animate-spin" />
-              <span className="text-sm font-medium">Bot joining meeting...</span>
+            <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 px-3 py-1.5 bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800/30 rounded-lg">
+                <Loader2 className="w-4 h-4 animate-spin text-blue-600 dark:text-blue-400" />
+                <span className="text-sm font-medium text-blue-700 dark:text-blue-400">Joining...</span>
+              </div>
+              <button
+                onClick={handleCancelBot}
+                disabled={isStopping}
+                className="px-2 py-1 text-xs text-muted-foreground hover:text-foreground hover:bg-muted/50 rounded transition-colors"
+                title="Cancel"
+              >
+                Cancel
+              </button>
             </div>
           )
         };
-      
+
       case 'in_call':
         return {
           showStartButton: false,
-          showStopButton: true,
           statusElement: (
-            <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-green-100 dark:bg-green-900/20 text-green-600 dark:text-green-400">
-              <CheckCircleIcon className="w-4 h-4" />
-              <span className="text-sm font-medium">Recording active</span>
-              {botStatus.participantCount && botStatus.participantCount > 0 && (
-                <span className="text-xs opacity-80">
-                  ({botStatus.participantCount} participants)
-                </span>
+            <button
+              onClick={handleStopBot}
+              disabled={isStopping}
+              className="flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors disabled:opacity-50 font-medium"
+            >
+              {isStopping ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <StopCircleIcon className="w-4 h-4" />
               )}
-            </div>
+              <span className="text-sm">Stop Recording</span>
+            </button>
           )
         };
-      
+
+      case 'completed':
+        return {
+          showStartButton: true,
+          statusElement: null // Status shown in main header badge
+        };
+
       case 'failed':
-      case 'timeout':
         return {
           showStartButton: true,
           statusElement: (
-            <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-red-100 dark:bg-red-900/20 text-red-600 dark:text-red-400">
-              <XCircleIcon className="w-4 h-4" />
-              <span className="text-sm font-medium">Bot failed to join</span>
+            <div className="flex items-center gap-2 px-3 py-1.5 bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800/30 rounded-lg">
+              <ExclamationTriangleIcon className="w-4 h-4 text-red-600 dark:text-red-400" />
+              <span className="text-sm font-medium text-red-700 dark:text-red-400">Failed</span>
             </div>
           )
         };
-      
-      case 'completed':
-        return {
-          showStartButton: false,
-          statusElement: (
-            <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-gray-100 dark:bg-gray-900/20 text-gray-600 dark:text-gray-400">
-              <CheckCircleIcon className="w-4 h-4" />
-              <span className="text-sm font-medium">Recording ended</span>
-            </div>
-          )
-        };
-      
+
       default:
         return {
           showStartButton: true,
@@ -200,74 +317,41 @@ export function MeetingBotControl() {
     }
   };
 
-  const { showStartButton, showStopButton, statusElement } = getStatusDisplay();
+  const { showStartButton, statusElement } = getStatusDisplay();
 
   return (
-    <div className="flex items-center gap-3">
-      {/* Error Message */}
+    <div className="flex items-center gap-2">
+      {/* Error display */}
       <AnimatePresence>
         {error && (
           <motion.div
-            initial={{ opacity: 0, x: -10 }}
+            initial={{ opacity: 0, x: 20 }}
             animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -10 }}
-            className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-amber-100 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400"
+            exit={{ opacity: 0, x: 20 }}
+            className="px-3 py-1.5 bg-red-50 dark:bg-red-950/20 text-red-700 dark:text-red-400 rounded-lg text-sm border border-red-200 dark:border-red-800/30"
           >
-            <ExclamationTriangleIcon className="w-4 h-4" />
-            <span className="text-sm">{error}</span>
+            {error}
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* Status Display */}
-      <AnimatePresence mode="wait">
-        {statusElement && (
-          <motion.div
-            key={botStatus?.status || 'none'}
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -10 }}
-          >
-            {statusElement}
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* Start Button */}
-      {showStartButton && !meeting?.botId && (
+      {/* Status element or start button */}
+      {statusElement ? (
+        statusElement
+      ) : showStartButton ? (
         <button
           onClick={handleStartBot}
-          disabled={isStarting}
-          className="flex items-center gap-2 px-4 py-2 bg-primary hover:bg-primary/90 text-primary-foreground rounded-lg transition-colors disabled:opacity-50"
+          disabled={isStarting || !meeting?.meetingUrl}
+          className="flex items-center gap-2 px-4 py-2 bg-primary hover:bg-primary/90 text-primary-foreground rounded-lg transition-colors disabled:opacity-50 font-medium"
         >
           {isStarting ? (
             <Loader2 className="w-4 h-4 animate-spin" />
           ) : (
             <PlayCircleIcon className="w-4 h-4" />
           )}
-          <span className="text-sm font-medium">
-            {isStarting ? 'Starting...' : 'Start Recording'}
-          </span>
+          <span className="text-sm">Start Recording</span>
         </button>
-      )}
-
-      {/* Stop Button */}
-      {showStopButton && (
-        <button
-          onClick={handleStopBot}
-          disabled={isStopping}
-          className="flex items-center gap-2 px-3 py-1.5 bg-red-100 dark:bg-red-900/20 hover:bg-red-200 dark:hover:bg-red-900/30 text-red-600 dark:text-red-400 rounded-lg transition-colors disabled:opacity-50"
-        >
-          {isStopping ? (
-            <Loader2 className="w-3 h-3 animate-spin" />
-          ) : (
-            <StopCircleIcon className="w-3 h-3" />
-          )}
-          <span className="text-xs font-medium">
-            {isStopping ? 'Stopping...' : 'Stop'}
-          </span>
-        </button>
-      )}
+      ) : null}
     </div>
   );
 }
