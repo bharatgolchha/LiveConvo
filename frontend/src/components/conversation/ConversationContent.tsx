@@ -517,18 +517,18 @@ export const ConversationContent: React.FC<ConversationContentProps> = ({
                       {meetingUrl ? (
                         !recallBotId ? "Click 'Join Meeting' to start recording the meeting with our AI bot." :
                         recallBotStatus === 'in_call' 
-                          ? "Bot is recording the meeting. Transcripts will appear here in real-time."
+                          ? "AI bot is recording the meeting. Transcripts will appear here in real-time."
                           : recallBotStatus === 'joining'
-                          ? "Bot is joining the meeting. Please admit the bot when it appears."
+                          ? "AI bot is joining the meeting. Please admit the bot when it appears."
                           : recallBotStatus === 'created'
-                          ? "Bot is preparing to join the meeting..."
+                          ? "AI bot is preparing to join the meeting..."
                           : recallBotStatus === 'completed'
-                          ? "Bot has finished recording. Click 'Rejoin Meeting' to start a new recording."
+                          ? "AI bot has finished recording. Click 'Rejoin Meeting' to start a new recording."
                           : recallBotStatus === 'failed'
-                          ? "Bot failed to join the meeting. Click 'Join Meeting' to try again."
+                          ? "AI bot failed to join the meeting. Click 'Join Meeting' to try again."
                           : recallBotStatus === 'timeout'
-                          ? "Bot timed out while trying to join. Click 'Join Meeting' to try again."
-                          : "Waiting for bot to join the meeting..."
+                          ? "AI bot timed out while trying to join. Click 'Join Meeting' to try again."
+                          : "Waiting for AI bot to join the meeting..."
                       ) : (
                         conversationState === 'ready' 
                           ? "Start recording to see real-time speech-to-text transcription of your conversation."
@@ -640,22 +640,22 @@ export const ConversationContent: React.FC<ConversationContentProps> = ({
                       <div className="text-center">
                         {recallBotStatus === 'joining' && (
                           <p className="text-sm text-muted-foreground">
-                            Bot is joining the meeting. Please admit the bot when it appears.
+                            AI bot is joining the meeting. Please admit the bot when it appears.
                           </p>
                         )}
                         {recallBotStatus === 'created' && (
                           <p className="text-sm text-muted-foreground">
-                            Bot is preparing to join the meeting...
+                            AI bot is preparing to join the meeting...
                           </p>
                         )}
                         {recallBotStatus === 'failed' && (
                           <p className="text-sm text-red-500">
-                            Bot failed to join the meeting. Please check the meeting URL.
+                            AI bot failed to join the meeting. Please check the meeting URL.
                           </p>
                         )}
                         {recallBotStatus === 'timeout' && (
                           <p className="text-sm text-orange-500">
-                            Bot timed out while trying to join. Please try again.
+                            AI bot timed out while trying to join. Please try again.
                           </p>
                         )}
                       </div>

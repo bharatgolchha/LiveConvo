@@ -23,7 +23,7 @@ export function MeetingHeader() {
   if (!meeting) return null;
 
   const isActive = botStatus?.status === 'in_call';
-  const isCompleted = botStatus?.status === 'completed';
+  const isCompleted = meeting.status === 'completed';
 
   const getThemeIcon = () => {
     switch (theme) {
@@ -135,8 +135,8 @@ export function MeetingHeader() {
             )}
           </div>
           
-          {/* Bot Control */}
-          <MeetingBotControl />
+          {/* Bot Control - Only show if meeting is not completed */}
+          {!isCompleted && <MeetingBotControl />}
         </div>
 
         {/* Right Section - Theme Toggle & Actions */}

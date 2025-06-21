@@ -31,6 +31,7 @@ export function CreateMeetingModal({ isOpen, onClose, onStart }: CreateMeetingMo
   const [customType, setCustomType] = useState('');
   const [context, setContext] = useState('');
   const [meetingUrl, setMeetingUrl] = useState('');
+  const [selectedPrevious, setSelectedPrevious] = useState<{ id: string; title: string }[]>([]);
 
   const handleStart = async () => {
     setIsStarting(true);
@@ -42,6 +43,7 @@ export function CreateMeetingModal({ isOpen, onClose, onStart }: CreateMeetingMo
         customType: meetingType === 'custom' ? customType.trim() : undefined,
         meetingUrl: meetingUrl.trim() || undefined,
         context: context.trim() || undefined,
+        linkedConversationIds: selectedPrevious.map(p => p.id),
       });
       onClose();
     } catch (error) {
@@ -62,6 +64,7 @@ export function CreateMeetingModal({ isOpen, onClose, onStart }: CreateMeetingMo
     setCustomType('');
     setContext('');
     setMeetingUrl('');
+    setSelectedPrevious([]);
     setStep(0);
     setIsStarting(false);
   };
@@ -150,6 +153,8 @@ export function CreateMeetingModal({ isOpen, onClose, onStart }: CreateMeetingMo
                       key="step1"
                       context={context}
                       setContext={setContext}
+                      selectedPrevious={selectedPrevious}
+                      setSelectedPrevious={setSelectedPrevious}
                     />
                   )}
                   {step === 2 && (

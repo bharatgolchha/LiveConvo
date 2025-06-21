@@ -81,7 +81,7 @@ export function MeetingUrlEditor({
     } catch (error) {
       // If the error is about bot being active, show a more helpful message
       if (error instanceof Error && error.message.includes('stop the bot')) {
-        setError('Please stop the current bot before changing the meeting URL');
+        setError('Please stop the current AI bot before changing the meeting URL');
       } else {
         setError(error instanceof Error ? error.message : 'Failed to update meeting URL');
       }

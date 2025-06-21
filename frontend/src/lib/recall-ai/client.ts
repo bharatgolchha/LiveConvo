@@ -16,6 +16,16 @@ export interface RecallBot {
   status: 'created' | 'joining' | 'in_call' | 'completed' | 'failed';
   recordingId?: string;
   meetingUrl: string;
+  metadata?: {
+    session_id?: string;
+    [key: string]: any;
+  };
+  status_changes?: Array<{
+    code: string;
+    created_at: string;
+    message?: string;
+    sub_code?: string;
+  }>;
 }
 
 export class RecallAIClient {
@@ -51,18 +61,22 @@ export class RecallAIClient {
           {
             type: 'webhook',
             url: `${this.config.webhookUrl}/${params.sessionId}`,
-            events: ['transcript.data', 'transcript.partial_data']
+            events: [
+              'transcript.data', 
+              'transcript.partial_data'
+            ]
           },
         ] : [],
         video_mixed_layout: 'audio_only', // We only need audio
+        participant_events: {},            // Track join/leave for robust presence detection
         include_bot_in_recording: { visible: false },
       },
       automatic_leave: {
         waiting_room_timeout: 3600, // 1 hour instead of 20 minutes
         noone_joined_timeout: 3600, // 1 hour instead of 20 minutes
         everyone_left_timeout: {
-          timeout: 60, // 1 minute instead of 2 seconds
-          activate_after: 60, // Wait 1 minute before activating
+          timeout: 600,        // Leave after 10 minutes of an empty room
+          activate_after: 300, // Only start counting once the room has been empty for 5 minutes
         },
         in_call_not_recording_timeout: 7200, // 2 hours instead of 1 hour
         recording_permission_denied_timeout: 300, // 5 minutes instead of 30 seconds

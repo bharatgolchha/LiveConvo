@@ -4,7 +4,7 @@ import { headers } from 'next/headers';
 import { broadcastTranscript } from '@/lib/recall-ai/transcript-broadcaster';
 
 interface RecallWebhookEvent {
-  event: 'transcript.data' | 'transcript.partial_data';
+  event: 'transcript.data' | 'transcript.partial_data' | 'bot.joining_call' | 'bot.in_waiting_room' | 'bot.in_call_not_recording' | 'bot.recording_permission_allowed' | 'bot.recording_permission_denied' | 'bot.in_call_recording' | 'bot.call_ended' | 'bot.done' | 'bot.fatal';
   data: any;
 }
 
@@ -44,6 +44,353 @@ interface TranscriptData {
   };
 }
 
+/**
+ * Track bot usage based on Recall.ai webhook events
+ */
+async function trackBotUsage(
+  sessionId: string,
+  botId: string,
+  eventType: string,
+  eventData: any,
+  supabase: any
+): Promise<void> {
+  try {
+    console.log(`🤖 Tracking bot usage: ${botId} - ${eventType}`);
+
+    // Get session details for user/org info
+    const { data: session, error: sessionError } = await supabase
+      .from('sessions')
+      .select('user_id, organization_id')
+      .eq('id', sessionId)
+      .single();
+
+    if (sessionError || !session) {
+      console.error('❌ Failed to get session for bot usage tracking:', sessionError);
+      return;
+    }
+
+    // Handle all bot status events by extracting the status code from the event name
+    const statusCode = eventType.replace('bot.', ''); // e.g., 'bot.in_call_recording' -> 'in_call_recording'
+    await handleBotStatusChange(sessionId, botId, { ...eventData, status: statusCode }, session, supabase);
+  } catch (error) {
+    console.error('❌ Error tracking bot usage:', error);
+  }
+}
+
+/**
+ * Handle bot status changes for usage tracking
+ */
+async function handleBotStatusChange(
+  sessionId: string,
+  botId: string,
+  eventData: any,
+  session: any,
+  supabase: any
+): Promise<void> {
+  const status = eventData?.status;
+  const timestamp = eventData?.timestamp || new Date().toISOString();
+
+  console.log(`🔄 Bot status change: ${botId} -> ${status}`);
+
+  // Ensure bot usage tracking record exists
+  await ensureBotUsageRecord(sessionId, botId, session, supabase);
+
+  switch (status) {
+    case 'joining_call':
+      await updateBotUsageStatus(botId, 'joining', timestamp, supabase);
+      break;
+      
+    case 'in_waiting_room':
+      await updateBotUsageStatus(botId, 'waiting', timestamp, supabase);
+      break;
+      
+    case 'in_call_not_recording':
+      await updateBotUsageStatus(botId, 'in_call', timestamp, supabase);
+      break;
+      
+    case 'recording_permission_allowed':
+    case 'in_call_recording':
+      await updateBotUsageStatus(botId, 'recording', timestamp, supabase);
+      await markRecordingStarted(botId, timestamp, supabase);
+      break;
+    
+    case 'recording_permission_denied':
+      await updateBotUsageStatus(botId, 'permission_denied', timestamp, supabase);
+      break;
+    
+    case 'call_ended':
+    case 'done':
+      await markRecordingCompleted(botId, timestamp, session, supabase);
+      break;
+    
+    case 'fatal':
+      await updateBotUsageStatus(botId, 'failed', timestamp, supabase);
+      await markRecordingCompleted(botId, timestamp, session, supabase);
+      break;
+  }
+}
+
+// Note: Recording completion is now handled through bot status events (bot.done, bot.call_ended)
+
+/**
+ * Ensure bot usage tracking record exists
+ */
+async function ensureBotUsageRecord(
+  sessionId: string,
+  botId: string,
+  session: any,
+  supabase: any
+): Promise<void> {
+  const { data: existing } = await supabase
+    .from('bot_usage_tracking')
+    .select('id')
+    .eq('bot_id', botId)
+    .single();
+
+  if (!existing) {
+    await supabase
+      .from('bot_usage_tracking')
+      .insert({
+        bot_id: botId,
+        session_id: sessionId,
+        user_id: session.user_id,
+        organization_id: session.organization_id,
+        status: 'recording',
+        created_at: new Date().toISOString()
+      });
+
+    console.log(`✅ Created bot usage tracking record for ${botId}`);
+  }
+}
+
+/**
+ * Fallback: Ensure bot usage tracking from transcript events
+ * This is used when bot status webhooks are not configured
+ */
+async function ensureBotUsageTrackingFromTranscript(
+  sessionId: string,
+  botId: string,
+  supabase: any
+): Promise<void> {
+  // Get session data
+  const { data: session } = await supabase
+    .from('sessions')
+    .select('user_id, organization_id')
+    .eq('id', sessionId)
+    .single();
+
+  if (!session) {
+    console.warn(`⚠️ Session not found for bot usage tracking: ${sessionId}`);
+    return;
+  }
+
+  // Check if bot usage record already exists
+  const { data: existing } = await supabase
+    .from('bot_usage_tracking')
+    .select('id, recording_started_at, status')
+    .eq('bot_id', botId)
+    .single();
+
+  if (!existing) {
+    // Create new bot usage tracking record
+    const now = new Date().toISOString();
+    await supabase
+      .from('bot_usage_tracking')
+      .insert({
+        bot_id: botId,
+        session_id: sessionId,
+        user_id: session.user_id,
+        organization_id: session.organization_id,
+        status: 'recording',
+        recording_started_at: now,
+        created_at: now
+      });
+
+    console.log(`✅ Created bot usage tracking record from transcript for ${botId}`);
+  } else if (!existing.recording_started_at && existing.status !== 'recording') {
+    // Update existing record to mark recording as started
+    const now = new Date().toISOString();
+    await supabase
+      .from('bot_usage_tracking')
+      .update({
+        status: 'recording',
+        recording_started_at: now,
+        updated_at: now
+      })
+      .eq('bot_id', botId);
+
+    console.log(`🟢 Updated bot usage tracking to recording status for ${botId}`);
+  }
+}
+
+/**
+ * Update bot usage status
+ */
+async function updateBotUsageStatus(
+  botId: string,
+  status: string,
+  timestamp: string,
+  supabase: any
+): Promise<void> {
+  await supabase
+    .from('bot_usage_tracking')
+    .update({
+      status,
+      updated_at: new Date().toISOString()
+    })
+    .eq('bot_id', botId);
+}
+
+/**
+ * Mark recording as started
+ */
+async function markRecordingStarted(
+  botId: string,
+  timestamp: string,
+  supabase: any
+): Promise<void> {
+  await supabase
+    .from('bot_usage_tracking')
+    .update({
+      recording_started_at: timestamp,
+      status: 'recording',
+      updated_at: new Date().toISOString()
+    })
+    .eq('bot_id', botId);
+
+  console.log(`🟢 Recording started for bot ${botId}`);
+}
+
+/**
+ * Mark recording as completed and calculate usage
+ */
+async function markRecordingCompleted(
+  botId: string,
+  timestamp: string,
+  session: any,
+  supabase: any
+): Promise<void> {
+  // Get current bot usage data
+  const { data: botUsage } = await supabase
+    .from('bot_usage_tracking')
+    .select('recording_started_at')
+    .eq('bot_id', botId)
+    .single();
+
+  if (!botUsage?.recording_started_at) {
+    console.warn(`⚠️ No recording start time found for bot ${botId}`);
+    return;
+  }
+
+  const startTime = new Date(botUsage.recording_started_at);
+  const endTime = new Date(timestamp);
+  const durationSeconds = Math.floor((endTime.getTime() - startTime.getTime()) / 1000);
+  const billableMinutes = Math.ceil(durationSeconds / 60);
+
+  await finalizeRecordingUsage(
+    botId,
+    botUsage.recording_started_at,
+    timestamp,
+    durationSeconds,
+    billableMinutes,
+    session,
+    supabase
+  );
+}
+
+/**
+ * Finalize recording usage and create tracking entries
+ */
+async function finalizeRecordingUsage(
+  botId: string,
+  startedAt: string,
+  completedAt: string,
+  durationSeconds: number,
+  billableMinutes: number,
+  session: any,
+  supabase: any
+): Promise<void> {
+  console.log(`🎯 Finalizing bot usage: ${durationSeconds}s = ${billableMinutes} minutes`);
+
+  // Update bot usage tracking
+  await supabase
+    .from('bot_usage_tracking')
+    .update({
+      recording_ended_at: completedAt,
+      total_recording_seconds: durationSeconds,
+      billable_minutes: billableMinutes,
+      status: 'completed',
+      updated_at: new Date().toISOString()
+    })
+    .eq('bot_id', botId);
+
+  // Create usage tracking entries for each minute
+  if (billableMinutes > 0) {
+    await createUsageTrackingEntries(
+      session.user_id,
+      session.organization_id,
+      session.session_id,
+      startedAt,
+      durationSeconds,
+      supabase
+    );
+  }
+
+  // Update session with bot recording info
+  await supabase
+    .from('sessions')
+    .update({
+      recording_duration_seconds: durationSeconds,
+      bot_recording_minutes: billableMinutes,
+      updated_at: new Date().toISOString()
+    })
+    .eq('id', session.session_id);
+
+  console.log(`✅ Bot usage finalized: ${billableMinutes} billable minutes`);
+}
+
+/**
+ * Create usage tracking entries for each minute of bot recording
+ */
+async function createUsageTrackingEntries(
+  userId: string,
+  organizationId: string,
+  sessionId: string,
+  startedAt: string,
+  durationSeconds: number,
+  supabase: any
+): Promise<void> {
+  const entries = [];
+  let remainingSeconds = durationSeconds;
+  let currentMinute = new Date(startedAt);
+  
+  // Reset to start of minute
+  currentMinute.setSeconds(0, 0);
+
+  while (remainingSeconds > 0) {
+    const secondsInThisMinute = Math.min(60, remainingSeconds);
+    
+    entries.push({
+      organization_id: organizationId,
+      user_id: userId,
+      session_id: sessionId,
+      minute_timestamp: currentMinute.toISOString(),
+      seconds_recorded: secondsInThisMinute
+    });
+
+    remainingSeconds -= secondsInThisMinute;
+    currentMinute = new Date(currentMinute.getTime() + 60000); // Add 1 minute
+  }
+
+  if (entries.length > 0) {
+    await supabase
+      .from('usage_tracking')
+      .insert(entries);
+
+    console.log(`📊 Created ${entries.length} usage tracking entries for bot recording`);
+  }
+}
+
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ sessionId: string }> }
@@ -75,10 +422,25 @@ export async function POST(
       processed: false,
     });
 
+    // Track bot usage for bot status events
+    const botStatusEvents = [
+      'bot.joining_call', 'bot.in_waiting_room', 'bot.in_call_not_recording', 
+      'bot.recording_permission_allowed', 'bot.recording_permission_denied', 
+      'bot.in_call_recording', 'bot.call_ended', 'bot.done', 'bot.fatal'
+    ];
+    
+    if (botId && botStatusEvents.includes(event.event as any)) {
+      await trackBotUsage(sessionId, botId, event.event, event.data, supabase);
+    }
+
     // Process event based on type
     switch (event.event) {
       case 'transcript.data':
         await handleTranscriptData(sessionId, event.data as TranscriptData, false);
+        // Fallback: Track bot usage based on transcript events if no status events are coming
+        if (botId && botId !== '00000000-0000-0000-0000-000000000000') {
+          await ensureBotUsageTrackingFromTranscript(sessionId, botId, supabase);
+        }
         break;
         
       case 'transcript.partial_data':
@@ -264,24 +626,6 @@ async function handleParticipantEvent(sessionId: string, data: any) {
     event_type: data.type, // 'joined', 'left', 'started_speaking', etc.
     event_data: data,
     timestamp: new Date(data.timestamp * 1000).toISOString(),
-  });
-}
-
-async function handleRecordingCompleted(sessionId: string, data: any) {
-  const supabase = createServerSupabaseClient();
-  
-  // Update session with recording info
-  await supabase.from('sessions').update({
-    recall_recording_id: data.recording_id,
-    status: 'completed',
-    recording_ended_at: new Date().toISOString(),
-  }).eq('id', sessionId);
-
-  // Mark session as ready for summary generation
-  await supabase.from('summaries').insert({
-    session_id: sessionId,
-    summary_type: 'full',
-    status: 'pending',
   });
 }
 

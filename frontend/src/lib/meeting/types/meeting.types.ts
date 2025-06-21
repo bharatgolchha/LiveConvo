@@ -28,6 +28,7 @@ export interface CreateMeetingData {
   scheduledAt?: string;
   participantMe?: string;
   participantThem?: string;
+  linkedConversationIds?: string[];
 }
 
 export interface MeetingTypeOption {

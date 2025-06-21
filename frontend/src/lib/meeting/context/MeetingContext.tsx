@@ -39,6 +39,10 @@ interface MeetingContextValue {
   // UI State
   activeTab: 'transcript' | 'summary' | 'notes';
   setActiveTab: (tab: 'transcript' | 'summary' | 'notes') => void;
+  
+  // Linked conversations
+  linkedConversations: { id: string; title: string }[];
+  setLinkedConversations: (convs: { id: string; title: string }[]) => void;
 }
 
 const MeetingContext = createContext<MeetingContextValue | undefined>(undefined);
@@ -75,6 +79,9 @@ export function MeetingProvider({ children }: MeetingProviderProps) {
   // Chat
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   
+  // Linked conversations
+  const [linkedConversations, setLinkedConversations] = useState<{ id: string; title: string }[]>([]);
+  
   // UI State
   const [activeTab, setActiveTab] = useState<'transcript' | 'summary' | 'notes'>('transcript');
 
@@ -101,7 +108,12 @@ export function MeetingProvider({ children }: MeetingProviderProps) {
 
   // Smart notes methods
   const addSmartNote = useCallback((note: SmartNote) => {
-    setSmartNotes(prev => [...prev, note]);
+    setSmartNotes(prev => {
+      if (prev.some(n => n.id === note.id)) {
+        return prev; // avoid duplicates
+      }
+      return [...prev, note];
+    });
   }, []);
 
   const updateSmartNote = useCallback((id: string, updates: Partial<SmartNote>) => {
@@ -144,7 +156,9 @@ export function MeetingProvider({ children }: MeetingProviderProps) {
     chatMessages,
     addChatMessage,
     activeTab,
-    setActiveTab
+    setActiveTab,
+    linkedConversations,
+    setLinkedConversations
   };
 
   return (
