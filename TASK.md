@@ -4,6 +4,31 @@
 
 ### 🚀 New Features
 
+- [x] **🗑️ Remove Deprecated /app Page and Old AI Advisor Components** (2025-06-16) 🆕 **JUST COMPLETED**
+  - **Request**: Clean up codebase by removing deprecated `/app` page and old AICoachSidebar component
+  - **Solution Implemented**:
+    - ✅ **Removed Deprecated Files**: Cleaned up old components and pages
+      - Deleted `frontend/src/app/app/page.tsx` (deprecated main app page)
+      - Deleted `frontend/src/app/app/page.tsx.backup_redesign_2025-05-30_00:57:20` (backup file)
+      - Deleted `frontend/src/components/guidance/AICoachSidebar.tsx` (old AI advisor component)
+      - Deleted `frontend/src/components/guidance/AICoachSidebar.tsx.backup_redesign_2025-05-30_00:57:20` (backup)
+      - Deleted `frontend/tests/components/guidance/AICoachSidebar.test.tsx` (old test files)
+      - Deleted `frontend/tests/components/guidance/AICoachSidebar.readonly.test.tsx` (readonly tests)
+    - ✅ **Updated References**: Fixed remaining references to deprecated components
+      - Updated `frontend/src/app/demo-transcript/page.tsx` to redirect to `/dashboard` instead of `/app`
+      - Updated comment in `frontend/src/app/dashboard/page.tsx` to remove deprecation reference
+      - All conversations now properly use the new meeting interface (`/meeting/[id]`)
+    - ✅ **Build Verification**: Confirmed no build errors after cleanup
+      - Successfully compiled production build with no errors
+      - All route references properly updated
+      - No remaining imports of deleted components
+  - **Benefits**:
+    - Cleaner codebase with reduced maintenance burden
+    - Eliminates confusion between old and new interfaces
+    - Removes unused code that could cause future conflicts
+    - Streamlined user experience with single meeting interface
+  - **Status**: ✅ COMPLETED - Deprecated components successfully removed, codebase cleaned up
+
 - [x] **💬 Enhance Live Transcript Look and Feel** (2025-06-06) 🆕 **JUST COMPLETED**
   - **Request**: Improve the visual design and user experience of live transcripts in the meeting interface
   - **Solution Implemented**:

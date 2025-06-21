@@ -8,7 +8,7 @@ export function useMeetingRealtimeSync(meetingId: string) {
   useEffect(() => {
     if (!meetingId) return;
 
-    console.log('🔌 Setting up realtime subscription for meeting:', meetingId);
+    console.log('🔌 Setting up enhanced realtime subscription for meeting:', meetingId.substring(0, 8));
 
     // Subscribe to changes in the sessions table for this specific meeting
     const subscription = supabase
@@ -22,7 +22,7 @@ export function useMeetingRealtimeSync(meetingId: string) {
           filter: `id=eq.${meetingId}`
         },
         (payload) => {
-          console.log('📡 Realtime update received:', payload);
+          console.log('📡 Session realtime update received:', payload);
           
           // Update meeting with new data
           if (payload.new) {
@@ -40,11 +40,16 @@ export function useMeetingRealtimeSync(meetingId: string) {
         }
       )
       .subscribe((status) => {
-        console.log('📡 Subscription status:', status);
+        console.log('📡 Enhanced subscription status:', status);
+        if (status === 'SUBSCRIBED') {
+          console.log('✅ Enhanced realtime subscription active for meeting:', meetingId.substring(0, 8));
+        } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+          console.log('❌ Enhanced realtime subscription failed for meeting:', meetingId.substring(0, 8));
+        }
       });
 
     return () => {
-      console.log('🔌 Cleaning up realtime subscription');
+      console.log('🔌 Cleaning up enhanced realtime subscription');
       subscription.unsubscribe();
     };
   }, [meetingId, meeting, setMeeting]);

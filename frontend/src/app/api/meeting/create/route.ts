@@ -93,7 +93,13 @@ export async function POST(req: NextRequest) {
 
     // Create session context if provided
     if (data.context) {
-      await supabase
+      console.log('📝 Creating session context with data:', {
+        session_id: session.id,
+        context_length: data.context.length,
+        context_preview: data.context.substring(0, 100) + (data.context.length > 100 ? '...' : '')
+      });
+
+      const { error: contextError } = await supabase
         .from('session_context')
         .insert({
           session_id: session.id,
@@ -102,9 +108,19 @@ export async function POST(req: NextRequest) {
           text_context: data.context,
           context_metadata: {
             meeting_agenda: data.context,
-            scheduled_at: data.scheduledAt
+            scheduled_at: data.scheduledAt,
+            created_from: 'meeting_creation'
           }
         });
+
+      if (contextError) {
+        console.error('❌ Failed to create session context:', contextError);
+        // Don't fail the entire meeting creation, but log the error
+      } else {
+        console.log('✅ Session context created successfully');
+      }
+    } else {
+      console.log('⚠️ No context provided for meeting creation');
     }
 
     // Create meeting metadata
