@@ -64,15 +64,8 @@ export class RecallAIClient {
             events: [
               'transcript.data', 
               'transcript.partial_data',
-              'bot.joining_call',
-              'bot.in_waiting_room',
-              'bot.in_call_not_recording',
-              'bot.recording_permission_allowed',
-              'bot.recording_permission_denied',
-              'bot.in_call_recording',
-              'bot.call_ended',
-              'bot.done',
-              'bot.fatal'
+              'participant_events.join',
+              'participant_events.leave'
             ]
           },
         ] : [],
@@ -114,14 +107,30 @@ export class RecallAIClient {
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('❌ Recall API error response:', errorText);
+      console.error('❌ Recall API error response:', {
+        status: response.status,
+        statusText: response.statusText,
+        errorText,
+        headers: Object.fromEntries(response.headers.entries())
+      });
+      
       let errorData;
       try {
         errorData = JSON.parse(errorText);
       } catch {
         errorData = { message: errorText };
       }
-      throw new Error(`Failed to create Recall bot: ${errorData.message || response.statusText}`);
+      
+      // Provide more specific error messages
+      if (response.status === 401) {
+        throw new Error('Recall.ai API authentication failed. Please check your API key.');
+      } else if (response.status === 400) {
+        throw new Error(`Invalid request to Recall.ai: ${errorData.message || errorData.detail || response.statusText}`);
+      } else if (response.status === 429) {
+        throw new Error('Recall.ai rate limit exceeded. Please try again later.');
+      }
+      
+      throw new Error(`Failed to create Recall bot: ${errorData.message || errorData.detail || response.statusText}`);
     }
 
     const result = await response.json();

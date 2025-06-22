@@ -15,8 +15,10 @@ export class RecallSessionManager {
     console.log('🔧 RecallSessionManager config:', {
       apiKeyPresent: !!apiKey,
       apiKeyLength: apiKey?.length,
+      apiKeyFirstChars: apiKey?.substring(0, 8) + '...',
       region,
-      webhookUrl
+      webhookUrl,
+      appUrl
     });
     
     if (!apiKey) {

@@ -50,7 +50,9 @@ export function useRecallTranscriptStream({
                 text: data.data.text,
                 timestamp: new Date(data.data.timestamp),
                 speaker: data.data.speaker as 'ME' | 'THEM',
-                confidence: data.data.confidence
+                confidence: data.data.confidence,
+                isOwner: data.data.isOwner,
+                displayName: data.data.displayName
               };
               
               console.log('📝 Processing transcript:', transcriptLine);

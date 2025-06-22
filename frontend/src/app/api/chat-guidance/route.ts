@@ -146,7 +146,7 @@ export async function POST(request: NextRequest) {
       participantMe: z.string().optional(),
       participantThem: z.string().optional(),
       smartNotes: z.array(z.any()).optional(),
-      stage: z.enum(['opening','discovery','demo','pricing','closing']).optional(),
+      stage: z.enum(['opening','discovery','demo','pricing','closing','discussion']).optional(),
       isRecording: z.boolean().optional(),
       transcriptLength: z.number().optional()
     }).passthrough();

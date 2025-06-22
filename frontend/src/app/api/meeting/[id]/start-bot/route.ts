@@ -210,8 +210,18 @@ export async function POST(
 
     } catch (botError) {
       console.error('Failed to deploy bot:', botError);
+      console.error('Bot deployment error details:', {
+        error: botError instanceof Error ? botError.message : 'Unknown error',
+        stack: botError instanceof Error ? botError.stack : undefined,
+        sessionId: session.id,
+        meetingUrl: session.meeting_url
+      });
+      
       return NextResponse.json(
-        { error: 'Failed to deploy meeting bot' },
+        { 
+          error: 'Failed to deploy meeting bot',
+          details: botError instanceof Error ? botError.message : 'Unknown error occurred'
+        },
         { status: 500 }
       );
     }

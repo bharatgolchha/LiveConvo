@@ -258,6 +258,13 @@ export interface EffectivenessMetrics {
   communication_clarity: number;
   participant_satisfaction: number;
   overall_success: number;
+  agenda_alignment?: number;
+}
+
+export interface AgendaCoverage {
+  items_covered: string[];
+  items_missed: string[];
+  unexpected_topics: string[];
 }
 
 export interface EnhancedSummary {
@@ -271,6 +278,7 @@ export interface EnhancedSummary {
   follow_up_questions?: string[];
   conversation_dynamics?: ConversationDynamics;
   effectiveness_metrics?: EffectivenessMetrics;
+  agenda_coverage?: AgendaCoverage;
   coaching_recommendations?: string[];
   outcomes?: string[];
   next_steps?: string[];

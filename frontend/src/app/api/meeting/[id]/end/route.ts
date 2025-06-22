@@ -176,10 +176,28 @@ export async function POST(
 
         if (finalizeResponse.ok) {
           summaryGenerated = true;
-          console.log('✅ Summary generated successfully');
+          const summaryResult = await finalizeResponse.json();
+          console.log('✅ Summary generated successfully:', {
+            sessionId: summaryResult.sessionId,
+            hasSummary: !!summaryResult.summary,
+            hasTranscript: !!summaryResult.transcript,
+            transcriptLength: summaryResult.transcript?.length || 0
+          });
         } else {
           const errorData = await finalizeResponse.text();
-          console.warn('⚠️ Failed to generate summary:', errorData);
+          console.error('⚠️ Failed to generate summary:', {
+            status: finalizeResponse.status,
+            statusText: finalizeResponse.statusText,
+            error: errorData
+          });
+          
+          // Try to parse error details
+          try {
+            const errorJson = JSON.parse(errorData);
+            console.error('📝 Error details:', errorJson);
+          } catch (e) {
+            // Not JSON
+          }
         }
       } catch (error) {
         console.warn('⚠️ Error generating summary:', error);

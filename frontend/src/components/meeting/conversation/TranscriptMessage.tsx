@@ -4,7 +4,8 @@ import { TranscriptMessage as TranscriptMessageType } from '@/lib/meeting/types/
 import { SpeakerAvatar } from './SpeakerAvatar';
 import { formatTimestamp } from '@/lib/meeting/utils/time-formatters';
 import { useMeetingContext } from '@/lib/meeting/context/MeetingContext';
-import { ClockIcon, ExclamationTriangleIcon } from '@heroicons/react/24/outline';
+import { ClockIcon, ExclamationTriangleIcon, StarIcon } from '@heroicons/react/24/outline';
+import { StarIcon as StarIconSolid } from '@heroicons/react/24/solid';
 
 interface TranscriptMessageProps {
   message: TranscriptMessageType;
@@ -39,6 +40,7 @@ export function TranscriptMessage({ message, previousSpeaker }: TranscriptMessag
               <SpeakerAvatar 
                 speaker={speakerLabel} 
                 isHost={isMe}
+                isOwner={message.isOwner}
                 size="md"
               />
             </motion.div>
@@ -56,8 +58,14 @@ export function TranscriptMessage({ message, previousSpeaker }: TranscriptMessag
             >
               <span className={`text-sm font-semibold ${
                 isMe ? 'text-primary' : 'text-foreground'
-              }`}>
+              } flex items-center gap-1`}>
                 {speakerLabel}
+                {message.isOwner && (
+                  <span className="inline-flex items-center gap-1">
+                    <StarIconSolid className="w-3.5 h-3.5 text-yellow-500" />
+                    <span className="text-xs font-medium text-muted-foreground">(Organizer)</span>
+                  </span>
+                )}
               </span>
               
               <div className="flex items-center gap-2 text-xs text-muted-foreground">
@@ -90,6 +98,7 @@ export function TranscriptMessage({ message, previousSpeaker }: TranscriptMessag
                 : 'bg-card text-card-foreground border-border hover:border-border/80'
               }
               ${message.isPartial ? 'animate-pulse' : ''}
+              ${message.isOwner ? 'ring-1 ring-yellow-400/30' : ''}
               group-hover:shadow-md
             `}>
               <p className={`text-sm leading-relaxed whitespace-pre-wrap break-words ${

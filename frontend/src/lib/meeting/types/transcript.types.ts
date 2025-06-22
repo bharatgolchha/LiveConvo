@@ -12,6 +12,10 @@ export interface TranscriptMessage {
    * Human-readable display name of the speaker. Provided by Recall.ai when available.
    */
   displayName?: string;
+  /**
+   * Indicates if this speaker is the meeting owner/initiator
+   */
+  isOwner?: boolean;
 }
 
 export interface TranscriptSpeaker {

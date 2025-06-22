@@ -51,7 +51,13 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Get user's organization
+    // Get user's organization and profile info
+    const { data: userData } = await supabase
+      .from('users')
+      .select('full_name, current_organization_id')
+      .eq('id', user.id)
+      .single();
+
     const { data: orgMember } = await supabase
       .from('organization_members')
       .select('organization_id')
@@ -65,6 +71,9 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // Set participant_me to user's full name if not provided
+    const participantMe = data.participantMe || userData?.full_name || user.email?.split('@')[0] || 'Host';
+
     // Create session in database
     const { data: session, error: sessionError } = await supabase
       .from('sessions')
@@ -74,8 +83,8 @@ export async function POST(req: NextRequest) {
         title: data.title,
         conversation_type: data.type === 'custom' ? data.customType : data.type,
         status: 'active',
-        participant_me: data.participantMe || null,
-        participant_them: data.participantThem || null,
+        participant_me: participantMe,
+        participant_them: data.participantThem || 'Participants',
         meeting_url: data.meetingUrl && data.meetingUrl.trim() ? data.meetingUrl : null,
         meeting_platform: platform,
         transcription_provider: 'recall_ai'

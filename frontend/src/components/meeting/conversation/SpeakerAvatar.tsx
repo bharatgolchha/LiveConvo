@@ -1,14 +1,16 @@
 import React from 'react';
 import { useMeetingContext } from '@/lib/meeting/context/MeetingContext';
+import { StarIcon } from '@heroicons/react/24/solid';
 
 interface SpeakerAvatarProps {
   speaker: string;
   isHost?: boolean;
+  isOwner?: boolean;
   size?: 'sm' | 'md' | 'lg';
   showStatus?: boolean;
 }
 
-export function SpeakerAvatar({ speaker, isHost, size = 'md', showStatus = false }: SpeakerAvatarProps) {
+export function SpeakerAvatar({ speaker, isHost, isOwner, size = 'md', showStatus = false }: SpeakerAvatarProps) {
   const { meeting } = useMeetingContext();
   
   const getInitials = (name: string) => {
@@ -68,12 +70,20 @@ export function SpeakerAvatar({ speaker, isHost, size = 'md', showStatus = false
         rounded-full flex items-center justify-center font-semibold
         border-2 shadow-sm transition-all duration-200
         hover:scale-105 hover:shadow-md
+        ${isOwner ? 'ring-2 ring-yellow-400/50 ring-offset-1' : ''}
       `}>
         {getInitials(speakerName)}
       </div>
       
-      {/* Host indicator */}
-      {isHost && (
+      {/* Owner indicator - show star badge */}
+      {isOwner && (
+        <div className="absolute -top-1 -right-1 w-5 h-5 bg-yellow-500 border-2 border-background rounded-full flex items-center justify-center shadow-sm">
+          <StarIcon className="w-3 h-3 text-white" />
+        </div>
+      )}
+      
+      {/* Host indicator - only show if not owner */}
+      {isHost && !isOwner && (
         <div className="absolute -top-1 -right-1 w-4 h-4 bg-primary border-2 border-background rounded-full flex items-center justify-center">
           <div className="w-2 h-2 bg-primary-foreground rounded-full" />
         </div>

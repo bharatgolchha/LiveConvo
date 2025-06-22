@@ -222,7 +222,7 @@ export async function POST(request: NextRequest) {
     const serviceClient = createServerSupabaseClient();
     const { data: userData, error: userError } = await serviceClient
       .from('users')
-      .select('current_organization_id')
+      .select('current_organization_id, full_name')
       .eq('id', user.id)
       .single();
 
@@ -232,6 +232,9 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
+
+    // Set participant_me to user's full name if not provided
+    const participantMe = participant_me || userData?.full_name || user.email?.split('@')[0] || 'Host';
 
     // Create the session using authenticated client
     const { data: session, error: sessionError } = await authClient
@@ -243,7 +246,7 @@ export async function POST(request: NextRequest) {
         conversation_type,
         selected_template_id,
         status: 'draft',
-        participant_me: participant_me || null,
+        participant_me: participantMe,
         participant_them: participant_them || null,
         meeting_url: meeting_url || null,
         meeting_platform: meeting_url ? detectMeetingPlatform(meeting_url) : null

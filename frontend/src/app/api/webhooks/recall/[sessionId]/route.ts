@@ -4,8 +4,46 @@ import { headers } from 'next/headers';
 import { broadcastTranscript } from '@/lib/recall-ai/transcript-broadcaster';
 
 interface RecallWebhookEvent {
-  event: 'transcript.data' | 'transcript.partial_data' | 'bot.joining_call' | 'bot.in_waiting_room' | 'bot.in_call_not_recording' | 'bot.recording_permission_allowed' | 'bot.recording_permission_denied' | 'bot.in_call_recording' | 'bot.call_ended' | 'bot.done' | 'bot.fatal';
+  event: 'transcript.data' | 'transcript.partial_data' | 'participant_events.join' | 'participant_events.leave' | 'participant_events.update' | 'participant_events.speech_on' | 'participant_events.speech_off' | 'participant_events.webcam_on' | 'participant_events.webcam_off' | 'participant_events.screenshare_on' | 'participant_events.screenshare_off' | 'participant_events.chat_message';
   data: any;
+}
+
+// Interface for participant event data structure
+interface ParticipantEventData {
+  data: {
+    action?: string;
+    participant: {
+      id: number;
+      name: string | null;
+      is_host: boolean;
+      platform: string | null;
+      extra_data: object;
+    };
+    timestamp: {
+      absolute: string;
+      relative: number;
+    };
+    data?: {
+      text?: string;
+      to?: string;
+    } | null;
+  };
+  participant_events?: {
+    id: string;
+    metadata: object;
+  };
+  realtime_endpoint?: {
+    id: string;
+    metadata: object;
+  };
+  recording?: {
+    id: string;
+    metadata: object;
+  };
+  bot?: {
+    id: string;
+    metadata: object;
+  };
 }
 
 // Updated interface for real-time transcription format
@@ -422,35 +460,47 @@ export async function POST(
     // Verify webhook authenticity (if Recall provides signing)
     // const signature = headers().get('x-recall-signature');
     
-    const event: RecallWebhookEvent = await request.json();
+    const body = await request.text();
+    console.log('📦 Raw webhook body:', body);
+    
+    const event: RecallWebhookEvent = JSON.parse(body);
     console.log('🎯 Webhook event type:', event.event);
     
-    // The bot information is nested inside the data object according to the documentation
-    const transcriptData = event.data as TranscriptData;
-    const botId = transcriptData.bot?.id || '00000000-0000-0000-0000-000000000000';
+    // The bot information location varies by event type
+    let botId = '00000000-0000-0000-0000-000000000000';
+    
+    // For transcript events, bot is at event.data.bot
+    // For participant events, bot is also at event.data.bot
+    if (event.data?.bot?.id) {
+      botId = event.data.bot.id;
+    }
+    
     console.log('🤖 Bot ID:', botId);
     
     // Store webhook event
     const supabase = createServerSupabaseClient();
     
-    await supabase.from('recall_ai_webhooks').insert({
+    // Store webhook event - handle UUID validation
+    const { error: webhookInsertError } = await supabase.from('recall_ai_webhooks').insert({
       session_id: sessionId,
       bot_id: botId,
       event_type: event.event,
       event_data: event.data,
       processed: false,
     });
-
-    // Track bot usage for bot status events
-    const botStatusEvents = [
-      'bot.joining_call', 'bot.in_waiting_room', 'bot.in_call_not_recording', 
-      'bot.recording_permission_allowed', 'bot.recording_permission_denied', 
-      'bot.in_call_recording', 'bot.call_ended', 'bot.done', 'bot.fatal'
-    ];
     
-    if (botId && botStatusEvents.includes(event.event as any)) {
-      await trackBotUsage(sessionId, botId, event.event, event.data, supabase);
+    if (webhookInsertError) {
+      console.error('⚠️ Failed to store webhook event:', {
+        error: webhookInsertError,
+        sessionId,
+        botId,
+        eventType: event.event
+      });
+      // Continue processing even if storing fails
     }
+
+    // Note: Bot status events (bot.joining_call, bot.in_call_recording, etc.) are sent via Svix webhooks,
+    // not through realtime endpoints. They need to be configured in the Recall dashboard.
 
     // Process event based on type
     switch (event.event) {
@@ -466,18 +516,21 @@ export async function POST(
         await handleTranscriptData(sessionId, event.data as TranscriptData, true);
         break;
         
-      // These events are not currently supported by Recall.ai webhook
-      // case 'participant.events':
-      //   await handleParticipantEvent(sessionId, event.data);
-      //   break;
+      case 'participant_events.join':
+      case 'participant_events.leave':
+      case 'participant_events.update':
+      case 'participant_events.speech_on':
+      case 'participant_events.speech_off':
+      case 'participant_events.webcam_on':
+      case 'participant_events.webcam_off':
+      case 'participant_events.screenshare_on':
+      case 'participant_events.screenshare_off':
+      case 'participant_events.chat_message':
+        await handleParticipantEvent(sessionId, event.event, event.data);
+        break;
         
-      // case 'recording.completed':
-      //   await handleRecordingCompleted(sessionId, event.data);
-      //   break;
-        
-      // case 'bot.status_changed':
-      //   await handleBotStatusChanged(sessionId, event.data);
-      //   break;
+      default:
+        console.log('⚠️ Unhandled webhook event type:', event.event);
     }
 
     return NextResponse.json({ success: true });
@@ -517,10 +570,10 @@ async function handleTranscriptData(sessionId: string, eventData: TranscriptData
     return;
   }
   
-  // Get session to find participant names
+  // Get session to find participant names and owner info
   const { data: session, error: sessionError } = await supabase
     .from('sessions')
-    .select('participant_me, participant_them')
+    .select('participant_me, participant_them, user_id')
     .eq('id', sessionId)
     .single();
     
@@ -551,6 +604,13 @@ async function handleTranscriptData(sessionId: string, eventData: TranscriptData
       ? (session?.participant_me || 'Host')
       : (session?.participant_them || 'Participant');
 
+  // Determine if this speaker is the meeting owner/initiator
+  // The owner is the person who created the session (participant_me)
+  const isOwner = session?.participant_me && (
+    speakerName === session.participant_me || 
+    (data.participant.is_host && speakerAlias === 'ME')
+  );
+
   // For partial data, just broadcast without storing
   if (isPartial) {
     const partialId = `partial-${Date.now()}-${speakerAlias}`;
@@ -568,6 +628,7 @@ async function handleTranscriptData(sessionId: string, eventData: TranscriptData
         isPartial: true,
         timeSeconds: startTime,
         displayName: speakerName,
+        isOwner: isOwner || false,
       }
     });
     return;
@@ -595,6 +656,7 @@ async function handleTranscriptData(sessionId: string, eventData: TranscriptData
     confidence_score: 0.95, // High confidence for final
     is_final: true,
     stt_provider: 'deepgram',
+    is_owner: isOwner || false,
   }).select().single();
 
   if (error) {
@@ -622,7 +684,8 @@ async function handleTranscriptData(sessionId: string, eventData: TranscriptData
         confidence: 0.95,
         isFinal: true,
         timeSeconds: startTime,
-        sequenceNumber: nextSequence
+        sequenceNumber: nextSequence,
+        isOwner: isOwner || false
       }
     };
     
@@ -636,16 +699,40 @@ async function handleTranscriptData(sessionId: string, eventData: TranscriptData
   console.log(`Session duration would increase by ${endTime - startTime} seconds`);
 }
 
-async function handleParticipantEvent(sessionId: string, data: any) {
-  const supabase = createServerSupabaseClient();
-  
-  // Store participant events for analytics
-  await supabase.from('session_timeline_events').insert({
-    session_id: sessionId,
-    event_type: data.type, // 'joined', 'left', 'started_speaking', etc.
-    event_data: data,
-    timestamp: new Date(data.timestamp * 1000).toISOString(),
-  });
+async function handleParticipantEvent(sessionId: string, eventType: string, data: ParticipantEventData) {
+  try {
+    const supabase = createServerSupabaseClient();
+    
+    console.log('👥 Participant event:', eventType, 'for session:', sessionId);
+    
+    // Extract participant info - the structure is nested under data.data
+    const participantData = data.data;
+    const participant = participantData?.participant;
+    const timestamp = participantData?.timestamp;
+    
+    // Store participant events for analytics
+    const { error: insertError } = await supabase.from('session_timeline_events').insert({
+      session_id: sessionId,
+      event_type: eventType,
+      event_data: data,
+      timestamp: timestamp?.absolute || new Date().toISOString(),
+    });
+    
+    if (insertError) {
+      console.error('❌ Failed to insert participant event:', insertError);
+      // Continue processing even if insert fails
+    }
+    
+    // Log participant join/leave for debugging
+    if (eventType === 'participant_events.join') {
+      console.log(`✅ Participant joined: ${participant?.name || 'Unknown'} (ID: ${participant?.id})`);
+    } else if (eventType === 'participant_events.leave') {
+      console.log(`👋 Participant left: ${participant?.name || 'Unknown'} (ID: ${participant?.id})`);
+    }
+  } catch (error) {
+    console.error('❌ Error handling participant event:', error);
+    // Don't throw - allow webhook to succeed even if this fails
+  }
 }
 
 async function handleBotStatusChanged(sessionId: string, data: any) {

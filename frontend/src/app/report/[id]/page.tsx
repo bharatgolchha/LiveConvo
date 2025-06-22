@@ -83,6 +83,7 @@ export default function MeetingReportPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'overview' | 'details' | 'transcript'>('overview');
+  const [finalizing, setFinalizing] = useState(false);
 
   useEffect(() => {
     if (user && session) {
@@ -112,49 +113,109 @@ export default function MeetingReportPage() {
       const summaryData = sessionData.session.summaries?.length > 0 
         ? sessionData.session.summaries[sessionData.session.summaries.length - 1] 
         : null;
+        
+      console.log('📊 Report page - Summary data:', {
+        sessionId: sessionData.session.id,
+        hasSummaries: !!sessionData.session.summaries,
+        summaryCount: sessionData.session.summaries?.length || 0,
+        summaryStatus: summaryData?.generation_status,
+        hasTldr: !!summaryData?.tldr,
+        sessionStatus: sessionData.session.status,
+        finalizedAt: sessionData.session.finalized_at
+      });
 
-      // Transform data into report format
+      // Check if session is not finalized or summary is missing
+      if (!summaryData || !summaryData.tldr) {
+        console.warn('⚠️ No summary available for session:', meetingId);
+        
+        // Check if we should attempt to generate a summary
+        if (sessionData.session.status === 'completed' && !sessionData.session.finalized_at) {
+          console.log('🔄 Attempting to finalize session...');
+          
+          try {
+            // Attempt to finalize the session
+            const finalizeResponse = await fetch(`/api/sessions/${meetingId}/finalize`, {
+              method: 'POST',
+              headers,
+              body: JSON.stringify({
+                conversationType: sessionData.session.conversation_type,
+                conversationTitle: sessionData.session.title,
+                participantMe: sessionData.session.participant_me,
+                participantThem: sessionData.session.participant_them
+              })
+            });
+
+            if (finalizeResponse.ok) {
+              console.log('✅ Session finalized successfully, reloading...');
+              // Reload the page to fetch the new summary
+              window.location.reload();
+              return;
+            } else {
+              const errorData = await finalizeResponse.json();
+              console.error('❌ Failed to finalize session:', errorData);
+            }
+          } catch (finalizeError) {
+            console.error('❌ Error finalizing session:', finalizeError);
+          }
+        }
+      }
+
+      // Transform data into report format with failsafe defaults
+      let parsedStructuredNotes: any = {};
+      if (summaryData?.structured_notes) {
+        try {
+          parsedStructuredNotes = JSON.parse(summaryData.structured_notes);
+        } catch (e) {
+          console.error('Failed to parse structured notes:', e);
+        }
+      }
+
       const reportData: MeetingReport = {
         id: sessionData.session.id,
-        title: sessionData.session.title,
-        type: sessionData.session.conversation_type,
+        title: sessionData.session.title || 'Untitled Meeting',
+        type: sessionData.session.conversation_type || 'meeting',
         platform: sessionData.session.meeting_platform || 'unknown',
         duration: sessionData.session.recording_duration_seconds || 0,
         participants: {
           me: sessionData.session.participant_me || 'You',
           them: sessionData.session.participant_them || 'Participant'
         },
-        startedAt: sessionData.session.recording_started_at,
-        endedAt: sessionData.session.recording_ended_at,
+        startedAt: sessionData.session.recording_started_at || sessionData.session.created_at,
+        endedAt: sessionData.session.recording_ended_at || sessionData.session.updated_at,
         status: 'completed',
         summary: {
-          tldr: summaryData?.tldr || 'Summary not available',
+          tldr: summaryData?.tldr || 'Summary generation is pending. Please check back in a few moments.',
           keyDecisions: summaryData?.key_decisions || [],
-          actionItems: (summaryData?.action_items || []).map((item: any) => ({
-            description: typeof item === 'string' ? item : item.description,
-            owner: item.owner,
-            dueDate: item.dueDate,
-            priority: item.priority || 'medium'
-          })),
+          actionItems: (summaryData?.action_items || []).map((item: any) => {
+            if (typeof item === 'string') {
+              return { description: item, priority: 'medium' };
+            }
+            return {
+              description: item.description || item.task || item,
+              owner: item.owner,
+              dueDate: item.dueDate,
+              priority: item.priority || 'medium'
+            };
+          }),
           followUpQuestions: summaryData?.follow_up_questions || [],
           conversationHighlights: summaryData?.conversation_highlights || [],
-          insights: summaryData?.structured_notes ? JSON.parse(summaryData.structured_notes).insights || [] : [],
-          effectiveness: {
-            overall: 85, // Mock data - could be calculated from structured_notes
-            communication: 90,
-            goalAchievement: 80
+          insights: parsedStructuredNotes.insights || [],
+          effectiveness: parsedStructuredNotes.effectiveness_metrics || {
+            overall: summaryData ? 85 : 0,
+            communication: summaryData ? 90 : 0,
+            goalAchievement: summaryData ? 80 : 0
           }
         },
         analytics: {
           wordCount: sessionData.session.word_count || 0,
-          speakingTime: {
-            me: 60, // Mock data - could be calculated from transcript
-            them: 40
+          speakingTime: parsedStructuredNotes.speaking_time || {
+            me: 50,
+            them: 50
           },
-          sentiment: 'positive'
+          sentiment: parsedStructuredNotes.sentiment || 'neutral'
         },
         recordingUrl: sessionData.session.recording_url,
-        transcriptAvailable: true
+        transcriptAvailable: sessionData.session.transcripts?.length > 0
       };
 
       setReport(reportData);
@@ -223,6 +284,44 @@ export default function MeetingReportPage() {
   const handleExport = () => {
     // TODO: Implement export functionality
     alert('Export feature coming soon!');
+  };
+
+  const handleManualFinalize = async () => {
+    if (!report || finalizing) return;
+    
+    setFinalizing(true);
+    try {
+      const headers: HeadersInit = { 'Content-Type': 'application/json' };
+      if (session?.access_token) {
+        headers['Authorization'] = `Bearer ${session.access_token}`;
+      }
+
+      const finalizeResponse = await fetch(`/api/sessions/${meetingId}/finalize`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          conversationType: report.type,
+          conversationTitle: report.title,
+          participantMe: report.participants.me,
+          participantThem: report.participants.them
+        })
+      });
+
+      if (finalizeResponse.ok) {
+        console.log('✅ Session finalized successfully');
+        // Reload the page to fetch the new summary
+        window.location.reload();
+      } else {
+        const errorData = await finalizeResponse.json();
+        console.error('❌ Failed to finalize session:', errorData);
+        alert('Failed to generate summary. Please try again.');
+      }
+    } catch (error) {
+      console.error('❌ Error finalizing session:', error);
+      alert('An error occurred while generating the summary.');
+    } finally {
+      setFinalizing(false);
+    }
   };
 
   if (loading) {
@@ -410,16 +509,49 @@ export default function MeetingReportPage() {
                   </div>
                   <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Executive Summary</h3>
                 </div>
-                <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4 border border-blue-200 dark:border-blue-800">
-                  <div className="flex items-start gap-3">
-                    <div className="w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
-                      <span className="text-white text-xs font-bold">TL;DR</span>
+                {report.summary.tldr === 'Summary generation is pending. Please check back in a few moments.' ? (
+                  <div className="bg-yellow-50 dark:bg-yellow-900/20 rounded-lg p-4 border border-yellow-200 dark:border-yellow-800">
+                    <div className="flex items-start gap-3">
+                      <AlertTriangle className="w-6 h-6 text-yellow-600 dark:text-yellow-400 flex-shrink-0 mt-0.5" />
+                      <div>
+                        <p className="text-gray-700 dark:text-gray-300 font-medium mb-2">
+                          Summary Generation Pending
+                        </p>
+                        <p className="text-sm text-gray-600 dark:text-gray-400">
+                          The AI is still processing this meeting. Please refresh the page in a few moments to see the complete summary.
+                        </p>
+                        <div className="flex gap-2 mt-3">
+                          <Button 
+                            onClick={() => window.location.reload()} 
+                            variant="outline" 
+                            size="sm"
+                          >
+                            Refresh Page
+                          </Button>
+                          <Button 
+                            onClick={handleManualFinalize} 
+                            variant="primary" 
+                            size="sm"
+                            disabled={finalizing}
+                          >
+                            {finalizing ? 'Generating...' : 'Generate Summary Now'}
+                          </Button>
+                        </div>
+                      </div>
                     </div>
-                    <p className="text-gray-700 dark:text-gray-300 leading-relaxed">
-                      {report.summary.tldr}
-                    </p>
                   </div>
-                </div>
+                ) : (
+                  <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4 border border-blue-200 dark:border-blue-800">
+                    <div className="flex items-start gap-3">
+                      <div className="w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                        <span className="text-white text-xs font-bold">TL;DR</span>
+                      </div>
+                      <p className="text-gray-700 dark:text-gray-300 leading-relaxed">
+                        {report.summary.tldr}
+                      </p>
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Key Decisions */}
