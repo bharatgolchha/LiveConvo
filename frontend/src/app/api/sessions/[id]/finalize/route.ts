@@ -228,6 +228,30 @@ export async function POST(
       conversationTitle
     });
 
+    // Calculate session statistics from transcript data
+    const totalWords = transcriptLines?.reduce((total, line) => {
+      return total + (line.content?.split(' ').length || 0);
+    }, 0) || 0;
+
+    const sessionDuration = transcriptLines?.length > 0 
+      ? Math.max(...transcriptLines.map(line => line.end_time_seconds || line.start_time_seconds || 0))
+      : 0;
+
+    // Calculate speaking time by participant
+    const speakingStats = transcriptLines?.reduce((stats, line) => {
+      const speaker = line.speaker;
+      const duration = (line.end_time_seconds || line.start_time_seconds) - line.start_time_seconds || 0;
+      
+      if (!stats[speaker]) {
+        stats[speaker] = { duration: 0, words: 0 };
+      }
+      
+      stats[speaker].duration += duration;
+      stats[speaker].words += (line.content?.split(' ').length || 0);
+      
+      return stats;
+    }, {} as Record<string, { duration: number; words: number }>) || {};
+
     // Generate summary and finalization with full context
     const fullContext = buildFullContext(textContext, personalContext, uploadedFiles, selectedPreviousConversations);
     
@@ -312,19 +336,25 @@ export async function POST(
       console.log('✅ Summary successfully saved to database with ID:', summaryData?.id);
     }
 
-    // Update session status to completed - using authenticated client
+    console.log('📊 Calculated session statistics:', {
+      transcriptLinesCount: transcriptLines?.length || 0
+    });
+
+    // Update session status and statistics - using authenticated client
     const { error: sessionUpdateError } = await authenticatedSupabase
       .from('sessions')
       .update({ 
         status: 'completed',
-        finalized_at: new Date().toISOString()
+        finalized_at: new Date().toISOString(),
+        total_words_spoken: totalWords,
+        recording_duration_seconds: Math.round(sessionDuration)
       })
       .eq('id', sessionId);
 
     if (sessionUpdateError) {
       console.error('❌ Failed to update session status:', sessionUpdateError);
     } else {
-      console.log('✅ Session status updated to completed');
+      console.log('✅ Session status and statistics updated');
     }
 
     // If summary save failed but session update succeeded, still return a partial success
@@ -468,6 +498,17 @@ IMPORTANT:
 - Use the actual speaker names from the transcript in your analysis
 - Compare what was discussed against the meeting agenda/context to identify what was covered and what was missed
 
+EFFECTIVENESS METRICS CALCULATION GUIDE:
+- objective_achievement: How well did the conversation achieve its stated goals? (0-100)
+- communication_clarity: Were ideas expressed clearly and understood? Look for confusion, clarifications needed (0-100)
+- participant_satisfaction: Did both parties seem engaged and satisfied? Look for positive responses, agreement (0-100)
+- overall_success: General assessment of whether this was a productive conversation (0-100)
+- agenda_alignment: How well did the conversation stick to the planned agenda/context? (0-100)
+- speaking_balance: Was speaking time reasonably balanced or did one person dominate? 50-50 = 100, heavily skewed = lower (0-100)
+- engagement_level: How engaged were the participants? Look for questions, active responses, enthusiasm (0-100)
+
+Be realistic with scores - most conversations aren't perfect. Use 60-80 range for typical good conversations, 80+ for exceptional ones.
+
 Return a JSON object with this EXACT structure:
 {
   "tldr": "2-3 sentence executive summary that captures the essence and outcome",
@@ -522,7 +563,9 @@ Return a JSON object with this EXACT structure:
     "communication_clarity": 0-100,
     "participant_satisfaction": 0-100,
     "overall_success": 0-100,
-    "agenda_alignment": 0-100
+    "agenda_alignment": 0-100,
+    "speaking_balance": 0-100,
+    "engagement_level": 0-100
   },
   "agenda_coverage": {
     "items_covered": ["List of agenda items that were discussed"],
