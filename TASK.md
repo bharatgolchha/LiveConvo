@@ -4,6 +4,131 @@
 
 ### 🚀 New Features
 
+- [x] **✨ Enhanced Previous Meeting Selection UI for Meeting Creation** (2025-01-23) 🆕 **JUST COMPLETED**
+  - **Request**: Improve the previous meeting selection interface when creating new meetings
+  - **Issues Solved**:
+    - Basic search-only interface wasn't user-friendly
+    - No visual preview of meeting details (type, date, duration)
+    - Required typing to search - no browsing of recent meetings
+    - No filtering by conversation type
+    - Poor empty states and user guidance
+    - Limited visual feedback during selection process
+  - **Solution Implemented**:
+    - ✅ **Complete UI Overhaul**: Redesigned PreviousConversationsMultiSelect component
+      - Beautiful card-based interface showing meeting details
+      - Icons for different conversation types (sales, support, interview, etc.)
+      - Rich metadata display (date, duration, type, status)
+      - Animated interactions with smooth hover effects
+      - Professional color coding and typography
+    - ✅ **Enhanced Search & Filtering**: Multiple ways to find previous meetings
+      - Search by meeting title with instant results
+      - Filter dropdown by conversation type (sales, support, interview, etc.)
+      - Show recent completed meetings by default (no search required)
+      - Smart filtering to only show completed meetings for context
+    - ✅ **Improved UX Features**: Better user experience throughout selection
+      - Load recent meetings automatically on component mount
+      - Real-time search with debounced API calls
+      - Visual selection states with checkmarks and highlighting
+      - Selected meetings displayed as beautiful chips with metadata
+      - Descriptive helper text explaining the purpose
+      - Click outside to close dropdown functionality
+    - ✅ **Rich Meeting Display**: Comprehensive information for better selection
+      - Meeting title with conversation type icons
+      - Formatted dates (Today, Yesterday, X days ago)
+      - Duration display (Xh Ym format) from recording data
+      - Conversation type badges (Sales, Support, Interview, etc.)
+      - Visual indicators for selected meetings
+      - Responsive design for different screen sizes
+    - ✅ **Better Empty States**: Helpful guidance when no meetings found
+      - Different messages for no meetings vs no search results
+      - Clear calls-to-action for users to complete meetings first
+      - Loading states with spinner animations
+      - Helpful tips for search optimization
+    - ✅ **Enhanced Hook Management**: Improved useLinkedConversations hook
+      - Better error handling and loading states
+      - Consistent API integration patterns
+      - TypeScript improvements for type safety
+      - More robust state management
+  - **Technical Implementation**:
+    - Completely rewrote PreviousConversationsMultiSelect component with modern React patterns
+    - Added Framer Motion animations for smooth interactions
+    - Enhanced TypeScript interfaces for better type safety
+    - Improved API integration with proper error handling
+    - Added utility functions for date/duration formatting
+    - Created reusable icon mapping for conversation types
+  - **User Experience Benefits**:
+    - Beautiful, intuitive interface that users will enjoy using
+    - No learning curve - immediately clear how to select meetings
+    - Rich context helps users make informed selection decisions
+    - Smooth animations make the interface feel polished and professional
+    - Clear feedback on what's selected and what will happen
+    - Responsive design works perfectly on mobile and desktop
+  - **Visual Design Features**:
+    - Gradient backgrounds and modern card layouts
+    - Consistent icon system for different meeting types
+    - Professional color palette with proper contrast
+    - Animated dropdowns and selection states
+    - Beautiful typography with proper hierarchy
+    - Accessible design with proper focus states
+  - **Status**: ✅ COMPLETED - Previous meeting selection now provides beautiful, intuitive interface for context selection
+
+### 🚀 New Features
+
+- [x] **🤖 Fix Automatic Bot Usage Accounting on Bot Stop** (2025-06-22) 🆕 **JUST COMPLETED**
+  - **Request**: Ensure bot usage gets properly accounted for as soon as the bot stops, both for automatic and manual stops
+  - **Issues Identified**:
+    - Bot usage tracking record showed status "recording" even after session ended
+    - Missing end time (`recording_ended_at` was null) in bot usage tracking
+    - Zero usage recorded (`total_recording_seconds` and `billable_minutes` were 0)
+    - Session bot status stuck at "in_call" instead of "completed"
+    - No billing recorded (`bot_recording_minutes` and `bot_billable_amount` were 0)
+    - Manual stop endpoint didn't finalize usage calculations
+  - **Root Cause Analysis**:
+    - Webhook processing had correct logic but wasn't receiving proper bot status events
+    - Bot creation wasn't configured to send bot status events to webhooks
+    - Manual stop endpoint only updated session status but didn't calculate final usage
+    - Session table updates were missing when finalizing bot usage
+  - **Solution Implemented**:
+    - ✅ **Enhanced Webhook Configuration**: Updated bot creation to register for all bot status events
+      - Added `bot.joining_call`, `bot.in_waiting_room`, `bot.in_call_not_recording` events
+      - Added `bot.recording_permission_allowed`, `bot.recording_permission_denied` events  
+      - Added `bot.in_call_recording`, `bot.call_ended`, `bot.done`, `bot.fatal` events
+      - Now webhooks will receive real-time bot status changes for proper usage tracking
+    - ✅ **Fixed Manual Stop Usage Finalization**: Enhanced stop-bot endpoint with usage calculation
+      - Added `finalizeBotUsageOnStop()` function to calculate usage when manually stopping
+      - Calculates duration from `recording_started_at` to stop time
+      - Updates `bot_usage_tracking` table with end time, duration, and billable minutes
+      - Updates `sessions` table with bot recording info and billing amount
+      - Proper error handling and logging throughout the process
+    - ✅ **Improved Webhook Usage Finalization**: Enhanced webhook processing for bot completion
+      - Fixed session ID resolution in `finalizeRecordingUsage()` function
+      - Updated function signature to properly handle sessionId parameter
+      - Ensures session table gets updated with billing info when bot completes naturally
+      - Consistent billing rate calculation ($0.10 per minute) across all paths
+    - ✅ **Comprehensive Usage Tracking**: Both automatic and manual bot stops now properly finalize usage
+      - Webhook events (`bot.done`, `bot.call_ended`, `bot.fatal`) trigger automatic finalization
+      - Manual stop via API triggers immediate usage calculation and finalization
+      - Both paths update `bot_usage_tracking` and `sessions` tables consistently
+      - Proper status updates (`status: 'completed'`, `recall_bot_status: 'completed'`)
+  - **Technical Implementation**:
+    - Updated `RecallAIClient.createBot()` to register for bot status webhook events
+    - Enhanced `/api/sessions/[id]/stop-bot` endpoint with usage finalization logic
+    - Fixed webhook processing in `/api/webhooks/recall/[sessionId]/route.ts`
+    - Added proper error handling and logging for debugging future issues
+    - Consistent billing calculation and database updates across all code paths
+  - **User Experience Benefits**:
+    - Bot usage is now immediately accounted for when sessions end
+    - Accurate billing and usage tracking for both automatic and manual bot stops
+    - Dashboard bot usage display will show correct usage immediately
+    - No more missing or delayed bot usage accounting
+    - Transparent billing with proper minute calculation and pricing
+  - **Data Integrity**:
+    - All bot sessions now properly finalize with complete usage data
+    - Billing amounts calculated consistently ($0.10 per minute)
+    - Session status properly updated to 'completed' when bots stop
+    - Usage tracking entries created for proper monthly usage calculations
+  - **Status**: ✅ COMPLETED - Bot usage now automatically accounts for usage as soon as bot stops
+
 - [x] **🤖 Fix Bot Recording Usage Integration with Dashboard Audio Time** (2025-06-21) 🆕 **JUST COMPLETED**
   - **Request**: Ensure bot recording minutes are properly included in dashboard "Audio Time" and subscription usage calculations
   - **Issues Solved**:
@@ -51,8 +176,6 @@
     - Monthly cache updated to reflect 88 total minutes for user
     - Bot usage API working correctly with organization filtering
   - **Status**: ✅ COMPLETED - Bot recording usage now properly integrated with dashboard audio time and subscription limits
-
-### 🚀 New Features
 
 - [x] **🏁 Enhanced End Meeting Flow with Beautiful Report Generation** (2025-01-21) 🆕 **JUST COMPLETED**
   - **Request**: Create amazing end meeting button functionality that generates and shows final reports
@@ -377,6 +500,18 @@
     - Clear visual indication with chain link icon and primary color
     - Tooltip prevents text overflow with proper truncation
   - **Status**: ✅ COMPLETED - Dashboard now correctly shows linked previous conversations with hover details
+
+- [x] **🔗 AI Advisor Context Integration - Linked Conversations** (2025-01-23) 🆕 **JUST COMPLETED**
+  - **Issue**: AI advisor was showing "No meeting context available" even when meetings had linked conversations
+  - **Root Cause**: Chat-guidance API wasn't automatically fetching session context and linked conversations
+  - **Solution Implemented**:
+    - ✅ **Auto-fetch Session Context**: When `sessionId` provided, automatically fetch from `session_context` table
+    - ✅ **Auto-fetch Linked Conversations**: Automatically fetch from `conversation_links` table
+    - ✅ **Include Previous Meeting Summaries**: Fetch and include summaries of linked conversations
+    - ✅ **Enhanced Context Integration**: Pass all context to AI system prompt for intelligent responses
+    - ✅ **Comprehensive Logging**: Added debug logs to track context fetching and usage
+    - ✅ **Backward Compatibility**: Still supports manually passed context while adding auto-fetch
+  - **Result**: AI advisor now has full context of current meeting + previous linked meetings for much more intelligent and contextual advice
 
 - [ ] **💳 Set Up Stripe Integration with Supabase Edge Functions** (2025-01-30) 🆕 **IN PROGRESS**
   - **Request**: Implement Stripe subscription billing for Pro plan using Supabase Edge Functions
@@ -2128,3 +2263,98 @@ None currently identified - all major issues have been resolved or moved to acti
       - Restarted development server properly
       - Webhook routes now functioning correctly
   - **Status**: ✅ Both features fully implemented and tested
+
+- [x] **🤖 Comprehensive Bot Minutes Usage Integration** (2025-06-22) 🆕 **JUST COMPLETED**
+  - **Request**: Integrate bot minutes usage into dashboard, enforce usage limits, and update subscription system
+  - **Current State Analysis**:
+    - ✅ Bot usage tracking system implemented (`bot_usage_tracking` table)
+    - ✅ Bot usage properly recorded when bots stop (21 sessions, 82 minutes tracked)
+    - ✅ Usage tracking entries created with `source: 'recall_ai_bot'`
+    - ✅ Monthly usage cache includes bot minutes via `check_usage_limit_v2`
+    - ✅ Usage limit check before starting bots - IMPLEMENTED
+    - ✅ Dashboard shows "Bot Minutes" instead of "Audio Time" - UPDATED
+    - ✅ Plans reference bot minutes instead of audio hours - MIGRATED
+    - ✅ Usage overview clearly shows bot-specific usage - IMPLEMENTED
+  - **Implementation Completed**:
+    1. **✅ Updated Plans & Subscription System**:
+       - Added `monthly_bot_minutes_limit` column to plans table
+       - Migrated existing plans: Free (60 minutes), Pro (6000 minutes)
+       - Updated plan displays to show bot minutes instead of audio hours
+    2. **✅ Enforced Usage Limits Before Bot Creation**:
+       - Added usage check in `/api/meeting/[id]/start-bot` endpoint
+       - Returns 403 error with detailed message if user is out of bot minutes
+       - Frontend handles limit errors and shows upgrade prompts
+    3. **✅ Updated Dashboard Usage Overview**:
+       - Changed "Audio Time" to "Bot Minutes" in settings panel
+       - Updated sidebar to show "Bot Minutes Used" with proper formatting
+       - Added color-coded progress bars (red when approaching limit)
+    4. **✅ Updated Usage Calculation Functions**:
+       - Enhanced `check_usage_limit_v2` to prioritize bot minutes over audio hours
+       - Function now checks: bot_minutes → audio_minutes → audio_hours * 60
+       - Maintains backward compatibility while prioritizing bot usage
+    5. **✅ Frontend UI Updates**:
+       - All references updated from "Audio Time" to "Bot Minutes"
+       - Usage breakdown shows bot-specific data
+       - Settings panel displays bot minute limits clearly
+       - Error handling for usage limit exceeded scenarios
+  - **Database Changes Implemented**:
+    - ✅ Added `monthly_bot_minutes_limit` to plans table with proper indexing
+    - ✅ Updated `check_usage_limit_v2` function to prioritize bot minutes
+    - ✅ Migration applied successfully for existing plans
+  - **Testing Results**:
+    - ✅ Usage limit function works correctly (tested with real user data)
+    - ✅ Plans show correct bot minute limits (Free: 60, Pro: 6000)
+    - ✅ User with 19/6000 minutes used shows proper limits and can record
+    - ✅ Bot creation endpoint now checks limits before starting bots
+  - **User Experience Achieved**:
+    - ✅ Clear understanding that usage is based on bot recording minutes
+    - ✅ Cannot start bot when out of minutes (enforced at API level)
+    - ✅ Transparent usage display showing bot minutes used/remaining
+    - ✅ Proper billing based on bot minutes used
+    - ✅ Color-coded warnings when approaching limits
+  - **Success Criteria Met**:
+    - ✅ Users cannot start bots when out of minutes
+    - ✅ Dashboard accurately shows bot minutes usage
+    - ✅ Plans display bot minutes instead of audio hours
+    - ✅ Usage limits properly enforced across all endpoints
+    - ✅ Billing reflects actual bot minutes used
+  - **Status**: ✅ COMPLETED - Bot minutes usage fully integrated with proper limits, dashboard updates, and user experience
+
+- [x] **🔗 AI Advisor Context Integration - Linked Conversations** (2025-01-23) 🆕 **JUST COMPLETED**
+  - **Issue**: AI advisor was showing "No meeting context available" even when meetings had linked conversations
+  - **Root Cause**: Chat-guidance API wasn't automatically fetching session context and linked conversations
+  - **Solution Implemented**:
+    - ✅ **Auto-fetch Session Context**: When `sessionId` provided, automatically fetch from `session_context` table
+    - ✅ **Auto-fetch Linked Conversations**: Automatically fetch from `conversation_links` table
+    - ✅ **Include Previous Meeting Summaries**: Fetch and include summaries of linked conversations
+    - ✅ **Enhanced Context Integration**: Pass all context to AI system prompt for intelligent responses
+    - ✅ **Comprehensive Logging**: Added debug logs to track context fetching and usage
+    - ✅ **Backward Compatibility**: Still supports manually passed context while adding auto-fetch
+  - **Result**: AI advisor now has full context of current meeting + previous linked meetings for much more intelligent and contextual advice
+
+- [x] **🔗 Fix Dashboard Linked Conversations Display** (2025-06-06) 🆕 **JUST COMPLETED**
+  - **Issue**: Dashboard showed how many times a conversation was referenced by others, but user wanted to see how many previous conversations are linked TO each conversation
+  - **Request**: Reverse the logic to show linked previous conversations with hover details
+  - **Solution Implemented**:
+    - ✅ **Reversed Logic**: Changed API to show how many previous conversations each session uses as context
+      - Updated `getLinkedConversations()` function to check each session's own `selectedPreviousConversations`
+      - Changed from counting references to counting linked context conversations
+    - ✅ **Enhanced Data Structure**: API now returns both count and conversation details
+      - Added `linkedConversations` array with `{ id, title }` objects
+      - Maintains backward compatibility with `linkedConversationsCount`
+    - ✅ **Hover Functionality**: Added beautiful hover tooltip showing linked conversation titles
+      - Displays "Previous conversations used as context:" header
+      - Lists numbered conversation titles in tooltip
+      - Modern design with proper positioning and arrow
+    - ✅ **Updated Text**: Changed "Linked to X conversations" to "Linked to X previous conversations" for clarity
+  - **Technical Implementation**:
+    - Updated `frontend/src/app/api/sessions/route.ts` getLinkedConversations function
+    - Enhanced Session type in `useSessions.ts` to include `linkedConversations` array
+    - Added hover tooltip UI component in dashboard with proper styling
+    - Uses group-hover pattern for clean interaction without JavaScript events
+  - **User Experience**:
+    - Now shows meaningful information about conversation context relationships
+    - Hover reveals which specific conversations were used as context
+    - Clear visual indication with chain link icon and primary color
+    - Tooltip prevents text overflow with proper truncation
+  - **Status**: ✅ COMPLETED - Dashboard now correctly shows linked previous conversations with hover details

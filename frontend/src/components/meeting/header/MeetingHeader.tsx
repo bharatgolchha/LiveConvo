@@ -85,10 +85,14 @@ export function MeetingHeader() {
                 {meeting.title}
               </h1>
               <div className="flex items-center gap-2 mt-1">
-                <span className="text-sm font-medium text-muted-foreground">
-                  {getPlatformName(meeting.platform)} Meeting
-                </span>
-                <span className="text-muted-foreground/60">•</span>
+                {meeting.meetingUrl && meeting.platform && (
+                  <>
+                    <span className="text-sm font-medium text-muted-foreground">
+                      {getPlatformName(meeting.platform)} Meeting
+                    </span>
+                    <span className="text-muted-foreground/60">•</span>
+                  </>
+                )}
                 <MeetingUrlEditor />
               </div>
             </div>

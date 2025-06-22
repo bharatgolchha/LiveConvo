@@ -63,7 +63,16 @@ export class RecallAIClient {
             url: `${this.config.webhookUrl}/${params.sessionId}`,
             events: [
               'transcript.data', 
-              'transcript.partial_data'
+              'transcript.partial_data',
+              'bot.joining_call',
+              'bot.in_waiting_room',
+              'bot.in_call_not_recording',
+              'bot.recording_permission_allowed',
+              'bot.recording_permission_denied',
+              'bot.in_call_recording',
+              'bot.call_ended',
+              'bot.done',
+              'bot.fatal'
             ]
           },
         ] : [],

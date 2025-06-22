@@ -81,33 +81,46 @@ const DashboardSidebar: React.FC<DashboardSidebarProps> = ({ usageStats, activeP
       </nav>
 
       {/* Usage Stats */}
-      <div className="px-4 py-6 border-t border-border">
-        <p className="text-xs font-medium text-muted-foreground mb-2">Monthly Usage</p>
-        <div className="h-2 w-full bg-border rounded-full overflow-hidden mb-2">
-          <div
-            className="h-full bg-primary transition-all"
-            style={{ width: `${usagePercentage}%` }}
-          />
+      <div className="px-4 py-3 border-t border-border">
+        <div className="space-y-2">
+          <div className="flex items-center justify-between text-sm">
+            <span className="text-muted-foreground">Bot Minutes Used</span>
+            <span className="font-medium">
+              {isUnlimited ? 'Unlimited' : `${formatMinutes(usageStats.monthlyMinutesUsed || 0)} / ${formatMinutes(usageStats.monthlyMinutesLimit || 0)}`}
+            </span>
+          </div>
+          
+          {!isUnlimited && (
+            <div className="w-full bg-muted rounded-full h-2">
+              <div 
+                className={`h-2 rounded-full transition-all duration-300 ${
+                  usagePercentage >= 90 ? 'bg-red-500' : 
+                  usagePercentage >= 75 ? 'bg-yellow-500' : 
+                  'bg-primary'
+                }`}
+                style={{ width: `${Math.min(usagePercentage, 100)}%` }}
+              />
+            </div>
+          )}
+          
+          {!isUnlimited && usagePercentage >= 90 && (
+            <p className="text-xs text-red-600 dark:text-red-400 mt-1">
+              {usagePercentage >= 100 ? 'Limit reached' : 'Approaching limit'}
+            </p>
+          )}
         </div>
-        <p className="text-xs text-muted-foreground">
-          {isUnlimited
-            ? 'Unlimited minutes'
-            : `${formatMinutes(usageStats.monthlyMinutesUsed || 0)} / ${formatMinutes(
-                usageStats.monthlyMinutesLimit || 600,
-              )}`}
-        </p>
-
-        {/* Upgrade Button for Free Plan */}
-        {currentUser.plan === 'free' && (
-          <button
-            onClick={() => setIsPricingOpen(true)}
-            className="mt-4 w-full flex items-center justify-center gap-2 px-3 py-2 bg-gradient-to-r from-primary to-primary/80 text-primary-foreground rounded-lg text-sm font-medium hover:from-primary/90 hover:to-primary disabled:opacity-50"
-          >
-            <Crown className="w-4 h-4" />
-            Upgrade to Pro
-          </button>
-        )}
       </div>
+
+      {/* Upgrade Button for Free Plan */}
+      {currentUser.plan === 'free' && (
+        <button
+          onClick={() => setIsPricingOpen(true)}
+          className="mt-4 w-full flex items-center justify-center gap-2 px-3 py-2 bg-gradient-to-r from-primary to-primary/80 text-primary-foreground rounded-lg text-sm font-medium hover:from-primary/90 hover:to-primary disabled:opacity-50"
+        >
+          <Crown className="w-4 h-4" />
+          Upgrade to Pro
+        </button>
+      )}
 
       {/* Pricing Modal */}
       <PricingModal isOpen={isPricingOpen} onClose={() => setIsPricingOpen(false)} />

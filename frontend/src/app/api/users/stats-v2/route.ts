@@ -203,13 +203,17 @@ export async function GET(request: NextRequest) {
     const monthlyAudioHours = Math.round((monthlyMinutesUsed / 60) * 10) / 10;
 
     const responseData = {
-      // Minute-based usage (primary)
+      // Minute-based usage (primary) - now focused on bot minutes
       monthlyMinutesUsed,
       monthlyMinutesLimit,
       minutesRemaining: limitData.minutes_remaining,
       monthlySecondsUsed,
       
-      // Hour-based usage (backward compatibility)
+      // Bot-specific usage data
+      monthlyBotMinutesUsed: monthlyMinutesUsed, // All usage is now bot-based
+      monthlyBotMinutesLimit: monthlyMinutesLimit,
+      
+      // Hour-based usage (backward compatibility) 
       monthlyAudioHours,
       monthlyAudioLimit: monthlyHoursLimit,
       
@@ -244,7 +248,10 @@ export async function GET(request: NextRequest) {
       currentMonth: periodKey,
       billingPeriodStart: periodStart.toISOString(),
       billingPeriodEnd: periodEnd.toISOString(),
-      lastUpdated: new Date().toISOString()
+      lastUpdated: new Date().toISOString(),
+      
+      // Usage type indicator
+      usageType: 'bot_minutes' // Indicates this is bot-minute based usage
     };
 
     return NextResponse.json(responseData, {

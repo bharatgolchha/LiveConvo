@@ -186,45 +186,164 @@ export async function POST(request: NextRequest) {
     } = parsedBody;
 
     // ------------------------------------------------------------------
-    // Build previous conversation summaries section (if any)
+    // Fetch and combine all available context
     // ------------------------------------------------------------------
-    let previousSummariesSection = '';
+    let combinedContext = textContext || '';
 
-    if (selectedPreviousConversations && selectedPreviousConversations.length > 0) {
-      try {
-        const authHeader = request.headers.get('authorization');
-        const token = authHeader?.split(' ')[1];
+    if (sessionId) {
+      const authHeader = request.headers.get('authorization');
+      const token = authHeader?.split(' ')[1];
+      
+      console.log('🔍 Chat Guidance Debug - Auth check:', {
+        hasAuthHeader: !!authHeader,
+        hasToken: !!token,
+        sessionId: sessionId
+      });
 
-        if (token) {
+      if (token) {
+        try {
           const supabase = createAuthenticatedSupabaseClient(token);
+          console.log('🔍 Chat Guidance Debug - Created Supabase client');
 
-          // Fetch summaries (tldr) and session titles for the selected IDs (limit 5 for brevity)
-          const { data: summaries } = await supabase
-            .from('summaries')
-            .select('session_id, tldr')
-            .in('session_id', selectedPreviousConversations.slice(0, 5));
-
-          const { data: titles } = await supabase
-            .from('sessions')
-            .select('id, title')
-            .in('id', selectedPreviousConversations.slice(0, 5));
-
-          const titleMap = new Map<string, string>();
-          titles?.forEach((s: any) => titleMap.set(s.id, s.title || 'Untitled'));
-
-          if (summaries && summaries.length > 0) {
-            previousSummariesSection = '\n📚 PREVIOUS MEETINGS SUMMARY:\n';
-            summaries.forEach((s: any, idx: number) => {
-              const title = titleMap.get(s.session_id) || `Conversation ${idx + 1}`;
-              const tldr = s.tldr?.replace(/\n/g, ' ') || '(no summary)';
-              previousSummariesSection += `• ${title}: ${tldr}\n`;
-            });
+          // 1. Fetch linked conversation IDs
+          console.log('🔍 Chat Guidance Debug - Fetching linked conversation IDs...');
+          const { data: linkedLinks, error: linksError } = await supabase
+            .from('conversation_links')
+            .select('linked_session_id')
+            .eq('session_id', sessionId);
+          
+          if (linksError) {
+            console.error('❌ Error fetching linked conversation IDs:', linksError);
+            throw linksError;
           }
+
+          const linkedIds = linkedLinks?.map(l => l.linked_session_id) || [];
+          console.log('🔍 Chat Guidance Debug - Linked conversation IDs:', linkedIds);
+
+          if (linkedIds.length > 0) {
+            // 2. First try to get rich summaries from the summaries table (generated after meetings complete)
+            console.log('🔍 Chat Guidance Debug - Fetching rich summaries from summaries table...');
+            const { data: richSummaries, error: summariesError } = await supabase
+              .from('summaries')
+              .select(`
+                title,
+                tldr,
+                key_decisions,
+                action_items,
+                follow_up_questions,
+                conversation_highlights,
+                structured_notes,
+                session_id
+              `)
+              .in('session_id', linkedIds)
+              .eq('generation_status', 'completed')
+              .order('created_at', { ascending: false })
+              .limit(3);
+
+            console.log('🔍 Chat Guidance Debug - Rich summaries found:', richSummaries?.length || 0);
+            
+            let previousMeetingsSummary = '';
+            
+            if (richSummaries && richSummaries.length > 0) {
+              // Use rich summaries from the summaries table
+              console.log('🔍 Chat Guidance Debug - Using rich summaries:', richSummaries.map(s => s.title));
+              
+              previousMeetingsSummary = '\n\nPREVIOUS MEETINGS DETAILED SUMMARY:\n';
+              richSummaries.forEach((summary: any, i: number) => {
+                previousMeetingsSummary += `\n${i + 1}. ${summary.title}:\n`;
+                previousMeetingsSummary += `   TLDR: ${summary.tldr || 'No summary available.'}\n`;
+                
+                if (summary.key_decisions && Array.isArray(summary.key_decisions) && summary.key_decisions.length > 0) {
+                  previousMeetingsSummary += `   KEY DECISIONS:\n`;
+                  summary.key_decisions.slice(0, 5).forEach((decision: string) => {
+                    previousMeetingsSummary += `   • ${decision}\n`;
+                  });
+                }
+                
+                if (summary.action_items && Array.isArray(summary.action_items) && summary.action_items.length > 0) {
+                  previousMeetingsSummary += `   ACTION ITEMS:\n`;
+                  summary.action_items.slice(0, 5).forEach((item: string) => {
+                    previousMeetingsSummary += `   • ${item}\n`;
+                  });
+                }
+                
+                if (summary.conversation_highlights && Array.isArray(summary.conversation_highlights) && summary.conversation_highlights.length > 0) {
+                  previousMeetingsSummary += `   KEY HIGHLIGHTS:\n`;
+                  summary.conversation_highlights.slice(0, 3).forEach((highlight: string) => {
+                    previousMeetingsSummary += `   • ${highlight}\n`;
+                  });
+                }
+                
+                previousMeetingsSummary += '\n';
+              });
+              
+              console.log(`✅ Added ${richSummaries.length} rich summaries to context from summaries table.`);
+            } else {
+              // Fallback to realtime_summary_cache if no rich summaries available
+              console.log('🔍 Chat Guidance Debug - No rich summaries found, falling back to session cache...');
+              const { data: linkedSessions, error: sessionsError } = await supabase
+                .from('sessions')
+                .select('title, realtime_summary_cache')
+                .in('id', linkedIds)
+                .not('realtime_summary_cache', 'is', null)
+                .order('created_at', { ascending: false })
+                .limit(3);
+              
+              if (sessionsError) {
+                console.error('❌ Error fetching session summaries:', sessionsError);
+                throw sessionsError;
+              }
+
+              console.log('🔍 Chat Guidance Debug - Session cache summaries found:', linkedSessions?.length || 0);
+              
+              if (linkedSessions && linkedSessions.length > 0) {
+                console.log('🔍 Chat Guidance Debug - Using session cache:', linkedSessions.map(s => s.title));
+                
+                previousMeetingsSummary = '\n\nPREVIOUS MEETINGS SUMMARY:\n';
+                linkedSessions.forEach((session: any, i: number) => {
+                  const summary = session.realtime_summary_cache?.tldr || 'No summary available.';
+                  previousMeetingsSummary += `\n${i + 1}. ${session.title}:\n   - ${summary}`;
+                });
+                
+                console.log(`✅ Added ${linkedSessions.length} basic summaries to context from session cache.`);
+              } else {
+                console.log('⚠️ No linked sessions with summaries found');
+              }
+            }
+            
+            if (previousMeetingsSummary) {
+              // Prepend to the main context
+              combinedContext = `${combinedContext}${previousMeetingsSummary}`;
+              console.log('📝 Previous meetings summary preview:', previousMeetingsSummary.substring(0, 300) + '...');
+            }
+          } else {
+            console.log('⚠️ No linked conversation IDs found');
+          }
+        } catch (e) {
+          console.error('❌ Error fetching linked conversation context:', e);
         }
-      } catch (prevErr) {
-        console.error('Failed to build previous summaries section', prevErr);
+      } else {
+        console.log('⚠️ No auth token found in request');
       }
+    } else {
+      console.log('⚠️ No sessionId provided');
     }
+
+    // Replace the old context logic with our new combined context
+    const textContext_DEPRECATED = textContext;
+    const selectedPreviousConversations_DEPRECATED = selectedPreviousConversations;
+    const enhancedTextContext = combinedContext;
+    
+    const previousSummariesSection = ''; // This is now handled within combinedContext
+    
+    // Debug: Log the final combined context
+    console.log('🔍 Chat Guidance Debug - Final context check:', {
+      originalTextContext: textContext?.substring(0, 100) + (textContext && textContext.length > 100 ? '...' : ''),
+      combinedContextLength: combinedContext.length,
+      combinedContextPreview: combinedContext.substring(0, 300) + (combinedContext.length > 300 ? '...' : ''),
+      hasPreviousMeetings: combinedContext.includes('PREVIOUS MEETINGS SUMMARY'),
+      enhancedTextContextLength: enhancedTextContext.length
+    });
 
     // Debug logging for personal context
     console.log('🔍 Chat API Debug:', {
@@ -368,7 +487,7 @@ Remember: Start with [ and end with ] - no other text allowed.`;
       effectiveConversationType,
       runningSummary,
       personalContext || undefined,
-      textContext || undefined,
+      enhancedTextContext || undefined,
       4000, // transcript tail
       participantMe,
       participantThem
@@ -386,12 +505,10 @@ Remember: Start with [ and end with ] - no other text allowed.`;
 
     // Generate system prompt
     const baseSystemPrompt = chipsMode 
-      ? getChipPrompt(effectiveConversationType || 'meeting', stage || 'opening', textContext || '', effectiveTranscript, participantMe || 'You', participantThem || 'The other participant')
-      : getChatGuidanceSystemPrompt(effectiveConversationType, isRecording, transcriptLength, participantMe, participantThem, conversationTitle || undefined, textContext || undefined, meetingUrl || undefined);
+      ? getChipPrompt(effectiveConversationType || 'meeting', stage || 'opening', enhancedTextContext || '', effectiveTranscript, participantMe || 'You', participantThem || 'The other participant')
+      : getChatGuidanceSystemPrompt(effectiveConversationType, isRecording, transcriptLength, participantMe, participantThem, conversationTitle || undefined, enhancedTextContext || undefined, meetingUrl || undefined);
 
-    const systemPrompt = previousSummariesSection
-      ? `${baseSystemPrompt}\n${previousSummariesSection}`
-      : baseSystemPrompt;
+    const systemPrompt = `${baseSystemPrompt}${previousSummariesSection ? `\n\n${previousSummariesSection}` : ''}`;
 
     // Debug: Log the system prompt
     console.log('🤖 AI Advisor System Prompt:');
@@ -400,15 +517,15 @@ Remember: Start with [ and end with ] - no other text allowed.`;
     console.log('='.repeat(80));
 
     // Additional debug: Check if we have meeting context
-    if (textContext) {
+    if (enhancedTextContext) {
       console.log('✅ Meeting context being used in AI prompt:', {
-        contextLength: textContext.length,
-        contextPreview: textContext.substring(0, 200) + (textContext.length > 200 ? '...' : ''),
+        contextLength: enhancedTextContext.length,
+        contextPreview: enhancedTextContext.substring(0, 200) + (enhancedTextContext.length > 200 ? '...' : ''),
         meetingTitle: conversationTitle,
         conversationType: effectiveConversationType
       });
     } else {
-      console.log('⚠️ No meeting context available for AI prompt - textContext is:', textContext);
+      console.log('⚠️ No meeting context available for AI prompt - textContext is:', enhancedTextContext);
     }
 
     if (smartNotesPrompt) {

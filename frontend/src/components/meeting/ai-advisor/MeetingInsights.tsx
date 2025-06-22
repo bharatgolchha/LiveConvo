@@ -11,6 +11,7 @@ import {
   ArrowTrendingDownIcon
 } from '@heroicons/react/24/outline';
 import { useMeetingContext } from '@/lib/meeting/context/MeetingContext';
+import { supabase } from '@/lib/supabase';
 
 interface SpeakerStats {
   name: string;
@@ -93,9 +94,19 @@ export function MeetingInsights() {
 
     setLoading(true);
     try {
+      // Get auth token for API request
+      const { data: { session } } = await supabase.auth.getSession();
+      const authHeaders: Record<string, string> = {
+        'Content-Type': 'application/json'
+      };
+      
+      if (session?.access_token) {
+        authHeaders['Authorization'] = `Bearer ${session.access_token}`;
+      }
+
       const response = await fetch('/api/chat-guidance', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: authHeaders,
         body: JSON.stringify({
           message: 'Analyze the conversation sentiment, key topics, and provide insights about meeting effectiveness',
           sessionId: meeting?.id,
