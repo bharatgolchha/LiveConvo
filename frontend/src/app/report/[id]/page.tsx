@@ -166,16 +166,71 @@ export default function MeetingReportPage() {
         try {
           parsedStructuredNotes = JSON.parse(summaryData.structured_notes);
         } catch (e) {
-          console.error('Failed to parse structured notes:', e);
+          console.warn('Failed to parse structured notes:', e);
+          parsedStructuredNotes = {};
         }
       }
 
+      // Calculate duration from session data
+      const duration = sessionData.session.recording_duration_seconds || 0;
+      
+      // Calculate word count from session data or transcript
+      const wordCount = sessionData.session.total_words_spoken || 
+                       (sessionData.session.transcripts?.reduce((total: number, t: any) => 
+                         total + (t.content?.split(' ').length || 0), 0) || 0);
+
+      // Calculate speaking time from transcript data
+      const speakingTime = (() => {
+        if (!sessionData.session.transcripts?.length) {
+          return { me: 50, them: 50 };
+        }
+        
+        const speakingStats = sessionData.session.transcripts.reduce((stats: Record<string, number>, transcript: any) => {
+          const speaker = transcript.speaker;
+          const wordCount = transcript.content?.split(' ').length || 0;
+          
+          if (!stats[speaker]) {
+            stats[speaker] = 0;
+          }
+          stats[speaker] += wordCount;
+          return stats;
+        }, {});
+        
+        const totalWords = Object.values(speakingStats).reduce((sum: number, count) => sum + (count as number), 0);
+        const speakers = Object.keys(speakingStats);
+        
+        if (speakers.length === 2 && totalWords > 0) {
+          const speaker1 = speakers[0];
+          const speaker2 = speakers[1];
+          const speaker1Percentage = Math.round((speakingStats[speaker1] / totalWords) * 100);
+          const speaker2Percentage = 100 - speaker1Percentage;
+          
+          // Determine which speaker is "me" vs "them" based on session participant data
+          const participantMeName = sessionData.session.participant_me || 'You';
+          const meIsFirstSpeaker = speaker1 === participantMeName;
+          return {
+            me: meIsFirstSpeaker ? speaker1Percentage : speaker2Percentage,
+            them: meIsFirstSpeaker ? speaker2Percentage : speaker1Percentage
+          };
+        }
+        
+        return { me: 50, them: 50 };
+      })();
+
+      // Map effectiveness metrics with proper field names
+      const effectivenessMetrics = parsedStructuredNotes.effectiveness_metrics || {};
+      const effectiveness = {
+        overall: effectivenessMetrics.overall_success || effectivenessMetrics.objective_achievement || (summaryData ? 75 : 0),
+        communication: effectivenessMetrics.communication_clarity || (summaryData ? 80 : 0),
+        goalAchievement: effectivenessMetrics.objective_achievement || effectivenessMetrics.agenda_alignment || (summaryData ? 70 : 0)
+      };
+
       const reportData: MeetingReport = {
-        id: sessionData.session.id,
-        title: sessionData.session.title || 'Untitled Meeting',
+        id: meetingId,
+        title: summaryData?.title || sessionData.session.title || 'Meeting Report',
         type: sessionData.session.conversation_type || 'meeting',
-        platform: sessionData.session.meeting_platform || 'unknown',
-        duration: sessionData.session.recording_duration_seconds || 0,
+        platform: 'LiveConvo',
+        duration: duration,
         participants: {
           me: sessionData.session.participant_me || 'You',
           them: sessionData.session.participant_them || 'Participant'
@@ -186,32 +241,25 @@ export default function MeetingReportPage() {
         summary: {
           tldr: summaryData?.tldr || 'Summary generation is pending. Please check back in a few moments.',
           keyDecisions: summaryData?.key_decisions || [],
-          actionItems: (summaryData?.action_items || []).map((item: any) => {
+          actionItems: summaryData?.action_items?.map((item: any) => {
             if (typeof item === 'string') {
               return { description: item, priority: 'medium' };
             }
             return {
-              description: item.description || item.task || item,
+              description: item.task || item.description || item,
               owner: item.owner,
-              dueDate: item.dueDate,
+              dueDate: item.timeline || item.dueDate,
               priority: item.priority || 'medium'
             };
-          }),
+          }) || [],
           followUpQuestions: summaryData?.follow_up_questions || [],
           conversationHighlights: summaryData?.conversation_highlights || [],
           insights: parsedStructuredNotes.insights || [],
-          effectiveness: parsedStructuredNotes.effectiveness_metrics || {
-            overall: summaryData ? 85 : 0,
-            communication: summaryData ? 90 : 0,
-            goalAchievement: summaryData ? 80 : 0
-          }
+          effectiveness: effectiveness
         },
         analytics: {
-          wordCount: sessionData.session.word_count || 0,
-          speakingTime: parsedStructuredNotes.speaking_time || {
-            me: 50,
-            them: 50
-          },
+          wordCount: wordCount,
+          speakingTime: speakingTime,
           sentiment: parsedStructuredNotes.sentiment || 'neutral'
         },
         recordingUrl: sessionData.session.recording_url,

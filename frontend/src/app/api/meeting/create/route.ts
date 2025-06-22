@@ -102,10 +102,15 @@ export async function POST(req: NextRequest) {
 
     // Create session context if provided
     if (data.context) {
+      // Ensure context is a string
+      const contextString = typeof data.context === 'string' 
+        ? data.context 
+        : JSON.stringify(data.context);
+      
       console.log('📝 Creating session context with data:', {
         session_id: session.id,
-        context_length: data.context.length,
-        context_preview: data.context.substring(0, 100) + (data.context.length > 100 ? '...' : '')
+        context_length: contextString.length,
+        context_preview: contextString.substring(0, 100) + (contextString.length > 100 ? '...' : '')
       });
 
       const { error: contextError } = await supabase
@@ -114,9 +119,9 @@ export async function POST(req: NextRequest) {
           session_id: session.id,
           user_id: user.id,
           organization_id: orgMember.organization_id,
-          text_context: data.context,
+          text_context: contextString,
           context_metadata: {
-            meeting_agenda: data.context,
+            meeting_agenda: contextString,
             scheduled_at: data.scheduledAt,
             created_from: 'meeting_creation'
           }
@@ -133,12 +138,16 @@ export async function POST(req: NextRequest) {
     }
 
     // Create meeting metadata
+    const contextForMetadata = data.context 
+      ? (typeof data.context === 'string' ? data.context : JSON.stringify(data.context))
+      : null;
+    
     await supabase
       .from('meeting_metadata')
       .insert({
         session_id: session.id,
         platform,
-        meeting_agenda: data.context,
+        meeting_agenda: contextForMetadata,
         scheduled_at: data.scheduledAt,
         started_at: new Date().toISOString()
       });
@@ -198,7 +207,7 @@ export async function POST(req: NextRequest) {
         type: session.conversation_type,
         platform,
         meetingUrl: data.meetingUrl && data.meetingUrl.trim() ? data.meetingUrl : null,
-        context: data.context || null,
+        context: contextForMetadata || null,
         status: session.status,
         botId: session.recall_bot_id,
         createdAt: session.created_at
