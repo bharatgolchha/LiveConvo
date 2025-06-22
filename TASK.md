@@ -4,6 +4,171 @@
 
 ### 🚀 New Features
 
+- [x] **💬 Implemented Functional "Ask AI" Button in Previous Meetings Tab** (2025-01-24) 🆕 **JUST COMPLETED**
+  - **Request**: Make the "Ask AI" button actually do something meaningful instead of just logging to console
+  - **Issue Identified**: Button was non-functional - only switched tabs and logged, didn't trigger AI chat
+  - **Solution Implemented**:
+    - ✅ **AI Chat Integration**: Connected "Ask AI" button to existing AI advisor chat interface
+      - Uses custom event system to communicate between Previous Meetings tab and AI chat
+      - Automatically switches to transcript tab (where AI advisor is visible)
+      - Triggers AI chat with rich context about the specific previous meeting
+      - Event-driven architecture ensures loose coupling between components
+    - ✅ **Rich Context Passing**: Comprehensive previous meeting context sent to AI
+      - Meeting title, TLDR, key decisions, and action items included
+      - Parsed action items with proper task/owner/due date structure
+      - Formatted context string optimized for AI understanding
+      - Fallback to basic summary if rich summary unavailable
+    - ✅ **Smart Question Generation**: AI receives contextual question about previous meeting
+      - Auto-generates question: "Tell me about [Meeting Name] and how it relates to our current discussion"
+      - Includes follow-up prompt: "What should I follow up on?"
+      - Question marked with 🔗 icon to indicate it's about previous meeting context
+      - AI receives full meeting context for intelligent responses
+    - ✅ **Enhanced User Experience**: Professional feedback and visual indicators
+      - Loading state shows "Asking AI..." with spinning icon during request
+      - Brief success feedback (1 second) before returning to normal state
+      - Seamless tab switching to AI chat interface
+      - Clear visual connection between previous meeting and AI question
+    - ✅ **Custom Event Architecture**: Clean component communication system
+      - `askAboutPreviousMeeting` custom event with meeting ID and context
+      - AI chat component listens for events and handles them appropriately
+      - Event-driven design allows for future extensibility
+      - Proper cleanup of event listeners to prevent memory leaks
+  - **Technical Implementation**:
+    - Enhanced `ConversationTabs.tsx` with custom event dispatch
+    - Updated `EnhancedAIChat.tsx` with event listener and context handling
+    - Modified `handleSubmit` function to accept custom messages and context
+    - Added proper TypeScript types and error handling throughout
+    - Integrated with existing `/api/chat-guidance` endpoint for AI responses
+  - **User Experience Flow**:
+    1. User clicks "Ask AI" on any previous meeting card
+    2. Interface switches to transcript tab (AI advisor visible)
+    3. AI chat automatically receives contextual question about that meeting
+    4. AI responds with relevant insights about the previous meeting
+    5. User can continue natural conversation about that context
+  - **AI Context Benefits**:
+    - AI now has full access to previous meeting summaries, decisions, and action items
+    - Intelligent responses based on specific meeting context and relationships
+    - Ability to suggest follow-ups, track action items, and identify patterns
+    - Enhanced meeting continuity and context awareness
+  - **Status**: ✅ COMPLETED - "Ask AI" button now provides full AI chat integration with rich previous meeting context
+
+- [x] **🔧 Fixed Action Items Display in Previous Meetings Tab** (2025-01-24) 🆕 **JUST COMPLETED**
+  - **Request**: Fix action items not loading properly in Previous Meeting cards
+  - **Issue Identified**: Action items were stored as strings in database but component expected objects
+    - Database format: `"Task description. (Owner) - Due date"`
+    - Component expected: `{ task, owner, due_date, priority, status }`
+  - **Solution Implemented**:
+    - ✅ **Action Item String Parser**: Created `parseActionItemString()` function to convert database strings to objects
+      - Extracts task description (removes trailing periods)
+      - Parses owner from parentheses: `(Alex Chen)` → `owner: "Alex Chen"`
+      - Extracts due date after dash: `- Next month` → `due_date: "Next month"`
+      - Returns proper ActionItem object with all fields
+    - ✅ **Smart Due Date Formatting**: Added `formatDueDate()` function for proper display
+      - Handles relative dates: "Next Friday", "Next month", "ASAP", "Ongoing"
+      - Attempts to parse absolute dates with proper formatting
+      - Falls back to original string if parsing fails
+      - Provides user-friendly date display
+    - ✅ **Enhanced Component Logic**: Updated PreviousMeetingCard to handle both formats
+      - Detects string vs object format automatically
+      - Parses strings using new parser function
+      - Maintains backward compatibility with object format
+      - Proper error handling for malformed data
+    - ✅ **Fixed Context Generation**: Updated "Ask AI" button to handle parsed action items
+      - Extracts task descriptions properly for AI context
+      - Works with both string and object action item formats
+      - Provides clean context for AI responses
+  - **Technical Implementation**:
+    - Added string parsing functions with regex-based extraction
+    - Enhanced component to handle both data formats seamlessly
+    - Improved TypeScript types and error handling
+    - Tested with real database data to ensure proper parsing
+  - **User Experience Benefits**:
+    - Action items now display properly with task, owner, and due date
+    - Beautiful visual layout with proper metadata display
+    - Priority indicators and status tracking work correctly
+    - AI context includes proper action item information
+  - **Data Compatibility**:
+    - Supports existing string-based action items in database
+    - Ready for future object-based action item storage
+    - Graceful handling of various date formats
+    - Robust parsing with fallback for edge cases
+  - **Status**: ✅ COMPLETED - Action items now display properly in Previous Meetings tab
+
+- [x] **📋 Previous Meetings Tab for Enhanced Context Display** (2025-01-24) 🆕 **JUST COMPLETED**
+  - **Request**: Create a dedicated "Previous Meetings" tab next to Smart Notes to display linked conversations with rich context
+  - **Issues Solved**:
+    - Linked conversations were only visible during meeting creation
+    - No way to view previous meeting context during active meetings
+    - AI advisor had access to context but users couldn't see what context was available
+    - Missing visual representation of linked meeting summaries and action items
+  - **Solution Implemented**:
+    - ✅ **Complete Previous Meetings Tab System**: Added fourth tab to conversation interface
+      - New "Previous Meetings" tab alongside Live Transcript, Summary, and Smart Notes
+      - Badge showing count of linked conversations (e.g., "Previous Meetings (2)")
+      - Comprehensive tab integration with existing MeetingContext system
+    - ✅ **Rich Meeting Cards with Expandable Details**: Beautiful card-based display of linked meetings
+      - Meeting title, date, time, and status indicators
+      - Rich vs basic summary status with visual icons
+      - "Recent" badges for meetings within last 7 days
+      - Expandable cards showing detailed content when clicked
+      - Key decisions, action items, follow-up questions, and conversation highlights
+      - Action item status tracking with owner and due date information
+      - Priority indicators for action items (high/medium/low)
+    - ✅ **Comprehensive Data Integration**: Enhanced linked conversations with rich summary data
+      - Primary data source: rich summaries from `summaries` table with complete structured data
+      - Fallback to basic summaries from `realtime_summary_cache` for older meetings
+      - Structured notes parsing including insights, recommendations, and performance analysis
+      - Action items with full metadata (task, owner, due date, priority, status)
+      - Key decisions, follow-up questions, and conversation highlights display
+    - ✅ **Smart Context Integration**: Direct AI interaction from previous meetings
+      - "Ask AI" button on each meeting card for instant context queries
+      - Context automatically formatted and sent to AI advisor
+      - Integration with chat-guidance API for contextual responses
+      - Seamless switching between tabs when asking AI about previous meetings
+    - ✅ **Enhanced API Infrastructure**: New summary endpoint and improved data fetching
+      - `/api/sessions/[id]/summary` endpoint for rich summary retrieval
+      - Enhanced chat-guidance API with automatic context fetching from linked conversations
+      - Improved authorization header handling across all AI components
+      - Comprehensive error handling and fallback mechanisms
+    - ✅ **Professional Empty States and Error Handling**: Helpful guidance when no meetings linked
+      - Beautiful empty state explaining the value of linked meetings
+      - Error states with retry functionality and clear messaging
+      - Loading states with appropriate animations and feedback
+      - Informational tips about how linked meetings help AI advisor
+    - ✅ **Real-time Statistics and Insights**: Quick overview of linked meeting data
+      - Count of meetings with rich summaries vs basic summaries
+      - Recent meetings indicator (last 7 days)
+      - Refresh functionality for up-to-date information
+      - Footer context explaining how linked meetings enhance AI advisor capabilities
+  - **Technical Implementation**:
+    - Created comprehensive TypeScript types in `previous-meetings.types.ts`
+    - Built `PreviousMeetingCard.tsx` component with rich expandable content display
+    - Developed `PreviousMeetingsTab.tsx` with full tab interface and state management
+    - Created `usePreviousMeetings.ts` hook for data fetching and state management
+    - Enhanced `ConversationTabs.tsx` to include fourth tab with badge functionality
+    - Updated `MeetingContext.tsx` to support previous meetings tab in active tab types
+    - Built `/api/sessions/[id]/summary` endpoint for rich summary data retrieval
+    - Enhanced chat-guidance API with automatic linked conversation context fetching
+    - Added authorization headers to all AI chat components for proper authentication
+    - Created comprehensive test suite with 8 test cases covering all functionality
+  - **User Experience Benefits**:
+    - Users can now see exactly what context the AI advisor has access to
+    - Rich visual display of previous meeting summaries, decisions, and action items
+    - Direct interaction with AI about specific previous meetings
+    - Clear understanding of how previous meetings inform current conversation
+    - Professional interface that matches existing meeting tab design patterns
+  - **AI Integration Benefits**:
+    - AI advisor now automatically receives rich context from linked conversations
+    - Enhanced context includes TLDRs, key decisions, action items, and structured insights
+    - Users can ask specific questions about previous meetings with one click
+    - Seamless integration between previous meeting context and current AI guidance
+  - **Data Structure Enhancements**:
+    - Support for both rich summaries (post-meeting analysis) and basic summaries (real-time cache)
+    - Comprehensive action item tracking with metadata and status indicators
+    - Structured notes parsing for insights, recommendations, and performance analysis
+    - Fallback mechanisms ensuring context is available even for older meetings
+  - **Status**: ✅ COMPLETED - Previous Meetings tab provides comprehensive context display and AI integration
+
 - [x] **✨ Enhanced Previous Meeting Selection UI for Meeting Creation** (2025-01-23) 🆕 **JUST COMPLETED**
   - **Request**: Improve the previous meeting selection interface when creating new meetings
   - **Issues Solved**:

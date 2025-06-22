@@ -3,12 +3,14 @@ import { motion } from 'framer-motion';
 import { 
   ChatBubbleLeftRightIcon, 
   DocumentTextIcon,
-  ClipboardDocumentListIcon 
+  ClipboardDocumentListIcon,
+  LinkIcon
 } from '@heroicons/react/24/outline';
 import { useMeetingContext } from '@/lib/meeting/context/MeetingContext';
 import { LiveTranscriptTab } from './LiveTranscriptTab';
 import { RealtimeSummaryTab } from './RealtimeSummaryTab';
 import { SmartNotesTab } from './SmartNotesTab';
+import { PreviousMeetingsTab } from './PreviousMeetingsTab';
 import { TabContent } from './TabContent';
 
 const tabs = [
@@ -29,11 +31,17 @@ const tabs = [
     label: 'Smart Notes',
     icon: ClipboardDocumentListIcon,
     description: 'Key points and action items'
+  },
+  {
+    id: 'previous' as const,
+    label: 'Previous Meetings',
+    icon: LinkIcon,
+    description: 'Linked previous meetings context'
   }
 ];
 
 export function ConversationTabs() {
-  const { activeTab, setActiveTab } = useMeetingContext();
+  const { activeTab, setActiveTab, meeting, linkedConversations } = useMeetingContext();
 
   return (
     <div className="flex flex-col h-full">
@@ -43,6 +51,9 @@ export function ConversationTabs() {
           {tabs.map((tab) => {
             const isActive = activeTab === tab.id;
             const Icon = tab.icon;
+            
+            // Show badge for Previous Meetings tab if there are linked conversations
+            const showBadge = tab.id === 'previous' && linkedConversations && linkedConversations.length > 0;
             
             return (
               <button
@@ -56,6 +67,12 @@ export function ConversationTabs() {
               >
                 <Icon className="w-5 h-5" />
                 <span className="font-medium">{tab.label}</span>
+                
+                {showBadge && (
+                  <span className="ml-1 px-1.5 py-0.5 text-xs bg-primary text-primary-foreground rounded-full">
+                    {linkedConversations.length}
+                  </span>
+                )}
                 
                 {isActive && (
                   <motion.div
@@ -76,6 +93,26 @@ export function ConversationTabs() {
           {activeTab === 'transcript' && <LiveTranscriptTab />}
           {activeTab === 'summary' && <RealtimeSummaryTab />}
           {activeTab === 'notes' && <SmartNotesTab />}
+          {activeTab === 'previous' && meeting?.id && (
+            <PreviousMeetingsTab 
+              sessionId={meeting.id}
+              onAskAboutMeeting={async (meetingId, context) => {
+                // Switch to transcript tab - this will make AI advisor visible
+                setActiveTab('transcript');
+                
+                // Trigger AI chat with context about the previous meeting
+                // We'll use a custom event to communicate with the AI advisor
+                const aiChatEvent = new CustomEvent('askAboutPreviousMeeting', {
+                  detail: {
+                    meetingId,
+                    context,
+                    timestamp: Date.now()
+                  }
+                });
+                window.dispatchEvent(aiChatEvent);
+              }}
+            />
+          )}
         </TabContent>
       </div>
     </div>

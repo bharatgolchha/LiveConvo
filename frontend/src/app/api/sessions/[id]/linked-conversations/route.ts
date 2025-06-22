@@ -57,7 +57,7 @@ export async function GET(
     const linkedSessionIds = links.map((link: any) => link.linked_session_id);
     const { data: linkedSessions, error: sessionsError } = await authClient
       .from('sessions')
-      .select('id, title, conversation_type, created_at, recording_duration_seconds, status')
+      .select('id, title, conversation_type, created_at, recording_duration_seconds, status, realtime_summary_cache')
       .in('id', linkedSessionIds)
       .is('deleted_at', null);
 
@@ -76,7 +76,8 @@ export async function GET(
       conversation_type: session.conversation_type,
       created_at: session.created_at,
       recording_duration_seconds: session.recording_duration_seconds,
-      status: session.status
+      status: session.status,
+      realtime_summary_cache: session.realtime_summary_cache
     })) || [];
 
     return NextResponse.json({ linkedConversations });
