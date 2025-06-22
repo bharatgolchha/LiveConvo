@@ -235,7 +235,14 @@ export function MeetingSettingsModal({ isOpen, onClose }: MeetingSettingsModalPr
                 {/* Linked previous meetings */}
                 <div>
                   <PreviousConversationsMultiSelect
-                    selected={linkedConversations}
+                    selected={linkedConversations.map(lc => ({
+                      id: lc.id,
+                      title: lc.title,
+                      created_at: new Date().toISOString(), // Placeholder since we don't have this data
+                      conversation_type: undefined,
+                      recording_duration_seconds: undefined,
+                      status: 'completed'
+                    }))}
                     setSelected={(sessions) => {
                       // diff add/remove
                       const currentIds = linkedConversations.map(s => s.id);

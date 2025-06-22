@@ -55,9 +55,62 @@ export function EnhancedAIChat() {
     }
   }, [messages.length]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!input.trim() || loading) return;
+  // Listen for previous meeting questions
+  useEffect(() => {
+    const handlePreviousMeetingQuestion = async (event: CustomEvent) => {
+      const { meetingId, context } = event.detail;
+      
+      // Extract meeting title from context
+      const titleMatch = context.match(/Previous meeting: (.+?)\n/);
+      const meetingTitle = titleMatch ? titleMatch[1] : 'previous meeting';
+      
+      // Create a contextual question about the previous meeting
+      const question = `Tell me about the "${meetingTitle}" and how it relates to our current discussion. What should I follow up on?`;
+      
+      // Add user message with previous meeting context indicator
+      const userMessage: ChatMessage = {
+        id: `user-${Date.now()}`,
+        role: 'user',
+        content: `🔗 ${question}`,
+        timestamp: new Date().toISOString()
+      };
+      
+      setMessages(prev => [...prev, userMessage]);
+      setIsTyping(true);
+      
+      try {
+        // Send the question with the previous meeting context
+        await handleSubmit(undefined, question, context);
+      } catch (error) {
+        console.error('Error asking about previous meeting:', error);
+        // Add error message
+        const errorMessage: ChatMessage = {
+          id: `error-${Date.now()}`,
+          role: 'assistant',
+          content: "I'm sorry, I encountered an error while accessing information about that previous meeting. Please try asking again.",
+          timestamp: new Date().toISOString()
+        };
+        setMessages(prev => [...prev, errorMessage]);
+      } finally {
+        setIsTyping(false);
+      }
+    };
+
+    // Type assertion for the custom event
+    const typedHandler = (event: Event) => {
+      handlePreviousMeetingQuestion(event as CustomEvent);
+    };
+    window.addEventListener('askAboutPreviousMeeting', typedHandler);
+    
+    return () => {
+      window.removeEventListener('askAboutPreviousMeeting', typedHandler);
+    };
+  }, []);
+
+  const handleSubmit = async (e?: React.FormEvent, customMessage?: string, customContext?: string) => {
+    e?.preventDefault();
+    const messageToSend = customMessage || input.trim();
+    if (!messageToSend || loading) return;
 
     // Don't send request if meeting data is not loaded yet
     if (!meeting?.id) {
@@ -65,16 +118,18 @@ export function EnhancedAIChat() {
       return;
     }
 
-    const userMessage: ChatMessage = {
-      id: `user-${Date.now()}`,
-      role: 'user',
-      content: input.trim(),
-      timestamp: new Date().toISOString()
-    };
+    // Add user message immediately (only if not a custom message that was already added)
+    if (!customMessage) {
+      const userMessage: ChatMessage = {
+        id: `user-${Date.now()}`,
+        role: 'user',
+        content: messageToSend,
+        timestamp: new Date().toISOString()
+      };
 
-    // Add user message immediately
-    setMessages(prev => [...prev, userMessage]);
-    setInput('');
+      setMessages(prev => [...prev, userMessage]);
+      setInput('');
+    }
     setIsTyping(true);
 
     try {
@@ -124,11 +179,11 @@ export function EnhancedAIChat() {
         method: 'POST',
         headers: authHeaders,
         body: JSON.stringify({
-          message: input.trim(),
+          message: messageToSend,
           sessionId: meeting?.id,
           conversationType: meeting?.type || 'meeting',
           conversationTitle: meeting?.title,
-          textContext: meeting?.context,
+          textContext: customContext || meeting?.context, // Use custom context if provided
           meetingUrl: meeting?.meetingUrl,
           transcript: transcriptText,
           transcriptLength: transcript.length,
