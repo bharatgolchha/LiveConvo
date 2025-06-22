@@ -8,6 +8,8 @@ export interface TranscriptLine {
   timestamp: Date;
   speaker: 'ME' | 'THEM';
   confidence?: number;
+  isOwner?: boolean;
+  displayName?: string;
 }
 
 export interface DatabaseTranscriptLine {
@@ -21,6 +23,7 @@ export interface DatabaseTranscriptLine {
   sequence_number?: number;
   created_at?: string;
   is_final?: boolean;
+  is_owner?: boolean;
 }
 
 export type ConversationState = 'loading' | 'setup' | 'ready' | 'recording' | 'paused' | 'processing' | 'completed' | 'error';

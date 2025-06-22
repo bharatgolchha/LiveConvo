@@ -77,7 +77,7 @@ export async function POST(
     // Verify session belongs to user and get organization_id - using authenticated client
     const { data: sessionData, error: sessionError } = await authenticatedSupabase
       .from('sessions')
-      .select('id, user_id, organization_id')
+      .select('id, user_id, organization_id, finalized_at')
       .eq('id', sessionId)
       .single(); // Remove user_id filter since RLS will handle it
 
@@ -87,6 +87,50 @@ export async function POST(
         { error: 'Not found', message: 'Session not found or access denied' },
         { status: 404 }
       );
+    }
+
+    // Check if session is already finalized
+    if (sessionData.finalized_at) {
+      console.log('⚠️ Session already finalized:', {
+        sessionId,
+        finalizedAt: sessionData.finalized_at
+      });
+      
+      // Check if there's already a summary
+      const { data: existingSummary } = await authenticatedSupabase
+        .from('summaries')
+        .select('*')
+        .eq('session_id', sessionId)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .single();
+        
+      if (existingSummary) {
+        console.log('✅ Returning existing summary');
+        return NextResponse.json({
+          sessionId,
+          summary: {
+            tldr: existingSummary.tldr,
+            key_points: existingSummary.key_decisions || [],
+            action_items: existingSummary.action_items || [],
+            outcomes: existingSummary.key_decisions || [],
+            next_steps: existingSummary.follow_up_questions || [],
+            insights: [],
+            missed_opportunities: [],
+            successful_moments: [],
+            conversation_dynamics: {},
+            effectiveness_metrics: {},
+            agenda_coverage: {},
+            coaching_recommendations: []
+          },
+          finalization: null,
+          transcript: existingSummary.full_transcript || '',
+          conversationType,
+          conversationTitle,
+          finalizedAt: sessionData.finalized_at,
+          warning: 'Session was already finalized. Returning existing summary.'
+        });
+      }
     }
 
     // Fetch transcript data from database - using authenticated client
@@ -104,19 +148,76 @@ export async function POST(
       );
     }
 
-    // Convert transcript lines to text format with participant names
+    // Convert transcript lines to text format - speaker names are already in the database
     const transcriptText = transcriptLines && transcriptLines.length > 0 
       ? transcriptLines.map(line => {
-          const speakerName = line.speaker === 'ME' ? (participantMe || 'You') : (participantThem || 'Them');
-          return `${speakerName}: ${line.content}`;
+          // The database already stores the actual speaker names (e.g., "Bharat Golchha", "Mudit Golchha")
+          return `${line.speaker}: ${line.content}`;
         }).join('\n')
       : '';
 
     if (!transcriptText || transcriptText.trim().length === 0) {
-      return NextResponse.json(
-        { error: 'No transcript available for this session' },
-        { status: 400 }
-      );
+      console.warn('⚠️ No transcript available for session:', {
+        sessionId,
+        transcriptLinesCount: transcriptLines?.length || 0,
+        transcriptError
+      });
+      
+      // Return a minimal summary instead of failing completely
+      const minimalSummary = {
+        tldr: 'No transcript data available for this session.',
+        key_points: [],
+        action_items: [],
+        outcomes: [],
+        next_steps: [],
+        insights: [],
+        missed_opportunities: [],
+        successful_moments: [],
+        conversation_dynamics: {},
+        effectiveness_metrics: {},
+        coaching_recommendations: []
+      };
+      
+      // Still save a minimal summary record
+      const summaryInsertData = {
+        session_id: sessionId,
+        user_id: user.id,
+        organization_id: sessionData.organization_id,
+        title: conversationTitle || 'Conversation Summary',
+        tldr: minimalSummary.tldr,
+        key_decisions: [],
+        action_items: [],
+        follow_up_questions: [],
+        conversation_highlights: [],
+        full_transcript: '',
+        structured_notes: JSON.stringify({}),
+        generation_status: 'failed',
+        model_used: 'none'
+      };
+      
+      await authenticatedSupabase
+        .from('summaries')
+        .insert(summaryInsertData);
+      
+      // Update session status
+      await authenticatedSupabase
+        .from('sessions')
+        .update({ 
+          status: 'completed',
+          finalized_at: new Date().toISOString()
+        })
+        .eq('id', sessionId);
+      
+      return NextResponse.json({
+        sessionId,
+        summary: minimalSummary,
+        finalization: null,
+        transcript: '',
+        conversationType,
+        conversationTitle,
+        finalizedAt: new Date().toISOString(),
+        warning: 'No transcript data available'
+      });
     }
 
     console.log('🔍 Processing transcript:', {
@@ -129,6 +230,18 @@ export async function POST(
 
     // Generate summary and finalization with full context
     const fullContext = buildFullContext(textContext, personalContext, uploadedFiles, selectedPreviousConversations);
+    
+    // Log context being passed to AI
+    console.log('📋 Full context being passed to AI:', {
+      hasTextContext: !!textContext,
+      textContextLength: textContext?.length || 0,
+      textContextPreview: textContext ? textContext.substring(0, 200) + '...' : 'None',
+      hasPersonalContext: !!personalContext,
+      uploadedFilesCount: uploadedFiles?.length || 0,
+      previousConversationsCount: selectedPreviousConversations?.length || 0,
+      fullContextLength: fullContext.length
+    });
+    
     const summary = await generateFinalSummary(transcriptText, conversationType, fullContext, participantMe, participantThem);
     const finalData = await generateFinalizationData(transcriptText, fullContext, conversationType, summary, participantMe, participantThem);
 
@@ -162,6 +275,7 @@ export async function POST(
         successful_moments: summary.successful_moments || [],
         conversation_dynamics: summary.conversation_dynamics || {},
         effectiveness_metrics: summary.effectiveness_metrics || {},
+        agenda_coverage: summary.agenda_coverage || {},
         coaching_recommendations: summary.coaching_recommendations || [],
         performance_analysis: finalData?.performance_analysis || {},
         conversation_patterns: finalData?.conversation_patterns || {},
@@ -211,6 +325,21 @@ export async function POST(
       console.error('❌ Failed to update session status:', sessionUpdateError);
     } else {
       console.log('✅ Session status updated to completed');
+    }
+
+    // If summary save failed but session update succeeded, still return a partial success
+    if (summaryError && !sessionUpdateError) {
+      console.warn('⚠️ Session finalized but summary save failed');
+      return NextResponse.json({
+        sessionId,
+        summary,
+        finalization: finalData,
+        transcript: transcriptText,
+        conversationType,
+        conversationTitle,
+        finalizedAt: new Date().toISOString(),
+        warning: 'Session finalized but summary storage failed. Data may be incomplete.'
+      });
     }
 
     return NextResponse.json({
@@ -316,13 +445,17 @@ async function generateFinalSummary(transcript: string, conversationType?: strin
   const conversationTypePrompt = typeSpecificPrompts[conversationType as keyof typeof typeSpecificPrompts] || 
     'Provide a comprehensive analysis of key discussion points, decisions, and outcomes.';
 
-  const meLabel = participantMe || 'the primary participant';
-  const themLabel = participantThem || 'the other participant';
+  const meLabel = participantMe || 'Speaker 1';
+  const themLabel = participantThem || 'Speaker 2';
   
   const systemPrompt = `You are an expert conversation analyst specializing in ${conversationType || 'business'} conversations. 
 Create a comprehensive, actionable summary that provides real value.
 
-The conversation is between ${meLabel} (ME) and ${themLabel} (THEM).
+IMPORTANT NOTES:
+- The transcript already contains the actual speaker names (not ME/THEM)
+- When listing action items or decisions, use the person's actual name as the owner
+- Be aware that the meeting participants are named in the transcript itself
+- Use the meeting context/agenda to understand the intended goals and assess how well they were achieved
 
 ${conversationTypePrompt}
 
@@ -330,8 +463,10 @@ IMPORTANT:
 - Be SPECIFIC, not generic. Reference actual content from the transcript.
 - Every point must be supported by evidence from the conversation.
 - Focus on actionable insights that can improve future conversations.
-- Identify missed opportunities or areas for improvement.
-- Highlight successful techniques or positive moments.
+- For SHORT conversations, focus on the main purpose and outcome rather than trying to extract non-existent insights
+- Don't overanalyze brief technical checks or scheduling confirmations - be proportional to the conversation depth
+- Use the actual speaker names from the transcript in your analysis
+- Compare what was discussed against the meeting agenda/context to identify what was covered and what was missed
 
 Return a JSON object with this EXACT structure:
 {
@@ -351,7 +486,7 @@ Return a JSON object with this EXACT structure:
   "action_items": [
     {
       "task": "Specific action to be taken",
-      "owner": "Who is responsible (${meLabel}/ME or ${themLabel}/THEM or Both)",
+      "owner": "Who is responsible (use actual name from transcript)",
       "timeline": "When it should be completed",
       "priority": "high|medium|low"
     }
@@ -386,7 +521,13 @@ Return a JSON object with this EXACT structure:
     "objective_achievement": 0-100,
     "communication_clarity": 0-100,
     "participant_satisfaction": 0-100,
-    "overall_success": 0-100
+    "overall_success": 0-100,
+    "agenda_alignment": 0-100
+  },
+  "agenda_coverage": {
+    "items_covered": ["List of agenda items that were discussed"],
+    "items_missed": ["List of agenda items that were not covered"],
+    "unexpected_topics": ["Topics discussed that weren't in the agenda"]
   },
   "coaching_recommendations": [
     "Specific advice for improving future conversations",
@@ -414,8 +555,14 @@ Return a JSON object with this EXACT structure:
           role: 'user',
           content: `Analyze this ${conversationType || 'business'} conversation and provide specific, actionable insights.
 
-CONTEXT AND BACKGROUND:
+MEETING AGENDA AND CONTEXT:
 ${fullContext || 'No additional context provided.'}
+
+KEY ANALYSIS REQUIREMENTS:
+1. Compare what was actually discussed against the meeting agenda/context above
+2. Identify which agenda items were covered and which were missed
+3. Assess how well the meeting achieved its stated goals
+4. Note any unexpected topics that arose outside the agenda
 
 CONVERSATION TRANSCRIPT:
 ${transcript}
@@ -423,8 +570,10 @@ ${transcript}
 Remember: 
 - Be specific, reference actual content, and provide value beyond generic observations
 - Use the provided context to understand the background and continuity
+- Use the speaker names exactly as they appear in the transcript
+- For brief conversations, keep the analysis proportional - don't over-interpret simple exchanges
 - If previous conversations are mentioned, consider follow-up on past action items or decisions
-- Take into account any personal context or notes provided`
+- Explicitly mention how the conversation aligned with or deviated from the meeting agenda`
         }
       ],
       temperature: 0.3,
@@ -477,7 +626,13 @@ Remember:
         objective_achievement: 70,
         communication_clarity: 70,
         participant_satisfaction: 70,
-        overall_success: 70
+        overall_success: 70,
+        agenda_alignment: 70
+      },
+      agenda_coverage: {
+        items_covered: [],
+        items_missed: [],
+        unexpected_topics: []
       },
       coaching_recommendations: ['Technical issue prevented detailed analysis']
     };
@@ -497,17 +652,22 @@ Remember:
     successful_moments: summary.successful_moments || [],
     conversation_dynamics: summary.conversation_dynamics || {},
     effectiveness_metrics: summary.effectiveness_metrics || {},
+    agenda_coverage: summary.agenda_coverage || {},
     coaching_recommendations: summary.coaching_recommendations || []
   };
 }
 
 async function generateFinalizationData(transcript: string, context: string, conversationType?: string, summary?: EnhancedSummary, participantMe?: string, participantThem?: string): Promise<FinalizationData> {
-  const meLabel = participantMe || 'the primary participant';
-  const themLabel = participantThem || 'the other participant';
+  const meLabel = participantMe || 'Speaker 1';
+  const themLabel = participantThem || 'Speaker 2';
   
   const systemPrompt = `You are an expert conversation coach providing deep analysis and actionable recommendations.
 
-Analyze the conversation between ${meLabel} (ME) and ${themLabel} (THEM) for patterns, techniques, and opportunities.
+Analyze the conversation for patterns, techniques, and opportunities.
+
+IMPORTANT: 
+- The transcript contains actual speaker names. Use these names exactly as they appear in your analysis.
+- Use the meeting context/agenda to assess effectiveness against intended goals.
 
 Return a JSON object with this structure:
 {
@@ -580,12 +740,18 @@ Return a JSON object with this structure:
           role: 'user',
           content: `Provide deep performance analysis and coaching for this ${conversationType || 'business'} conversation.
 
-Context provided: ${context || 'No additional context'}
+MEETING AGENDA AND CONTEXT:
+${context || 'No additional context'}
 
-Transcript:
+ANALYSIS FOCUS:
+1. How well did the conversation achieve the goals outlined in the agenda/context?
+2. Which planned topics were covered effectively vs. missed?
+3. How could the conversation have been more aligned with the stated objectives?
+
+CONVERSATION TRANSCRIPT:
 ${transcript}
 
-Provide specific, evidence-based analysis with actionable recommendations.`
+Provide specific, evidence-based analysis with actionable recommendations that reference both the transcript and the meeting agenda/context.`
         }
       ],
       temperature: 0.4,

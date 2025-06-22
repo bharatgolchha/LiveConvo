@@ -42,7 +42,8 @@ export function useMeetingTranscript(sessionId: string) {
           timeSeconds: transcript.start_time_seconds || 0,
           isFinal: transcript.type === 'final',
           confidence: transcript.confidence_score,
-          displayName: transcript.speaker
+          displayName: transcript.speaker,
+          isOwner: transcript.is_owner || false
         }));
         
         // Replace entire transcript instead of adding individually
@@ -98,7 +99,8 @@ export function useMeetingTranscript(sessionId: string) {
             timeSeconds: transcript.start_time_seconds || 0,
             isFinal: true,
             confidence: transcript.confidence_score,
-            displayName: transcript.speaker
+            displayName: transcript.speaker,
+            isOwner: transcript.is_owner || false
           };
           
           console.log('➕ [Polling] Adding message:', message.speaker, ':', message.text.substring(0, 50) + '...');
@@ -161,7 +163,8 @@ export function useMeetingTranscript(sessionId: string) {
           timeSeconds: row.start_time_seconds || 0,
           isFinal: true,
           confidence: row.confidence_score,
-          displayName: row.speaker
+          displayName: row.speaker,
+          isOwner: row.is_owner || false
         };
         
         console.log('➕ [Supabase Realtime] Adding message to UI');
@@ -239,7 +242,8 @@ export function useMeetingTranscript(sessionId: string) {
             isFinal: data.data.isFinal,
             isPartial: data.data.isPartial,
             confidence: data.data.confidence,
-            displayName: data.data.displayName
+            displayName: data.data.displayName,
+            isOwner: data.data.isOwner || false
           };
 
           if (message.isPartial && message.id.startsWith('partial-')) {

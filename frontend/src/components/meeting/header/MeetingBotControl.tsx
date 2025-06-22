@@ -48,7 +48,8 @@ export function MeetingBotControl() {
     
     console.log('🚀 Starting bot for meeting:', meeting.id);
     console.log('📍 Meeting URL:', meeting.meetingUrl);
-    console.log('🔗 Webhook URL will be:', `${window.location.origin}/api/webhooks/recall/${meeting.id}`);
+    console.log('🔗 Webhook URL (client-side display):', `${window.location.origin}/api/webhooks/recall/${meeting.id}`);
+    console.log('📝 Note: Actual webhook URL will be configured server-side');
     
     setIsStarting(true);
     setError(null);
@@ -305,8 +306,8 @@ export function MeetingBotControl() {
 
       case 'completed':
         return {
-          showStartButton: false,
-          statusElement: null // Status shown in main header badge
+          showStartButton: true,
+          statusElement: null // Allow starting a new recording after completion
         };
 
       case 'failed':
