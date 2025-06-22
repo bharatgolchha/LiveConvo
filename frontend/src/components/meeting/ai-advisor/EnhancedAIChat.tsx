@@ -10,6 +10,7 @@ import {
 import ReactMarkdown from 'react-markdown';
 import { useMeetingContext } from '@/lib/meeting/context/MeetingContext';
 import { useChatGuidance } from '@/lib/meeting/hooks/useChatGuidance';
+import { supabase } from '@/lib/supabase';
 
 interface ChatMessage {
   id: string;
@@ -109,9 +110,19 @@ export function EnhancedAIChat() {
         transcriptLines: transcript.length
       });
 
+      // Get auth token for API request
+      const { data: { session } } = await supabase.auth.getSession();
+      const authHeaders: Record<string, string> = {
+        'Content-Type': 'application/json'
+      };
+      
+      if (session?.access_token) {
+        authHeaders['Authorization'] = `Bearer ${session.access_token}`;
+      }
+
       const response = await fetch('/api/chat-guidance', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: authHeaders,
         body: JSON.stringify({
           message: input.trim(),
           sessionId: meeting?.id,

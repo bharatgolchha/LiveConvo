@@ -1,4 +1,5 @@
 import { useState, useCallback, useRef } from 'react';
+import { supabase } from '@/lib/supabase';
 
 // Helper function to parse context from user messages and extract just the message
 function parseMessageForDisplay(message: string): string {
@@ -191,11 +192,19 @@ export function useChatGuidance({
         messagePreview: messageToSend.substring(0, 50) + '...'
       });
 
+      // Get auth token for API request
+      const { data: { session } } = await supabase.auth.getSession();
+      const authHeaders: Record<string, string> = {
+        'Content-Type': 'application/json'
+      };
+      
+      if (session?.access_token) {
+        authHeaders['Authorization'] = `Bearer ${session.access_token}`;
+      }
+
       const response = await fetch('/api/chat-guidance', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: authHeaders,
         body: JSON.stringify(requestPayload)
       });
 

@@ -11,6 +11,7 @@ import {
   ArrowPathIcon,
   VideoCameraIcon,
   UserGroupIcon,
+  DocumentTextIcon,
 } from '@heroicons/react/24/outline';
 import { motion } from 'framer-motion';
 import { formatDistanceToNow } from 'date-fns';
@@ -211,10 +212,17 @@ const ConversationInboxItem: React.FC<Props> = ({
     <motion.div
       initial={{ opacity: 0, y: 4 }}
       animate={{ opacity: 1, y: 0 }}
-      whileHover={{ y: -1, boxShadow: '0 4px 12px rgba(0,0,0,0.08)' }}
+      whileHover={{ 
+        y: -1, 
+        boxShadow: isSelected 
+          ? '0 8px 25px rgba(59, 130, 246, 0.15)' 
+          : '0 4px 12px rgba(0,0,0,0.08)' 
+      }}
       transition={{ duration: 0.15 }}
-      className={`group relative bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-2.5 cursor-pointer transition-all duration-150 ${
-        isSelected ? 'ring-2 ring-blue-500 border-blue-300' : 'hover:border-gray-300 dark:hover:border-gray-600'
+      className={`group relative rounded-lg p-2.5 cursor-pointer transition-all duration-200 ${
+        isSelected 
+          ? 'bg-blue-50 dark:bg-blue-950/30 border-2 border-blue-400 dark:border-blue-500 shadow-lg shadow-blue-500/20' 
+          : 'bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 hover:bg-gray-50/50 dark:hover:bg-gray-750'
       }`}
       onClick={onClick}
     >
@@ -387,8 +395,8 @@ const ConversationInboxItem: React.FC<Props> = ({
                 }}
                 className="inline-flex items-center px-2 py-1 text-xs font-medium text-blue-700 bg-blue-100 hover:bg-blue-200 rounded transition-colors duration-150"
               >
-                <EyeIcon className="w-3 h-3 mr-0.5" />
-                Summary
+                <DocumentTextIcon className="w-3 h-3 mr-0.5" />
+                Report
               </button>
               <button
                 onClick={(e) => {
@@ -469,15 +477,25 @@ const ConversationInboxItem: React.FC<Props> = ({
         </div>
       </div>
 
-      {/* Selection Checkbox */}
+      {/* Selection Indicator */}
       {isSelected && (
         <div className="absolute top-2 right-2">
-          <div className="w-4 h-4 bg-blue-500 rounded-full flex items-center justify-center">
-            <svg className="w-2.5 h-2.5 text-white" fill="currentColor" viewBox="0 0 20 20">
+          <motion.div 
+            initial={{ scale: 0 }}
+            animate={{ scale: 1 }}
+            transition={{ type: "spring", stiffness: 300, damping: 20 }}
+            className="w-5 h-5 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center shadow-lg shadow-blue-500/25 ring-2 ring-white dark:ring-gray-800"
+          >
+            <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
               <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
             </svg>
-          </div>
+          </motion.div>
         </div>
+      )}
+
+      {/* Left border accent for selected cards */}
+      {isSelected && (
+        <div className="absolute left-0 top-0 bottom-0 w-1 bg-blue-500 rounded-l-lg"></div>
       )}
     </motion.div>
   );

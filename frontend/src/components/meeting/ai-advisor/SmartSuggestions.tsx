@@ -12,6 +12,7 @@ import {
   PlayIcon
 } from '@heroicons/react/24/outline';
 import { useMeetingContext } from '@/lib/meeting/context/MeetingContext';
+import { supabase } from '@/lib/supabase';
 
 interface SuggestionChip {
   text: string;
@@ -67,9 +68,19 @@ export function SmartSuggestions() {
         stage: getConversationStage()
       });
 
+      // Get auth token for API request
+      const { data: { session } } = await supabase.auth.getSession();
+      const authHeaders: Record<string, string> = {
+        'Content-Type': 'application/json'
+      };
+      
+      if (session?.access_token) {
+        authHeaders['Authorization'] = `Bearer ${session.access_token}`;
+      }
+
       const response = await fetch('/api/chat-guidance', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: authHeaders,
         body: JSON.stringify({
           message: 'Generate contextual suggestions',
           sessionId: meeting?.id,

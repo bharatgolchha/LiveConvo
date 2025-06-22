@@ -48,7 +48,16 @@ export async function GET(
       );
     }
 
-    const contextValue = session.session_context?.[0]?.text_context || null;
+    // Handle Supabase nested relationship which may return an object or array depending on RLS
+    let contextValue: string | null = null;
+    if (Array.isArray(session.session_context)) {
+      contextValue = session.session_context[0]?.text_context || null;
+    } else if (session.session_context && typeof session.session_context === 'object') {
+      // When unique relationship returns an object
+      // @ts-ignore
+      contextValue = session.session_context.text_context || null;
+    }
+
     console.log('📖 Meeting fetch - Context data:', {
       sessionId: id,
       hasSessionContext: !!session.session_context,

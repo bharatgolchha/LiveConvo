@@ -34,13 +34,15 @@ const platformIcons = {
 const statusColors = {
   completed: 'text-green-600 bg-green-50',
   failed: 'text-red-600 bg-red-50',
-  active: 'text-blue-600 bg-blue-50'
+  active: 'text-blue-600 bg-blue-50',
+  default: 'text-gray-600 bg-gray-50'
 };
 
 const statusIcons = {
   completed: CheckCircle,
   failed: XCircle,
-  active: Clock
+  active: Clock,
+  default: AlertCircle
 };
 
 export function BotUsageDisplay({ organizationId, className }: BotUsageDisplayProps) {
@@ -208,7 +210,7 @@ export function BotUsageDisplay({ organizationId, className }: BotUsageDisplayPr
             <AnimatePresence>
               {sessions.map((session, index) => {
                 const isExpanded = expandedSessions.has(session.id);
-                const StatusIcon = statusIcons[session.status];
+                const StatusIcon = statusIcons[session.status as keyof typeof statusIcons] || statusIcons.default;
                 
                 return (
                   <motion.div
@@ -234,7 +236,7 @@ export function BotUsageDisplay({ organizationId, className }: BotUsageDisplayPr
                               <h5 className="font-medium truncate">{session.title}</h5>
                               <span className={cn(
                                 "inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium",
-                                statusColors[session.status]
+                                statusColors[session.status as keyof typeof statusColors] || statusColors.default
                               )}>
                                 <StatusIcon className="w-3 h-3" />
                                 {session.status}

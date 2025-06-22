@@ -66,6 +66,17 @@ export function MeetingBotControl() {
 
       if (!response.ok) {
         const data = await response.json();
+        
+        // Handle usage limit exceeded error specially
+        if (response.status === 403 && data.details?.upgradeRequired) {
+          setError(data.details.message || 'Bot recording limit exceeded. Please upgrade your plan.');
+          
+          // Show upgrade modal or redirect to pricing
+          // You could add a state to show upgrade modal here
+          console.error('Usage limit exceeded:', data.details);
+          return;
+        }
+        
         throw new Error(data.error || 'Failed to start recording bot');
       }
 

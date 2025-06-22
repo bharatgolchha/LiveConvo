@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createAuthenticatedSupabaseClient } from '@/lib/supabase';
+import { createAuthenticatedSupabaseClient, createServerSupabaseClient } from '@/lib/supabase';
 import { RecallSessionManager } from '@/lib/recall-ai/session-manager';
 
 export async function POST(
@@ -45,6 +45,72 @@ export async function POST(
         { status: 404 }
       );
     }
+
+    // 🎯 CHECK USAGE LIMITS BEFORE CREATING BOT
+    const serviceClient = createServerSupabaseClient();
+    
+    // Get user's current organization
+    const { data: userData } = await serviceClient
+      .from('users')
+      .select('current_organization_id')
+      .eq('id', user.id)
+      .single();
+
+    const organizationId = userData?.current_organization_id || session.organization_id;
+
+    if (!organizationId) {
+      return NextResponse.json(
+        { error: 'No organization found for user' },
+        { status: 400 }
+      );
+    }
+
+    // Check usage limits using the database function
+    const { data: limits, error: limitsError } = await serviceClient
+      .rpc('check_usage_limit_v2', {
+        p_user_id: user.id,
+        p_organization_id: organizationId
+      });
+
+    if (limitsError) {
+      console.error('Error checking usage limits:', limitsError);
+      return NextResponse.json(
+        { error: 'Failed to check usage limits' },
+        { status: 500 }
+      );
+    }
+
+    const limitData = limits?.[0];
+    
+    // Prevent bot creation if user is out of minutes
+    if (limitData && !limitData.can_record && !limitData.is_unlimited) {
+      const minutesUsed = limitData.minutes_used || 0;
+      const minutesLimit = limitData.minutes_limit || 0;
+      const minutesRemaining = limitData.minutes_remaining || 0;
+      
+      return NextResponse.json(
+        { 
+          error: 'Bot recording limit exceeded',
+          details: {
+            message: `You've used ${minutesUsed} of your ${minutesLimit} monthly bot minutes. Please upgrade your plan to continue recording.`,
+            minutesUsed,
+            minutesLimit,
+            minutesRemaining,
+            canRecord: false,
+            upgradeRequired: true
+          }
+        },
+        { status: 403 }
+      );
+    }
+
+    console.log('✅ Usage limit check passed:', {
+      canRecord: limitData?.can_record,
+      minutesUsed: limitData?.minutes_used,
+      minutesLimit: limitData?.minutes_limit,
+      minutesRemaining: limitData?.minutes_remaining,
+      isUnlimited: limitData?.is_unlimited
+    });
 
     // Check if there's an old bot ID
     if (session.recall_bot_id) {

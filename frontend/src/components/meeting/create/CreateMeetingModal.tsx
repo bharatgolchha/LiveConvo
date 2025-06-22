@@ -31,7 +31,7 @@ export function CreateMeetingModal({ isOpen, onClose, onStart }: CreateMeetingMo
   const [customType, setCustomType] = useState('');
   const [context, setContext] = useState('');
   const [meetingUrl, setMeetingUrl] = useState('');
-  const [selectedPrevious, setSelectedPrevious] = useState<{ id: string; title: string }[]>([]);
+  const [selectedPrevious, setSelectedPrevious] = useState<{ id: string; title: string; conversation_type?: string; created_at: string; recording_duration_seconds?: number; status?: string; total_words_spoken?: number }[]>([]);
 
   const handleStart = async () => {
     setIsStarting(true);

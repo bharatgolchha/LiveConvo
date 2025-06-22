@@ -236,7 +236,7 @@ const DashboardPage: React.FC = () => {
   };
 
   const handleViewSummary = (sessionId: string) => {
-    window.location.href = `/summary/${sessionId}`;
+    window.location.href = `/report/${sessionId}`;
   };
 
   const handleArchiveSession = async (sessionId: string) => {

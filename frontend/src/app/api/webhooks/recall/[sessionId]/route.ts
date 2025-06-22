@@ -287,12 +287,26 @@ async function markRecordingCompleted(
   const durationSeconds = Math.floor((endTime.getTime() - startTime.getTime()) / 1000);
   const billableMinutes = Math.ceil(durationSeconds / 60);
 
+  // We need to get the sessionId from the bot_usage_tracking since the session object only has user_id/organization_id
+  const { data: botUsageData } = await supabase
+    .from('bot_usage_tracking')
+    .select('session_id')
+    .eq('bot_id', botId)
+    .single();
+
+  const sessionId = botUsageData?.session_id;
+  if (!sessionId) {
+    console.warn(`⚠️ No session ID found for bot ${botId}`);
+    return;
+  }
+
   await finalizeRecordingUsage(
     botId,
     botUsage.recording_started_at,
     timestamp,
     durationSeconds,
     billableMinutes,
+    sessionId,
     session,
     supabase
   );
@@ -307,6 +321,7 @@ async function finalizeRecordingUsage(
   completedAt: string,
   durationSeconds: number,
   billableMinutes: number,
+  sessionId: string,
   session: any,
   supabase: any
 ): Promise<void> {
@@ -329,7 +344,7 @@ async function finalizeRecordingUsage(
     await createUsageTrackingEntries(
       session.user_id,
       session.organization_id,
-      session.session_id,
+      sessionId,
       startedAt,
       durationSeconds,
       supabase
@@ -337,14 +352,18 @@ async function finalizeRecordingUsage(
   }
 
   // Update session with bot recording info
+  const billableAmount = (billableMinutes * 0.10).toFixed(2); // $0.10 per minute
   await supabase
     .from('sessions')
     .update({
+      recording_ended_at: completedAt,
       recording_duration_seconds: durationSeconds,
       bot_recording_minutes: billableMinutes,
+      bot_billable_amount: parseFloat(billableAmount),
+      recall_bot_status: 'completed',
       updated_at: new Date().toISOString()
     })
-    .eq('id', session.session_id);
+    .eq('id', sessionId);
 
   console.log(`✅ Bot usage finalized: ${billableMinutes} billable minutes`);
 }

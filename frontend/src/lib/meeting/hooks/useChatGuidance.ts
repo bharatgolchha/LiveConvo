@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react';
 import { useMeetingContext } from '../context/MeetingContext';
+import { supabase } from '@/lib/supabase';
 
 export function useChatGuidance() {
   const { meeting, addChatMessage, transcript } = useMeetingContext();
@@ -13,9 +14,19 @@ export function useChatGuidance() {
     setError(null);
 
     try {
+      // Get auth token for API request
+      const { data: { session } } = await supabase.auth.getSession();
+      const authHeaders: Record<string, string> = {
+        'Content-Type': 'application/json'
+      };
+      
+      if (session?.access_token) {
+        authHeaders['Authorization'] = `Bearer ${session.access_token}`;
+      }
+
       const response = await fetch('/api/chat-guidance', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: authHeaders,
         body: JSON.stringify({
           sessionId: meeting.id,
           message,

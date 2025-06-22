@@ -347,8 +347,8 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ onSessionsDeleted 
                   <p className="text-2xl font-bold">{stats.completedSessions || 0}</p>
                 </div>
                 <div className="text-center p-4 bg-muted/30 rounded-lg">
-                  <p className="text-sm text-muted-foreground mb-1">Audio Time</p>
-                  <p className="text-2xl font-bold">{formatUsage(stats.monthlySecondsUsed || 0)}</p>
+                  <p className="text-sm text-muted-foreground mb-1">Bot Minutes</p>
+                  <p className="text-2xl font-bold">{Math.round((stats.monthlySecondsUsed || 0) / 60)}</p>
                 </div>
                 <div className="text-center p-4 bg-muted/30 rounded-lg">
                   <p className="text-sm text-muted-foreground mb-1">Usage</p>

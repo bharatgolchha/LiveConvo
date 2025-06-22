@@ -134,6 +134,51 @@ export async function POST(req: NextRequest) {
         started_at: new Date().toISOString()
       });
 
+    // Create linked conversations if provided
+    if (data.linkedConversationIds && data.linkedConversationIds.length > 0) {
+      console.log('🔗 Creating linked conversations:', {
+        session_id: session.id,
+        linked_count: data.linkedConversationIds.length,
+        linked_ids: data.linkedConversationIds
+      });
+
+      // Verify linked sessions exist and user has access to them
+      const { data: linkedSessions, error: linkedSessionsError } = await supabase
+        .from('sessions')
+        .select('id, title')
+        .in('id', data.linkedConversationIds)
+        .eq('organization_id', orgMember.organization_id)
+        .is('deleted_at', null);
+
+      if (linkedSessionsError) {
+        console.error('❌ Error verifying linked sessions:', linkedSessionsError);
+      } else if (linkedSessions && linkedSessions.length > 0) {
+        // Create conversation links
+        const linksToCreate = linkedSessions.map(linkedSession => ({
+          session_id: session.id,
+          linked_session_id: linkedSession.id
+        }));
+
+        const { error: linkError } = await supabase
+          .from('conversation_links')
+          .insert(linksToCreate);
+
+        if (linkError) {
+          console.error('❌ Failed to create conversation links:', linkError);
+          // Don't fail the entire meeting creation, but log the error
+        } else {
+          console.log('✅ Conversation links created successfully:', {
+            links_created: linksToCreate.length,
+            linked_sessions: linkedSessions.map(s => ({ id: s.id, title: s.title }))
+          });
+        }
+      } else {
+        console.log('⚠️ No valid linked sessions found to link');
+      }
+    } else {
+      console.log('⚠️ No linked conversations provided for meeting creation');
+    }
+
     // Don't deploy bot automatically - wait for user action
 
     return NextResponse.json({

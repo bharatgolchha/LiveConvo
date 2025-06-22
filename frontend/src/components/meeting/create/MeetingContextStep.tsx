@@ -3,11 +3,21 @@ import { motion } from 'framer-motion';
 import { CalendarDaysIcon, ClockIcon } from '@heroicons/react/24/outline';
 import { PreviousConversationsMultiSelect } from './PreviousConversationsMultiSelect';
 
+interface SessionOption {
+  id: string;
+  title: string;
+  conversation_type?: string;
+  created_at: string;
+  recording_duration_seconds?: number;
+  status?: string;
+  total_words_spoken?: number;
+}
+
 interface MeetingContextStepProps {
   context: string;
   setContext: (context: string) => void;
-  selectedPrevious: { id: string; title: string }[];
-  setSelectedPrevious: (sessions: { id: string; title: string }[]) => void;
+  selectedPrevious: SessionOption[];
+  setSelectedPrevious: (sessions: SessionOption[]) => void;
   scheduledAt?: string;
   setScheduledAt?: (date: string) => void;
 }
@@ -107,6 +117,9 @@ export function MeetingContextStep({
           <li>• Mention any specific goals or outcomes you're hoping for</li>
           <li>• Add relevant background information about participants</li>
           <li>• Note any follow-ups from previous meetings</li>
+          {selectedPrevious.length > 0 && (
+            <li>• Previous meeting context will help the AI understand ongoing discussions</li>
+          )}
         </ul>
       </div>
     </motion.div>
