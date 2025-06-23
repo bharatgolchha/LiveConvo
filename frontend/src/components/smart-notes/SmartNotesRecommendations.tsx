@@ -55,21 +55,21 @@ export const SmartNotesRecommendations: React.FC<SmartNotesRecommendationsProps>
 
   const getPriorityIcon = (priority: string) => {
     switch (priority) {
-      case 'high': return <Star className="w-3 h-3 text-red-500" />;
-      case 'medium': return <Clock className="w-3 h-3 text-yellow-500" />;
-      case 'low': return <FileText className="w-3 h-3 text-blue-500" />;
-      default: return <FileText className="w-3 h-3 text-gray-500" />;
+      case 'high': return <Star className="w-3 h-3 text-destructive" />;
+      case 'medium': return <Clock className="w-3 h-3 text-orange-500 dark:text-yellow-400" />;
+      case 'low': return <FileText className="w-3 h-3 text-primary" />;
+      default: return <FileText className="w-3 h-3 text-muted-foreground" />;
     }
   };
 
   const getTypeColor = (type: string) => {
     switch (type) {
-      case 'preparation': return 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300';
-      case 'followup': return 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300';
-      case 'research': return 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300';
-      case 'decision': return 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300';
-      case 'action': return 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300';
-      default: return 'bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-300';
+      case 'preparation': return 'bg-primary/10 text-primary dark:bg-primary/20';
+      case 'followup': return 'bg-green-500/10 text-green-700 dark:bg-green-500/20 dark:text-green-400';
+      case 'research': return 'bg-purple-500/10 text-purple-700 dark:bg-purple-500/20 dark:text-purple-400';
+      case 'decision': return 'bg-orange-500/10 text-orange-700 dark:bg-orange-500/20 dark:text-orange-400';
+      case 'action': return 'bg-destructive/10 text-destructive dark:bg-destructive/20';
+      default: return 'bg-muted text-muted-foreground';
     }
   };
 
@@ -84,11 +84,11 @@ export const SmartNotesRecommendations: React.FC<SmartNotesRecommendationsProps>
       initial={{ opacity: 0, y: -10 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -10 }}
-      className="bg-gradient-to-br from-indigo-50/50 to-purple-50/30 dark:from-indigo-950/20 dark:to-purple-900/10 rounded-2xl p-4 border border-indigo-200/50 dark:border-indigo-800/30 mb-4"
+      className="bg-gradient-to-br from-primary/5 to-primary/10 dark:from-primary/10 dark:to-primary/20 rounded-2xl p-4 border border-primary/20 dark:border-primary/30 mb-4"
     >
       <div className="flex items-center gap-2 mb-3">
-        <Lightbulb className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
-        <h3 className="text-sm font-semibold text-indigo-900 dark:text-indigo-100">
+        <Lightbulb className="w-4 h-4 text-primary" />
+        <h3 className="text-sm font-semibold text-foreground">
           AI Smart Notes Suggestions
         </h3>
         <Badge variant="secondary" className="text-xs">
@@ -109,7 +109,7 @@ export const SmartNotesRecommendations: React.FC<SmartNotesRecommendationsProps>
                 exit={{ opacity: 0, x: -20, height: 0 }}
                 transition={{ delay: index * 0.1 }}
                 className={cn(
-                  "flex items-start gap-3 p-3 bg-white/60 dark:bg-gray-800/40 rounded-lg border border-white/20 dark:border-gray-700/20 group hover:shadow-sm transition-all",
+                  "flex items-start gap-3 p-3 bg-background/60 dark:bg-background/40 rounded-lg border border-border/50 group hover:shadow-sm transition-all",
                   addingItems.has(index) && "opacity-50"
                 )}
               >
@@ -166,7 +166,7 @@ export const SmartNotesRecommendations: React.FC<SmartNotesRecommendationsProps>
       
       {/* Optional: Bulk actions for multiple suggestions */}
       {visibleSuggestions.length > 2 && (
-        <div className="flex justify-between items-center mt-3 pt-3 border-t border-indigo-200/30 dark:border-indigo-800/30">
+        <div className="flex justify-between items-center mt-3 pt-3 border-t border-border/30">
           <span className="text-xs text-muted-foreground">
             AI found {visibleSuggestions.length} noteworthy items from your conversation
           </span>
