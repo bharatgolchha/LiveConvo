@@ -103,7 +103,7 @@ export const SmartNoteItem: React.FC<SmartNoteItemProps> = ({
         checked={item.status === 'done'} 
         onChange={handleToggle}
         disabled={updating || deleting}
-        className="flex-shrink-0 h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded"
+        className="flex-shrink-0 h-4 w-4 text-primary focus:ring-primary border-input rounded bg-background"
       />
       {isEditing ? (
         <>
@@ -116,21 +116,21 @@ export const SmartNoteItem: React.FC<SmartNoteItemProps> = ({
               if (e.key === 'Enter') handleSaveEdit();
               if (e.key === 'Escape') handleCancelEdit();
             }}
-            className="flex-1 text-sm px-2 py-1 border rounded focus:outline-none focus:ring-2 focus:ring-primary"
+            className="flex-1 text-sm px-2 py-1 border border-input rounded bg-background focus:outline-none focus:ring-2 focus:ring-primary"
             disabled={updating}
           />
           <div className="flex gap-1">
             <button
               onClick={handleSaveEdit}
               disabled={updating}
-              className="p-1 text-green-600 hover:bg-green-100 rounded disabled:opacity-50"
+              className="p-1 text-primary hover:bg-primary/10 rounded disabled:opacity-50 transition-colors"
             >
               <Check className="h-4 w-4" />
             </button>
             <button
               onClick={handleCancelEdit}
               disabled={updating}
-              className="p-1 text-red-600 hover:bg-red-100 rounded disabled:opacity-50"
+              className="p-1 text-destructive hover:bg-destructive/10 rounded disabled:opacity-50 transition-colors"
             >
               <X className="h-4 w-4" />
             </button>
