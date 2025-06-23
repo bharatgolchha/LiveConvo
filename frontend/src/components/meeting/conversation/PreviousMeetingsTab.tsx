@@ -66,7 +66,7 @@ export function PreviousMeetingsTab({
           </div>
         </div>
         <div className="flex-1 flex flex-col items-center justify-center p-8 text-center">
-          <ExclamationTriangleIcon className="w-12 h-12 text-red-500 mb-4" />
+          <ExclamationTriangleIcon className="w-12 h-12 text-destructive mb-4" />
           <h4 className="font-medium text-foreground mb-2">Failed to Load Previous Meetings</h4>
           <p className="text-sm text-muted-foreground mb-4">{error}</p>
           <Button onClick={refetch} variant="outline" size="sm">
@@ -98,9 +98,9 @@ export function PreviousMeetingsTab({
           <p className="text-sm text-muted-foreground mb-4 max-w-sm">
             This meeting doesn't have any linked previous meetings. You can link previous meetings when creating a new meeting to provide context.
           </p>
-          <div className="flex items-center gap-2 p-3 bg-blue-50 dark:bg-blue-950/20 rounded-lg border border-blue-200 dark:border-blue-800">
-            <InformationCircleIcon className="w-4 h-4 text-blue-600 dark:text-blue-400 flex-shrink-0" />
-            <p className="text-xs text-blue-700 dark:text-blue-300">
+          <div className="flex items-center gap-2 p-3 bg-muted/50 rounded-lg border border-border">
+            <InformationCircleIcon className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+            <p className="text-xs text-muted-foreground">
               Linked meetings help the AI advisor provide better context and suggestions based on previous discussions.
             </p>
           </div>

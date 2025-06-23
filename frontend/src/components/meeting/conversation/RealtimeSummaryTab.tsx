@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 import { useMeetingContext } from '@/lib/meeting/context/MeetingContext';
 import { LoadingStates } from '../common/LoadingStates';
 import { useRealtimeSummary } from '@/lib/meeting/hooks/useRealtimeSummary';
+import { ExportMenu } from '../export/ExportMenu';
 import { 
   LightBulbIcon, 
   ClipboardDocumentCheckIcon,
@@ -39,8 +40,8 @@ export function RealtimeSummaryTab() {
   if (error) {
     return (
       <div className="flex flex-col items-center justify-center h-full p-8">
-        <div className="w-16 h-16 bg-red-50 dark:bg-red-950/20 rounded-full flex items-center justify-center mb-6">
-          <ExclamationCircleIcon className="w-8 h-8 text-red-500" />
+        <div className="w-16 h-16 bg-destructive/10 rounded-full flex items-center justify-center mb-6">
+          <ExclamationCircleIcon className="w-8 h-8 text-destructive" />
         </div>
         <h3 className="text-lg font-semibold mb-2">Summary Generation Failed</h3>
         <p className="text-sm text-muted-foreground text-center max-w-sm mb-6">
@@ -92,9 +93,9 @@ export function RealtimeSummaryTab() {
       description: 'Quick overview of the conversation',
       icon: LightBulbIcon,
       content: summary.tldr,
-      gradient: 'from-blue-500/10 to-cyan-500/10',
-      iconColor: 'text-blue-600 dark:text-blue-400',
-      borderColor: 'border-blue-200/50 dark:border-blue-800/50'
+      gradient: 'from-muted/20 to-muted/10',
+      iconColor: 'text-primary',
+      borderColor: 'border-border/50'
     },
     {
       id: 'keyPoints',
@@ -102,9 +103,9 @@ export function RealtimeSummaryTab() {
       description: 'Most important topics covered',
       icon: FlagIcon,
       content: summary.keyPoints,
-      gradient: 'from-purple-500/10 to-pink-500/10',
-      iconColor: 'text-purple-600 dark:text-purple-400',
-      borderColor: 'border-purple-200/50 dark:border-purple-800/50'
+      gradient: 'from-muted/20 to-muted/10',
+      iconColor: 'text-primary',
+      borderColor: 'border-border/50'
     },
     {
       id: 'actionItems',
@@ -112,9 +113,9 @@ export function RealtimeSummaryTab() {
       description: 'Tasks and follow-ups identified',
       icon: ClipboardDocumentCheckIcon,
       content: summary.actionItems,
-      gradient: 'from-green-500/10 to-emerald-500/10',
-      iconColor: 'text-green-600 dark:text-green-400',
-      borderColor: 'border-green-200/50 dark:border-green-800/50'
+      gradient: 'from-muted/20 to-muted/10',
+      iconColor: 'text-primary',
+      borderColor: 'border-border/50'
     },
     {
       id: 'decisions',
@@ -122,16 +123,16 @@ export function RealtimeSummaryTab() {
       description: 'Key decisions reached during discussion',
       icon: ChatBubbleBottomCenterTextIcon,
       content: summary.decisions,
-      gradient: 'from-orange-500/10 to-red-500/10',
-      iconColor: 'text-orange-600 dark:text-orange-400',
-      borderColor: 'border-orange-200/50 dark:border-orange-800/50'
+      gradient: 'from-muted/20 to-muted/10',
+      iconColor: 'text-primary',
+      borderColor: 'border-border/50'
     }
   ];
 
   return (
-    <div className="h-full flex flex-col bg-gradient-to-br from-background to-muted/20">
+    <div className="h-full flex flex-col bg-background">
       {/* Header */}
-      <div className="flex-shrink-0 p-6 border-b border-border/60 bg-card/60 backdrop-blur-sm">
+      <div className="flex-shrink-0 p-6 border-b border-border bg-card z-[100] relative">
         <div className="flex items-start justify-between">
           <div className="flex items-start gap-3">
             <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-primary/20 to-primary/10 flex items-center justify-center">
@@ -144,7 +145,7 @@ export function RealtimeSummaryTab() {
               </p>
               {summary.lastUpdated && (
                 <div className="flex items-center gap-1 mt-1">
-                  <div className="w-1.5 h-1.5 rounded-full bg-green-500" />
+                  <div className="w-1.5 h-1.5 rounded-full bg-primary" />
                   <span className="text-xs text-muted-foreground">
                     Updated {new Date(summary.lastUpdated).toLocaleTimeString()}
                   </span>
@@ -152,15 +153,18 @@ export function RealtimeSummaryTab() {
               )}
             </div>
           </div>
-          <button
-            onClick={refreshSummary}
-            disabled={loading}
-            className="flex items-center gap-2 px-3 py-2 bg-muted/80 hover:bg-muted rounded-lg text-sm font-medium transition-all hover:scale-105 disabled:opacity-50 disabled:hover:scale-100"
-            title="Refresh summary"
-          >
-            <ArrowPathIcon className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-            <span className="hidden sm:inline">{loading ? 'Updating...' : 'Refresh'}</span>
-          </button>
+          <div className="flex items-center gap-2">
+            <ExportMenu />
+            <button
+              onClick={refreshSummary}
+              disabled={loading}
+              className="flex items-center gap-2 px-3 py-2 bg-muted/50 hover:bg-muted border border-border/30 rounded-lg text-sm font-medium text-foreground transition-all hover:scale-105 disabled:opacity-50 disabled:hover:scale-100"
+              title="Refresh summary"
+            >
+              <ArrowPathIcon className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+              <span className="hidden sm:inline">{loading ? 'Updating...' : 'Refresh'}</span>
+            </button>
+          </div>
         </div>
       </div>
 
@@ -182,20 +186,20 @@ export function RealtimeSummaryTab() {
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: index * 0.1, duration: 0.5 }}
-                className={`group relative rounded-xl p-6 bg-gradient-to-br ${section.gradient} border ${section.borderColor} backdrop-blur-sm hover:shadow-lg transition-all duration-300`}
+                className={`group relative rounded-xl p-6 bg-card border ${section.borderColor} hover:shadow-lg hover:border-primary/20 transition-all duration-300`}
               >
                 {/* Background decoration */}
-                <div className="absolute inset-0 rounded-xl bg-gradient-to-br from-white/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                <div className="absolute inset-0 rounded-xl bg-gradient-to-br from-primary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
                 
                 <div className="relative">
                   {/* Section Header */}
                   <div className="flex items-start gap-4 mb-4">
-                    <div className={`p-3 rounded-xl bg-white/80 dark:bg-black/20 shadow-sm ${section.iconColor}`}>
+                    <div className={`p-3 rounded-xl bg-card/80 border border-border/50 shadow-sm ${section.iconColor}`}>
                       <Icon className="w-5 h-5" />
                     </div>
                     
                     <div className="flex-1 min-w-0">
-                      <h3 className={`text-lg font-semibold ${section.iconColor} mb-1`}>
+                      <h3 className={`text-lg font-semibold text-foreground mb-1`}>
                         {section.title}
                       </h3>
                       <p className="text-sm text-muted-foreground">
@@ -205,7 +209,7 @@ export function RealtimeSummaryTab() {
                     
                     {/* Content count badge */}
                     {Array.isArray(section.content) && section.content.length > 0 && (
-                      <div className="px-2 py-1 bg-white/80 dark:bg-black/20 rounded-lg">
+                      <div className="px-2 py-1 bg-muted/50 border border-border/30 rounded-lg">
                         <span className="text-xs font-medium text-muted-foreground">
                           {section.content.length} item{section.content.length !== 1 ? 's' : ''}
                         </span>
@@ -226,7 +230,7 @@ export function RealtimeSummaryTab() {
                             className="flex items-start gap-3 group/item"
                           >
                             <div className="flex-shrink-0 mt-1.5">
-                              <CheckCircleIcon className={`w-4 h-4 ${section.iconColor} opacity-60 group-hover/item:opacity-100 transition-opacity`} />
+                              <CheckCircleIcon className={`w-4 h-4 text-primary opacity-60 group-hover/item:opacity-100 transition-opacity`} />
                             </div>
                             <span className="text-sm text-foreground/90 leading-relaxed">
                               {item}
@@ -251,40 +255,45 @@ export function RealtimeSummaryTab() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: sections.length * 0.1, duration: 0.5 }}
-              className="rounded-xl p-6 bg-gradient-to-br from-slate-500/10 to-gray-500/10 border border-slate-200/50 dark:border-slate-800/50"
+              className="group relative rounded-xl p-6 bg-card border border-border/50 hover:shadow-lg hover:border-primary/20 transition-all duration-300"
             >
-              <div className="flex items-center gap-3 mb-4">
-                <div className="p-3 rounded-xl bg-white/80 dark:bg-black/20 shadow-sm">
-                  <ArrowTrendingUpIcon className="w-5 h-5 text-slate-600 dark:text-slate-400" />
-                </div>
-                <div>
-                  <h3 className="text-lg font-semibold text-slate-600 dark:text-slate-400">
-                    Topics Discussed
-                  </h3>
-                  <p className="text-sm text-muted-foreground">
-                    Main themes and subjects covered
-                  </p>
-                </div>
-                <div className="ml-auto px-2 py-1 bg-white/80 dark:bg-black/20 rounded-lg">
-                  <span className="text-xs font-medium text-muted-foreground">
-                    {summary.topics.length} topic{summary.topics.length !== 1 ? 's' : ''}
-                  </span>
-                </div>
-              </div>
+              {/* Background decoration */}
+              <div className="absolute inset-0 rounded-xl bg-gradient-to-br from-primary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
               
-              <div className="pl-16">
-                <div className="flex flex-wrap gap-2">
-                  {summary.topics.map((topic, i) => (
-                    <motion.span
-                      key={i}
-                      initial={{ opacity: 0, scale: 0.8 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      transition={{ delay: (sections.length * 0.1) + (i * 0.05) }}
-                      className="px-3 py-2 bg-white/80 dark:bg-black/20 backdrop-blur-sm text-sm font-medium text-foreground/80 rounded-lg border border-white/20 hover:bg-white/90 dark:hover:bg-black/30 transition-colors cursor-default"
-                    >
-                      #{topic}
-                    </motion.span>
-                  ))}
+              <div className="relative">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="p-3 rounded-xl bg-card/80 border border-border/50 shadow-sm">
+                    <ArrowTrendingUpIcon className="w-5 h-5 text-primary" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-semibold text-foreground">
+                      Topics Discussed
+                    </h3>
+                    <p className="text-sm text-muted-foreground">
+                      Main themes and subjects covered
+                    </p>
+                  </div>
+                  <div className="ml-auto px-2 py-1 bg-muted/50 border border-border/30 rounded-lg">
+                    <span className="text-xs font-medium text-muted-foreground">
+                      {summary.topics.length} topic{summary.topics.length !== 1 ? 's' : ''}
+                    </span>
+                  </div>
+                </div>
+                
+                <div className="pl-16">
+                  <div className="flex flex-wrap gap-2">
+                    {summary.topics.map((topic, i) => (
+                      <motion.span
+                        key={i}
+                        initial={{ opacity: 0, scale: 0.8 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        transition={{ delay: (sections.length * 0.1) + (i * 0.05) }}
+                        className="px-3 py-2 bg-muted/50 backdrop-blur-sm text-sm font-medium text-foreground border border-border/30 rounded-lg hover:bg-muted/70 transition-colors cursor-default"
+                      >
+                        #{topic}
+                      </motion.span>
+                    ))}
+                  </div>
                 </div>
               </div>
             </motion.div>

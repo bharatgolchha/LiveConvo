@@ -1,12 +1,41 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useMeetingContext } from '@/lib/meeting/context/MeetingContext';
-import { ChevronDownIcon, ChevronUpIcon } from '@heroicons/react/24/outline';
+import { ChevronDownIcon, ChevronUpIcon, EyeIcon, EyeSlashIcon } from '@heroicons/react/24/outline';
 
 export function MeetingDebugInfo() {
   const { meeting, botStatus, transcript } = useMeetingContext();
   const [isExpanded, setIsExpanded] = useState(false);
+  const [isVisible, setIsVisible] = useState(true);
   const [testText, setTestText] = useState('Test transcript message');
   const [testSpeaker, setTestSpeaker] = useState<'ME' | 'THEM'>('ME');
+  
+  // Load visibility preference from localStorage on mount
+  useEffect(() => {
+    const savedVisibility = localStorage.getItem('debugInfoVisible');
+    if (savedVisibility !== null) {
+      setIsVisible(JSON.parse(savedVisibility));
+    }
+  }, []);
+  
+  // Save visibility preference to localStorage
+  const toggleVisibility = () => {
+    const newVisibility = !isVisible;
+    setIsVisible(newVisibility);
+    localStorage.setItem('debugInfoVisible', JSON.stringify(newVisibility));
+  };
+  
+  // Keyboard shortcut to toggle debug info (Ctrl+Shift+D)
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.ctrlKey && event.shiftKey && event.key === 'D') {
+        event.preventDefault();
+        toggleVisibility();
+      }
+    };
+    
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isVisible]);
   
   const sendTestTranscript = async () => {
     if (!meeting) return;
@@ -33,15 +62,39 @@ export function MeetingDebugInfo() {
   
   if (process.env.NODE_ENV !== 'development') return null;
   
+  // Show toggle button even when debug panel is hidden
+  if (!isVisible) {
+    return (
+      <div className="fixed bottom-4 right-4 z-50">
+        <button
+          onClick={toggleVisibility}
+          className="bg-gray-800 hover:bg-gray-700 text-white p-2 rounded-full shadow-lg transition-colors"
+          title="Show Debug Info (Ctrl+Shift+D)"
+        >
+          <EyeIcon className="w-5 h-5" />
+        </button>
+      </div>
+    );
+  }
+  
   return (
     <div className="fixed bottom-4 right-4 max-w-md bg-gray-900 text-white p-4 rounded-lg shadow-lg z-50">
-      <button
-        onClick={() => setIsExpanded(!isExpanded)}
-        className="flex items-center gap-2 text-sm font-medium mb-2"
-      >
-        Debug Info
-        {isExpanded ? <ChevronDownIcon className="w-4 h-4" /> : <ChevronUpIcon className="w-4 h-4" />}
-      </button>
+      <div className="flex items-center justify-between mb-2">
+        <button
+          onClick={() => setIsExpanded(!isExpanded)}
+          className="flex items-center gap-2 text-sm font-medium"
+        >
+          Debug Info
+          {isExpanded ? <ChevronDownIcon className="w-4 h-4" /> : <ChevronUpIcon className="w-4 h-4" />}
+        </button>
+        <button
+          onClick={toggleVisibility}
+          className="p-1 hover:bg-gray-800 rounded transition-colors"
+          title="Hide Debug Info (Ctrl+Shift+D)"
+        >
+          <EyeSlashIcon className="w-4 h-4" />
+        </button>
+      </div>
       
       {isExpanded && (
         <div className="space-y-3 text-xs">

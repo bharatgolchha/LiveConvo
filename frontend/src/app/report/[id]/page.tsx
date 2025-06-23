@@ -24,6 +24,7 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { useAuth } from '@/contexts/AuthContext';
+import { useTheme } from '@/contexts/ThemeContext';
 
 // Types
 interface MeetingReport {
@@ -78,6 +79,7 @@ export default function MeetingReportPage() {
   const router = useRouter();
   const meetingId = params.id as string;
   const { user, session } = useAuth();
+  const { theme } = useTheme();
   
   const [report, setReport] = useState<MeetingReport | null>(null);
   const [loading, setLoading] = useState(true);
@@ -302,17 +304,17 @@ export default function MeetingReportPage() {
   };
 
   const getEffectivenessColor = (score: number) => {
-    if (score >= 80) return 'text-green-600';
-    if (score >= 60) return 'text-yellow-600';
-    return 'text-red-600';
+    if (score >= 80) return 'text-primary';
+    if (score >= 60) return 'text-accent';
+    return 'text-destructive';
   };
 
   const getPriorityColor = (priority: string) => {
     switch (priority) {
-      case 'high': return 'bg-red-100 text-red-800 border-red-200 dark:bg-red-900/20 dark:text-red-400 dark:border-red-800';
-      case 'medium': return 'bg-yellow-100 text-yellow-800 border-yellow-200 dark:bg-yellow-900/20 dark:text-yellow-400 dark:border-yellow-800';
-      case 'low': return 'bg-green-100 text-green-800 border-green-200 dark:bg-green-900/20 dark:text-green-400 dark:border-green-800';
-      default: return 'bg-gray-100 text-gray-800 border-gray-200 dark:bg-gray-900/20 dark:text-gray-400 dark:border-gray-800';
+      case 'high': return 'bg-destructive/10 text-destructive border-destructive/20';
+      case 'medium': return 'bg-accent/15 text-accent-foreground border-accent/30';
+      case 'low': return 'bg-primary/10 text-primary border-primary/20';
+      default: return 'bg-muted text-muted-foreground border-border';
     }
   };
 
@@ -374,10 +376,10 @@ export default function MeetingReportPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-background via-background to-primary/5 flex items-center justify-center">
         <div className="text-center space-y-4">
-          <div className="w-16 h-16 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
-          <p className="text-gray-600 dark:text-gray-400">Loading meeting report...</p>
+          <div className="w-16 h-16 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto"></div>
+          <p className="text-muted-foreground">Loading meeting report...</p>
         </div>
       </div>
     );
@@ -385,11 +387,11 @@ export default function MeetingReportPage() {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-background via-background to-primary/5 flex items-center justify-center">
         <div className="text-center space-y-4 max-w-md">
-          <AlertTriangle className="w-16 h-16 text-red-500 mx-auto" />
-          <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Error Loading Report</h2>
-          <p className="text-gray-600 dark:text-gray-400">{error}</p>
+          <AlertTriangle className="w-16 h-16 text-destructive mx-auto" />
+          <h2 className="text-xl font-semibold text-foreground">Error Loading Report</h2>
+          <p className="text-muted-foreground">{error}</p>
           <Button onClick={() => router.back()} variant="outline">
             Go Back
           </Button>
@@ -400,11 +402,11 @@ export default function MeetingReportPage() {
 
   if (!report) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-background via-background to-primary/5 flex items-center justify-center">
         <div className="text-center space-y-4">
-          <FileText className="w-16 h-16 text-gray-400 mx-auto" />
-          <h2 className="text-xl font-semibold text-gray-900 dark:text-white">No Report Available</h2>
-          <p className="text-gray-600 dark:text-gray-400">This meeting report could not be found.</p>
+          <FileText className="w-16 h-16 text-muted-foreground mx-auto" />
+          <h2 className="text-xl font-semibold text-foreground">No Report Available</h2>
+          <p className="text-muted-foreground">This meeting report could not be found.</p>
           <Button onClick={() => router.back()} variant="outline">
             Go Back
           </Button>
@@ -414,7 +416,7 @@ export default function MeetingReportPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800">
+    <div className="min-h-screen bg-gradient-to-br from-background via-background to-primary/5">
       <div className="container mx-auto px-4 py-8">
         <div className="max-w-6xl mx-auto">
           {/* Header */}
@@ -422,15 +424,15 @@ export default function MeetingReportPage() {
             <div className="flex items-center gap-4">
               <button
                 onClick={() => router.back()}
-                className="p-2 hover:bg-white/20 dark:hover:bg-gray-800/20 rounded-lg transition-colors"
+                className="p-2 hover:bg-muted/60 rounded-lg transition-colors"
               >
-                <ArrowLeft className="w-5 h-5 text-gray-600 dark:text-gray-400" />
+                <ArrowLeft className="w-5 h-5 text-muted-foreground" />
               </button>
               <div>
-                <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
+                <h1 className="text-3xl font-bold text-foreground mb-2">
                   {report.title}
                 </h1>
-                <div className="flex items-center gap-4 text-sm text-gray-600 dark:text-gray-400">
+                <div className="flex items-center gap-4 text-sm text-muted-foreground">
                   <span className="flex items-center gap-1">
                     {getPlatformIcon(report.platform)} {report.platform}
                   </span>
@@ -461,27 +463,27 @@ export default function MeetingReportPage() {
 
           {/* Success Banner */}
           <div className="mb-8 animate-fade-in">
-            <div className="bg-gradient-to-r from-green-50 to-blue-50 dark:from-green-900/20 dark:to-blue-900/20 border border-green-200 dark:border-green-800 rounded-lg">
+            <div className="bg-gradient-to-r from-primary/10 to-accent/10 border border-primary/20 rounded-lg backdrop-blur-sm">
               <div className="p-6">
                 <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center gap-3">
-                    <div className="w-12 h-12 bg-gradient-to-br from-green-500 to-blue-500 rounded-full flex items-center justify-center">
+                    <div className="w-12 h-12 bg-gradient-to-br from-primary to-accent rounded-full flex items-center justify-center">
                       <CheckCircle className="w-6 h-6 text-white" />
                     </div>
                     <div>
-                      <h2 className="text-xl font-bold text-gray-900 dark:text-white">
+                      <h2 className="text-xl font-bold text-foreground">
                         Meeting Completed Successfully!
                       </h2>
-                      <p className="text-sm text-gray-600 dark:text-gray-400">
+                      <p className="text-sm text-muted-foreground">
                         {formatDate(report.endedAt)}
                       </p>
                     </div>
                   </div>
                   <div className="text-right">
-                    <div className="text-2xl font-bold text-green-600 dark:text-green-400">
+                    <div className="text-2xl font-bold text-primary">
                       {report.summary.effectiveness.overall}%
                     </div>
-                    <div className="text-sm text-gray-600 dark:text-gray-400">Overall Effectiveness</div>
+                    <div className="text-sm text-muted-foreground">Overall Effectiveness</div>
                   </div>
                 </div>
               </div>
@@ -490,56 +492,56 @@ export default function MeetingReportPage() {
 
           {/* Quick Stats */}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-            <div className="p-6 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-gray-200/50 dark:border-gray-700/50 rounded-lg shadow-md">
+            <div className="p-6 bg-card/70 backdrop-blur-sm border border-border/50 rounded-lg shadow-md">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900/30 rounded-lg flex items-center justify-center">
-                  <Clock className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center">
+                  <Clock className="w-5 h-5 text-primary" />
                 </div>
                 <div>
-                  <div className="text-2xl font-bold text-gray-900 dark:text-white">
+                  <div className="text-2xl font-bold text-foreground">
                     {formatDuration(report.duration)}
                   </div>
-                  <div className="text-sm text-gray-500 dark:text-gray-400">Duration</div>
+                  <div className="text-sm text-muted-foreground">Duration</div>
                 </div>
               </div>
             </div>
 
-            <div className="p-6 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-gray-200/50 dark:border-gray-700/50 rounded-lg shadow-md">
+            <div className="p-6 bg-card/70 backdrop-blur-sm border border-border/50 rounded-lg shadow-md">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-purple-100 dark:bg-purple-900/30 rounded-lg flex items-center justify-center">
-                  <Users className="w-5 h-5 text-purple-600 dark:text-purple-400" />
+                <div className="w-10 h-10 bg-secondary/20 rounded-lg flex items-center justify-center">
+                  <Users className="w-5 h-5 text-secondary" />
                 </div>
                 <div>
-                  <div className="text-2xl font-bold text-gray-900 dark:text-white">2</div>
-                  <div className="text-sm text-gray-500 dark:text-gray-400">Participants</div>
+                  <div className="text-2xl font-bold text-foreground">2</div>
+                  <div className="text-sm text-muted-foreground">Participants</div>
                 </div>
               </div>
             </div>
 
-            <div className="p-6 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-gray-200/50 dark:border-gray-700/50 rounded-lg shadow-md">
+            <div className="p-6 bg-card/70 backdrop-blur-sm border border-border/50 rounded-lg shadow-md">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-green-100 dark:bg-green-900/30 rounded-lg flex items-center justify-center">
-                  <FileText className="w-5 h-5 text-green-600 dark:text-green-400" />
+                <div className="w-10 h-10 bg-primary/15 rounded-lg flex items-center justify-center">
+                  <FileText className="w-5 h-5 text-primary" />
                 </div>
                 <div>
-                  <div className="text-2xl font-bold text-gray-900 dark:text-white">
+                  <div className="text-2xl font-bold text-foreground">
                     {report.analytics.wordCount.toLocaleString()}
                   </div>
-                  <div className="text-sm text-gray-500 dark:text-gray-400">Words</div>
+                  <div className="text-sm text-muted-foreground">Words</div>
                 </div>
               </div>
             </div>
 
-            <div className="p-6 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-gray-200/50 dark:border-gray-700/50 rounded-lg shadow-md">
+            <div className="p-6 bg-card/70 backdrop-blur-sm border border-border/50 rounded-lg shadow-md">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-orange-100 dark:bg-orange-900/30 rounded-lg flex items-center justify-center">
-                  <Target className="w-5 h-5 text-orange-600 dark:text-orange-400" />
+                <div className="w-10 h-10 bg-accent/20 rounded-lg flex items-center justify-center">
+                  <Target className="w-5 h-5 text-accent-foreground" />
                 </div>
                 <div>
-                  <div className="text-2xl font-bold text-gray-900 dark:text-white">
+                  <div className="text-2xl font-bold text-foreground">
                     {report.summary.actionItems.length}
                   </div>
-                  <div className="text-sm text-gray-500 dark:text-gray-400">Action Items</div>
+                  <div className="text-sm text-muted-foreground">Action Items</div>
                 </div>
               </div>
             </div>
@@ -550,22 +552,22 @@ export default function MeetingReportPage() {
             {/* Left Column - Primary Content */}
             <div className="lg:col-span-2 space-y-8">
               {/* Executive Summary */}
-              <div className="p-6 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-gray-200/50 dark:border-gray-700/50 rounded-lg shadow-md">
+              <div className="p-6 bg-card/70 backdrop-blur-sm border border-border/50 rounded-lg shadow-md">
                 <div className="flex items-center gap-3 mb-4">
-                  <div className="w-8 h-8 bg-blue-100 dark:bg-blue-900/30 rounded-lg flex items-center justify-center">
-                    <FileText className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                  <div className="w-8 h-8 bg-primary/10 rounded-lg flex items-center justify-center">
+                    <FileText className="w-4 h-4 text-primary" />
                   </div>
-                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Executive Summary</h3>
+                  <h3 className="text-lg font-semibold text-foreground">Executive Summary</h3>
                 </div>
                 {report.summary.tldr === 'Summary generation is pending. Please check back in a few moments.' ? (
-                  <div className="bg-yellow-50 dark:bg-yellow-900/20 rounded-lg p-4 border border-yellow-200 dark:border-yellow-800">
+                  <div className="bg-accent/10 rounded-lg p-4 border border-accent/20">
                     <div className="flex items-start gap-3">
-                      <AlertTriangle className="w-6 h-6 text-yellow-600 dark:text-yellow-400 flex-shrink-0 mt-0.5" />
+                      <AlertTriangle className="w-6 h-6 text-accent flex-shrink-0 mt-0.5" />
                       <div>
-                        <p className="text-gray-700 dark:text-gray-300 font-medium mb-2">
+                        <p className="text-foreground font-medium mb-2">
                           Summary Generation Pending
                         </p>
-                        <p className="text-sm text-gray-600 dark:text-gray-400">
+                        <p className="text-sm text-muted-foreground">
                           The AI is still processing this meeting. Please refresh the page in a few moments to see the complete summary.
                         </p>
                         <div className="flex gap-2 mt-3">
@@ -589,12 +591,12 @@ export default function MeetingReportPage() {
                     </div>
                   </div>
                 ) : (
-                  <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4 border border-blue-200 dark:border-blue-800">
+                  <div className="bg-primary/10 rounded-lg p-4 border border-primary/20">
                     <div className="flex items-start gap-3">
-                      <div className="w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
-                        <span className="text-white text-xs font-bold">TL;DR</span>
+                      <div className="w-6 h-6 bg-primary rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                        <span className="text-primary-foreground text-xs font-bold">TL;DR</span>
                       </div>
-                      <p className="text-gray-700 dark:text-gray-300 leading-relaxed">
+                      <p className="text-foreground leading-relaxed">
                         {report.summary.tldr}
                       </p>
                     </div>
@@ -604,20 +606,20 @@ export default function MeetingReportPage() {
 
               {/* Key Decisions */}
               {report.summary.keyDecisions.length > 0 && (
-                <div className="p-6 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-gray-200/50 dark:border-gray-700/50 rounded-lg shadow-md">
+                <div className="p-6 bg-card/70 backdrop-blur-sm border border-border/50 rounded-lg shadow-md">
                   <div className="flex items-center gap-3 mb-4">
-                    <div className="w-8 h-8 bg-green-100 dark:bg-green-900/30 rounded-lg flex items-center justify-center">
-                      <CheckCircle className="w-4 h-4 text-green-600 dark:text-green-400" />
+                    <div className="w-8 h-8 bg-primary/15 rounded-lg flex items-center justify-center">
+                      <CheckCircle className="w-4 h-4 text-primary" />
                     </div>
-                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Key Decisions</h3>
+                    <h3 className="text-lg font-semibold text-foreground">Key Decisions</h3>
                   </div>
                   <div className="space-y-3">
                     {report.summary.keyDecisions.map((decision, index) => (
-                      <div key={index} className="flex items-start gap-3 p-3 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800">
-                        <div className="w-6 h-6 bg-green-500 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
-                          <span className="text-white text-xs font-bold">{index + 1}</span>
+                      <div key={index} className="flex items-start gap-3 p-3 bg-primary/5 rounded-lg border border-primary/20">
+                        <div className="w-6 h-6 bg-primary rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                          <span className="text-primary-foreground text-xs font-bold">{index + 1}</span>
                         </div>
-                        <p className="text-gray-700 dark:text-gray-300">{decision}</p>
+                        <p className="text-foreground">{decision}</p>
                       </div>
                     ))}
                   </div>
@@ -626,21 +628,21 @@ export default function MeetingReportPage() {
 
               {/* Action Items */}
               {report.summary.actionItems.length > 0 && (
-                <div className="p-6 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-gray-200/50 dark:border-gray-700/50 rounded-lg shadow-md">
+                <div className="p-6 bg-card/70 backdrop-blur-sm border border-border/50 rounded-lg shadow-md">
                   <div className="flex items-center gap-3 mb-4">
-                    <div className="w-8 h-8 bg-orange-100 dark:bg-orange-900/30 rounded-lg flex items-center justify-center">
-                      <Target className="w-4 h-4 text-orange-600 dark:text-orange-400" />
+                    <div className="w-8 h-8 bg-accent/20 rounded-lg flex items-center justify-center">
+                      <Target className="w-4 h-4 text-accent-foreground" />
                     </div>
-                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Action Items</h3>
+                    <h3 className="text-lg font-semibold text-foreground">Action Items</h3>
                   </div>
                   <div className="space-y-3">
                     {report.summary.actionItems.map((item, index) => (
-                      <div key={index} className="flex items-start gap-3 p-4 bg-orange-50 dark:bg-orange-900/20 rounded-lg border border-orange-200 dark:border-orange-800">
-                        <div className="w-6 h-6 bg-orange-500 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
-                          <span className="text-white text-xs font-bold">✓</span>
+                      <div key={index} className="flex items-start gap-3 p-4 bg-accent/5 rounded-lg border border-accent/20">
+                        <div className="w-6 h-6 bg-accent rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                          <span className="text-accent-foreground text-xs font-bold">✓</span>
                         </div>
                         <div className="flex-1">
-                          <p className="text-gray-700 dark:text-gray-300 mb-2">{item.description}</p>
+                          <p className="text-foreground mb-2">{item.description}</p>
                           <div className="flex items-center gap-2 flex-wrap">
                             {item.priority && (
                               <span className={`px-2 py-1 rounded-full text-xs font-medium border ${getPriorityColor(item.priority)}`}>
@@ -648,12 +650,12 @@ export default function MeetingReportPage() {
                               </span>
                             )}
                             {item.owner && (
-                              <span className="px-2 py-1 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-full text-xs">
+                              <span className="px-2 py-1 bg-muted text-muted-foreground rounded-full text-xs">
                                 👤 {item.owner}
                               </span>
                             )}
                             {item.dueDate && (
-                              <span className="px-2 py-1 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-full text-xs">
+                              <span className="px-2 py-1 bg-muted text-muted-foreground rounded-full text-xs">
                                 📅 {item.dueDate}
                               </span>
                             )}
@@ -669,25 +671,25 @@ export default function MeetingReportPage() {
             {/* Right Column - Analytics & Insights */}
             <div className="space-y-8">
               {/* Meeting Effectiveness */}
-              <div className="p-6 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-gray-200/50 dark:border-gray-700/50 rounded-lg shadow-md">
+              <div className="p-6 bg-card/70 backdrop-blur-sm border border-border/50 rounded-lg shadow-md">
                 <div className="flex items-center gap-3 mb-4">
-                  <div className="w-8 h-8 bg-purple-100 dark:bg-purple-900/30 rounded-lg flex items-center justify-center">
-                    <BarChart3 className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+                  <div className="w-8 h-8 bg-secondary/20 rounded-lg flex items-center justify-center">
+                    <BarChart3 className="w-4 h-4 text-secondary" />
                   </div>
-                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Meeting Effectiveness</h3>
+                  <h3 className="text-lg font-semibold text-foreground">Meeting Effectiveness</h3>
                 </div>
                 <div className="space-y-4">
                   {/* Overall Score */}
                   <div>
                     <div className="flex justify-between items-center mb-2">
-                      <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Overall</span>
+                      <span className="text-sm font-medium text-foreground">Overall</span>
                       <span className={`text-sm font-bold ${getEffectivenessColor(report.summary.effectiveness.overall)}`}>
                         {report.summary.effectiveness.overall}%
                       </span>
                     </div>
-                    <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                    <div className="w-full bg-muted rounded-full h-2">
                       <div 
-                        className="bg-gradient-to-r from-green-400 to-green-600 h-2 rounded-full transition-all duration-1000 ease-out animate-pulse"
+                        className="bg-gradient-to-r from-primary to-secondary h-2 rounded-full transition-all duration-1000 ease-out"
                         style={{ width: `${report.summary.effectiveness.overall}%` }}
                       />
                     </div>
@@ -696,14 +698,14 @@ export default function MeetingReportPage() {
                   {/* Communication Score */}
                   <div>
                     <div className="flex justify-between items-center mb-2">
-                      <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Communication</span>
+                      <span className="text-sm font-medium text-foreground">Communication</span>
                       <span className={`text-sm font-bold ${getEffectivenessColor(report.summary.effectiveness.communication)}`}>
                         {report.summary.effectiveness.communication}%
                       </span>
                     </div>
-                    <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                    <div className="w-full bg-muted rounded-full h-2">
                       <div 
-                        className="bg-gradient-to-r from-blue-400 to-blue-600 h-2 rounded-full transition-all duration-1000 ease-out animate-pulse"
+                        className="bg-gradient-to-r from-primary to-primary/70 h-2 rounded-full transition-all duration-1000 ease-out"
                         style={{ width: `${report.summary.effectiveness.communication}%` }}
                       />
                     </div>
@@ -712,14 +714,14 @@ export default function MeetingReportPage() {
                   {/* Goal Achievement Score */}
                   <div>
                     <div className="flex justify-between items-center mb-2">
-                      <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Goal Achievement</span>
+                      <span className="text-sm font-medium text-foreground">Goal Achievement</span>
                       <span className={`text-sm font-bold ${getEffectivenessColor(report.summary.effectiveness.goalAchievement)}`}>
                         {report.summary.effectiveness.goalAchievement}%
                       </span>
                     </div>
-                    <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                    <div className="w-full bg-muted rounded-full h-2">
                       <div 
-                        className="bg-gradient-to-r from-purple-400 to-purple-600 h-2 rounded-full transition-all duration-1000 ease-out animate-pulse"
+                        className="bg-gradient-to-r from-secondary to-accent h-2 rounded-full transition-all duration-1000 ease-out"
                         style={{ width: `${report.summary.effectiveness.goalAchievement}%` }}
                       />
                     </div>
@@ -728,32 +730,32 @@ export default function MeetingReportPage() {
               </div>
 
               {/* Speaking Time Analysis */}
-              <div className="p-6 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-gray-200/50 dark:border-gray-700/50 rounded-lg shadow-md">
+              <div className="p-6 bg-card/70 backdrop-blur-sm border border-border/50 rounded-lg shadow-md">
                 <div className="flex items-center gap-3 mb-4">
-                  <div className="w-8 h-8 bg-indigo-100 dark:bg-indigo-900/30 rounded-lg flex items-center justify-center">
-                    <MessageSquare className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+                  <div className="w-8 h-8 bg-primary/15 rounded-lg flex items-center justify-center">
+                    <MessageSquare className="w-4 h-4 text-primary" />
                   </div>
-                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Speaking Time</h3>
+                  <h3 className="text-lg font-semibold text-foreground">Speaking Time</h3>
                 </div>
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
-                    <span className="text-sm text-gray-600 dark:text-gray-400">{report.participants.me}</span>
-                    <span className="text-sm font-medium text-gray-900 dark:text-white">{report.analytics.speakingTime.me}%</span>
+                    <span className="text-sm text-muted-foreground">{report.participants.me}</span>
+                    <span className="text-sm font-medium text-foreground">{report.analytics.speakingTime.me}%</span>
                   </div>
-                  <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                  <div className="w-full bg-muted rounded-full h-2">
                     <div 
-                      className="bg-gradient-to-r from-blue-400 to-blue-600 h-2 rounded-full"
+                      className="bg-gradient-to-r from-primary to-primary/70 h-2 rounded-full"
                       style={{ width: `${report.analytics.speakingTime.me}%` }}
                     />
                   </div>
                   
                   <div className="flex items-center justify-between">
-                    <span className="text-sm text-gray-600 dark:text-gray-400">{report.participants.them}</span>
-                    <span className="text-sm font-medium text-gray-900 dark:text-white">{report.analytics.speakingTime.them}%</span>
+                    <span className="text-sm text-muted-foreground">{report.participants.them}</span>
+                    <span className="text-sm font-medium text-foreground">{report.analytics.speakingTime.them}%</span>
                   </div>
-                  <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                  <div className="w-full bg-muted rounded-full h-2">
                     <div 
-                      className="bg-gradient-to-r from-purple-400 to-purple-600 h-2 rounded-full"
+                      className="bg-gradient-to-r from-secondary to-accent h-2 rounded-full"
                       style={{ width: `${report.analytics.speakingTime.them}%` }}
                     />
                   </div>
@@ -762,18 +764,18 @@ export default function MeetingReportPage() {
 
               {/* Follow-up Questions */}
               {report.summary.followUpQuestions.length > 0 && (
-                <div className="p-6 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-gray-200/50 dark:border-gray-700/50 rounded-lg shadow-md">
+                <div className="p-6 bg-card/70 backdrop-blur-sm border border-border/50 rounded-lg shadow-md">
                   <div className="flex items-center gap-3 mb-4">
-                    <div className="w-8 h-8 bg-yellow-100 dark:bg-yellow-900/30 rounded-lg flex items-center justify-center">
-                      <Lightbulb className="w-4 h-4 text-yellow-600 dark:text-yellow-400" />
+                    <div className="w-8 h-8 bg-accent/20 rounded-lg flex items-center justify-center">
+                      <Lightbulb className="w-4 h-4 text-accent-foreground" />
                     </div>
-                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Follow-up Questions</h3>
+                    <h3 className="text-lg font-semibold text-foreground">Follow-up Questions</h3>
                   </div>
                   <div className="space-y-2">
                     {report.summary.followUpQuestions.map((question, index) => (
-                      <div key={index} className="flex items-start gap-2 p-3 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg border border-yellow-200 dark:border-yellow-800">
-                        <span className="text-yellow-600 dark:text-yellow-400 font-bold">?</span>
-                        <p className="text-gray-700 dark:text-gray-300 text-sm">{question}</p>
+                      <div key={index} className="flex items-start gap-2 p-3 bg-accent/10 rounded-lg border border-accent/20">
+                        <span className="text-accent font-bold">?</span>
+                        <p className="text-foreground text-sm">{question}</p>
                       </div>
                     ))}
                   </div>

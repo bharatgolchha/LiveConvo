@@ -10,6 +10,7 @@ import { useMeetingSession } from '@/lib/meeting/hooks/useMeetingSession';
 import { useMeetingRealtimeSync } from '@/lib/meeting/hooks/useMeetingRealtimeSync';
 import { useRealtimeSummary } from '@/lib/meeting/hooks/useRealtimeSummary';
 import { LoadingStates } from '@/components/meeting/common/LoadingStates';
+import { GlowingLoader } from '@/components/meeting/common/GlowingLoader';
 import { ErrorBoundary } from '@/components/meeting/common/ErrorBoundary';
 import { MeetingDebugInfo } from '@/components/meeting/debug/MeetingDebugInfo';
 
@@ -56,7 +57,7 @@ function MeetingPageContent() {
   };
 
   if (loading) {
-    return <LoadingStates type="meeting" />;
+    return <GlowingLoader message="Loading meeting..." />;
   }
 
   if (error || !meeting) {

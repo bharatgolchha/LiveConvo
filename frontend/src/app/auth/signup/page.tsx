@@ -73,7 +73,7 @@ export default function SignUpPage() {
         setError(
           <span>
             This email is not on our approved waitlist.{' '}
-            <Link href="/#waitlist" className="text-blue-400 hover:text-blue-300 underline">
+            <Link href="/#waitlist" className="text-primary hover:text-primary/80 underline">
               Request access here
             </Link>
           </span>
@@ -115,7 +115,7 @@ export default function SignUpPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-950 flex flex-col justify-center px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-background flex flex-col justify-center px-4 sm:px-6 lg:px-8">
       {/* Logo */}
       <motion.div
         initial={{ opacity: 0, y: -20 }}
@@ -125,13 +125,12 @@ export default function SignUpPage() {
       >
         <Link href="/" className="flex items-center gap-2">
           <Image 
-            src="https://ucvfgfbjcrxbzppwjpuu.supabase.co/storage/v1/object/public/images//dark.png"
-            alt="liveprompt.ai logo"
-            width={40}
+            src="https://ucvfgfbjcrxbzppwjpuu.supabase.co/storage/v1/object/public/images//DarkMode2.png"
+            alt="liveprompt.ai"
+            width={180}
             height={40}
             className="object-contain"
           />
-          <span className="text-2xl font-bold text-white">liveprompt.ai</span>
         </Link>
       </motion.div>
 
@@ -142,21 +141,21 @@ export default function SignUpPage() {
         transition={{ duration: 0.5, delay: 0.1 }}
         className="mx-auto w-full max-w-md"
       >
-        <div className="bg-gray-900 rounded-2xl border border-gray-800 shadow-xl p-8">
+        <div className="bg-card rounded-2xl border border-border shadow-xl p-8">
           <div className="text-center mb-8">
-            <h1 className="text-2xl font-semibold text-white mb-2">
+            <h1 className="text-2xl font-semibold text-foreground mb-2">
               Create your account
             </h1>
-            <p className="text-gray-400 text-sm">
+            <p className="text-muted-foreground text-sm">
               Join the future of AI-powered conversations
             </p>
           </div>
 
           {/* Waitlist Notice */}
-          <div className="mb-6 p-3 bg-blue-950/30 border border-blue-900/50 rounded-lg">
-            <p className="text-xs text-blue-400">
+          <div className="mb-6 p-3 bg-primary/10 border border-primary/30 rounded-lg">
+            <p className="text-xs text-primary">
               Beta access is limited to approved waitlist members.{' '}
-              <Link href="/#waitlist" className="underline hover:text-blue-300">
+              <Link href="/#waitlist" className="underline hover:text-primary/80">
                 Request access
               </Link>
             </p>
@@ -168,7 +167,7 @@ export default function SignUpPage() {
               animate={{ opacity: 1, height: 'auto' }}
               className="mb-6"
             >
-              <Alert className="border-red-900 bg-red-950/50 text-red-400">
+              <Alert className="border-destructive/50 bg-destructive/10 text-destructive">
                 {error}
               </Alert>
             </motion.div>
@@ -176,7 +175,7 @@ export default function SignUpPage() {
 
           <form onSubmit={handleEmailSignUp} className="space-y-5">
             <div>
-              <Label htmlFor="fullName" className="text-gray-300 text-sm font-medium">
+              <Label htmlFor="fullName" className="text-foreground text-sm font-medium">
                 Full name
               </Label>
               <Input
@@ -185,13 +184,13 @@ export default function SignUpPage() {
                 value={fullName}
                 onChange={(e) => setFullName(e.target.value)}
                 required
-                className="mt-2 h-12 bg-gray-800 border-gray-700 text-white placeholder-gray-500 focus:border-blue-600 focus:ring-0 rounded-lg"
+                className="mt-2 h-12 bg-input border-border text-foreground placeholder-muted-foreground focus:border-primary focus:ring-0 rounded-lg"
                 placeholder="John Doe"
               />
             </div>
 
             <div>
-              <Label htmlFor="email" className="text-gray-300 text-sm font-medium">
+              <Label htmlFor="email" className="text-foreground text-sm font-medium">
                 Email
               </Label>
               <Input
@@ -200,13 +199,13 @@ export default function SignUpPage() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
-                className="mt-2 h-12 bg-gray-800 border-gray-700 text-white placeholder-gray-500 focus:border-blue-600 focus:ring-0 rounded-lg"
+                className="mt-2 h-12 bg-input border-border text-foreground placeholder-muted-foreground focus:border-primary focus:ring-0 rounded-lg"
                 placeholder="you@example.com"
               />
             </div>
 
             <div>
-              <Label htmlFor="password" className="text-gray-300 text-sm font-medium">
+              <Label htmlFor="password" className="text-foreground text-sm font-medium">
                 Password
               </Label>
               <div className="relative mt-2">
@@ -216,12 +215,12 @@ export default function SignUpPage() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
-                  className="h-12 pr-12 bg-gray-800 border-gray-700 text-white placeholder-gray-500 focus:border-blue-600 focus:ring-0 rounded-lg"
+                  className="h-12 pr-12 bg-input border-border text-foreground placeholder-muted-foreground focus:border-primary focus:ring-0 rounded-lg"
                   placeholder="Create a password"
                 />
                 <button
                   type="button"
-                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-300 transition-colors"
+                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
                   onClick={() => setShowPassword(!showPassword)}
                 >
                   {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
@@ -230,7 +229,7 @@ export default function SignUpPage() {
             </div>
 
             <div>
-              <Label htmlFor="confirmPassword" className="text-gray-300 text-sm font-medium">
+              <Label htmlFor="confirmPassword" className="text-foreground text-sm font-medium">
                 Confirm password
               </Label>
               <div className="relative mt-2">
@@ -240,12 +239,12 @@ export default function SignUpPage() {
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
                   required
-                  className="h-12 pr-12 bg-gray-800 border-gray-700 text-white placeholder-gray-500 focus:border-blue-600 focus:ring-0 rounded-lg"
+                  className="h-12 pr-12 bg-input border-border text-foreground placeholder-muted-foreground focus:border-primary focus:ring-0 rounded-lg"
                   placeholder="Confirm your password"
                 />
                 <button
                   type="button"
-                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-300 transition-colors"
+                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
                   onClick={() => setShowConfirmPassword(!showConfirmPassword)}
                 >
                   {showConfirmPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
@@ -259,15 +258,15 @@ export default function SignUpPage() {
                 type="checkbox"
                 checked={agreedToTerms}
                 onChange={(e) => setAgreedToTerms(e.target.checked)}
-                className="h-4 w-4 mt-0.5 bg-gray-800 border-gray-700 rounded text-blue-600 focus:ring-0 focus:ring-offset-0"
+                className="h-4 w-4 mt-0.5 bg-input border-border rounded text-primary focus:ring-0 focus:ring-offset-0"
               />
-              <label htmlFor="agree-terms" className="ml-3 text-sm text-gray-400">
+              <label htmlFor="agree-terms" className="ml-3 text-sm text-muted-foreground">
                 I agree to the{' '}
-                <Link href="/terms" className="text-blue-400 hover:text-blue-300">
+                <Link href="/terms" className="text-primary hover:text-primary/80">
                   Terms of Service
                 </Link>{' '}
                 and{' '}
-                <Link href="/privacy" className="text-blue-400 hover:text-blue-300">
+                <Link href="/privacy" className="text-primary hover:text-primary/80">
                   Privacy Policy
                 </Link>
               </label>
@@ -275,7 +274,7 @@ export default function SignUpPage() {
 
             <Button
               type="submit"
-              className="w-full h-12 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors"
+              className="w-full h-12 bg-primary hover:bg-primary/90 text-primary-foreground font-medium rounded-lg transition-colors"
               disabled={loading || !agreedToTerms}
             >
               {loading ? (
@@ -288,17 +287,17 @@ export default function SignUpPage() {
 
           <div className="relative my-8">
             <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-gray-800" />
+              <div className="w-full border-t border-border" />
             </div>
             <div className="relative flex justify-center text-sm">
-              <span className="px-4 bg-gray-900 text-gray-500">or</span>
+              <span className="px-4 bg-card text-muted-foreground">or</span>
             </div>
           </div>
 
           <Button
             type="button"
             variant="outline"
-            className="w-full h-12 bg-gray-800 hover:bg-gray-700 text-gray-300 border-gray-700 font-medium rounded-lg transition-colors"
+            className="w-full h-12 bg-secondary hover:bg-secondary/90 text-secondary-foreground border-border font-medium rounded-lg transition-colors"
             onClick={handleGoogleSignUp}
             disabled={loading}
           >
@@ -323,11 +322,11 @@ export default function SignUpPage() {
             Continue with Google
           </Button>
 
-          <p className="mt-8 text-center text-sm text-gray-400">
+          <p className="mt-8 text-center text-sm text-muted-foreground">
             Already have an account?{' '}
             <Link 
               href="/auth/login" 
-              className="text-blue-400 hover:text-blue-300 font-medium transition-colors"
+              className="text-primary hover:text-primary/80 font-medium transition-colors"
             >
               Sign in
             </Link>

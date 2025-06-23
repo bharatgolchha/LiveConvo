@@ -128,7 +128,7 @@ export function AIAdvisorPanel({
                   onClick={() => setActiveTab(tab.id)}
                   className={`flex-1 relative px-2 py-1.5 rounded-md text-xs font-medium transition-all ${
                     activeTab === tab.id
-                      ? 'bg-background text-foreground shadow-sm'
+                      ? 'bg-primary text-primary-foreground shadow-sm'
                       : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
                   }`}
                   title={tab.description}
@@ -140,7 +140,7 @@ export function AIAdvisorPanel({
                   {activeTab === tab.id && (
                     <motion.div
                       layoutId="activeTab"
-                      className="absolute inset-0 bg-background rounded-md shadow-sm"
+                      className="absolute inset-0 bg-primary rounded-md shadow-sm"
                       style={{ zIndex: -1 }}
                     />
                   )}

@@ -86,8 +86,8 @@ export function Header() {
     <header 
       className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
         isScrolled 
-          ? 'bg-gray-950/95 backdrop-blur-md border-b border-gray-800 shadow-lg' 
-          : 'bg-gray-950/80 backdrop-blur-sm border-b border-gray-800'
+          ? 'bg-background/95 backdrop-blur-md border-b border-border shadow-lg' 
+          : 'bg-background/80 backdrop-blur-sm border-b border-border'
       }`}
     >
       <nav className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -95,14 +95,13 @@ export function Header() {
           {/* Logo */}
           <Link href="/" className="flex items-center gap-2 group">
             <Image 
-              src="https://ucvfgfbjcrxbzppwjpuu.supabase.co/storage/v1/object/public/images//dark.png"
+              src="https://ucvfgfbjcrxbzppwjpuu.supabase.co/storage/v1/object/public/images//DarkMode2.png"
               alt="liveprompt.ai - AI-powered conversation intelligence platform"
-              width={32}
+              width={140}
               height={32}
               className="object-contain transition-transform group-hover:scale-105"
             />
-            <span className="text-xl font-bold text-white">liveprompt.ai</span>
-            <span className="hidden sm:inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-blue-500/10 border border-blue-500/30 text-xs text-blue-400">
+            <span className="hidden sm:inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-primary/10 border border-primary/30 text-xs text-primary">
               <Sparkles className="w-3 h-3" />
               Beta
             </span>
@@ -121,8 +120,8 @@ export function Header() {
                       href={item.href || '#'}
                       className={`px-4 py-2 text-sm font-medium transition-colors rounded-lg ${
                         pathname === item.href
-                          ? 'text-white bg-gray-800'
-                          : 'text-gray-400 hover:text-gray-300 hover:bg-gray-800/50'
+                          ? 'text-foreground bg-muted'
+                          : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
                       }`}
                     >
                       {item.label}
@@ -136,7 +135,7 @@ export function Header() {
                 <button
                   onClick={() => setIsResourcesOpen(!isResourcesOpen)}
                   onBlur={() => setTimeout(() => setIsResourcesOpen(false), 200)}
-                  className="px-4 py-2 text-sm font-medium text-gray-400 hover:text-gray-300 hover:bg-gray-800/50 rounded-lg transition-colors flex items-center gap-1"
+                  className="px-4 py-2 text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted/50 rounded-lg transition-colors flex items-center gap-1"
                 >
                   Resources
                   <ChevronDown className={`w-4 h-4 transition-transform ${isResourcesOpen ? 'rotate-180' : ''}`} />
@@ -149,7 +148,7 @@ export function Header() {
                       animate={{ opacity: 1, y: 0 }}
                       exit={{ opacity: 0, y: -10 }}
                       transition={{ duration: 0.2 }}
-                      className="absolute top-full left-0 mt-2 w-72 bg-gray-900 rounded-xl border border-gray-800 shadow-2xl overflow-hidden"
+                      className="absolute top-full left-0 mt-2 w-72 bg-card rounded-xl border border-border shadow-2xl overflow-hidden"
                     >
                       {resourcesItems.map((item) => {
                         const Icon = item.icon
@@ -157,17 +156,17 @@ export function Header() {
                           <Link
                             key={item.label}
                             href={item.href}
-                            className="flex items-start gap-3 p-4 hover:bg-gray-800 transition-colors group"
+                            className="flex items-start gap-3 p-4 hover:bg-muted/50 transition-colors group"
                             onClick={() => setIsResourcesOpen(false)}
                           >
-                            <div className="p-2 rounded-lg bg-gray-800 group-hover:bg-gray-700 transition-colors">
-                              <Icon className="w-4 h-4 text-gray-400" />
+                            <div className="p-2 rounded-lg bg-muted group-hover:bg-muted/80 transition-colors">
+                              <Icon className="w-4 h-4 text-muted-foreground" />
                             </div>
                             <div className="flex-1">
-                              <h4 className="text-sm font-medium text-white mb-0.5">
+                              <h4 className="text-sm font-medium text-foreground mb-0.5">
                                 {item.label}
                               </h4>
-                              <p className="text-xs text-gray-400">
+                              <p className="text-xs text-muted-foreground">
                                 {item.description}
                               </p>
                             </div>
@@ -185,7 +184,7 @@ export function Header() {
           <div className="hidden md:flex items-center gap-3">
               <button
                 onClick={() => router.push('/auth/login')}
-                className="px-4 py-2 text-sm font-medium text-gray-400 hover:text-gray-300 transition-colors"
+                className="px-4 py-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
               >
                 Sign In
               </button>
@@ -198,7 +197,7 @@ export function Header() {
                     router.push('/auth/signup')
                   }
                 }}
-                className="bg-blue-600 hover:bg-blue-700 px-5 py-2 rounded-lg font-medium text-sm transition-all hover:shadow-lg hover:shadow-blue-600/25"
+                className="bg-primary hover:bg-primary/90 px-5 py-2 rounded-lg font-medium text-sm transition-all hover:shadow-lg hover:shadow-primary/25 text-primary-foreground"
               >
                 Get Early Access
               </button>
@@ -207,7 +206,7 @@ export function Header() {
           {/* Mobile Menu Button */}
           <button
             onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-            className="md:hidden p-2 rounded-lg text-gray-400 hover:text-gray-300 hover:bg-gray-800 transition-colors"
+            className="md:hidden p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
             aria-label="Toggle menu"
           >
             {isMobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
@@ -223,7 +222,7 @@ export function Header() {
             animate={{ opacity: 1, height: 'auto' }}
             exit={{ opacity: 0, height: 0 }}
             transition={{ duration: 0.3 }}
-            className="md:hidden bg-gray-900 border-t border-gray-800"
+            className="md:hidden bg-card border-t border-border"
           >
             <div className="px-4 py-4 space-y-2">
               {primaryNavItems.map((item) => (
@@ -233,39 +232,39 @@ export function Header() {
                       onClick={() => handleNavClick(item.href!)}
                       className={`w-full text-left px-4 py-3 rounded-lg text-sm font-medium transition-colors ${
                         pathname === item.href
-                          ? 'text-white bg-gray-800'
-                          : 'text-gray-400 hover:text-gray-300 hover:bg-gray-800'
+                          ? 'text-foreground bg-muted'
+                          : 'text-muted-foreground hover:text-foreground hover:bg-muted'
                       }`}
                     >
                       {item.label}
                     </button>
                   ) : (
-                    <div className="px-4 py-3 text-sm font-medium text-gray-500">
+                    <div className="px-4 py-3 text-sm font-medium text-muted-foreground">
                       {item.label}
                     </div>
                   )}
                 </div>
               ))}
 
-              <div className="border-t border-gray-800 pt-2">
-                <div className="px-4 py-2 text-xs font-medium text-gray-500 uppercase">
+              <div className="border-t border-border pt-2">
+                                    <div className="px-4 py-2 text-xs font-medium text-muted-foreground uppercase">
                   Resources
                 </div>
                 {resourcesItems.map((item) => (
                   <button
                     key={item.label}
                     onClick={() => handleNavClick(item.href)}
-                    className="w-full text-left px-4 py-3 rounded-lg text-sm font-medium text-gray-400 hover:text-gray-300 hover:bg-gray-800 transition-colors"
+                    className="w-full text-left px-4 py-3 rounded-lg text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
                   >
                     {item.label}
                   </button>
                 ))}
               </div>
 
-              <div className="border-t border-gray-800 pt-4 space-y-2">
+              <div className="border-t border-border pt-4 space-y-2">
                 <button
                   onClick={() => router.push('/auth/login')}
-                  className="w-full px-4 py-3 rounded-lg text-sm font-medium text-gray-400 hover:text-gray-300 hover:bg-gray-800 transition-colors"
+                  className="w-full px-4 py-3 rounded-lg text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
                 >
                   Sign In
                 </button>
@@ -279,7 +278,7 @@ export function Header() {
                       router.push('/auth/signup')
                     }
                   }}
-                  className="w-full bg-blue-600 hover:bg-blue-700 px-4 py-3 rounded-lg font-medium text-sm transition-colors"
+                  className="w-full bg-primary hover:bg-primary/90 px-4 py-3 rounded-lg font-medium text-sm transition-colors text-primary-foreground"
                 >
                   Get Early Access
                 </button>
