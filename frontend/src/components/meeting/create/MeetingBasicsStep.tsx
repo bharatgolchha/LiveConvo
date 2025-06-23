@@ -1,81 +1,45 @@
 import React from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { MeetingType } from '@/lib/meeting/types/meeting.types';
-import { MeetingTypeSelector } from './MeetingTypeSelector';
+import { motion } from 'framer-motion';
 
 interface MeetingBasicsStepProps {
   title: string;
   setTitle: (title: string) => void;
-  meetingType: MeetingType;
-  setMeetingType: (type: MeetingType) => void;
-  customType: string;
-  setCustomType: (type: string) => void;
 }
 
 export function MeetingBasicsStep({
   title,
-  setTitle,
-  meetingType,
-  setMeetingType,
-  customType,
-  setCustomType
+  setTitle
 }: MeetingBasicsStepProps) {
   return (
     <motion.div
       initial={{ opacity: 0, x: -20 }}
       animate={{ opacity: 1, x: 0 }}
       exit={{ opacity: 0, x: -20 }}
-      className="space-y-6"
+      className="flex flex-col justify-center h-full"
     >
       {/* Title Input */}
-      <div className="space-y-2">
-        <label className="text-sm font-medium text-foreground">
+      <div className="space-y-4">
+        <label className="text-sm font-semibold text-foreground flex items-center gap-2">
+          <span className="w-1.5 h-1.5 bg-primary rounded-full"></span>
           Meeting Title
         </label>
-        <input
-          type="text"
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-          placeholder="e.g., Q4 Planning Meeting, Sales Demo with Acme Corp"
-          className="w-full px-4 py-3 text-lg bg-background border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all placeholder:text-muted-foreground"
-          maxLength={100}
-          autoFocus
-        />
-        <p className="text-xs text-muted-foreground">
+        <div className="relative group">
+          <input
+            type="text"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            placeholder="e.g., Q4 Planning Meeting, Sales Demo with Acme Corp"
+            className="w-full px-5 py-4 text-lg bg-card border-2 border-border/50 rounded-2xl focus:outline-none focus:ring-0 focus:border-primary/50 focus:bg-background transition-all duration-200 placeholder:text-muted-foreground/60 group-hover:border-border"
+            maxLength={100}
+            autoFocus
+          />
+          <div className="absolute right-4 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">
+            {title.length}/100
+          </div>
+        </div>
+        <p className="text-xs text-muted-foreground pl-1">
           Give your meeting a clear, descriptive title
         </p>
-      </div>
-
-      {/* Meeting Type Selection */}
-      <div className="space-y-3">
-        <label className="text-sm font-medium text-foreground">
-          Meeting Type
-        </label>
-        <MeetingTypeSelector
-          selectedType={meetingType}
-          onSelect={setMeetingType}
-        />
-
-        {/* Custom Type Input */}
-        <AnimatePresence>
-          {meetingType === 'custom' && (
-            <motion.div
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: 'auto' }}
-              exit={{ opacity: 0, height: 0 }}
-              className="overflow-hidden"
-            >
-              <input
-                type="text"
-                value={customType}
-                onChange={(e) => setCustomType(e.target.value)}
-                placeholder="Enter your custom meeting type..."
-                className="w-full mt-2 px-4 py-3 bg-background border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all placeholder:text-muted-foreground"
-                maxLength={30}
-              />
-            </motion.div>
-          )}
-        </AnimatePresence>
       </div>
     </motion.div>
   );

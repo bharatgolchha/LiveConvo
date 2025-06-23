@@ -32,7 +32,7 @@ interface Suggestion {
 }
 
 export function SmartSuggestions() {
-  const { meeting, transcript, botStatus } = useMeetingContext();
+  const { meeting, transcript, botStatus, summary } = useMeetingContext();
   const [suggestions, setSuggestions] = useState<SuggestionChip[]>([]);
   const [loading, setLoading] = useState(false);
   const [lastUpdateLength, setLastUpdateLength] = useState(0);
@@ -51,7 +51,7 @@ export function SmartSuggestions() {
   }, [transcript.length, lastUpdateLength, botStatus?.status]);
 
   const generateSuggestions = async () => {
-    if (loading) return;
+    if (loading || !meeting?.id) return;
     
     setLoading(true);
     setError(null);
@@ -78,21 +78,16 @@ export function SmartSuggestions() {
         authHeaders['Authorization'] = `Bearer ${session.access_token}`;
       }
 
-      const response = await fetch('/api/chat-guidance', {
+      const response = await fetch(`/api/meeting/${meeting.id}/smart-suggestions`, {
         method: 'POST',
         headers: authHeaders,
         body: JSON.stringify({
-          message: 'Generate contextual suggestions',
-          sessionId: meeting?.id,
-          conversationType: meeting?.type || 'meeting',
-          conversationTitle: meeting?.title,
-          textContext: meeting?.context,
           transcript: recentTranscript,
-          stage: getConversationStage(), // This triggers "chips mode"
-          isRecording: true,
-          transcriptLength: transcript.length,
-          participantMe: meeting?.participantMe || 'You',
-          participantThem: meeting?.participantThem || 'Participant'
+          summary: summary || null,
+          meetingType: meeting?.type || 'team_meeting',
+          meetingTitle: meeting?.title,
+          context: meeting?.context,
+          stage: getConversationStage()
         })
       });
 
@@ -101,13 +96,20 @@ export function SmartSuggestions() {
       }
 
       const data = await response.json();
-      console.log('📝 Suggestions response:', data);
+      console.log('📝 Smart suggestions response:', data);
 
-      if (data.suggestedActions && Array.isArray(data.suggestedActions)) {
-        setSuggestions(data.suggestedActions);
-        console.log('✅ Suggestions updated:', data.suggestedActions.length);
+      if (data.suggestions && Array.isArray(data.suggestions)) {
+        const newSuggestions = data.suggestions.map((suggestion: any) => ({
+          text: suggestion.text,
+          prompt: suggestion.prompt,
+          impact: suggestion.impact || 75,
+          category: suggestion.category,
+          priority: suggestion.priority
+        }));
+        setSuggestions(newSuggestions);
+        console.log('✅ AI suggestions updated:', newSuggestions.length);
       } else {
-        console.warn('⚠️ No suggestions in response:', data);
+        console.warn('⚠️ No suggestions in response, using fallback:', data);
         // Use fallback suggestions
         setSuggestions(getFallbackSuggestions());
       }
@@ -193,12 +195,16 @@ export function SmartSuggestions() {
         prev.map(s => s.text === suggestion.text ? { ...s, isUsed: true } : s)
       );
 
-      // This could trigger the AI chat with the suggestion prompt
-      // For now, we'll just log it
+      // Dispatch event to trigger AI chat with the suggestion
+      const event = new CustomEvent('useSuggestion', {
+        detail: {
+          suggestion: suggestion.prompt,
+          chipText: suggestion.text
+        }
+      });
+      window.dispatchEvent(event);
+
       console.log('💡 Using suggestion:', suggestion.prompt);
-      
-      // You could integrate this with the AI chat component
-      // by dispatching an event or calling a callback
     } catch (error) {
       console.error('Error using suggestion:', error);
     }

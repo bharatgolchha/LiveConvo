@@ -16,7 +16,7 @@ export function NewConversationButton({ onNewConversation, onNewMeeting }: NewCo
   return (
     <Button 
       onClick={handleClick}
-      className="bg-primary hover:bg-primary/90 text-primary-foreground"
+      className="bg-gradient-to-r from-app-primary to-app-primary-dark hover:from-app-primary-dark hover:to-app-primary text-primary-foreground px-6 py-3 transition-all transform hover:scale-105 shadow-lg hover:shadow-xl min-w-[140px]"
     >
       <VideoCameraIcon className="w-5 h-5 mr-2" />
       New Meeting

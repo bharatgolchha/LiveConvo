@@ -5,7 +5,8 @@ import {
   UserIcon, 
   SparklesIcon,
   ClockIcon,
-  ExclamationTriangleIcon
+  ExclamationTriangleIcon,
+  BoltIcon
 } from '@heroicons/react/24/outline';
 import ReactMarkdown from 'react-markdown';
 import { useMeetingContext } from '@/lib/meeting/context/MeetingContext';
@@ -26,6 +27,7 @@ export function EnhancedAIChat() {
   const [input, setInput] = useState('');
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isTyping, setIsTyping] = useState(false);
+  const [isLivePrompting, setIsLivePrompting] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -104,6 +106,51 @@ export function EnhancedAIChat() {
     
     return () => {
       window.removeEventListener('askAboutPreviousMeeting', typedHandler);
+    };
+  }, []);
+
+  // Listen for smart suggestion usage
+  useEffect(() => {
+    const handleUseSuggestion = async (event: CustomEvent) => {
+      const { suggestion, chipText } = event.detail;
+      
+      // Add user message with suggestion indicator
+      const userMessage: ChatMessage = {
+        id: `user-${Date.now()}`,
+        role: 'user',
+        content: `💡 ${suggestion}`,
+        timestamp: new Date().toISOString()
+      };
+      
+      setMessages(prev => [...prev, userMessage]);
+      setIsTyping(true);
+      
+      try {
+        // Send the suggestion to AI
+        await handleSubmit(undefined, suggestion);
+      } catch (error) {
+        console.error('Error processing suggestion:', error);
+        // Add error message
+        const errorMessage: ChatMessage = {
+          id: `error-${Date.now()}`,
+          role: 'assistant',
+          content: "I'm sorry, I encountered an error while processing that suggestion. Please try asking again.",
+          timestamp: new Date().toISOString()
+        };
+        setMessages(prev => [...prev, errorMessage]);
+      } finally {
+        setIsTyping(false);
+      }
+    };
+
+    // Type assertion for the custom event
+    const typedSuggestionHandler = (event: Event) => {
+      handleUseSuggestion(event as CustomEvent);
+    };
+    window.addEventListener('useSuggestion', typedSuggestionHandler);
+    
+    return () => {
+      window.removeEventListener('useSuggestion', typedSuggestionHandler);
     };
   }, []);
 
@@ -232,6 +279,31 @@ export function EnhancedAIChat() {
     }
   };
 
+  const handleLivePrompt = async () => {
+    if (loading || isLivePrompting || transcript.length === 0) return;
+
+    setIsLivePrompting(true);
+    
+    // Create the LivePrompt message
+    const livePromptMessage = "Based on the current conversation, what should be my next action or question?";
+    
+    // Add user message with lightning emoji indicator
+    const userMessage: ChatMessage = {
+      id: `user-${Date.now()}`,
+      role: 'user',
+      content: `⚡ ${livePromptMessage}`,
+      timestamp: new Date().toISOString()
+    };
+    
+    setMessages(prev => [...prev, userMessage]);
+    
+    try {
+      await handleSubmit(undefined, livePromptMessage);
+    } finally {
+      setIsLivePrompting(false);
+    }
+  };
+
   const formatTime = (timestamp: string) => {
     return new Date(timestamp).toLocaleTimeString('en-US', { 
       hour12: false, 
@@ -345,6 +417,17 @@ export function EnhancedAIChat() {
               disabled={loading}
               maxLength={500}
             />
+            {transcript.length > 0 && (
+              <button
+                type="button"
+                onClick={handleLivePrompt}
+                disabled={loading || isLivePrompting}
+                className="px-4 py-2.5 bg-amber-500 text-white rounded-xl hover:bg-amber-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all group relative"
+                title="Quick suggestion - What's next?"
+              >
+                <BoltIcon className={`w-4 h-4 ${isLivePrompting ? 'animate-pulse' : 'group-hover:scale-110 transition-transform'}`} />
+              </button>
+            )}
             <button
               type="submit"
               disabled={!input.trim() || loading}

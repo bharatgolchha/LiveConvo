@@ -57,23 +57,23 @@ export const metadata: Metadata = {
   icons: {
     icon: [
       {
-        url: '/favicon-16x16.png',
+        url: 'https://ucvfgfbjcrxbzppwjpuu.supabase.co/storage/v1/object/public/images//LogoSquare%20LivePrompt.png',
         sizes: '16x16',
         type: 'image/png',
       },
       {
-        url: '/favicon-32x32.png',
+        url: 'https://ucvfgfbjcrxbzppwjpuu.supabase.co/storage/v1/object/public/images//LogoSquare%20LivePrompt.png',
         sizes: '32x32',
         type: 'image/png',
       },
       {
-        url: '/favicon.ico',
+        url: 'https://ucvfgfbjcrxbzppwjpuu.supabase.co/storage/v1/object/public/images//LogoSquare%20LivePrompt.png',
         sizes: 'any',
       },
     ],
     apple: [
       {
-        url: '/apple-touch-icon.png',
+        url: 'https://ucvfgfbjcrxbzppwjpuu.supabase.co/storage/v1/object/public/images//LogoSquare%20LivePrompt.png',
         sizes: '180x180',
         type: 'image/png',
       },
@@ -81,8 +81,8 @@ export const metadata: Metadata = {
     other: [
       {
         rel: 'mask-icon',
-        url: '/apple-touch-icon.png',
-        color: '#000000',
+        url: 'https://ucvfgfbjcrxbzppwjpuu.supabase.co/storage/v1/object/public/images//LogoSquare%20LivePrompt.png',
+        color: '#0B3D2E',
       },
     ],
   },

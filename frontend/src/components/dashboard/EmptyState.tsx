@@ -22,17 +22,17 @@ const ConversationIllustration: React.FC = () => (
     className="mx-auto mb-8"
   >
     <defs>
-      {/* Main gradient for microphone */}
+      {/* Main gradient for microphone - using app primary colors */}
       <linearGradient id="micGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-        <stop offset="0%" stopColor="#6366f1" />
-        <stop offset="50%" stopColor="#8b5cf6" />
-        <stop offset="100%" stopColor="#d946ef" />
+        <stop offset="0%" stopColor="#0B3D2E" className="[stop-color:hsl(var(--app-primary))]" />
+        <stop offset="50%" stopColor="#125239" className="[stop-color:hsl(var(--app-primary-dark))]" />
+        <stop offset="100%" stopColor="#6BB297" className="[stop-color:hsl(var(--app-primary-light))]" />
       </linearGradient>
       
-      {/* Secondary gradient for accent elements */}
+      {/* Secondary gradient for accent elements - using app accent */}
       <linearGradient id="accentGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-        <stop offset="0%" stopColor="#06b6d4" />
-        <stop offset="100%" stopColor="#3b82f6" />
+        <stop offset="0%" stopColor="#FFC773" className="[stop-color:hsl(var(--app-warning))]" />
+        <stop offset="100%" stopColor="#FFD999" className="[stop-color:hsl(var(--app-warning-light))]" />
       </linearGradient>
       
       {/* Glow effect */}
@@ -44,10 +44,10 @@ const ConversationIllustration: React.FC = () => (
         </feMerge>
       </filter>
       
-      {/* Subtle background gradient */}
+      {/* Subtle background gradient - using app primary */}
       <radialGradient id="backgroundGlow" cx="50%" cy="50%" r="60%">
-        <stop offset="0%" stopColor="rgba(99, 102, 241, 0.08)" />
-        <stop offset="100%" stopColor="rgba(99, 102, 241, 0.02)" />
+        <stop offset="0%" stopColor="#0B3D2E" stopOpacity="0.08" className="[stop-color:hsl(var(--app-primary))]" />
+        <stop offset="100%" stopColor="#0B3D2E" stopOpacity="0.02" className="[stop-color:hsl(var(--app-primary))]" />
       </radialGradient>
     </defs>
     
@@ -227,12 +227,12 @@ const LearnMoreModal: React.FC<{ isOpen: boolean; onClose: () => void }> = ({
         initial={{ scale: 0.95, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
         exit={{ scale: 0.95, opacity: 0 }}
-        className="bg-background border border-border rounded-xl p-6 max-w-md w-full shadow-2xl"
+        className="bg-card border border-border/50 rounded-2xl p-6 max-w-md w-full shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-start justify-between mb-4">
           <div className="flex items-center space-x-2">
-            <QuestionMarkCircleIcon className="w-6 h-6 text-primary" />
+            <QuestionMarkCircleIcon className="w-6 h-6 text-app-primary" />
             <h3 className="text-xl font-semibold text-foreground">Learn More</h3>
           </div>
           <button
@@ -257,7 +257,7 @@ const LearnMoreModal: React.FC<{ isOpen: boolean; onClose: () => void }> = ({
         <div className="flex justify-end mt-6">
           <button
             onClick={onClose}
-            className="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
+            className="px-4 py-2 bg-gradient-to-r from-app-primary to-app-primary-dark hover:from-app-primary-dark hover:to-app-primary text-primary-foreground rounded-lg transition-all hover:shadow-md"
           >
             Got it
           </button>
@@ -304,7 +304,7 @@ const EmptyState: React.FC<Props> = ({ onNewConversation, onNewMeeting }) => {
         
         {/* Action buttons */}
         <motion.div 
-          className="flex flex-col sm:flex-row gap-3 mt-8 items-center"
+          className="flex flex-col sm:flex-row gap-4 mt-8 items-center"
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.5 }}
@@ -317,7 +317,7 @@ const EmptyState: React.FC<Props> = ({ onNewConversation, onNewMeeting }) => {
           ) : (
             <button
               onClick={onNewConversation}
-              className="flex items-center justify-center space-x-2 bg-primary text-primary-foreground px-6 py-3 rounded-lg hover:bg-primary/90 transition-all transform hover:scale-105 shadow-lg"
+              className="flex items-center justify-center space-x-2 bg-gradient-to-r from-app-primary to-app-primary-dark hover:from-app-primary-dark hover:to-app-primary text-primary-foreground px-6 py-3 rounded-lg transition-all transform hover:scale-105 shadow-lg hover:shadow-xl"
             >
               <PlusIcon className="w-5 h-5" />
               <span className="font-medium">Start Your First Conversation</span>
@@ -326,7 +326,7 @@ const EmptyState: React.FC<Props> = ({ onNewConversation, onNewMeeting }) => {
           
           <button
             onClick={() => setIsLearnMoreOpen(true)}
-            className="flex items-center justify-center space-x-2 bg-secondary text-secondary-foreground px-6 py-3 rounded-lg hover:bg-secondary/80 transition-all border border-border"
+            className="flex items-center justify-center space-x-2 bg-card text-foreground px-6 py-3 rounded-lg hover:bg-muted transition-all border border-border hover:border-app-primary/50 min-w-[140px] hover:scale-105 transform"
           >
             <QuestionMarkCircleIcon className="w-5 h-5" />
             <span className="font-medium">Learn More</span>
@@ -335,7 +335,7 @@ const EmptyState: React.FC<Props> = ({ onNewConversation, onNewMeeting }) => {
         
         {/* Features hint */}
         <motion.div 
-          className="mt-12 grid grid-cols-1 sm:grid-cols-3 gap-4 max-w-5xl w-full"
+          className="mt-16 grid grid-cols-1 sm:grid-cols-3 gap-6 max-w-4xl w-full"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 0.7 }}
@@ -345,25 +345,25 @@ const EmptyState: React.FC<Props> = ({ onNewConversation, onNewMeeting }) => {
               icon: "🤖", 
               title: "Real-time AI Advisor", 
               desc: "Get live AI coaching and guidance during your conversations",
-              gradient: "from-indigo-500/10 via-purple-500/10 to-pink-500/10",
-              borderGradient: "from-indigo-500/20 via-purple-500/20 to-pink-500/20",
-              iconBg: "from-indigo-500/20 to-purple-500/20"
+              gradient: "from-app-primary/10 via-app-primary-light/10 to-app-success/10",
+              borderGradient: "from-app-primary/20 via-app-primary-light/20 to-app-success/20",
+              iconBg: "from-app-primary/20 to-app-primary-dark/20"
             },
             { 
               icon: "🎙️", 
               title: "Live Transcription", 
               desc: "Real-time speech-to-text with speaker identification",
-              gradient: "from-cyan-500/10 via-blue-500/10 to-indigo-500/10",
-              borderGradient: "from-cyan-500/20 via-blue-500/20 to-indigo-500/20",
-              iconBg: "from-cyan-500/20 to-blue-500/20"
+              gradient: "from-app-success/10 via-app-success-light/10 to-app-primary/10",
+              borderGradient: "from-app-success/20 via-app-success-light/20 to-app-primary/20",
+              iconBg: "from-app-success/20 to-app-success-light/20"
             },
             { 
               icon: "📋", 
               title: "Smart Summaries", 
               desc: "Auto-generated insights, action items, and follow-ups",
-              gradient: "from-emerald-500/10 via-teal-500/10 to-cyan-500/10",
-              borderGradient: "from-emerald-500/20 via-teal-500/20 to-cyan-500/20",
-              iconBg: "from-emerald-500/20 to-teal-500/20"
+              gradient: "from-app-primary-light/10 via-app-success/10 to-app-primary/10",
+              borderGradient: "from-app-primary-light/20 via-app-success/20 to-app-primary/20",
+              iconBg: "from-app-primary-light/20 to-app-primary/20"
             }
           ].map((feature, index) => (
             <motion.div
@@ -374,13 +374,13 @@ const EmptyState: React.FC<Props> = ({ onNewConversation, onNewMeeting }) => {
               transition={{ delay: 0.8 + index * 0.1 }}
             >
               {/* Gradient border wrapper */}
-              <div className={`absolute inset-0 bg-gradient-to-br ${feature.borderGradient} rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-500`} />
+              <div className={`absolute inset-0 bg-gradient-to-br ${feature.borderGradient} rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-500 blur-sm`} />
               
               {/* Card content */}
-              <div className={`relative bg-gradient-to-br ${feature.gradient} backdrop-blur-sm border border-white/10 rounded-2xl p-6 h-full transition-all duration-300 group-hover:translate-y-[-2px] group-hover:shadow-xl`}>
+              <div className={`relative glass bg-gradient-to-br ${feature.gradient} backdrop-blur-md border border-border/30 rounded-2xl p-6 h-full transition-all duration-300 group-hover:translate-y-[-4px] group-hover:shadow-2xl group-hover:border-border/50`}>
                 {/* Icon with gradient background */}
-                <div className={`w-14 h-14 bg-gradient-to-br ${feature.iconBg} rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300`}>
-                  <div className="text-2xl">{feature.icon}</div>
+                <div className={`w-14 h-14 bg-gradient-to-br ${feature.iconBg} rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300 shadow-md`}>
+                  <div className="text-2xl filter drop-shadow-md">{feature.icon}</div>
                 </div>
                 
                 {/* Title */}
@@ -389,7 +389,7 @@ const EmptyState: React.FC<Props> = ({ onNewConversation, onNewMeeting }) => {
                 </h3>
                 
                 {/* Description */}
-                <p className="text-sm text-muted-foreground/80 leading-relaxed">
+                <p className="text-sm text-muted-foreground leading-relaxed">
                   {feature.desc}
                 </p>
                 
