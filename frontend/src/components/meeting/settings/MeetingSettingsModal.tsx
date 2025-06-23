@@ -8,7 +8,6 @@ import {
   ExclamationTriangleIcon
 } from '@heroicons/react/24/outline';
 import { useMeetingContext } from '@/lib/meeting/context/MeetingContext';
-import { MeetingType } from '@/lib/meeting/types/meeting.types';
 import { validateMeetingUrl } from '@/lib/meeting/utils/platform-detector';
 import { useAuth } from '@/contexts/AuthContext';
 import { PreviousConversationsMultiSelect } from '../create/PreviousConversationsMultiSelect';
@@ -19,14 +18,7 @@ interface MeetingSettingsModalProps {
   onClose: () => void;
 }
 
-const meetingTypeOptions: { id: MeetingType; label: string }[] = [
-  { id: 'sales', label: 'Sales' },
-  { id: 'support', label: 'Support' },
-  { id: 'team_meeting', label: 'Team Meeting' },
-  { id: 'interview', label: 'Interview' },
-  { id: 'coaching', label: 'Coaching' },
-  { id: 'custom', label: 'Custom' }
-];
+
 
 export function MeetingSettingsModal({ isOpen, onClose }: MeetingSettingsModalProps) {
   const { meeting, setMeeting, botStatus } = useMeetingContext();
@@ -35,8 +27,6 @@ export function MeetingSettingsModal({ isOpen, onClose }: MeetingSettingsModalPr
 
   // Local form state
   const [title, setTitle] = useState('');
-  const [type, setType] = useState<MeetingType>('team_meeting');
-  const [customType, setCustomType] = useState('');
   const [meetingUrl, setMeetingUrl] = useState('');
   const [context, setContext] = useState('');
   const [saving, setSaving] = useState(false);
@@ -46,8 +36,6 @@ export function MeetingSettingsModal({ isOpen, onClose }: MeetingSettingsModalPr
   useEffect(() => {
     if (meeting && isOpen) {
       setTitle(meeting.title || '');
-      setType(meeting.type);
-      setCustomType(meeting.customType || '');
       setMeetingUrl(meeting.meetingUrl || '');
       setContext(meeting.context || '');
       setError(null);
@@ -82,10 +70,6 @@ export function MeetingSettingsModal({ isOpen, onClose }: MeetingSettingsModalPr
 
     const payload: Record<string, any> = {};
     if (title !== meeting.title) payload.title = title.trim();
-    if (type !== meeting.type) payload.conversation_type = type;
-    if (type === 'custom' && customType.trim() !== (meeting.customType || '')) {
-      payload.conversation_type_custom = customType.trim();
-    }
     if (meetingUrl !== meeting.meetingUrl) payload.meeting_url = meetingUrl.trim();
     if (context !== (meeting.context || '')) payload.context = context.trim();
 
@@ -117,8 +101,6 @@ export function MeetingSettingsModal({ isOpen, onClose }: MeetingSettingsModalPr
       setMeeting({
         ...meeting,
         title: updated.title || title,
-        type: updated.conversation_type || type,
-        customType: updated.conversation_type_custom || customType,
         meetingUrl: updated.meeting_url || meetingUrl,
         context: updated.context || context,
         scheduledAt: undefined
@@ -177,34 +159,7 @@ export function MeetingSettingsModal({ isOpen, onClose }: MeetingSettingsModalPr
                   />
                 </div>
 
-                {/* Meeting type */}
-                <div>
-                  <label className="block text-sm font-medium mb-1">Conversation Type</label>
-                  <select
-                    className="w-full px-3 py-2 rounded-md border bg-background/90"
-                    value={type}
-                    onChange={(e) => setType(e.target.value as MeetingType)}
-                    disabled={disabled}
-                  >
-                    {meetingTypeOptions.map(opt => (
-                      <option key={opt.id} value={opt.id}>{opt.label}</option>
-                    ))}
-                  </select>
-                </div>
 
-                {/* Custom type */}
-                {type === 'custom' && (
-                  <div>
-                    <label className="block text-sm font-medium mb-1">Custom Type Label</label>
-                    <input
-                      type="text"
-                      className="w-full px-3 py-2 rounded-md border bg-background/90"
-                      value={customType}
-                      onChange={(e) => setCustomType(e.target.value)}
-                      disabled={disabled}
-                    />
-                  </div>
-                )}
 
                 {/* Meeting URL */}
                 <div>

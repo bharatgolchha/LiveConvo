@@ -41,6 +41,19 @@ export function AIAdvisorPanel({
     }
   }, [autoSwitched, botStatus?.status, transcript.length]);
 
+  // Listen for suggestion usage events and switch to chat tab
+  useEffect(() => {
+    const handleUseSuggestion = () => {
+      setActiveTab('chat');
+    };
+
+    window.addEventListener('useSuggestion', handleUseSuggestion);
+    
+    return () => {
+      window.removeEventListener('useSuggestion', handleUseSuggestion);
+    };
+  }, []);
+
   const tabs = [
     { 
       id: 'chat' as TabType, 
