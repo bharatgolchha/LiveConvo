@@ -12,8 +12,8 @@ export function EndMeetingStatus({ isVisible, step, isSuccess, error }: EndMeeti
   if (!isVisible) return null;
 
   return (
-    <div className="fixed bottom-6 right-6 z-[1000] max-w-sm animate-slide-up">
-      <div className="bg-white/95 dark:bg-gray-900/95 backdrop-blur-lg border border-gray-200 dark:border-gray-700 rounded-xl shadow-2xl p-6">
+    <div className="fixed inset-0 z-[1000] flex items-center justify-center pointer-events-none">
+      <div className="bg-white/95 dark:bg-gray-900/95 backdrop-blur-lg border border-gray-200 dark:border-gray-700 rounded-xl shadow-2xl p-6 max-w-sm pointer-events-auto animate-slide-up">
         <div className="flex items-start gap-4">
           {/* Status Icon */}
           <div className="flex-shrink-0 mt-0.5">

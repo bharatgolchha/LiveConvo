@@ -104,26 +104,26 @@ export function MeetingHeader() {
           {/* Recording Status */}
           <div className="flex items-center">
             {isActive ? (
-              <div className="flex items-center gap-3 px-4 py-2.5 bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800/40 rounded-xl shadow-sm">
+              <div className="flex items-center gap-3 px-4 py-2.5 bg-destructive/10 border border-destructive/20 rounded-xl shadow-sm">
                 <div className="flex items-center gap-2">
-                  <div className="w-2.5 h-2.5 bg-red-500 rounded-full animate-pulse" />
-                  <span className="text-sm font-semibold text-red-700 dark:text-red-400">
+                  <div className="w-2.5 h-2.5 bg-destructive rounded-full animate-pulse" />
+                  <span className="text-sm font-semibold text-destructive">
                     LIVE
                   </span>
                 </div>
-                <div className="w-px h-4 bg-red-300 dark:bg-red-700" />
+                <div className="w-px h-4 bg-destructive/30" />
                 <MeetingTimer 
                   isActive={isActive}
                   isCompleted={isCompleted}
                 />
               </div>
             ) : isCompleted ? (
-              <div className="flex items-center gap-3 px-4 py-2.5 bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800/40 rounded-xl shadow-sm">
-                <VideoCameraIcon className="w-4 h-4 text-green-600 dark:text-green-400" />
-                <span className="text-sm font-semibold text-green-700 dark:text-green-400">
+              <div className="flex items-center gap-3 px-4 py-2.5 bg-primary/10 border border-primary/20 rounded-xl shadow-sm">
+                <VideoCameraIcon className="w-4 h-4 text-primary" />
+                <span className="text-sm font-semibold text-primary">
                   COMPLETED
                 </span>
-                <div className="w-px h-4 bg-green-300 dark:bg-green-700" />
+                <div className="w-px h-4 bg-primary/30" />
                 <MeetingTimer 
                   isActive={false}
                   isCompleted={isCompleted}

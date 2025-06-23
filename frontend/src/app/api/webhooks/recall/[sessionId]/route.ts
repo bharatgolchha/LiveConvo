@@ -159,11 +159,30 @@ async function handleBotStatusChange(
     case 'call_ended':
     case 'done':
       await markRecordingCompleted(botId, timestamp, session, supabase);
+      // Also update the session status to completed
+      await supabase
+        .from('sessions')
+        .update({
+          status: 'completed',
+          recording_ended_at: timestamp,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', sessionId);
+      console.log(`🏁 Session ${sessionId} marked as completed`);
       break;
     
     case 'fatal':
       await updateBotUsageStatus(botId, 'failed', timestamp, supabase);
       await markRecordingCompleted(botId, timestamp, session, supabase);
+      // Mark session as failed
+      await supabase
+        .from('sessions')
+        .update({
+          status: 'failed',
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', sessionId);
+      console.log(`❌ Session ${sessionId} marked as failed`);
       break;
   }
 }
@@ -694,9 +713,22 @@ async function handleTranscriptData(sessionId: string, eventData: TranscriptData
     console.log('✅ Broadcast complete');
   }
 
-  // Update session duration - for now, just skip this update
-  // TODO: Implement proper duration tracking
-  console.log(`Session duration would increase by ${endTime - startTime} seconds`);
+  // Update session duration with the latest transcript end time
+  const durationIncrease = endTime - startTime;
+  console.log(`Session duration would increase by ${durationIncrease} seconds`);
+  
+  if (durationIncrease > 0) {
+    // Update the session's recording duration to the latest end time
+    await supabase
+      .from('sessions')
+      .update({
+        recording_duration_seconds: Math.round(endTime),
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', sessionId);
+      
+    console.log(`📊 Updated session duration to ${Math.round(endTime)} seconds`);
+  }
 }
 
 async function handleParticipantEvent(sessionId: string, eventType: string, data: ParticipantEventData) {

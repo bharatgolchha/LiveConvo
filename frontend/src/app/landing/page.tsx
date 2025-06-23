@@ -117,13 +117,12 @@ export default function LandingPage() {
           <div className="flex items-center justify-between h-16">
             <Link href="/" className="flex items-center gap-2">
               <Image 
-                src="https://ucvfgfbjcrxbzppwjpuu.supabase.co/storage/v1/object/public/images//dark.png"
-                alt="liveprompt.ai logo"
-                width={32}
+                src="https://ucvfgfbjcrxbzppwjpuu.supabase.co/storage/v1/object/public/images//DarkMode2.png"
+                alt="liveprompt.ai"
+                width={140}
                 height={32}
                 className="object-contain"
               />
-              <span className="text-xl font-bold" style={{ fontFamily: 'var(--font-poppins)', color: '#ffffff' }}>liveprompt.ai</span>
             </Link>
             
             <div className="flex items-center gap-4">
@@ -568,13 +567,12 @@ export default function LandingPage() {
             <div>
               <div className="flex items-center gap-2 mb-2">
                 <Image 
-                  src="https://ucvfgfbjcrxbzppwjpuu.supabase.co/storage/v1/object/public/images//dark.png"
-                  alt="liveprompt.ai logo"
-                  width={32}
+                  src="https://ucvfgfbjcrxbzppwjpuu.supabase.co/storage/v1/object/public/images//DarkMode2.png"
+                  alt="liveprompt.ai"
+                  width={150}
                   height={32}
                   className="object-contain"
                 />
-                <span className="text-xl font-bold" style={{ fontFamily: 'var(--font-poppins)', color: '#ffffff' }}>liveprompt.ai</span>
               </div>
               <p className="text-sm" style={{ color: '#9ca3af' }}>Your AI conversation co-pilot for better outcomes</p>
             </div>

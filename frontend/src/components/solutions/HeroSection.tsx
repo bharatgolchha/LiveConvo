@@ -78,7 +78,7 @@ export function HeroSection({ headline, subheadline, cta, accentColor }: HeroSec
           >
             <div className="relative rounded-2xl overflow-hidden shadow-2xl">
               <Image
-                src="https://ucvfgfbjcrxbzppwjpuu.supabase.co/storage/v1/object/public/images//Screenshot%202025-06-04%20at%2010.42.34%20PM.png"
+                src="https://ucvfgfbjcrxbzppwjpuu.supabase.co/storage/v1/object/public/images//Screenshot%202025-06-23%20at%2012.54.37%20PM.png"
                 alt="liveprompt.ai dashboard interface"
                 width={800}
                 height={600}
