@@ -5,6 +5,29 @@ import { z } from 'zod';
 import { getDefaultAiModelServer } from '@/lib/systemSettingsServer';
 import { createAuthenticatedSupabaseClient } from '@/lib/supabase';
 
+// Helper function to format dates in a human-readable way
+function formatMeetingDate(dateString: string): string {
+  const date = new Date(dateString);
+  const now = new Date();
+  const diffInMs = now.getTime() - date.getTime();
+  const diffInDays = Math.floor(diffInMs / (1000 * 60 * 60 * 24));
+  
+  if (diffInDays === 0) {
+    return 'Today';
+  } else if (diffInDays === 1) {
+    return 'Yesterday';
+  } else if (diffInDays < 7) {
+    return `${diffInDays} days ago`;
+  } else {
+    // Format as "January 24, 2025"
+    return date.toLocaleDateString('en-US', { 
+      year: 'numeric', 
+      month: 'long', 
+      day: 'numeric' 
+    });
+  }
+}
+
 // Fallback chips for when AI generation fails
 const getFallbackChips = (conversationType: string, stage: string) => {
   const chipMap: Record<string, Record<string, Array<{text: string, prompt: string, impact: number}>>> = {
@@ -233,7 +256,8 @@ export async function POST(request: NextRequest) {
                 follow_up_questions,
                 conversation_highlights,
                 structured_notes,
-                session_id
+                session_id,
+                created_at
               `)
               .in('session_id', linkedIds)
               .eq('generation_status', 'completed')
@@ -249,8 +273,9 @@ export async function POST(request: NextRequest) {
               console.log('🔍 Chat Guidance Debug - Using rich summaries:', richSummaries.map(s => s.title));
               
               previousMeetingsSummary = '\n\nPREVIOUS MEETINGS DETAILED SUMMARY:\n';
-              richSummaries.forEach((summary: any, i: number) => {
-                previousMeetingsSummary += `\n${i + 1}. ${summary.title}:\n`;
+              richSummaries.forEach((summary, i) => {
+                const meetingDate = summary.created_at ? ` (${formatMeetingDate(summary.created_at)})` : '';
+                previousMeetingsSummary += `\n${i + 1}. ${summary.title}${meetingDate}:\n`;
                 previousMeetingsSummary += `   TLDR: ${summary.tldr || 'No summary available.'}\n`;
                 
                 if (summary.key_decisions && Array.isArray(summary.key_decisions) && summary.key_decisions.length > 0) {
@@ -283,7 +308,7 @@ export async function POST(request: NextRequest) {
               console.log('🔍 Chat Guidance Debug - No rich summaries found, falling back to session cache...');
               const { data: linkedSessions, error: sessionsError } = await supabase
                 .from('sessions')
-                .select('title, realtime_summary_cache')
+                .select('title, realtime_summary_cache, created_at')
                 .in('id', linkedIds)
                 .not('realtime_summary_cache', 'is', null)
                 .order('created_at', { ascending: false })
@@ -300,9 +325,10 @@ export async function POST(request: NextRequest) {
                 console.log('🔍 Chat Guidance Debug - Using session cache:', linkedSessions.map(s => s.title));
                 
                 previousMeetingsSummary = '\n\nPREVIOUS MEETINGS SUMMARY:\n';
-                linkedSessions.forEach((session: any, i: number) => {
+                linkedSessions.forEach((session, i) => {
                   const summary = session.realtime_summary_cache?.tldr || 'No summary available.';
-                  previousMeetingsSummary += `\n${i + 1}. ${session.title}:\n   - ${summary}`;
+                  const meetingDate = session.created_at ? ` (${formatMeetingDate(session.created_at)})` : '';
+                  previousMeetingsSummary += `\n${i + 1}. ${session.title}${meetingDate}:\n   - ${summary}`;
                 });
                 
                 console.log(`✅ Added ${linkedSessions.length} basic summaries to context from session cache.`);
@@ -499,7 +525,7 @@ Remember: Start with [ and end with ] - no other text allowed.`;
     let smartNotesPrompt = '';
     if (smartNotes && smartNotes.length > 0) {
       const topNotes = smartNotes.slice(0, 5);
-      const notesText = topNotes.map((n: any, idx: number) => `${idx + 1}. (${n.category || 'note'}) ${n.content || n.text || ''}`).join('\n');
+      const notesText = topNotes.map((n, idx) => `${idx + 1}. (${n.category || 'note'}) ${n.content || n.text || ''}`).join('\n');
       smartNotesPrompt = `SMART NOTES (last ${topNotes.length}):\n${notesText}`;
     }
 

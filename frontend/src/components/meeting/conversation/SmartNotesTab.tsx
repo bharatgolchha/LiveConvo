@@ -21,32 +21,37 @@ const categoryConfig = {
   key_point: {
     icon: LightBulbIcon,
     label: 'Key Point',
-    color: 'text-blue-600 dark:text-blue-400',
-    bgColor: 'bg-blue-50 dark:bg-blue-950/20'
+    color: 'text-app-info',
+    bgColor: 'bg-app-info-light/10 dark:bg-app-info-light/5',
+    borderColor: 'border-app-info/20'
   },
   action_item: {
     icon: ClipboardDocumentCheckIcon,
     label: 'Action Item',
-    color: 'text-green-600 dark:text-green-400',
-    bgColor: 'bg-green-50 dark:bg-green-950/20'
+    color: 'text-app-success',
+    bgColor: 'bg-app-success-light/10 dark:bg-app-success-light/5',
+    borderColor: 'border-app-success/20'
   },
   decision: {
     icon: ChatBubbleBottomCenterTextIcon,
     label: 'Decision',
-    color: 'text-purple-600 dark:text-purple-400',
-    bgColor: 'bg-purple-50 dark:bg-purple-950/20'
+    color: 'text-primary',
+    bgColor: 'bg-primary/5 dark:bg-primary/10',
+    borderColor: 'border-primary/20'
   },
   question: {
     icon: QuestionMarkCircleIcon,
     label: 'Question',
-    color: 'text-orange-600 dark:text-orange-400',
-    bgColor: 'bg-orange-50 dark:bg-orange-950/20'
+    color: 'text-app-warning',
+    bgColor: 'bg-app-warning-light/10 dark:bg-app-warning-light/5',
+    borderColor: 'border-app-warning/20'
   },
   insight: {
     icon: ExclamationTriangleIcon,
     label: 'Insight',
-    color: 'text-pink-600 dark:text-pink-400',
-    bgColor: 'bg-pink-50 dark:bg-pink-950/20'
+    color: 'text-accent',
+    bgColor: 'bg-accent/10 dark:bg-accent/5',
+    borderColor: 'border-accent/20'
   }
 };
 
@@ -109,13 +114,13 @@ export function SmartNotesTab() {
             <button
               onClick={generateNotes}
               disabled={loading}
-              className="px-3 py-1.5 text-sm bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 disabled:opacity-50"
+              className="px-3 py-1.5 text-sm bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 disabled:opacity-50 transition-colors"
             >
               {loading ? 'Generating...' : 'Generate Notes'}
             </button>
             <button
               onClick={() => setIsAdding(true)}
-              className="p-1.5 hover:bg-muted rounded-lg transition-colors"
+              className="p-1.5 text-muted-foreground hover:text-foreground hover:bg-muted rounded-lg transition-colors"
               title="Add Note"
             >
               <PlusIcon className="w-5 h-5" />
@@ -124,13 +129,13 @@ export function SmartNotesTab() {
         </div>
 
         {/* Filter Tabs */}
-        <div className="flex gap-1 p-1 bg-muted rounded-lg">
+        <div className="flex gap-1 p-1 bg-muted/50 rounded-lg">
           <button
             onClick={() => setFilter('all')}
             className={`px-3 py-1.5 text-sm rounded-md transition-all ${
               filter === 'all' 
-                ? 'bg-background text-foreground shadow-sm' 
-                : 'text-muted-foreground hover:text-foreground'
+                ? 'bg-background text-foreground shadow-sm border border-border' 
+                : 'text-muted-foreground hover:text-foreground hover:bg-background/50'
             }`}
           >
             All ({smartNotes.length})
@@ -145,8 +150,8 @@ export function SmartNotesTab() {
                 onClick={() => setFilter(key as SmartNote['category'])}
                 className={`px-3 py-1.5 text-sm rounded-md transition-all ${
                   filter === key 
-                    ? 'bg-background text-foreground shadow-sm' 
-                    : 'text-muted-foreground hover:text-foreground'
+                    ? 'bg-background text-foreground shadow-sm border border-border' 
+                    : 'text-muted-foreground hover:text-foreground hover:bg-background/50'
                 }`}
               >
                 {config.label} ({count})
@@ -165,13 +170,13 @@ export function SmartNotesTab() {
               initial={{ opacity: 0, height: 0 }}
               animate={{ opacity: 1, height: 'auto' }}
               exit={{ opacity: 0, height: 0 }}
-              className="border border-primary rounded-xl p-4 space-y-3"
+              className="bg-card border border-border rounded-xl p-4 space-y-3 shadow-sm"
             >
               <div className="flex gap-2">
                 <select
                   value={newNote.category}
                   onChange={(e) => setNewNote({ ...newNote, category: e.target.value as SmartNote['category'] })}
-                  className="px-3 py-1.5 bg-background border border-border rounded-lg text-sm"
+                  className="px-3 py-1.5 bg-background border border-border rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-colors"
                 >
                   {Object.entries(categoryConfig).map(([key, config]) => (
                     <option key={key} value={key}>{config.label}</option>
@@ -182,7 +187,7 @@ export function SmartNotesTab() {
                 value={newNote.content}
                 onChange={(e) => setNewNote({ ...newNote, content: e.target.value })}
                 placeholder="Enter your note..."
-                className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm resize-none"
+                className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm text-foreground placeholder-muted-foreground resize-none focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-colors"
                 rows={3}
                 autoFocus
               />
@@ -192,14 +197,14 @@ export function SmartNotesTab() {
                     setIsAdding(false);
                     setNewNote({ category: 'key_point', content: '' });
                   }}
-                  className="p-1.5 hover:bg-muted rounded-lg transition-colors"
+                  className="p-1.5 text-muted-foreground hover:text-foreground hover:bg-muted rounded-lg transition-colors"
                 >
                   <XMarkIcon className="w-4 h-4" />
                 </button>
                 <button
                   onClick={handleAddNote}
                   disabled={!newNote.content.trim()}
-                  className="p-1.5 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 disabled:opacity-50"
+                  className="p-1.5 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 disabled:opacity-50 transition-colors"
                 >
                   <CheckIcon className="w-4 h-4" />
                 </button>
@@ -230,10 +235,10 @@ export function SmartNotesTab() {
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, x: -100 }}
                   transition={{ delay: index * 0.05 }}
-                  className={`rounded-xl p-4 ${config.bgColor} border border-current/10`}
+                  className={`bg-card rounded-xl p-4 ${config.bgColor} border ${config.borderColor} shadow-sm hover:shadow-md transition-all`}
                 >
                   <div className="flex items-start gap-3">
-                    <div className={`p-2 rounded-lg bg-white/50 dark:bg-black/20 ${config.color}`}>
+                    <div className={`p-2 rounded-lg bg-muted/50 ${config.color}`}>
                       <Icon className="w-4 h-4" />
                     </div>
                     
@@ -247,15 +252,15 @@ export function SmartNotesTab() {
                             <>
                               <button
                                 onClick={() => handleEdit(note)}
-                                className="p-1 hover:bg-white/20 dark:hover:bg-black/20 rounded transition-colors"
+                                className="p-1 text-muted-foreground hover:text-foreground hover:bg-muted/50 rounded transition-colors"
                               >
-                                <PencilIcon className="w-3.5 h-3.5 text-muted-foreground" />
+                                <PencilIcon className="w-3.5 h-3.5" />
                               </button>
                               <button
                                 onClick={() => deleteSmartNote(note.id)}
-                                className="p-1 hover:bg-white/20 dark:hover:bg-black/20 rounded transition-colors"
+                                className="p-1 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded transition-colors"
                               >
-                                <TrashIcon className="w-3.5 h-3.5 text-muted-foreground" />
+                                <TrashIcon className="w-3.5 h-3.5" />
                               </button>
                             </>
                           )}
@@ -267,7 +272,7 @@ export function SmartNotesTab() {
                           <textarea
                             value={editText}
                             onChange={(e) => setEditText(e.target.value)}
-                            className="w-full px-2 py-1 bg-white/50 dark:bg-black/20 border border-current/20 rounded text-sm resize-none"
+                            className="w-full px-2 py-1 bg-background border border-border rounded text-sm text-foreground resize-none focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-colors"
                             rows={2}
                             autoFocus
                           />
@@ -277,20 +282,20 @@ export function SmartNotesTab() {
                                 setEditingId(null);
                                 setEditText('');
                               }}
-                              className="p-1 hover:bg-white/20 dark:hover:bg-black/20 rounded transition-colors"
+                              className="p-1 text-muted-foreground hover:text-foreground hover:bg-muted rounded transition-colors"
                             >
                               <XMarkIcon className="w-4 h-4" />
                             </button>
                             <button
                               onClick={handleSaveEdit}
-                              className="p-1 bg-primary text-primary-foreground rounded hover:bg-primary/90"
+                              className="p-1 bg-primary text-primary-foreground rounded hover:bg-primary/90 transition-colors"
                             >
                               <CheckIcon className="w-4 h-4" />
                             </button>
                           </div>
                         </div>
                       ) : (
-                        <p className="text-sm text-foreground/80">
+                        <p className="text-sm text-foreground">
                           {note.content}
                         </p>
                       )}
