@@ -3215,3 +3215,10 @@ None currently identified - all major issues have been resolved or moved to acti
   - **Status**: ✅ COMPLETED - Debug info can now be hidden/shown with toggle, keyboard shortcut, and persistent preferences
 
 - [x] **📤 Real-time Summary Export Functionality** (2025-06-22) 🆕 **JUST COMPLETED**
+
++ - [x] **🌑 Forced Dark Mode as Default Theme** (2025-06-24) 🆕 **JUST COMPLETED**
++   - **Request**: Landing page reverts to light mode when user system theme is light. It should always load in dark mode by default.
++   - **Solution Implemented**:
++     - 🔧 Updated `frontend/src/app/layout.tsx` to set `<ThemeProvider defaultTheme="dark" />` instead of `system`, ensuring the entire site loads in dark mode unless the user explicitly switches themes.
++     - 🎯 This prevents unwanted flash or reversal to light mode on initial load for users with light system preferences.
++   - **Status**: ✅ COMPLETED - Landing page now always loads in dark mode by default.

@@ -269,7 +269,7 @@ export function LiveTranscriptTab() {
                 scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
               }
             }}
-            className="fixed bottom-24 right-6 flex items-center gap-2 px-4 py-3 bg-primary text-primary-foreground rounded-full shadow-lg hover:bg-primary/90 transition-all hover:scale-105 z-10"
+            className="fixed bottom-24 left-6 flex items-center gap-2 px-4 py-3 bg-primary text-primary-foreground rounded-full shadow-lg hover:bg-primary/90 transition-all hover:scale-105 z-10"
           >
             <ArrowDownIcon className="w-4 h-4" />
             <span className="text-sm font-medium">Jump to latest</span>

@@ -4,7 +4,7 @@ import { headers } from 'next/headers';
 import { broadcastTranscript } from '@/lib/recall-ai/transcript-broadcaster';
 
 interface RecallWebhookEvent {
-  event: 'transcript.data' | 'transcript.partial_data' | 'participant_events.join' | 'participant_events.leave' | 'participant_events.update' | 'participant_events.speech_on' | 'participant_events.speech_off' | 'participant_events.webcam_on' | 'participant_events.webcam_off' | 'participant_events.screenshare_on' | 'participant_events.screenshare_off' | 'participant_events.chat_message';
+  event: 'transcript.data' | 'transcript.partial_data' | 'participant_events.join' | 'participant_events.leave' | 'participant_events.update' | 'participant_events.speech_on' | 'participant_events.speech_off' | 'participant_events.webcam_on' | 'participant_events.webcam_off' | 'participant_events.screenshare_on' | 'participant_events.screenshare_off' | 'participant_events.chat_message' | 'bot.joining_call' | 'bot.in_waiting_room' | 'bot.in_call_not_recording' | 'bot.recording_permission_allowed' | 'bot.in_call_recording' | 'bot.recording_permission_denied' | 'bot.call_ended' | 'bot.done' | 'bot.fatal';
   data: any;
 }
 
@@ -80,6 +80,27 @@ interface TranscriptData {
       session_id?: string;
     };
   };
+}
+
+/**
+ * FAILSAFE: Auto-complete orphaned bot recordings
+ * This runs periodically to catch missed webhook events
+ */
+async function runFailsafeOrphanDetection(supabase: any): Promise<void> {
+  try {
+    console.log('🚨 Running failsafe orphan detection...');
+
+    // Auto-complete orphaned bot recordings using SQL
+    const { error } = await supabase.rpc('auto_complete_orphaned_recordings');
+    
+    if (error) {
+      console.error('❌ Failsafe orphan detection failed:', error);
+    } else {
+      console.log('✅ Failsafe orphan detection completed');
+    }
+  } catch (error) {
+    console.error('❌ Error in failsafe orphan detection:', error);
+  }
 }
 
 /**
@@ -221,8 +242,8 @@ async function ensureBotUsageRecord(
 }
 
 /**
- * Fallback: Ensure bot usage tracking from transcript events
- * This is used when bot status webhooks are not configured
+ * Enhanced fallback: Ensure bot usage tracking from transcript events
+ * This is used when bot status webhooks are not configured properly
  */
 async function ensureBotUsageTrackingFromTranscript(
   sessionId: string,
@@ -278,6 +299,9 @@ async function ensureBotUsageTrackingFromTranscript(
 
     console.log(`🟢 Updated bot usage tracking to recording status for ${botId}`);
   }
+
+  // ENHANCED: Check for stale sessions and auto-complete them
+  await runFailsafeOrphanDetection(supabase);
 }
 
 /**
@@ -518,10 +542,9 @@ export async function POST(
       // Continue processing even if storing fails
     }
 
-    // Note: Bot status events (bot.joining_call, bot.in_call_recording, etc.) are sent via Svix webhooks,
-    // not through realtime endpoints. They need to be configured in the Recall dashboard.
-
     // Process event based on type
+    let processed = false;
+    
     switch (event.event) {
       case 'transcript.data':
         await handleTranscriptData(sessionId, event.data as TranscriptData, false);
@@ -529,10 +552,12 @@ export async function POST(
         if (botId && botId !== '00000000-0000-0000-0000-000000000000') {
           await ensureBotUsageTrackingFromTranscript(sessionId, botId, supabase);
         }
+        processed = true;
         break;
         
       case 'transcript.partial_data':
         await handleTranscriptData(sessionId, event.data as TranscriptData, true);
+        processed = true;
         break;
         
       case 'participant_events.join':
@@ -546,10 +571,51 @@ export async function POST(
       case 'participant_events.screenshare_off':
       case 'participant_events.chat_message':
         await handleParticipantEvent(sessionId, event.event, event.data);
+        processed = true;
+        break;
+
+      // Bot status events - CRITICAL for bot usage tracking
+      case 'bot.joining_call':
+      case 'bot.in_waiting_room':
+      case 'bot.in_call_not_recording':
+      case 'bot.recording_permission_allowed':
+      case 'bot.in_call_recording':
+      case 'bot.recording_permission_denied':
+      case 'bot.call_ended':
+      case 'bot.done':
+      case 'bot.fatal':
+        await trackBotUsage(sessionId, botId, event.event, event.data, supabase);
+        processed = true;
         break;
         
       default:
         console.log('⚠️ Unhandled webhook event type:', event.event);
+        processed = false;
+    }
+
+    // Mark webhook as processed (mark the most recent webhook for this bot/event type)
+    if (processed) {
+      const { data: latestWebhook } = await supabase
+        .from('recall_ai_webhooks')
+        .select('id')
+        .eq('bot_id', botId)
+        .eq('event_type', event.event)
+        .eq('processed', false)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .single();
+
+      if (latestWebhook) {
+        await supabase
+          .from('recall_ai_webhooks')
+          .update({ processed: true })
+          .eq('id', latestWebhook.id);
+      }
+    }
+
+    // Run periodic failsafe check (every 10th webhook to avoid performance impact)
+    if (Math.random() < 0.1) {
+      setTimeout(() => runFailsafeOrphanDetection(supabase), 1000);
     }
 
     return NextResponse.json({ success: true });

@@ -17,6 +17,7 @@ export interface Meeting {
   participantThem: string;
   createdAt: string;
   updatedAt: string;
+  recordingDurationSeconds?: number;
 }
 
 export interface CreateMeetingData {

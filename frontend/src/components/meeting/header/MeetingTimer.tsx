@@ -7,9 +7,11 @@ interface MeetingTimerProps {
   isActive: boolean;
   /** Whether the recording has finished. If true the timer freezes. */
   isCompleted: boolean;
+  /** The actual meeting duration in seconds from the database (for completed meetings) */
+  meetingDurationSeconds?: number;
 }
 
-export function MeetingTimer({ isActive, isCompleted }: MeetingTimerProps) {
+export function MeetingTimer({ isActive, isCompleted, meetingDurationSeconds }: MeetingTimerProps) {
   const [elapsed, setElapsed] = useState(0);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -52,11 +54,16 @@ export function MeetingTimer({ isActive, isCompleted }: MeetingTimerProps) {
     prevIsActiveRef.current = isActive;
   }, [isActive]);
 
+  // Determine which duration to display
+  const displayDuration = isCompleted && meetingDurationSeconds !== undefined
+    ? meetingDurationSeconds  // Use actual meeting duration for completed meetings
+    : elapsed;                // Use local elapsed time for active/live meetings
+
   return (
     <div className="flex items-center gap-2 px-3 py-1.5 bg-muted/50 rounded-lg min-w-[100px] justify-center">
       <ClockIcon className="w-4 h-4 text-muted-foreground" />
       <span className="text-sm font-medium text-foreground tabular-nums">
-        {formatDuration(elapsed)}
+        {formatDuration(displayDuration)}
       </span>
     </div>
   );

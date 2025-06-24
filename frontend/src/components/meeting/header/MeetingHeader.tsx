@@ -115,6 +115,7 @@ export function MeetingHeader() {
                 <MeetingTimer 
                   isActive={isActive}
                   isCompleted={isCompleted}
+                  meetingDurationSeconds={meeting.recordingDurationSeconds}
                 />
               </div>
             ) : isCompleted ? (
@@ -127,6 +128,7 @@ export function MeetingHeader() {
                 <MeetingTimer 
                   isActive={false}
                   isCompleted={isCompleted}
+                  meetingDurationSeconds={meeting.recordingDurationSeconds}
                 />
               </div>
             ) : (
