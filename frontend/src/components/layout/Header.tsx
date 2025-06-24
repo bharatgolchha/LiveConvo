@@ -84,11 +84,12 @@ export function Header() {
 
   return (
     <header 
-      className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
-        isScrolled 
-          ? 'bg-background/95 backdrop-blur-md border-b border-border shadow-lg' 
-          : 'bg-background/80 backdrop-blur-sm border-b border-border'
-      }`}
+      className="fixed top-0 left-0 right-0 z-50 backdrop-blur-md border-b transition-all duration-300"
+      style={{ 
+        backgroundColor: isScrolled ? 'rgba(3, 7, 18, 0.95)' : 'rgba(3, 7, 18, 0.8)', 
+        borderColor: '#374151',
+        boxShadow: isScrolled ? '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)' : 'none'
+      }}
     >
       <nav className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16 relative">
@@ -101,7 +102,7 @@ export function Header() {
               height={32}
               className="object-contain transition-transform group-hover:scale-105"
             />
-            <span className="hidden sm:inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-primary/10 border border-primary/30 text-xs text-primary">
+            <span className="hidden sm:inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs" style={{ backgroundColor: 'rgba(22, 163, 74, 0.1)', border: '1px solid rgba(22, 163, 74, 0.3)', color: '#16a34a' }}>
               <Sparkles className="w-3 h-3" />
               Beta
             </span>
@@ -118,11 +119,23 @@ export function Header() {
                   ) : (
                     <Link
                       href={item.href || '#'}
-                      className={`px-4 py-2 text-sm font-medium transition-colors rounded-lg ${
-                        pathname === item.href
-                          ? 'text-foreground bg-muted'
-                          : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
-                      }`}
+                      className="px-4 py-2 text-sm font-medium transition-colors rounded-lg"
+                      style={{
+                        color: pathname === item.href ? '#ffffff' : '#d1d5db',
+                        backgroundColor: pathname === item.href ? '#374151' : 'transparent'
+                      }}
+                      onMouseEnter={(e) => {
+                        if (pathname !== item.href) {
+                          e.currentTarget.style.color = '#ffffff'
+                          e.currentTarget.style.backgroundColor = 'rgba(55, 65, 81, 0.5)'
+                        }
+                      }}
+                      onMouseLeave={(e) => {
+                        if (pathname !== item.href) {
+                          e.currentTarget.style.color = '#d1d5db'
+                          e.currentTarget.style.backgroundColor = 'transparent'
+                        }
+                      }}
                     >
                       {item.label}
                     </Link>
@@ -135,7 +148,16 @@ export function Header() {
                 <button
                   onClick={() => setIsResourcesOpen(!isResourcesOpen)}
                   onBlur={() => setTimeout(() => setIsResourcesOpen(false), 200)}
-                  className="px-4 py-2 text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted/50 rounded-lg transition-colors flex items-center gap-1"
+                  className="px-4 py-2 text-sm font-medium rounded-lg transition-colors flex items-center gap-1"
+                  style={{ color: '#d1d5db' }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.color = '#ffffff'
+                    e.currentTarget.style.backgroundColor = 'rgba(55, 65, 81, 0.5)'
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.color = '#d1d5db'
+                    e.currentTarget.style.backgroundColor = 'transparent'
+                  }}
                 >
                   Resources
                   <ChevronDown className={`w-4 h-4 transition-transform ${isResourcesOpen ? 'rotate-180' : ''}`} />
@@ -148,7 +170,8 @@ export function Header() {
                       animate={{ opacity: 1, y: 0 }}
                       exit={{ opacity: 0, y: -10 }}
                       transition={{ duration: 0.2 }}
-                      className="absolute top-full left-0 mt-2 w-72 bg-card rounded-xl border border-border shadow-2xl overflow-hidden"
+                      className="absolute top-full left-0 mt-2 w-72 rounded-xl shadow-2xl overflow-hidden"
+                      style={{ backgroundColor: '#1f2937', border: '1px solid #374151' }}
                     >
                       {resourcesItems.map((item) => {
                         const Icon = item.icon
@@ -156,17 +179,20 @@ export function Header() {
                           <Link
                             key={item.label}
                             href={item.href}
-                            className="flex items-start gap-3 p-4 hover:bg-muted/50 transition-colors group"
+                            className="flex items-start gap-3 p-4 transition-colors group"
+                            style={{ backgroundColor: 'transparent' }}
+                            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(55, 65, 81, 0.5)'}
+                            onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
                             onClick={() => setIsResourcesOpen(false)}
                           >
-                            <div className="p-2 rounded-lg bg-muted group-hover:bg-muted/80 transition-colors">
-                              <Icon className="w-4 h-4 text-muted-foreground" />
+                            <div className="p-2 rounded-lg transition-colors" style={{ backgroundColor: '#374151' }}>
+                              <Icon className="w-4 h-4" style={{ color: '#9ca3af' }} />
                             </div>
                             <div className="flex-1">
-                              <h4 className="text-sm font-medium text-foreground mb-0.5">
+                              <h4 className="text-sm font-medium mb-0.5" style={{ color: '#ffffff' }}>
                                 {item.label}
                               </h4>
-                              <p className="text-xs text-muted-foreground">
+                              <p className="text-xs" style={{ color: '#9ca3af' }}>
                                 {item.description}
                               </p>
                             </div>
@@ -184,7 +210,10 @@ export function Header() {
           <div className="hidden md:flex items-center gap-3">
               <button
                 onClick={() => router.push('/auth/login')}
-                className="px-4 py-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+                className="px-4 py-2 text-sm font-medium transition-colors"
+                style={{ color: '#d1d5db' }}
+                onMouseEnter={(e) => e.currentTarget.style.color = '#ffffff'}
+                onMouseLeave={(e) => e.currentTarget.style.color = '#d1d5db'}
               >
                 Sign In
               </button>
@@ -197,7 +226,16 @@ export function Header() {
                     router.push('/auth/signup')
                   }
                 }}
-                className="bg-primary hover:bg-primary/90 px-5 py-2 rounded-lg font-medium text-sm transition-all hover:shadow-lg hover:shadow-primary/25 text-primary-foreground"
+                className="px-5 py-2 rounded-lg font-medium text-sm transition-all"
+                style={{ backgroundColor: '#16a34a', color: '#ffffff' }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = '#15803d'
+                  e.currentTarget.style.boxShadow = '0 10px 15px -3px rgba(22, 163, 74, 0.25), 0 4px 6px -2px rgba(22, 163, 74, 0.25)'
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = '#16a34a'
+                  e.currentTarget.style.boxShadow = 'none'
+                }}
               >
                 Get Early Access
               </button>
@@ -206,7 +244,16 @@ export function Header() {
           {/* Mobile Menu Button */}
           <button
             onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-            className="md:hidden p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+            className="md:hidden p-2 rounded-lg transition-colors"
+            style={{ color: '#9ca3af' }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.color = '#ffffff'
+              e.currentTarget.style.backgroundColor = '#374151'
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.color = '#9ca3af'
+              e.currentTarget.style.backgroundColor = 'transparent'
+            }}
             aria-label="Toggle menu"
           >
             {isMobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
@@ -222,7 +269,8 @@ export function Header() {
             animate={{ opacity: 1, height: 'auto' }}
             exit={{ opacity: 0, height: 0 }}
             transition={{ duration: 0.3 }}
-            className="md:hidden bg-card border-t border-border"
+            className="md:hidden border-t"
+            style={{ backgroundColor: '#1f2937', borderColor: '#374151' }}
           >
             <div className="px-4 py-4 space-y-2">
               {primaryNavItems.map((item) => (
@@ -230,41 +278,71 @@ export function Header() {
                   {item.href ? (
                     <button
                       onClick={() => handleNavClick(item.href!)}
-                      className={`w-full text-left px-4 py-3 rounded-lg text-sm font-medium transition-colors ${
-                        pathname === item.href
-                          ? 'text-foreground bg-muted'
-                          : 'text-muted-foreground hover:text-foreground hover:bg-muted'
-                      }`}
+                      className="w-full text-left px-4 py-3 rounded-lg text-sm font-medium transition-colors"
+                      style={{
+                        color: pathname === item.href ? '#ffffff' : '#d1d5db',
+                        backgroundColor: pathname === item.href ? '#374151' : 'transparent'
+                      }}
+                      onMouseEnter={(e) => {
+                        if (pathname !== item.href) {
+                          e.currentTarget.style.color = '#ffffff'
+                          e.currentTarget.style.backgroundColor = '#374151'
+                        }
+                      }}
+                      onMouseLeave={(e) => {
+                        if (pathname !== item.href) {
+                          e.currentTarget.style.color = '#d1d5db'
+                          e.currentTarget.style.backgroundColor = 'transparent'
+                        }
+                      }}
                     >
                       {item.label}
                     </button>
                   ) : (
-                    <div className="px-4 py-3 text-sm font-medium text-muted-foreground">
+                    <div className="px-4 py-3 text-sm font-medium" style={{ color: '#9ca3af' }}>
                       {item.label}
                     </div>
                   )}
                 </div>
               ))}
 
-              <div className="border-t border-border pt-2">
-                                    <div className="px-4 py-2 text-xs font-medium text-muted-foreground uppercase">
+              <div className="border-t pt-2" style={{ borderColor: '#374151' }}>
+                <div className="px-4 py-2 text-xs font-medium uppercase" style={{ color: '#9ca3af' }}>
                   Resources
                 </div>
                 {resourcesItems.map((item) => (
                   <button
                     key={item.label}
                     onClick={() => handleNavClick(item.href)}
-                    className="w-full text-left px-4 py-3 rounded-lg text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                    className="w-full text-left px-4 py-3 rounded-lg text-sm font-medium transition-colors"
+                    style={{ color: '#d1d5db' }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.color = '#ffffff'
+                      e.currentTarget.style.backgroundColor = '#374151'
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.color = '#d1d5db'
+                      e.currentTarget.style.backgroundColor = 'transparent'
+                    }}
                   >
                     {item.label}
                   </button>
                 ))}
               </div>
 
-              <div className="border-t border-border pt-4 space-y-2">
+              <div className="border-t pt-4 space-y-2" style={{ borderColor: '#374151' }}>
                 <button
                   onClick={() => router.push('/auth/login')}
-                  className="w-full px-4 py-3 rounded-lg text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                  className="w-full px-4 py-3 rounded-lg text-sm font-medium transition-colors"
+                  style={{ color: '#d1d5db' }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.color = '#ffffff'
+                    e.currentTarget.style.backgroundColor = '#374151'
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.color = '#d1d5db'
+                    e.currentTarget.style.backgroundColor = 'transparent'
+                  }}
                 >
                   Sign In
                 </button>
@@ -278,7 +356,10 @@ export function Header() {
                       router.push('/auth/signup')
                     }
                   }}
-                  className="w-full bg-primary hover:bg-primary/90 px-4 py-3 rounded-lg font-medium text-sm transition-colors text-primary-foreground"
+                  className="w-full px-4 py-3 rounded-lg font-medium text-sm transition-colors"
+                  style={{ backgroundColor: '#16a34a', color: '#ffffff' }}
+                  onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#15803d'}
+                  onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#16a34a'}
                 >
                   Get Early Access
                 </button>

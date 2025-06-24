@@ -154,7 +154,7 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} ${poppins.variable} antialiased`}
       >
         <AuthErrorBoundary>
-          <ThemeProvider defaultTheme="system" storageKey="liveprompt-theme">
+          <ThemeProvider defaultTheme="dark" storageKey="liveprompt-theme">
             <AuthProvider>
               <BrowserCompatibilityNotice />
               {children}
