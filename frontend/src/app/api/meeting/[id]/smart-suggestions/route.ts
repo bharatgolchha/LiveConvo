@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { getCurrentDateContext } from '@/lib/utils';
+import { getDefaultAiModelServer } from '@/lib/systemSettingsServer';
 
 interface SuggestionItem {
   text: string;
@@ -125,7 +126,10 @@ Categories:
 
 Focus on what's actually happening in the conversation, not generic advice.`;
 
-    // Call OpenRouter API with cheaper Gemini model
+    // Get the default AI model (same as chat guidance)
+    const defaultModel = await getDefaultAiModelServer();
+
+    // Call OpenRouter API with the same model as chat guidance
     const openRouterResponse = await fetch('https://openrouter.ai/api/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -134,7 +138,7 @@ Focus on what's actually happening in the conversation, not generic advice.`;
         'X-Title': 'LivePrompt.ai Smart Suggestions'
       },
       body: JSON.stringify({
-        model: 'google/gemini-2.5-flash-lite-preview-06-17',
+        model: defaultModel,
         messages: [
           {
             role: 'user',

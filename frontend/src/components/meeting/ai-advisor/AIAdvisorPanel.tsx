@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useMeetingContext } from '@/lib/meeting/context/MeetingContext';
-import { EnhancedAIChat } from './EnhancedAIChat';
+import { EnhancedAIChat, EnhancedAIChatRef } from './EnhancedAIChat';
 import { SmartSuggestions } from './SmartSuggestions';
 import { MeetingInsights } from './MeetingInsights';
 import { QuickActions } from './QuickActions';
@@ -10,7 +10,8 @@ import {
   ChatBubbleLeftRightIcon,
   LightBulbIcon,
   ChartBarIcon,
-  Cog6ToothIcon
+  Cog6ToothIcon,
+  TrashIcon
 } from '@heroicons/react/24/outline';
 
 type TabType = 'chat' | 'suggestions' | 'insights' | 'settings';
@@ -28,10 +29,17 @@ export function AIAdvisorPanel({
   const [activeTab, setActiveTab] = useState<TabType>('chat');
   const [internalIsMinimized, setInternalIsMinimized] = useState(false);
   const [autoSwitched, setAutoSwitched] = useState(false);
+  const chatRef = useRef<EnhancedAIChatRef>(null);
   
   // Use external state if provided, otherwise use internal state
   const isMinimized = onMinimizedChange ? externalIsMinimized : internalIsMinimized;
   const setIsMinimized = onMinimizedChange || setInternalIsMinimized;
+
+  const handleClearChat = () => {
+    if (chatRef.current && activeTab === 'chat') {
+      chatRef.current.clearChat();
+    }
+  };
 
   // Auto-switch to Suggestions when meeting starts, only once
   useEffect(() => {
@@ -84,7 +92,7 @@ export function AIAdvisorPanel({
   const getTabContent = () => {
     switch (activeTab) {
       case 'chat':
-        return <EnhancedAIChat />;
+        return <EnhancedAIChat ref={chatRef} />;
       case 'suggestions':
         return <SmartSuggestions />;
       case 'insights':
@@ -92,7 +100,7 @@ export function AIAdvisorPanel({
       case 'settings':
         return <AdvisorSettings />;
       default:
-        return <EnhancedAIChat />;
+        return <EnhancedAIChat ref={chatRef} />;
     }
   };
 
@@ -114,20 +122,32 @@ export function AIAdvisorPanel({
               </div>
             )}
           </div>
-          <button
-            onClick={() => setIsMinimized(!isMinimized)}
-            className="p-1.5 hover:bg-muted rounded-md transition-colors"
-            title={isMinimized ? 'Expand' : 'Minimize'}
-          >
-            <motion.div
-              animate={{ rotate: isMinimized ? 180 : 0 }}
-              transition={{ duration: 0.2 }}
+          <div className="flex items-center gap-1">
+            {/* Clear chat button - only show when on chat tab */}
+            {activeTab === 'chat' && !isMinimized && (
+              <button
+                onClick={handleClearChat}
+                className="p-1.5 hover:bg-muted rounded-md transition-colors text-muted-foreground hover:text-foreground"
+                title="Clear chat history"
+              >
+                <TrashIcon className="w-4 h-4" />
+              </button>
+            )}
+            <button
+              onClick={() => setIsMinimized(!isMinimized)}
+              className="p-1.5 hover:bg-muted rounded-md transition-colors"
+              title={isMinimized ? 'Expand' : 'Minimize'}
             >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-              </svg>
-            </motion.div>
-          </button>
+              <motion.div
+                animate={{ rotate: isMinimized ? 180 : 0 }}
+                transition={{ duration: 0.2 }}
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+              </motion.div>
+            </button>
+          </div>
         </div>
 
         {/* Tabs */}
@@ -171,7 +191,7 @@ export function AIAdvisorPanel({
         ) : (
           <div className="h-full">
             <div className={`${activeTab === 'chat' ? 'block h-full' : 'hidden'}`}>
-              <EnhancedAIChat />
+              <EnhancedAIChat ref={chatRef} />
             </div>
             <div className={`${activeTab === 'suggestions' ? 'block h-full' : 'hidden'}`}>
               <SmartSuggestions />
