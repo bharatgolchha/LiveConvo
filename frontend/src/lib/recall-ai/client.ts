@@ -9,6 +9,14 @@ export interface CreateBotParams {
   sessionId: string;
   botName?: string;
   transcriptionProvider?: 'deepgram' | 'speechmatics' | 'recall_ai';
+  metadata?: {
+    userEmail?: string;
+    userName?: string;
+    organizationId?: string;
+    organizationName?: string;
+    meetingTitle?: string;
+    platform?: string;
+  };
 }
 
 export interface RecallBot {
@@ -52,6 +60,7 @@ export class RecallAIClient {
       metadata: {
         session_id: params.sessionId,
         source: 'liveprompt',
+        ...(params.metadata || {}),
       },
       recording_config: {
         transcript: {
@@ -65,17 +74,7 @@ export class RecallAIClient {
               'transcript.data', 
               'transcript.partial_data',
               'participant_events.join',
-              'participant_events.leave',
-              // Add bot status events for per-bot webhook
-              'bot.joining_call',
-              'bot.in_waiting_room',
-              'bot.in_call_not_recording',
-              'bot.recording_permission_allowed',
-              'bot.in_call_recording',
-              'bot.recording_permission_denied',
-              'bot.call_ended',
-              'bot.done',
-              'bot.fatal'
+              'participant_events.leave'
             ]
           },
         ] : [],
