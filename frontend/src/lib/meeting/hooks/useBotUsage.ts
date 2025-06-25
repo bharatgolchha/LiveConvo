@@ -23,6 +23,12 @@ export interface BotUsageStats {
   avgSessionLength: number;
   currentMonthMinutes: number;
   currentMonthCost: number;
+  monthlyBotMinutesLimit: number;
+  remainingMinutes: number;
+  overageMinutes: number;
+  overageCost: number;
+  planName: string;
+  planDisplayName: string;
 }
 
 export interface BotUsageData {
@@ -42,6 +48,12 @@ export function useBotUsage(organizationId?: string) {
       avgSessionLength: 0,
       currentMonthMinutes: 0,
       currentMonthCost: 0,
+      monthlyBotMinutesLimit: 60,
+      remainingMinutes: 60,
+      overageMinutes: 0,
+      overageCost: 0,
+      planName: 'individual_free',
+      planDisplayName: 'Free',
     },
     loading: true,
     error: null,
@@ -99,28 +111,46 @@ export function useBotUsage(organizationId?: string) {
       console.log('✅ Bot usage data received:', result);
       
       // Map API response to expected format
-      const sessions: BotUsageSession[] = result.data?.sessions?.map((session: any) => ({
-        id: session.id, // Use the unique bot_usage_tracking ID
-        sessionId: session.sessionId, // Keep the actual session ID
-        title: session.sessionTitle,
-        meetingPlatform: session.platform,
-        recordingStartedAt: session.recordingStarted,
-        recordingEndedAt: session.recordingEnded,
-        recordingDurationSeconds: session.recordingSeconds,
-        botRecordingMinutes: session.billableMinutes,
-        botBillableAmount: (session.billableMinutes * 0.10).toFixed(2),
-        createdAt: session.createdAt,
-        botId: session.botId,
-        status: session.status,
-      })) || [];
+      const sessions: BotUsageSession[] = result.data?.sessions?.map((session: any) => {
+        // Calculate cost per session based on plan limits
+        const remainingMinutesAtSessionTime = Math.max(0, 
+          (result.data?.summary?.monthlyBotMinutesLimit || 60) - 
+          (result.data?.sessions?.filter((s: any) => s.createdAt < session.createdAt)
+            .reduce((sum: number, s: any) => sum + s.billableMinutes, 0) || 0)
+        );
+        const sessionCost = session.billableMinutes <= remainingMinutesAtSessionTime 
+          ? 0 
+          : (session.billableMinutes - remainingMinutesAtSessionTime) * 0.10;
+
+        return {
+          id: session.id, // Use the unique bot_usage_tracking ID
+          sessionId: session.sessionId, // Keep the actual session ID
+          title: session.sessionTitle,
+          meetingPlatform: session.platform,
+          recordingStartedAt: session.recordingStarted,
+          recordingEndedAt: session.recordingEnded,
+          recordingDurationSeconds: session.recordingSeconds,
+          botRecordingMinutes: session.billableMinutes,
+          botBillableAmount: sessionCost.toFixed(2),
+          createdAt: session.createdAt,
+          botId: session.botId,
+          status: session.status,
+        };
+      }) || [];
 
       const stats: BotUsageStats = {
         totalSessions: result.data?.summary?.totalSessions || 0,
         totalMinutes: result.data?.summary?.totalBillableMinutes || 0,
-        totalCost: (result.data?.summary?.totalBillableMinutes || 0) * 0.10,
+        totalCost: result.data?.summary?.totalCost || 0,
         avgSessionLength: result.data?.summary?.averageMinutesPerSession || 0,
         currentMonthMinutes: result.data?.summary?.totalBillableMinutes || 0,
-        currentMonthCost: (result.data?.summary?.totalBillableMinutes || 0) * 0.10,
+        currentMonthCost: result.data?.summary?.totalCost || 0,
+        monthlyBotMinutesLimit: result.data?.summary?.monthlyBotMinutesLimit || 60,
+        remainingMinutes: result.data?.summary?.remainingMinutes || 0,
+        overageMinutes: result.data?.summary?.overageMinutes || 0,
+        overageCost: result.data?.summary?.overageCost || 0,
+        planName: result.data?.subscription?.planName || 'individual_free',
+        planDisplayName: result.data?.subscription?.planDisplayName || 'Free',
       };
       
       setData(prev => ({
