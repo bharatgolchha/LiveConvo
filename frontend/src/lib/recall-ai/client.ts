@@ -65,7 +65,17 @@ export class RecallAIClient {
               'transcript.data', 
               'transcript.partial_data',
               'participant_events.join',
-              'participant_events.leave'
+              'participant_events.leave',
+              // Add bot status events for per-bot webhook
+              'bot.joining_call',
+              'bot.in_waiting_room',
+              'bot.in_call_not_recording',
+              'bot.recording_permission_allowed',
+              'bot.in_call_recording',
+              'bot.recording_permission_denied',
+              'bot.call_ended',
+              'bot.done',
+              'bot.fatal'
             ]
           },
         ] : [],

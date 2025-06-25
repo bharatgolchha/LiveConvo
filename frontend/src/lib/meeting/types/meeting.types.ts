@@ -51,4 +51,5 @@ export interface BotStatus {
   recordingId?: string;
   botId?: string;
   completedAt?: string;
+  localStatus?: string; // Local database status for reconciliation
 }

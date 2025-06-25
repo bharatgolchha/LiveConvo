@@ -9,11 +9,11 @@ export async function GET(
   try {
     const { id: sessionId } = await params;
     
-    // Get the session with bot info
+    // Get the session with bot info and current status
     const supabase = createServerSupabaseClient();
     const { data: session, error } = await supabase
       .from('sessions')
-      .select('recall_bot_id')
+      .select('recall_bot_id, recall_bot_status, status')
       .eq('id', sessionId)
       .single();
 
@@ -31,6 +31,13 @@ export async function GET(
         { status: 200 }
       );
     }
+    
+    // Check bot usage tracking status
+    const { data: botUsage } = await supabase
+      .from('bot_usage_tracking')
+      .select('status, recording_ended_at')
+      .eq('bot_id', session.recall_bot_id)
+      .single();
 
     // Get bot status from Recall.ai
     const recallClient = new RecallAIClient({
@@ -93,13 +100,58 @@ export async function GET(
         // Or video mixed shortcut id as last resort
         botData.media_shortcuts?.video_mixed?.id;
 
-      console.log('✅ Returning bot status:', status);
+      console.log('✅ Recall.ai bot status:', status);
+      
+      // Reconcile status if there's a mismatch
+      if (status === 'completed' && botUsage?.status !== 'completed') {
+        console.log('🔄 Status mismatch detected, updating local database');
+        
+        // Update bot usage tracking
+        await supabase
+          .from('bot_usage_tracking')
+          .update({
+            status: 'completed',
+            recording_ended_at: (bot as any).completed_at || new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          })
+          .eq('bot_id', bot.id);
+          
+        // Update session status
+        await supabase
+          .from('sessions')
+          .update({
+            status: 'completed',
+            recall_bot_status: 'completed',
+            recording_ended_at: (bot as any).completed_at || new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', sessionId);
+          
+        // Trigger bot usage calculation if needed
+        if (botUsage && !botUsage.recording_ended_at) {
+          try {
+            const response = await fetch(
+              `${process.env.NEXT_PUBLIC_APP_URL}/api/meeting/${sessionId}/calculate-bot-usage`,
+              {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+              }
+            );
+            if (!response.ok) {
+              console.error('❌ Failed to calculate bot usage');
+            }
+          } catch (calcError) {
+            console.error('❌ Error calculating bot usage:', calcError);
+          }
+        }
+      }
 
       return NextResponse.json({
         status,
         botId: bot.id,
         recordingId,
-        completedAt: (bot as any).completed_at ?? undefined
+        completedAt: (bot as any).completed_at ?? undefined,
+        localStatus: botUsage?.status // Include local status for debugging
       });
     } catch (recallError: any) {
       console.error('Recall.ai API error:', recallError);

@@ -2,7 +2,8 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 
 export interface BotUsageSession {
-  id: string;
+  id: string; // Unique tracking ID from bot_usage_tracking table
+  sessionId: string; // The actual session ID
   title: string;
   meetingPlatform: string;
   recordingStartedAt: string;
@@ -99,7 +100,8 @@ export function useBotUsage(organizationId?: string) {
       
       // Map API response to expected format
       const sessions: BotUsageSession[] = result.data?.sessions?.map((session: any) => ({
-        id: session.sessionId,
+        id: session.id, // Use the unique bot_usage_tracking ID
+        sessionId: session.sessionId, // Keep the actual session ID
         title: session.sessionTitle,
         meetingPlatform: session.platform,
         recordingStartedAt: session.recordingStarted,
