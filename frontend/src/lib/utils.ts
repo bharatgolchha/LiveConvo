@@ -198,4 +198,26 @@ export const getConversationStatusWithDate = (session: {
     default:
       return `Created ${formatConversationDate(session.created_at, 'relative')}`;
   }
+};
+
+/**
+ * Get current date context for AI prompts
+ * Returns a formatted string with today's date and day of week for AI context
+ */
+export const getCurrentDateContext = (): string => {
+  const now = new Date();
+  const dateString = now.toLocaleDateString('en-US', {
+    weekday: 'long',
+    year: 'numeric', 
+    month: 'long',
+    day: 'numeric'
+  });
+  const timeString = now.toLocaleTimeString('en-US', {
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true,
+    timeZoneName: 'short'
+  });
+  
+  return `Current date and time: ${dateString} at ${timeString}`;
 }; 

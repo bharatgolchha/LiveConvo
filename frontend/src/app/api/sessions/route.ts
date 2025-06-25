@@ -330,64 +330,106 @@ export async function POST(request: NextRequest) {
  */
 async function getLinkedConversations(sessionIds: string[], organizationId: string, authClient: ReturnType<typeof createAuthenticatedSupabaseClient>): Promise<Map<string, LinkedConversationsData>> {
   try {
-    // Get session context data for the requested sessions
-    const { data: contextData, error } = await authClient
-      .from('session_context')
-      .select('session_id, context_metadata')
-      .eq('organization_id', organizationId)
-      .in('session_id', sessionIds)
-      .not('context_metadata', 'is', null);
+    if (sessionIds.length === 0) {
+      return new Map();
+    }
+
+    // Get linked conversations from conversation_links table with session details
+    const { data: linkedData, error } = await authClient
+      .from('conversation_links')
+      .select(`
+        session_id,
+        linked_session_id,
+        linked_session:sessions!conversation_links_linked_session_id_fkey (
+          id,
+          title,
+          created_at,
+          conversation_type
+        )
+      `)
+      .in('session_id', sessionIds);
 
     if (error) {
       console.error('Error fetching linked conversations:', error);
       return new Map();
     }
 
-    const linkedData = new Map<string, LinkedConversationsData>();
+    const linkedMap = new Map<string, LinkedConversationsData>();
 
     // Initialize all session IDs with empty data
-    sessionIds.forEach(id => linkedData.set(id, { count: 0, conversations: [] }));
+    sessionIds.forEach(id => linkedMap.set(id, { count: 0, conversations: [] }));
 
-    // Get all unique previous conversation IDs to fetch their titles
-    const allPreviousIds = new Set<string>();
-    contextData?.forEach((context: SessionContext) => {
-      if (context.context_metadata?.selectedPreviousConversations && Array.isArray(context.context_metadata.selectedPreviousConversations)) {
-        context.context_metadata.selectedPreviousConversations.forEach((id: string) => allPreviousIds.add(id));
-      }
-    });
+    // Process the linked conversations data
+    if (linkedData && linkedData.length > 0) {
+      // Group by session_id
+      linkedData.forEach((link: any) => {
+        const sessionId = link.session_id;
+        const linkedSession = link.linked_session;
+        
+        if (linkedSession) {
+          const existingData = linkedMap.get(sessionId) || { count: 0, conversations: [] };
+          
+          existingData.conversations.push({
+            id: linkedSession.id,
+            title: linkedSession.title || 'Untitled Conversation'
+          });
+          existingData.count = existingData.conversations.length;
+          
+          linkedMap.set(sessionId, existingData);
+        }
+      });
+    }
 
-    // Fetch titles for all previous conversations
-    const conversationTitles = new Map<string, string>();
-    if (allPreviousIds.size > 0) {
-      const { data: sessionTitles, error: titlesError } = await authClient
-        .from('sessions')
-        .select('id, title')
-        .in('id', Array.from(allPreviousIds));
+    // Also check session_context for backwards compatibility
+    const { data: contextData, error: contextError } = await authClient
+      .from('session_context')
+      .select('session_id, context_metadata')
+      .eq('organization_id', organizationId)
+      .in('session_id', sessionIds)
+      .not('context_metadata', 'is', null);
 
-      if (!titlesError && sessionTitles) {
-        sessionTitles.forEach((session: { id: string, title: string }) => {
-          conversationTitles.set(session.id, session.title);
-        });
+    if (!contextError && contextData) {
+      // Get all unique previous conversation IDs from context metadata
+      const allPreviousIds = new Set<string>();
+      contextData.forEach((context: SessionContext) => {
+        if (context.context_metadata?.selectedPreviousConversations && Array.isArray(context.context_metadata.selectedPreviousConversations)) {
+          context.context_metadata.selectedPreviousConversations.forEach((id: string) => allPreviousIds.add(id));
+        }
+      });
+
+      // Fetch titles for context-based linked conversations
+      if (allPreviousIds.size > 0) {
+        const { data: sessionTitles, error: titlesError } = await authClient
+          .from('sessions')
+          .select('id, title')
+          .in('id', Array.from(allPreviousIds));
+
+        if (!titlesError && sessionTitles) {
+          // Add context-based linked conversations if not already in conversation_links
+          contextData.forEach((context: SessionContext) => {
+            if (context.context_metadata?.selectedPreviousConversations && Array.isArray(context.context_metadata.selectedPreviousConversations)) {
+              const existingData = linkedMap.get(context.session_id) || { count: 0, conversations: [] };
+              const existingIds = new Set(existingData.conversations.map(c => c.id));
+              
+              context.context_metadata.selectedPreviousConversations.forEach((id: string) => {
+                if (!existingIds.has(id)) {
+                  const sessionTitle = sessionTitles.find((s: any) => s.id === id);
+                  existingData.conversations.push({
+                    id,
+                    title: sessionTitle?.title || 'Untitled Conversation'
+                  });
+                }
+              });
+              
+              existingData.count = existingData.conversations.length;
+              linkedMap.set(context.session_id, existingData);
+            }
+          });
+        }
       }
     }
 
-    // Process each session's linked conversations
-    contextData?.forEach((context: SessionContext) => {
-      if (context.context_metadata?.selectedPreviousConversations && Array.isArray(context.context_metadata.selectedPreviousConversations)) {
-        const selectedIds = context.context_metadata.selectedPreviousConversations;
-        const conversations: LinkedConversation[] = selectedIds.map((id: string) => ({
-          id,
-          title: conversationTitles.get(id) || 'Untitled Conversation'
-        }));
-
-        linkedData.set(context.session_id, {
-          count: selectedIds.length,
-          conversations
-        });
-      }
-    });
-
-    return linkedData;
+    return linkedMap;
   } catch (error) {
     console.error('Error in getLinkedConversations:', error);
     return new Map();

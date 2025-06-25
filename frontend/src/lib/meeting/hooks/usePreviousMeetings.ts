@@ -7,6 +7,7 @@ export function usePreviousMeetings(sessionId: string) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [expandedCards, setExpandedCards] = useState<Set<string>>(new Set());
+  const [isRemoving, setIsRemoving] = useState<string | null>(null);
 
   const fetchLinkedConversations = useCallback(async () => {
     if (!sessionId) return;
@@ -139,6 +140,45 @@ export function usePreviousMeetings(sessionId: string) {
     return context;
   }, []);
 
+  const removeLinkedConversation = useCallback(async (linkedSessionId: string) => {
+    if (!sessionId) return;
+
+    setIsRemoving(linkedSessionId);
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        throw new Error('No authentication token available');
+      }
+
+      const response = await fetch(`/api/sessions/${sessionId}/linked-conversations`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ sessionIds: [linkedSessionId] })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to remove linked conversation');
+      }
+
+      // Optimistically update the UI
+      setLinkedConversations(prev => prev.filter(conv => conv.linked_session_id !== linkedSessionId));
+      
+      console.log('✅ Meeting removed successfully');
+    } catch (err) {
+      console.error('Error removing linked conversation:', err);
+      setError(err instanceof Error ? err.message : 'Failed to remove meeting');
+      // Refetch to ensure UI is in sync
+      fetchLinkedConversations();
+    } finally {
+      setIsRemoving(null);
+    }
+  }, [sessionId, fetchLinkedConversations]);
+
   // Load data when sessionId changes
   useEffect(() => {
     if (sessionId) {
@@ -153,6 +193,8 @@ export function usePreviousMeetings(sessionId: string) {
     expandedCards,
     toggleExpanded,
     askAboutMeeting,
-    refetch: fetchLinkedConversations
+    refetch: fetchLinkedConversations,
+    removeLinkedConversation,
+    isRemoving
   };
 } 

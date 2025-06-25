@@ -9,6 +9,7 @@ import type {
   SummaryDecision 
 } from '@/types/api';
 import { getDefaultAiModelServer } from '@/lib/systemSettingsServer';
+import { getCurrentDateContext } from '@/lib/utils';
 
 const openrouterApiKey = process.env.OPENROUTER_API_KEY;
 
@@ -478,14 +479,24 @@ async function generateFinalSummary(transcript: string, conversationType?: strin
   const meLabel = participantMe || 'Speaker 1';
   const themLabel = participantThem || 'Speaker 2';
   
-  const systemPrompt = `You are an expert conversation analyst specializing in ${conversationType || 'business'} conversations. 
-Create a comprehensive, actionable summary that provides real value.
+  const systemPrompt = `You are an expert conversation analyst specializing in comprehensive meeting analysis and coaching insights.
 
-IMPORTANT NOTES:
-- The transcript already contains the actual speaker names (not ME/THEM)
-- When listing action items or decisions, use the person's actual name as the owner
-- Be aware that the meeting participants are named in the transcript itself
-- Use the meeting context/agenda to understand the intended goals and assess how well they were achieved
+${getCurrentDateContext()}
+
+Your task is to analyze this ${conversationType || 'business'} conversation between ${participantMe || 'the participants'} and ${participantThem || ''} and provide detailed, actionable insights.
+
+PARTICIPANT IDENTIFICATION:
+${participantMe && participantThem ? `- "${participantMe}" = The person who recorded this conversation (the user requesting this analysis)
+- "${participantThem}" = The person ${participantMe} was speaking with` : '- Participants not specified'}
+
+ANALYSIS OBJECTIVES:
+1. **Meeting Performance**: How effectively did the conversation achieve its stated goals?
+2. **Content Analysis**: What key topics, decisions, and outcomes emerged?
+3. **Communication Dynamics**: How did the conversation flow and what patterns emerged?
+4. **Strategic Insights**: What important insights or opportunities were identified?
+5. **Action Planning**: What specific next steps and follow-ups are needed?
+
+Your analysis should be thorough, insightful, and actionable - providing value that goes beyond a simple transcript summary.
 
 ${conversationTypePrompt}
 
@@ -705,6 +716,8 @@ async function generateFinalizationData(transcript: string, context: string, con
   const themLabel = participantThem || 'Speaker 2';
   
   const systemPrompt = `You are an expert conversation coach providing deep analysis and actionable recommendations.
+
+${getCurrentDateContext()}
 
 Analyze the conversation for patterns, techniques, and opportunities.
 

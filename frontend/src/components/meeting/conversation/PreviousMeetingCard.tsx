@@ -13,7 +13,8 @@ import {
   SparklesIcon,
   CheckCircleIcon,
   ExclamationCircleIcon,
-  ClockIcon as PendingIcon
+  ClockIcon as PendingIcon,
+  XMarkIcon
 } from '@heroicons/react/24/outline';
 import { PreviousMeetingCardProps, ActionItem } from '@/lib/meeting/types/previous-meetings.types';
 import { Badge } from '@/components/ui/badge';
@@ -65,8 +66,10 @@ function formatDueDate(dueDate: string): string {
 export function PreviousMeetingCard({ 
   conversation, 
   onExpand, 
-  onAskQuestion, 
-  isExpanded 
+  onAskQuestion,
+  onRemove,
+  isExpanded,
+  isRemoving 
 }: PreviousMeetingCardProps) {
   const [isAsking, setIsAsking] = useState(false);
   
@@ -126,7 +129,7 @@ export function PreviousMeetingCard({
     <motion.div
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
-      className="bg-card border border-border rounded-xl overflow-hidden hover:shadow-md transition-all duration-200"
+      className={`bg-card border border-border rounded-xl overflow-hidden hover:shadow-md transition-all duration-200 ${isRemoving ? 'opacity-50' : ''}`}
     >
       {/* Header */}
       <div className="p-4">
@@ -167,11 +170,24 @@ export function PreviousMeetingCard({
           </div>
           
           <div className="flex items-center gap-2 ml-4">
+            {onRemove && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => onRemove(conversation.linked_session_id)}
+                disabled={isRemoving}
+                className="p-1 hover:bg-destructive/10 hover:text-destructive"
+                title="Remove this meeting"
+              >
+                <XMarkIcon className="w-4 h-4" />
+              </Button>
+            )}
+            
             <Button
               variant="outline"
               size="sm"
               onClick={handleAskQuestion}
-              disabled={isAsking}
+              disabled={isAsking || isRemoving}
               className="text-xs"
             >
               {isAsking ? (
@@ -191,6 +207,7 @@ export function PreviousMeetingCard({
               variant="ghost"
               size="sm"
               onClick={() => onExpand(conversation.linked_session_id)}
+              disabled={isRemoving}
               className="p-1"
             >
               {isExpanded ? (

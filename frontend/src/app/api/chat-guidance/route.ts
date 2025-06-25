@@ -4,6 +4,7 @@ import { updateRunningSummary } from '@/lib/summarizer';
 import { z } from 'zod';
 import { getDefaultAiModelServer } from '@/lib/systemSettingsServer';
 import { createAuthenticatedSupabaseClient } from '@/lib/supabase';
+import { getCurrentDateContext } from '@/lib/utils';
 
 // Helper function to format dates in a human-readable way
 function formatMeetingDate(dateString: string): string {
@@ -414,6 +415,8 @@ export async function POST(request: NextRequest) {
       
       return `You are an expert ${conv || 'meeting'} conversation coach generating contextual action suggestions for ${meLabel} during their conversation with ${themLabel}.
 
+${getCurrentDateContext()}
+
 PARTICIPANTS:
 - "${meLabel}" = The person using this AI advisor (needs suggestions)
 - "${themLabel}" = The person ${meLabel} is speaking with
@@ -725,6 +728,8 @@ function getChatGuidanceSystemPrompt(
   */
 
   return `You are ${meLabel}'s helpful AI meeting advisor. Your job is to be genuinely useful - answer questions directly, give practical advice, and help ${meLabel} navigate their conversation with ${themLabel}.
+
+${getCurrentDateContext()}
 
 CURRENT SITUATION: ${modeDescriptor}${meetingContextSection}
 

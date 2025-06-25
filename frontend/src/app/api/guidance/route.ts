@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
 import { getDefaultAiModelServer } from '@/lib/systemSettingsServer';
+import { getCurrentDateContext } from '@/lib/utils';
 
 export async function POST(request: NextRequest) {
   try {
@@ -94,6 +95,8 @@ function getSystemPrompt(conversationType?: string, participantRole?: string, pa
   const themLabel = participantThem || 'The other participant';
   
   const basePrompt = `You are an expert conversation coach providing real-time guidance to help ${meLabel} navigate their conversation with ${themLabel}.
+
+${getCurrentDateContext()}
 
 PARTICIPANT ROLES (CRITICAL - READ CAREFULLY):
 - "${meLabel}" = The person using this AI advisor who needs guidance (the one asking for help)
