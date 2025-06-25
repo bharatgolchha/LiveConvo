@@ -6,7 +6,7 @@
     },
     {
       "path": "/api/cron/sync-bot-status",
-      "schedule": "0 */6 * * *"
+      "schedule": "*/30 * * * *"
     },
     {
       "path": "/api/cron/process-webhook-retries",
