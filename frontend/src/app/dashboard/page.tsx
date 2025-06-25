@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
@@ -17,7 +17,8 @@ import {
   ArrowRightOnRectangleIcon,
   ChevronDownIcon,
   TrashIcon,
-  XCircleIcon
+  XCircleIcon,
+  LinkIcon
 } from '@heroicons/react/24/outline';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
@@ -27,6 +28,7 @@ import ProtectedRoute from '@/components/auth/ProtectedRoute';
 import { OnboardingModal } from '@/components/auth/OnboardingModal';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSessions, type Session } from '@/lib/hooks/useSessions';
+import { useSessionThreads } from '@/lib/hooks/useSessionThreads';
 import { useUserStats, defaultStats } from '@/lib/hooks/useUserStats';
 import { useSessionData } from '@/lib/hooks/useSessionData';
 import { useSubscription } from '@/lib/hooks/useSubscription';
@@ -36,6 +38,7 @@ import { SettingsPanel } from '@/components/settings/SettingsPanel';
 import { ConversationListDate } from '@/components/ui/ConversationDateIndicator';
 import { LoadingModal } from '@/components/ui/LoadingModal';
 import type { ConversationConfig } from '@/types/app';
+import { ConversationThread } from '@/components/dashboard/ConversationThread';
 import dynamic from 'next/dynamic';
 
 // Dynamically load smaller components to reduce initial bundle size
@@ -87,6 +90,7 @@ const DashboardPage: React.FC = () => {
   const [isNavigating, setIsNavigating] = useState(false);
   const [navigationSessionTitle, setNavigationSessionTitle] = useState('');
   const [isNewSession, setIsNewSession] = useState(false);
+  const [groupByThread, setGroupByThread] = useState(true);
 
   // Get sessions and stats from hooks
   const { 
@@ -121,6 +125,9 @@ const DashboardPage: React.FC = () => {
     planType
   } = useSubscription();
 
+  // Get thread grouping for sessions
+  const { enhancedSessions, threads, standaloneSessions, isGrouped } = useSessionThreads(sessions, groupByThread);
+
   // Get auth session for API calls
   const { session: authSession } = useAuth();
 
@@ -152,17 +159,58 @@ const DashboardPage: React.FC = () => {
     }
   }, [sessionsError]);
 
-  // Filter sessions based on search query and active path
-  const filteredSessions = sessions.filter(session => {
-    // Filter by archive status
-    if (activePath === 'archive' && session.status !== 'archived') return false;
-    if (activePath === 'conversations' && session.status === 'archived') return false;
-    
-    // Filter by search query
-    if (!searchQuery) return true;
-    return session.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-           session.conversation_type?.toLowerCase().includes(searchQuery.toLowerCase());
-  });
+  // Filter sessions or threads based on search query and active path
+  const filtered = useMemo(() => {
+    if (isGrouped) {
+      // Filter threads and standalone sessions
+      const filteredThreads = threads.filter(thread => {
+        const latestSession = thread.sessions[thread.sessions.length - 1];
+        // Filter by archive status
+        if (activePath === 'archive' && latestSession.status !== 'archived') return false;
+        if (activePath === 'conversations' && latestSession.status === 'archived') return false;
+        
+        // Filter by search query
+        if (!searchQuery) return true;
+        return thread.sessions.some(session => 
+          session.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          session.conversation_type?.toLowerCase().includes(searchQuery.toLowerCase())
+        );
+      });
+      
+      const filteredStandalone = standaloneSessions.filter(session => {
+        // Filter by archive status
+        if (activePath === 'archive' && session.status !== 'archived') return false;
+        if (activePath === 'conversations' && session.status === 'archived') return false;
+        
+        // Filter by search query
+        if (!searchQuery) return true;
+        return session.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+               session.conversation_type?.toLowerCase().includes(searchQuery.toLowerCase());
+      });
+      
+      return { threads: filteredThreads, standalone: filteredStandalone };
+    } else {
+      // Regular session filtering
+      const filteredSessions = enhancedSessions.filter(session => {
+        // Filter by archive status
+        if (activePath === 'archive' && session.status !== 'archived') return false;
+        if (activePath === 'conversations' && session.status === 'archived') return false;
+        
+        // Filter by search query
+        if (!searchQuery) return true;
+        return session.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+               session.conversation_type?.toLowerCase().includes(searchQuery.toLowerCase());
+      });
+      
+      return { sessions: filteredSessions };
+    }
+  }, [isGrouped, threads, standaloneSessions, enhancedSessions, activePath, searchQuery]);
+  
+  const totalFilteredCount = useMemo(() => {
+    return isGrouped 
+      ? (filtered.threads?.length || 0) + (filtered.standalone?.length || 0)
+      : (filtered.sessions?.length || 0);
+  }, [filtered, isGrouped]);
 
   const handleSearch = (query: string) => {
     setSearchQuery(query);
@@ -320,10 +368,21 @@ const DashboardPage: React.FC = () => {
   };
 
   const handleSelectAll = () => {
-    if (selectedSessions.size === filteredSessions.length) {
+    const allSessionIds = () => {
+      if (isGrouped) {
+        const threadSessionIds = filtered.threads?.flatMap(thread => thread.sessions.map(s => s.id)) || [];
+        const standaloneSessionIds = filtered.standalone?.map(s => s.id) || [];
+        return [...threadSessionIds, ...standaloneSessionIds];
+      } else {
+        return filtered.sessions?.map(s => s.id) || [];
+      }
+    };
+    
+    const allIds = allSessionIds();
+    if (selectedSessions.size === allIds.length) {
       setSelectedSessions(new Set());
     } else {
-      setSelectedSessions(new Set(filteredSessions.map(s => s.id)));
+      setSelectedSessions(new Set(allIds));
     }
   };
 
@@ -395,7 +454,7 @@ const DashboardPage: React.FC = () => {
     window.location.reload();
   };
 
-  const activeSessions = filteredSessions.filter(s => s.status === 'active');
+  const activeSessions = enhancedSessions.filter(s => s.status === 'active');
   const hasAnySessions = sessions.length > 0;
 
   const handleCreateFollowUp = async (originalSession: Session) => {
@@ -567,13 +626,13 @@ const DashboardPage: React.FC = () => {
                     className="mb-4"
                   >
                     <p className="text-muted-foreground">
-                      {filteredSessions.length} result{filteredSessions.length === 1 ? '' : 's'} for &quot;{searchQuery}&quot;
+                      {totalFilteredCount} result{totalFilteredCount === 1 ? '' : 's'} for &quot;{searchQuery}&quot;
                     </p>
                   </motion.div>
                 )}
 
                 {/* Meetings Inbox List */}
-                {filteredSessions.length > 0 ? (
+                {totalFilteredCount > 0 ? (
                   <motion.div 
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
@@ -587,7 +646,7 @@ const DashboardPage: React.FC = () => {
                           <label className="flex items-center">
                             <input
                               type="checkbox"
-                              checked={selectedSessions.size === filteredSessions.length && filteredSessions.length > 0}
+                              checked={selectedSessions.size === totalFilteredCount && totalFilteredCount > 0}
                               onChange={handleSelectAll}
                               className="rounded border-input text-app-primary focus:ring-app-primary"
                             />
@@ -598,8 +657,8 @@ const DashboardPage: React.FC = () => {
                               `${selectedSessions.size} selected`
                             ) : (
                               activePath === 'archive' 
-                                ? `Archived Meetings (${filteredSessions.length})`
-                                : `Meetings (${filteredSessions.length})`
+                                ? `Archived Meetings (${totalFilteredCount})`
+                                : `Meetings (${totalFilteredCount})`
                             )}
                           </h2>
                           
@@ -636,13 +695,20 @@ const DashboardPage: React.FC = () => {
                         
                         {selectedSessions.size === 0 && (
                           <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                            <button
+                              onClick={() => setGroupByThread(!groupByThread)}
+                              className="flex items-center gap-1.5 px-2 py-1 hover:bg-muted/50 rounded transition-colors"
+                            >
+                              <LinkIcon className="w-3.5 h-3.5" />
+                              {groupByThread ? 'Grouped' : 'List View'}
+                            </button>
                             <span className="flex items-center gap-2">
                               <div className="w-2 h-2 rounded-full bg-app-success"></div>
-                              Active ({filteredSessions.filter(s => s.status === 'active').length})
+                              Active ({activeSessions.length})
                             </span>
                             <span className="flex items-center gap-2">
                               <div className="w-2 h-2 rounded-full bg-app-primary"></div>
-                              Completed ({filteredSessions.filter(s => s.status === 'completed').length})
+                              Completed ({enhancedSessions.filter(s => s.status === 'completed').length})
                             </span>
                           </div>
                         )}
@@ -651,19 +717,58 @@ const DashboardPage: React.FC = () => {
 
                     {/* Meeting List */}
                     <div className="flex-1 overflow-y-auto overflow-x-visible p-4 space-y-3">
-                      {filteredSessions.map((session) => (
-                        <ConversationInboxItem
-                          key={`dashboard-session-${session.id}`}
-                          session={session}
-                          isSelected={selectedSessions.has(session.id)}
-                          onClick={() => handleSessionSelect(session.id)}
-                          onResume={handleResumeSession}
-                          onViewSummary={handleViewSummary}
-                          onArchive={handleArchiveSession}
-                          onDelete={handleDeleteSession}
-                          onCreateFollowUp={handleCreateFollowUp}
-                        />
-                      ))}
+                      {isGrouped ? (
+                        <>
+                          {/* Render Threads */}
+                          {filtered.threads?.map((thread) => (
+                            <ConversationThread
+                              key={`thread-${thread.id}`}
+                              thread={thread}
+                              isSelected={thread.sessions.every(s => selectedSessions.has(s.id))}
+                              onSelectThread={(sessionIds) => {
+                                sessionIds.forEach(id => handleSessionSelect(id));
+                              }}
+                              selectedSessions={selectedSessions}
+                              onSelectSession={handleSessionSelect}
+                              onResume={handleResumeSession}
+                              onViewSummary={handleViewSummary}
+                              onArchive={handleArchiveSession}
+                              onDelete={handleDeleteSession}
+                              onCreateFollowUp={handleCreateFollowUp}
+                            />
+                          ))}
+                          
+                          {/* Render Standalone Sessions */}
+                          {filtered.standalone?.map((session) => (
+                            <ConversationInboxItem
+                              key={`standalone-session-${session.id}`}
+                              session={session}
+                              isSelected={selectedSessions.has(session.id)}
+                              onClick={() => handleSessionSelect(session.id)}
+                              onResume={handleResumeSession}
+                              onViewSummary={handleViewSummary}
+                              onArchive={handleArchiveSession}
+                              onDelete={handleDeleteSession}
+                              onCreateFollowUp={handleCreateFollowUp}
+                            />
+                          ))}
+                        </>
+                      ) : (
+                        /* Render Regular Session List */
+                        filtered.sessions?.map((session) => (
+                          <ConversationInboxItem
+                            key={`session-${session.id}`}
+                            session={session}
+                            isSelected={selectedSessions.has(session.id)}
+                            onClick={() => handleSessionSelect(session.id)}
+                            onResume={handleResumeSession}
+                            onViewSummary={handleViewSummary}
+                            onArchive={handleArchiveSession}
+                            onDelete={handleDeleteSession}
+                            onCreateFollowUp={handleCreateFollowUp}
+                          />
+                        ))
+                      )}
                     </div>
                   </motion.div>
                 ) : (

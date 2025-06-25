@@ -67,9 +67,16 @@ export function SmartNotesTab() {
     content: '' 
   });
 
+  // Debug logging
+  console.log('[SmartNotesTab] Render - smartNotes:', smartNotes);
+  console.log('[SmartNotesTab] Render - loading:', loading);
+  console.log('[SmartNotesTab] Render - error:', error);
+
   const filteredNotes = filter === 'all' 
     ? smartNotes 
     : smartNotes.filter(note => note.category === filter);
+
+  console.log('[SmartNotesTab] Render - filteredNotes:', filteredNotes);
 
   const handleEdit = (note: SmartNote) => {
     setEditingId(note.id);
