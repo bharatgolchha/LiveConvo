@@ -317,7 +317,7 @@ export const ContextSidebar: React.FC<ContextSidebarProps> = ({
                       
                       return (
                         <div
-                          key={session.id}
+                          key={`context-sidebar-${session.id}`}
                           onClick={() => onPreviousConversationToggle(session)}
                           className={cn(
                             "p-3 rounded-lg border transition-all cursor-pointer",

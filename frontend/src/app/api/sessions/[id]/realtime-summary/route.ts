@@ -1,24 +1,35 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { getDefaultAiModelServer } from '@/lib/systemSettingsServer';
+import { createAuthenticatedSupabaseClient } from '@/lib/supabase';
 
 const requestSchema = z.object({
+  transcript: z.array(z.object({
+    id: z.string().optional(),
+    speaker: z.string().optional(),
+    text: z.string().optional(),
+    content: z.string().optional(),
+    displayName: z.string().optional(),
+    isOwner: z.boolean().optional(),
+    timestamp: z.string().optional(),
+    timeSeconds: z.number().optional()
+  })),
   totalMessageCount: z.number().optional(),
-  lastProcessedIndex: z.number(),
-  newMessages: z.array(z.any()),
-  existingSummary: z.object({
-    tldr: z.string(),
-    keyPoints: z.array(z.string()),
-    actionItems: z.array(z.string()),
-    decisions: z.array(z.string()),
-    topics: z.array(z.string()),
-    lastUpdated: z.string()
-  }).optional(),
-  isInitialSummary: z.boolean(),
   participantMe: z.string().optional(),
   participantThem: z.string().optional(),
   conversationType: z.string().optional()
 });
+
+interface TranscriptMessage {
+  id?: string;
+  speaker?: string;
+  text?: string;
+  content?: string;
+  displayName?: string;
+  isOwner?: boolean;
+  timestamp?: string;
+  timeSeconds?: number;
+}
 
 export async function POST(
   request: NextRequest,
@@ -26,13 +37,65 @@ export async function POST(
 ) {
   try {
     const { id: sessionId } = await params;
-    const body = await request.json();
+    
+    // Validate sessionId
+    if (!sessionId) {
+      return NextResponse.json(
+        { error: 'Session ID is required' },
+        { status: 400 }
+      );
+    }
+    
+    // Check authentication
+    const authHeader = request.headers.get('authorization');
+    const token = authHeader?.split(' ')[1];
+    
+    if (!token) {
+      return NextResponse.json(
+        { error: 'Unauthorized', message: 'No access token provided' },
+        { status: 401 }
+      );
+    }
+    
+    // Verify user has access to this session
+    try {
+      const authClient = createAuthenticatedSupabaseClient(token);
+      const { data: session, error: sessionError } = await authClient
+        .from('sessions')
+        .select('id')
+        .eq('id', sessionId)
+        .single();
+        
+      if (sessionError || !session) {
+        return NextResponse.json(
+          { error: 'Forbidden', message: 'Access denied to this session' },
+          { status: 403 }
+        );
+      }
+    } catch (authError) {
+      console.error('Authentication error:', authError);
+      return NextResponse.json(
+        { error: 'Authentication failed', message: 'Invalid or expired token' },
+        { status: 401 }
+      );
+    }
+    
+    let body;
+    try {
+      body = await request.json();
+    } catch (parseError) {
+      console.error('Failed to parse request body:', parseError);
+      return NextResponse.json(
+        { error: 'Invalid JSON in request body' },
+        { status: 400 }
+      );
+    }
     
     console.log('🔍 API Request received:', {
       sessionId,
       bodyKeys: Object.keys(body),
-      hasNewMessages: Array.isArray(body.newMessages),
-      newMessagesLength: body.newMessages?.length || 0
+      hasTranscript: Array.isArray(body.transcript),
+      transcriptLength: body.transcript?.length || 0
     });
     
     const parsed = requestSchema.safeParse(body);
@@ -50,52 +113,84 @@ export async function POST(
     }
 
     const {
+      transcript,
       totalMessageCount = 0,
-      lastProcessedIndex,
-      newMessages,
-      existingSummary,
-      isInitialSummary,
       participantMe = 'You',
       participantThem = 'Them',
       conversationType = 'meeting'
     } = parsed.data;
 
-    if (!Array.isArray(newMessages) || newMessages.length === 0) {
-      return NextResponse.json({ error: 'No new transcript content provided' }, { status: 400 });
+    if (!Array.isArray(transcript) || transcript.length === 0) {
+      return NextResponse.json({ error: 'No transcript content provided' }, { status: 400 });
     }
 
     // Debug log the incoming messages
-    console.log('🔍 API Debug - Incoming messages:', {
+    console.log('🔍 API Debug - Incoming transcript:', {
       sessionId,
-      newMessagesCount: newMessages.length,
-      sampleMessage: newMessages[0] ? {
-        id: newMessages[0].id,
-        speaker: newMessages[0].speaker,
-        text: newMessages[0].text?.substring(0, 100) + '...',
-        hasText: !!newMessages[0].text,
-        hasDisplayName: !!newMessages[0].displayName
-      } : 'No messages',
-      allMessageTypes: newMessages.map((msg, idx) => `${idx}: ${typeof msg} - hasText: ${!!msg?.text}`)
+      transcriptLength: transcript.length,
+      sampleMessage: transcript[0] ? {
+        id: transcript[0].id,
+        speaker: transcript[0].speaker,
+        text: transcript[0].text?.substring(0, 100) + '...',
+        hasText: !!transcript[0].text,
+        hasDisplayName: !!transcript[0].displayName
+      } : 'No messages'
     });
 
-    // Convert new messages to text format - filter out empty/invalid messages
-    const validMessages = newMessages.filter(msg => msg && msg.text && msg.text.trim().length > 0);
+    // Convert transcript to text format - filter out empty/invalid messages
+    const validMessages = transcript.filter((msg: TranscriptMessage) => 
+      msg && msg.text && msg.text.trim().length > 0
+    );
     
     if (validMessages.length === 0) {
       return NextResponse.json({ error: 'No valid transcript content found in messages' }, { status: 400 });
     }
 
-    const newTranscriptText = validMessages
-      .map((msg: any) => {
-        const speakerName = msg.speaker === 'ME' ? participantMe : (msg.displayName || msg.speaker || participantThem);
+    // Improved speaker name resolution
+    const transcriptText = validMessages
+      .map((msg: TranscriptMessage) => {
+        let speakerName = participantThem; // Default fallback
+        
+        // Priority order for speaker identification:
+        // 1. Use displayName if available (from Recall.ai or other sources)
+        // 2. Check if speaker is 'ME', 'user', or indicates the session owner
+        // 3. Check isOwner flag if available
+        // 4. Use the speaker field directly if it's a meaningful name
+        // 5. Fall back to participant names
+        
+        if (msg.displayName && msg.displayName.trim().length > 0) {
+          speakerName = msg.displayName.trim();
+        } else if (msg.speaker === 'ME' || msg.speaker === 'user' || msg.isOwner === true) {
+          speakerName = participantMe;
+        } else if (msg.speaker && 
+                   msg.speaker !== 'user' && 
+                   msg.speaker !== 'participant' && 
+                   msg.speaker !== 'speaker' &&
+                   msg.speaker.trim().length > 0) {
+          // Use speaker field if it contains a meaningful name (not generic identifiers)
+          speakerName = msg.speaker.trim();
+        }
+        
         return `${speakerName}: ${msg.text || msg.content || ''}`.trim();
       })
       .join('\n');
 
     console.log('🔍 API Debug - Processed transcript:', {
-      originalCount: newMessages.length,
+      originalCount: transcript.length,
       validCount: validMessages.length,
-      transcriptPreview: newTranscriptText.substring(0, 200) + '...'
+      transcriptPreview: transcriptText.substring(0, 200) + '...',
+      speakerMapping: {
+        participantMe,
+        participantThem,
+        sampleSpeakers: validMessages.slice(0, 3).map((msg: TranscriptMessage) => ({
+          original: msg.speaker,
+          displayName: msg.displayName,
+          isOwner: msg.isOwner,
+          resolved: msg.displayName || 
+                   (msg.speaker === 'ME' || msg.speaker === 'user' || msg.isOwner === true ? participantMe : 
+                   (msg.speaker && msg.speaker !== 'user' && msg.speaker !== 'participant' && msg.speaker !== 'speaker' ? msg.speaker : participantThem))
+        }))
+      }
     });
 
     const apiKey = process.env.OPENROUTER_API_KEY;
@@ -108,17 +203,13 @@ export async function POST(
 
     const model = await getDefaultAiModelServer();
 
-    let systemPrompt: string;
-    let userPrompt: string;
+    // Simple prompt for analyzing the full transcript
+    const systemPrompt = `You are a helpful AI assistant that analyzes a live ${conversationType} conversation between ${participantMe} and ${participantThem}. 
 
-    if (isInitialSummary || !existingSummary) {
-      // Initial summary generation - analyze all new messages from scratch
-      systemPrompt = `You are a helpful AI assistant that analyzes a live ${conversationType} conversation between ${participantMe} and ${participantThem}. 
-
-This is the INITIAL SUMMARY for this conversation. Analyze the transcript and create a comprehensive summary in the JSON format below. 
+Analyze the entire transcript and create a comprehensive summary in the JSON format below. 
 
 Focus on:
-- TL;DR of what has been discussed so far
+- TL;DR of what has been discussed
 - Key discussion points and insights
 - Any action items or decisions made
 - Main topics covered
@@ -126,88 +217,26 @@ Focus on:
 
 Return ONLY valid JSON without markdown or extra text. Required JSON format:
 {
-  "tldr": "Brief summary of the conversation so far",
+  "tldr": "Brief summary of the conversation",
   "keyPoints": ["Point 1", "Point 2", "Point 3"],
   "actionItems": ["Action 1", "Action 2"],
   "decisions": ["Decision 1"],
   "topics": ["Topic 1", "Topic 2"]
 }`;
 
-      userPrompt = `Create an initial summary for this ${conversationType} conversation between ${participantMe} and ${participantThem}:
+    const userPrompt = `Analyze this ${conversationType} conversation between ${participantMe} and ${participantThem}:
 
-Messages processed: ${newMessages.length} (total conversation length: ${totalMessageCount})
+Total messages: ${validMessages.length}
 
-Transcript:
-${newTranscriptText}`;
-
-    } else {
-      // Incremental summary update - merge existing summary with new content
-      systemPrompt = `You are a helpful AI assistant that updates an existing conversation summary with new transcript content.
-
-You will receive:
-1. An EXISTING SUMMARY from earlier in the conversation
-2. NEW TRANSCRIPT CONTENT that occurred after the existing summary
-
-Your task is to UPDATE the existing summary by incorporating the new information. CRITICAL REQUIREMENTS:
-
-CONTENT PRESERVATION:
-- PRESERVE all valuable information from the existing summary
-- Keep existing key points that are still relevant
-- Maintain existing action items and decisions (don't lose them)
-- Keep existing topics and add new ones
-
-INCREMENTAL BUILDING:
-- Add NEW key points from the recent transcript while keeping important existing ones
-- Add any NEW action items or decisions from the new content
-- Update the TL;DR to reflect the FULL conversation including both previous and new developments
-- Expand the topics list with any new subjects discussed
-- Build upon the existing summary rather than replacing it
-
-CONTINUITY FOCUS:
-- The updated summary should feel like a natural evolution of the previous one
-- Include context from both the existing summary and new content
-- Ensure the TL;DR encompasses the entire conversation flow, not just the new part
-
-Return ONLY valid JSON without markdown or extra text. Required JSON format:
-{
-  "tldr": "Updated summary that encompasses the FULL conversation from start to current point",
-  "keyPoints": ["Preserved important existing points", "New insights from recent discussion"],
-  "actionItems": ["Existing action items that are still relevant", "New action items from recent content"],
-  "decisions": ["Previous decisions made", "New decisions from recent discussion"],
-  "topics": ["Previous topics", "New topics from recent content"]
-}`;
-
-      userPrompt = `Update this conversation summary by BUILDING UPON the existing content with new transcript information:
-
-EXISTING SUMMARY TO BUILD UPON (from messages 0-${lastProcessedIndex}):
-Previous TL;DR: ${existingSummary.tldr}
-Previous Key Points: ${existingSummary.keyPoints.join(' | ')}
-Previous Action Items: ${existingSummary.actionItems.join(' | ')}
-Previous Decisions: ${existingSummary.decisions.join(' | ')}
-Previous Topics: ${existingSummary.topics.join(' | ')}
-
-NEW TRANSCRIPT CONTENT TO INCORPORATE (messages ${lastProcessedIndex + 1}-${lastProcessedIndex + newMessages.length}):
-${newTranscriptText}
-
-CONVERSATION PROGRESS: ${totalMessageCount} total messages (${newMessages.length} new messages added)
-
-Please update the summary by:
-1. PRESERVING valuable content from the existing summary
-2. ADDING new insights from the recent transcript
-3. BUILDING a comprehensive TL;DR that covers the ENTIRE conversation
-4. MAINTAINING continuity between previous and new content
-
-The result should be an enhanced version of the existing summary, not a replacement.`;
-    }
+Full Transcript:
+${transcriptText}`;
 
     console.log('🤖 Summary generation request:', {
       sessionId,
-      isInitialSummary,
-      lastProcessedIndex,
-      newMessagesCount: newMessages.length,
+      validMessagesCount: validMessages.length,
       totalMessageCount,
-      hasExistingSummary: !!existingSummary,
-      model
+      model,
+      transcriptLength: transcriptText.length
     });
 
     const openRouterResponse = await fetch('https://openrouter.ai/api/v1/chat/completions', {
@@ -216,7 +245,7 @@ The result should be an enhanced version of the existing summary, not a replacem
         Authorization: `Bearer ${apiKey}`,
         'Content-Type': 'application/json',
         'HTTP-Referer': 'https://liveconvo.app',
-        'X-Title': 'liveconvo-incremental-summary'
+        'X-Title': 'liveconvo-realtime-summary'
       },
       body: JSON.stringify({
         model,
@@ -240,39 +269,34 @@ The result should be an enhanced version of the existing summary, not a replacem
     }
 
     const data = await openRouterResponse.json();
-    let summaryJson: any;
+    let summaryJson: {
+      tldr?: string;
+      keyPoints?: string[];
+      actionItems?: string[];
+      decisions?: string[];
+      topics?: string[];
+    };
+    
     try {
       summaryJson = JSON.parse(data.choices[0].message.content.trim());
     } catch (err) {
       console.error('Failed to parse AI JSON:', err);
       console.error('Raw response:', data.choices[0].message.content);
       
-      // Fallback to existing summary if update fails
-      if (existingSummary && !isInitialSummary) {
-        console.log('🔄 Falling back to existing summary due to parse error');
-        return NextResponse.json({
-          tldr: existingSummary.tldr,
-          keyPoints: existingSummary.keyPoints,
-          actionItems: existingSummary.actionItems,
-          decisions: existingSummary.decisions,
-          topics: existingSummary.topics
-        });
-      }
-      
       return NextResponse.json({ error: 'Failed to parse AI response' }, { status: 500 });
     }
 
     // Ensure required fields exist with fallbacks
     const responsePayload = {
-      tldr: summaryJson.tldr || (existingSummary?.tldr || 'Conversation in progress'),
-      keyPoints: Array.isArray(summaryJson.keyPoints) ? summaryJson.keyPoints : (existingSummary?.keyPoints || []),
-      actionItems: Array.isArray(summaryJson.actionItems) ? summaryJson.actionItems : (existingSummary?.actionItems || []),
-      decisions: Array.isArray(summaryJson.decisions) ? summaryJson.decisions : (existingSummary?.decisions || []),
-      topics: Array.isArray(summaryJson.topics) ? summaryJson.topics : (existingSummary?.topics || [])
+      tldr: summaryJson.tldr || 'Conversation in progress',
+      keyPoints: Array.isArray(summaryJson.keyPoints) ? summaryJson.keyPoints : [],
+      actionItems: Array.isArray(summaryJson.actionItems) ? summaryJson.actionItems : [],
+      decisions: Array.isArray(summaryJson.decisions) ? summaryJson.decisions : [],
+      topics: Array.isArray(summaryJson.topics) ? summaryJson.topics : []
     };
 
     console.log('✅ Summary generated successfully:', {
-      isInitialSummary,
+      transcriptLength: validMessages.length,
       tldrLength: responsePayload.tldr.length,
       keyPointsCount: responsePayload.keyPoints.length,
       actionItemsCount: responsePayload.actionItems.length,
@@ -284,6 +308,18 @@ The result should be an enhanced version of the existing summary, not a replacem
     
   } catch (err) {
     console.error('Unexpected error generating realtime summary:', err);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    
+    // Provide detailed error response
+    const errorMessage = err instanceof Error ? err.message : 'Unknown error occurred';
+    const errorStack = err instanceof Error ? err.stack : undefined;
+    
+    return NextResponse.json(
+      { 
+        error: 'Internal server error',
+        message: errorMessage,
+        details: process.env.NODE_ENV === 'development' ? errorStack : undefined
+      }, 
+      { status: 500 }
+    );
   }
 } 

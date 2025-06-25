@@ -7,7 +7,7 @@ export function useRealtimeSummary(sessionId: string) {
   const { setSummary, transcript, botStatus } = useMeetingContext();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
-  const [lastProcessedIndex, setLastProcessedIndex] = useState(-1); // Track exact message index instead of count
+  const [lastSummaryLength, setLastSummaryLength] = useState(0);
   const [hasLoadedCache, setHasLoadedCache] = useState(false);
 
   // Check if we should auto-refresh based on recording state
@@ -21,7 +21,7 @@ export function useRealtimeSummary(sessionId: string) {
       try {
         const { data: session } = await supabase
           .from('sessions')
-          .select('realtime_summary_cache, realtime_summary_last_processed_index')
+          .select('realtime_summary_cache')
           .eq('id', sessionId)
           .single();
 
@@ -29,14 +29,7 @@ export function useRealtimeSummary(sessionId: string) {
           const cachedSummary = session.realtime_summary_cache as RealtimeSummary;
           setSummary(cachedSummary);
           
-          // Restore the last processed index if available
-          const lastIndex = session.realtime_summary_last_processed_index || -1;
-          setLastProcessedIndex(lastIndex);
-          
-          console.log('📄 Loaded cached summary from database', {
-            lastProcessedIndex: lastIndex,
-            currentTranscriptLength: transcript.length
-          });
+          console.log('📄 Loaded cached summary from database');
         }
       } catch (err) {
         console.warn('Failed to load cached summary:', err);
@@ -46,45 +39,30 @@ export function useRealtimeSummary(sessionId: string) {
     };
 
     loadCachedSummary();
-  }, [sessionId, hasLoadedCache, setSummary, transcript.length]);
+  }, [sessionId, hasLoadedCache, setSummary]);
 
   const generateSummary = useCallback(async (forceRefresh = false) => {
-    if (!sessionId || transcript.length === 0) return;
+    // Validate prerequisites
+    if (!sessionId) {
+      console.warn('⚠️ Cannot generate summary: No session ID');
+      return;
+    }
+    
+    if (transcript.length === 0) {
+      console.warn('⚠️ Cannot generate summary: No transcript messages');
+      return;
+    }
 
-    // Calculate new messages since last summary
-    const newMessagesStartIndex = lastProcessedIndex + 1;
-    const newMessages = transcript.slice(newMessagesStartIndex);
-    
-    console.log('🔍 Summary generation debug:', {
-      sessionId,
-      transcriptLength: transcript.length,
-      lastProcessedIndex,
-      newMessagesStartIndex,
-      newMessagesLength: newMessages.length,
-      forceRefresh,
-      sampleTranscriptMessage: transcript[0] ? {
-        id: transcript[0].id,
-        speaker: transcript[0].speaker,
-        text: transcript[0].text?.substring(0, 50) + '...',
-        hasText: !!transcript[0].text
-      } : 'No messages',
-      sampleNewMessage: newMessages[0] ? {
-        id: newMessages[0].id,
-        speaker: newMessages[0].speaker,
-        text: newMessages[0].text?.substring(0, 50) + '...',
-        hasText: !!newMessages[0].text
-      } : 'No new messages'
-    });
-    
-    // Only generate summary if we have at least 25 new messages (unless forced)
-    if (!forceRefresh && newMessages.length < 25 && lastProcessedIndex >= 0) {
-      console.log(`❌ Not enough new messages: ${newMessages.length} (need 25)`);
+    // Only generate summary if we have enough new content (unless forced)
+    const newMessagesCount = transcript.length - lastSummaryLength;
+    if (!forceRefresh && newMessagesCount < 25 && lastSummaryLength > 0) {
+      console.log(`❌ Not enough new messages: ${newMessagesCount} (need 25)`);
       return;
     }
 
     // For the first summary, we need a minimum baseline
-    if (lastProcessedIndex === -1 && transcript.length < 25) {
-      console.log(`❌ Initial summary needs at least 25 messages, have ${transcript.length}`);
+    if (lastSummaryLength === 0 && transcript.length < 10) {
+      console.log(`❌ Initial summary needs at least 10 messages, have ${transcript.length}`);
       return;
     }
 
@@ -92,63 +70,108 @@ export function useRealtimeSummary(sessionId: string) {
     setError(null);
 
     try {
-      // Get current summary to pass as context (if exists)
-      const { data: currentSession } = await supabase
-        .from('sessions')
-        .select('realtime_summary_cache')
-        .eq('id', sessionId)
-        .single();
-
-      const existingSummary = currentSession?.realtime_summary_cache as RealtimeSummary | null;
-
-      console.log('🔄 Generating incremental summary:', {
+      console.log('🔄 Generating summary from full transcript:', {
         totalMessages: transcript.length,
-        lastProcessedIndex,
-        newMessagesCount: newMessages.length,
-        hasExistingSummary: !!existingSummary,
-        isInitialSummary: lastProcessedIndex === -1
+        lastSummaryLength,
+        newMessagesCount,
+        isInitialSummary: lastSummaryLength === 0
       });
 
-      // Prepare request body - only include existingSummary if it exists
-      const requestBody: any = {
-        totalMessageCount: transcript.length,
-        lastProcessedIndex: lastProcessedIndex,
-        newMessages: newMessages,
-        isInitialSummary: lastProcessedIndex === -1
-      };
-
-      // Only include existingSummary if it actually exists
-      if (existingSummary) {
-        requestBody.existingSummary = existingSummary;
+      // Fetch participant names from session table
+      let participantMe = 'You';
+      let participantThem = 'Participant';
+      let conversationType = 'meeting';
+      
+      try {
+        const { data: sessionData, error: sessionError } = await supabase
+          .from('sessions')
+          .select('participant_me, participant_them, conversation_type')
+          .eq('id', sessionId)
+          .single();
+          
+        if (sessionData && !sessionError) {
+          participantMe = sessionData.participant_me || 'You';
+          participantThem = sessionData.participant_them || 'Participant';
+          conversationType = sessionData.conversation_type || 'meeting';
+          
+          console.log('👥 Retrieved participant names:', {
+            participantMe,
+            participantThem,
+            conversationType
+          });
+        }
+      } catch (fetchError) {
+        console.warn('Failed to fetch participant names, using defaults:', fetchError);
       }
 
+      // Prepare request body with full transcript and participant names
+      const requestBody = {
+        transcript: transcript,
+        totalMessageCount: transcript.length,
+        participantMe,
+        participantThem,
+        conversationType
+      };
+
       console.log('📤 API Request body:', {
-        ...requestBody,
-        newMessages: `${newMessages.length} messages`,
-        existingSummary: existingSummary ? 'present' : 'not included'
+        transcriptLength: transcript.length,
+        participantMe,
+        participantThem,
+        conversationType,
+        sampleMessage: transcript[0] ? {
+          speaker: transcript[0].speaker,
+          displayName: transcript[0].displayName,
+          text: transcript[0].text?.substring(0, 50) + '...'
+        } : 'No messages'
       });
+
+      // Get auth token for API request
+      const { data: { session } } = await supabase.auth.getSession();
+      const authHeaders: Record<string, string> = {
+        'Content-Type': 'application/json'
+      };
+      
+      if (session?.access_token) {
+        authHeaders['Authorization'] = `Bearer ${session.access_token}`;
+      }
 
       const response = await fetch(`/api/sessions/${sessionId}/realtime-summary`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: authHeaders,
         body: JSON.stringify(requestBody)
       });
 
       if (!response.ok) {
         // Get detailed error information
         let errorDetails;
+        let errorText = '';
+        
         try {
-          const errorText = await response.text();
-          console.log('🔍 Raw API Error Response:', errorText);
+          errorText = await response.text();
+          console.log('🔍 Raw API Error Response:', errorText || '<empty response>');
           
           // Try to parse as JSON, fallback to text
-          try {
-            errorDetails = JSON.parse(errorText);
-          } catch {
-            errorDetails = { error: errorText || 'Unknown error', status: response.status };
+          if (errorText) {
+            try {
+              errorDetails = JSON.parse(errorText);
+            } catch {
+              errorDetails = { error: errorText, status: response.status };
+            }
+          } else {
+            // Handle empty response
+            errorDetails = { 
+              error: 'Empty error response from server', 
+              status: response.status,
+              statusText: response.statusText
+            };
           }
-        } catch {
-          errorDetails = { error: 'Failed to read error response', status: response.status };
+        } catch (readError) {
+          console.error('Failed to read error response:', readError);
+          errorDetails = { 
+            error: 'Failed to read error response', 
+            status: response.status,
+            statusText: response.statusText 
+          };
         }
         
         console.error('❌ API Error Response:', {
@@ -156,14 +179,17 @@ export function useRealtimeSummary(sessionId: string) {
           statusText: response.statusText,
           errorDetails,
           url: response.url,
+          rawResponse: errorText || '<empty>',
           requestBody: {
-            ...requestBody,
-            newMessages: `${newMessages.length} messages`,
-            existingSummary: existingSummary ? 'present' : 'not included'
+            sessionId,
+            totalMessageCount: requestBody.totalMessageCount,
+            transcriptLength: transcript.length
           }
         });
         
-        throw new Error(`Failed to generate summary: ${errorDetails.error || response.statusText} (Status: ${response.status})`);
+        // Construct meaningful error message
+        const errorMessage = errorDetails.message || errorDetails.error || response.statusText || 'Unknown error';
+        throw new Error(`Failed to generate summary: ${errorMessage} (Status: ${response.status})`);
       }
 
       const data = await response.json();
@@ -177,23 +203,20 @@ export function useRealtimeSummary(sessionId: string) {
         lastUpdated: new Date().toISOString()
       };
 
-      // Save summary to database cache with the processed index
-      const newProcessedIndex = transcript.length - 1; // Last message index that was processed
-      
+      // Save summary to database cache
       await supabase
         .from('sessions')
         .update({ 
           realtime_summary_cache: summary,
-          realtime_summary_last_processed_index: newProcessedIndex,
           updated_at: new Date().toISOString()
         })
         .eq('id', sessionId);
 
       setSummary(summary);
-      setLastProcessedIndex(newProcessedIndex);
+      setLastSummaryLength(transcript.length);
       
-      console.log('✅ Generated and cached incremental summary', {
-        newProcessedIndex,
+      console.log('✅ Generated summary from full transcript', {
+        transcriptLength: transcript.length,
         summaryLength: summary.tldr.length
       });
       
@@ -202,9 +225,9 @@ export function useRealtimeSummary(sessionId: string) {
       setError(err as Error);
       
       // If this was an initial summary that failed, set a default summary to prevent UI issues
-      if (lastProcessedIndex === -1) {
+      if (lastSummaryLength === 0) {
         const defaultSummary: RealtimeSummary = {
-          tldr: 'Meeting is in progress. Unable to generate initial summary at this time.',
+          tldr: 'Meeting is in progress. Unable to generate summary at this time.',
           keyPoints: [],
           actionItems: [],
           decisions: [],
@@ -212,18 +235,14 @@ export function useRealtimeSummary(sessionId: string) {
           lastUpdated: new Date().toISOString()
         };
         setSummary(defaultSummary);
+        setLastSummaryLength(transcript.length);
         
-        // Still update the processed index so we don't keep trying the same failing request
-        const newProcessedIndex = Math.max(0, transcript.length - 1);
-        setLastProcessedIndex(newProcessedIndex);
-        
-        // Optionally save the default summary to prevent repeated failures
+        // Save the default summary to prevent repeated failures
         try {
           await supabase
             .from('sessions')
             .update({ 
               realtime_summary_cache: defaultSummary,
-              realtime_summary_last_processed_index: newProcessedIndex,
               updated_at: new Date().toISOString()
             })
             .eq('id', sessionId);
@@ -234,7 +253,7 @@ export function useRealtimeSummary(sessionId: string) {
     } finally {
       setLoading(false);
     }
-  }, [sessionId, transcript, lastProcessedIndex, setSummary]);
+  }, [sessionId, transcript, lastSummaryLength, setSummary]);
 
   // Manual refresh function for the refresh button
   const refreshSummary = useCallback(() => {
@@ -246,31 +265,31 @@ export function useRealtimeSummary(sessionId: string) {
     // Don't auto-refresh if recording is not active
     if (!isRecordingActive) return;
 
-    const newMessagesCount = transcript.length - (lastProcessedIndex + 1);
+    const newMessagesCount = transcript.length - lastSummaryLength;
     const shouldGenerate = 
-      (lastProcessedIndex === -1 && transcript.length >= 25) || // Initial summary
-      (lastProcessedIndex >= 0 && newMessagesCount >= 25); // Incremental update
+      (lastSummaryLength === 0 && transcript.length >= 10) || // Initial summary
+      (lastSummaryLength > 0 && newMessagesCount >= 25); // Regular updates
 
     if (shouldGenerate) {
-      console.log(`🚀 Auto-triggering summary: ${newMessagesCount} new messages since index ${lastProcessedIndex}`);
+      console.log(`🚀 Auto-triggering summary: ${newMessagesCount} new messages (total: ${transcript.length})`);
       generateSummary();
     }
-  }, [transcript.length, lastProcessedIndex, generateSummary, isRecordingActive]);
+  }, [transcript.length, lastSummaryLength, generateSummary, isRecordingActive]);
 
   // Auto-refresh summary every 60 seconds if recording is active
   useEffect(() => {
     if (transcript.length === 0 || !isRecordingActive) return;
 
     const interval = setInterval(() => {
-      const newMessagesCount = transcript.length - (lastProcessedIndex + 1);
-      if (newMessagesCount >= 10) { // Higher threshold for time-based updates
+      const newMessagesCount = transcript.length - lastSummaryLength;
+      if (newMessagesCount >= 10) { // Lower threshold for time-based updates since we're processing full transcript
         console.log(`⏰ Time-based summary trigger: ${newMessagesCount} new messages`);
         generateSummary();
       }
-    }, 60000); // 60 seconds instead of 30
+    }, 60000); // 60 seconds
 
     return () => clearInterval(interval);
-  }, [generateSummary, transcript.length, lastProcessedIndex, isRecordingActive]);
+  }, [generateSummary, transcript.length, lastSummaryLength, isRecordingActive]);
 
   return { loading, error, refreshSummary };
 }
