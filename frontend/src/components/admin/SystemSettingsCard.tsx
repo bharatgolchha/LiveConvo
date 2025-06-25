@@ -7,6 +7,7 @@ import { AI_ACTIONS, AIAction } from '@/lib/aiModelConfig';
 export default function SystemSettingsCard() {
   const { settings, loading, error, refresh } = useSystemSettings();
   const [modelConfigs, setModelConfigs] = useState<Record<string, string>>({});
+  const [streamingProvider, setStreamingProvider] = useState<string>('deepgram');
   const [saving, setSaving] = useState(false);
   const [saveMsg, setSaveMsg] = useState<string | null>(null);
   const [expandedSection, setExpandedSection] = useState<string | null>(null);
@@ -25,6 +26,9 @@ export default function SystemSettingsCard() {
       });
       
       setModelConfigs(configs);
+      
+      // Load streaming provider
+      setStreamingProvider(settings.streaming_provider || 'deepgram');
     }
   }, [settings]);
 
@@ -43,6 +47,14 @@ export default function SystemSettingsCard() {
         adminFetch(`/api/admin/system-settings/${key}`, {
           method: 'PATCH',
           body: JSON.stringify({ value: value }),
+        })
+      );
+      
+      // Save streaming provider
+      promises.push(
+        adminFetch(`/api/admin/system-settings/streaming_provider`, {
+          method: 'PATCH',
+          body: JSON.stringify({ value: streamingProvider }),
         })
       );
       
@@ -167,6 +179,41 @@ export default function SystemSettingsCard() {
               {saveMsg}
             </p>
           )}
+        </div>
+      </Card>
+
+      {/* Streaming Provider Configuration */}
+      <Card className="p-6">
+        <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">
+          Real-time Transcription Provider
+        </h3>
+        
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              Streaming Provider
+              <span className="block text-xs font-normal text-gray-500 dark:text-gray-400 mt-1">
+                Select the provider for real-time transcription via Recall.ai
+              </span>
+            </label>
+            <select
+              value={streamingProvider}
+              onChange={(e) => setStreamingProvider(e.target.value)}
+              className="w-full border border-border rounded-md p-2 bg-muted text-foreground"
+            >
+              <option value="deepgram">Deepgram</option>
+              <option value="assembly_ai">AssemblyAI</option>
+              <option value="speechmatics">Speechmatics</option>
+            </select>
+          </div>
+
+          <div className="mt-4 p-4 bg-gray-50 dark:bg-gray-800 rounded-md">
+            <p className="text-sm text-gray-600 dark:text-gray-400">
+              <strong>Deepgram:</strong> Fast, accurate, and cost-effective. Good for general use.<br/>
+              <strong>AssemblyAI:</strong> High accuracy with advanced features like speaker labels.<br/>
+              <strong>Speechmatics:</strong> Excellent multilingual support.
+            </p>
+          </div>
         </div>
       </Card>
     </div>
