@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerSupabaseClient } from '@/lib/supabase';
-
-// Store active SSE connections
-const connections = new Map<string, ReadableStreamDefaultController>();
+import { connections } from '@/lib/webhooks/event-broadcaster';
 
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
@@ -72,38 +70,5 @@ export async function GET(request: NextRequest) {
       'Cache-Control': 'no-cache',
       'Connection': 'keep-alive',
     },
-  });
-}
-
-// Export function to broadcast events
-function broadcastWebhookEvent(event: {
-  type: string;
-  sessionId?: string;
-  userId?: string;
-  data: any;
-}) {
-  const encoder = new TextEncoder();
-  const message = encoder.encode(`data: ${JSON.stringify({
-    ...event,
-    timestamp: new Date().toISOString()
-  })}\n\n`);
-
-  // Send to all relevant connections
-  connections.forEach((controller, connectionId) => {
-    const [connUserId, connSessionId] = connectionId.split('-');
-    
-    // Check if this connection should receive the event
-    const shouldSend = 
-      (!event.userId || connUserId === event.userId) &&
-      (!event.sessionId || connSessionId === 'all' || connSessionId === event.sessionId);
-    
-    if (shouldSend) {
-      try {
-        controller.enqueue(message);
-      } catch (error) {
-        // Connection closed, remove it
-        connections.delete(connectionId);
-      }
-    }
   });
 }

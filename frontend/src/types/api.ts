@@ -267,6 +267,46 @@ export interface AgendaCoverage {
   unexpected_topics: string[];
 }
 
+export interface EmailDraft {
+  subject: string;
+  body: string;
+  bulletPoints?: string[];
+  callToAction?: string;
+}
+
+export interface RiskAssessment {
+  immediate: Array<{
+    risk: string;
+    impact: 'high' | 'medium' | 'low';
+    probability: 'high' | 'medium' | 'low';
+    mitigation: string;
+    owner: string;
+  }>;
+  monitoring: Array<{
+    indicator: string;
+    threshold: string;
+    checkDate: string;
+  }>;
+}
+
+export interface EffectivenessScore {
+  overall: number;
+  breakdown: {
+    objectives: number;
+    participation: number;
+    decisions: number;
+    clarity: number;
+  };
+  improvements: string[];
+}
+
+export interface NextMeetingTemplate {
+  suggestedAgenda: string[];
+  requiredAttendees: string[];
+  prework: string[];
+  successCriteria: string;
+}
+
 export interface EnhancedSummary {
   tldr: string;
   key_points: string[];
@@ -282,6 +322,10 @@ export interface EnhancedSummary {
   coaching_recommendations?: string[];
   outcomes?: string[];
   next_steps?: string[];
+  email_draft?: EmailDraft;
+  risk_assessment?: RiskAssessment;
+  effectiveness_score?: EffectivenessScore;
+  next_meeting_template?: NextMeetingTemplate;
 }
 
 export interface PerformanceAnalysis {
@@ -318,6 +362,12 @@ export interface FollowUpStrategy {
   long_term: string[];
 }
 
+export interface ConversationTemplates {
+  openingStatement?: string;
+  transitionPhrases?: string[];
+  closingStatement?: string;
+}
+
 export interface FinalizationData {
   performance_analysis: PerformanceAnalysis;
   conversation_patterns: ConversationPatterns;
@@ -326,6 +376,7 @@ export interface FinalizationData {
   follow_up_strategy: FollowUpStrategy;
   success_indicators: string[];
   risk_factors: string[];
+  templates?: ConversationTemplates;
 }
 
 // Smart Notes Types

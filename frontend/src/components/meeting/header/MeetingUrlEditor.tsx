@@ -129,10 +129,10 @@ export function MeetingUrlEditor() {
         {canEdit ? (
           <button
             onClick={handleStartEditing}
-            className="flex items-center gap-1.5 px-2 py-1 text-sm text-muted-foreground hover:text-foreground hover:bg-muted rounded transition-all"
+            className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-primary text-primary-foreground hover:bg-primary/90 rounded-lg transition-all font-medium"
             title="Add meeting URL"
           >
-            <PlusIcon className="w-3 h-3" />
+            <PlusIcon className="w-4 h-4" />
             <span>Add meeting link</span>
           </button>
         ) : (

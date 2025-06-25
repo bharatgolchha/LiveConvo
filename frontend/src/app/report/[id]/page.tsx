@@ -25,6 +25,14 @@ import {
 import { Button } from '@/components/ui/Button';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
+import { TabbedReport } from '@/components/report/TabbedReport';
+import type {
+  EmailDraft,
+  RiskAssessment,
+  EffectivenessScore,
+  NextMeetingTemplate,
+  ConversationTemplates
+} from '@/types/api';
 
 // Types
 interface MeetingReport {
@@ -61,6 +69,11 @@ interface MeetingReport {
       communication: number;
       goalAchievement: number;
     };
+    emailDraft?: EmailDraft;
+    riskAssessment?: RiskAssessment;
+    effectivenessScore?: EffectivenessScore;
+    nextMeetingTemplate?: NextMeetingTemplate;
+    templates?: ConversationTemplates;
   };
   analytics: {
     wordCount: number;
@@ -84,7 +97,7 @@ export default function MeetingReportPage() {
   const [report, setReport] = useState<MeetingReport | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'overview' | 'details' | 'transcript'>('overview');
+  const [activeTab, setActiveTab] = useState<string>('overview');
   const [finalizing, setFinalizing] = useState(false);
 
   useEffect(() => {
@@ -167,6 +180,14 @@ export default function MeetingReportPage() {
       if (summaryData?.structured_notes) {
         try {
           parsedStructuredNotes = JSON.parse(summaryData.structured_notes);
+          console.log('📊 Parsed structured notes:', {
+            hasEmailDraft: !!parsedStructuredNotes.email_draft,
+            hasRiskAssessment: !!parsedStructuredNotes.risk_assessment,
+            hasEffectivenessScore: !!parsedStructuredNotes.effectiveness_score,
+            hasNextMeetingTemplate: !!parsedStructuredNotes.next_meeting_template,
+            hasTemplates: !!parsedStructuredNotes.templates,
+            keys: Object.keys(parsedStructuredNotes)
+          });
         } catch (e) {
           console.warn('Failed to parse structured notes:', e);
           parsedStructuredNotes = {};
@@ -257,7 +278,12 @@ export default function MeetingReportPage() {
           followUpQuestions: summaryData?.follow_up_questions || [],
           conversationHighlights: summaryData?.conversation_highlights || [],
           insights: parsedStructuredNotes.insights || [],
-          effectiveness: effectiveness
+          effectiveness: effectiveness,
+          emailDraft: parsedStructuredNotes.email_draft,
+          riskAssessment: parsedStructuredNotes.risk_assessment,
+          effectivenessScore: parsedStructuredNotes.effectiveness_score,
+          nextMeetingTemplate: parsedStructuredNotes.next_meeting_template,
+          templates: parsedStructuredNotes.templates
         },
         analytics: {
           wordCount: wordCount,
@@ -461,6 +487,7 @@ export default function MeetingReportPage() {
             </div>
           </div>
 
+
           {/* Success Banner */}
           <div className="mb-8 animate-fade-in">
             <div className="bg-gradient-to-r from-primary/10 to-accent/10 border border-primary/20 rounded-lg backdrop-blur-sm">
@@ -490,319 +517,18 @@ export default function MeetingReportPage() {
             </div>
           </div>
 
-          {/* Quick Stats */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-            <div className="p-6 bg-card/70 backdrop-blur-sm border border-border/50 rounded-lg shadow-md">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center">
-                  <Clock className="w-5 h-5 text-primary" />
-                </div>
-                <div>
-                  <div className="text-2xl font-bold text-foreground">
-                    {formatDuration(report.duration)}
-                  </div>
-                  <div className="text-sm text-muted-foreground">Duration</div>
-                </div>
-              </div>
-            </div>
-
-            <div className="p-6 bg-card/70 backdrop-blur-sm border border-border/50 rounded-lg shadow-md">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-secondary/20 rounded-lg flex items-center justify-center">
-                  <Users className="w-5 h-5 text-secondary" />
-                </div>
-                <div>
-                  <div className="text-2xl font-bold text-foreground">2</div>
-                  <div className="text-sm text-muted-foreground">Participants</div>
-                </div>
-              </div>
-            </div>
-
-            <div className="p-6 bg-card/70 backdrop-blur-sm border border-border/50 rounded-lg shadow-md">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-primary/15 rounded-lg flex items-center justify-center">
-                  <FileText className="w-5 h-5 text-primary" />
-                </div>
-                <div>
-                  <div className="text-2xl font-bold text-foreground">
-                    {report.analytics.wordCount.toLocaleString()}
-                  </div>
-                  <div className="text-sm text-muted-foreground">Words</div>
-                </div>
-              </div>
-            </div>
-
-            <div className="p-6 bg-card/70 backdrop-blur-sm border border-border/50 rounded-lg shadow-md">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-accent/20 rounded-lg flex items-center justify-center">
-                  <Target className="w-5 h-5 text-accent-foreground" />
-                </div>
-                <div>
-                  <div className="text-2xl font-bold text-foreground">
-                    {report.summary.actionItems.length}
-                  </div>
-                  <div className="text-sm text-muted-foreground">Action Items</div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Main Content Grid */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            {/* Left Column - Primary Content */}
-            <div className="lg:col-span-2 space-y-8">
-              {/* Executive Summary */}
-              <div className="p-6 bg-card/70 backdrop-blur-sm border border-border/50 rounded-lg shadow-md">
-                <div className="flex items-center gap-3 mb-4">
-                  <div className="w-8 h-8 bg-primary/10 rounded-lg flex items-center justify-center">
-                    <FileText className="w-4 h-4 text-primary" />
-                  </div>
-                  <h3 className="text-lg font-semibold text-foreground">Executive Summary</h3>
-                </div>
-                {report.summary.tldr === 'Summary generation is pending. Please check back in a few moments.' ? (
-                  <div className="bg-accent/10 rounded-lg p-4 border border-accent/20">
-                    <div className="flex items-start gap-3">
-                      <AlertTriangle className="w-6 h-6 text-accent flex-shrink-0 mt-0.5" />
-                      <div>
-                        <p className="text-foreground font-medium mb-2">
-                          Summary Generation Pending
-                        </p>
-                        <p className="text-sm text-muted-foreground">
-                          The AI is still processing this meeting. Please refresh the page in a few moments to see the complete summary.
-                        </p>
-                        <div className="flex gap-2 mt-3">
-                          <Button 
-                            onClick={() => window.location.reload()} 
-                            variant="outline" 
-                            size="sm"
-                          >
-                            Refresh Page
-                          </Button>
-                          <Button 
-                            onClick={handleManualFinalize} 
-                            variant="primary" 
-                            size="sm"
-                            disabled={finalizing}
-                          >
-                            {finalizing ? 'Generating...' : 'Generate Summary Now'}
-                          </Button>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="bg-primary/10 rounded-lg p-4 border border-primary/20">
-                    <div className="flex items-start gap-3">
-                      <div className="w-6 h-6 bg-primary rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
-                        <span className="text-primary-foreground text-xs font-bold">TL;DR</span>
-                      </div>
-                      <p className="text-foreground leading-relaxed">
-                        {report.summary.tldr}
-                      </p>
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* Key Decisions */}
-              {report.summary.keyDecisions.length > 0 && (
-                <div className="p-6 bg-card/70 backdrop-blur-sm border border-border/50 rounded-lg shadow-md">
-                  <div className="flex items-center gap-3 mb-4">
-                    <div className="w-8 h-8 bg-primary/15 rounded-lg flex items-center justify-center">
-                      <CheckCircle className="w-4 h-4 text-primary" />
-                    </div>
-                    <h3 className="text-lg font-semibold text-foreground">Key Decisions</h3>
-                  </div>
-                  <div className="space-y-3">
-                    {report.summary.keyDecisions.map((decision, index) => (
-                      <div key={index} className="flex items-start gap-3 p-3 bg-primary/5 rounded-lg border border-primary/20">
-                        <div className="w-6 h-6 bg-primary rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
-                          <span className="text-primary-foreground text-xs font-bold">{index + 1}</span>
-                        </div>
-                        <p className="text-foreground">
-                          {typeof decision === 'string' ? decision : decision.decision || decision.impact || JSON.stringify(decision)}
-                        </p>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Action Items */}
-              {report.summary.actionItems.length > 0 && (
-                <div className="p-6 bg-card/70 backdrop-blur-sm border border-border/50 rounded-lg shadow-md">
-                  <div className="flex items-center gap-3 mb-4">
-                    <div className="w-8 h-8 bg-accent/20 rounded-lg flex items-center justify-center">
-                      <Target className="w-4 h-4 text-accent-foreground" />
-                    </div>
-                    <h3 className="text-lg font-semibold text-foreground">Action Items</h3>
-                  </div>
-                  <div className="space-y-3">
-                    {report.summary.actionItems.map((item, index) => (
-                      <div key={index} className="flex items-start gap-3 p-4 bg-accent/5 rounded-lg border border-accent/20">
-                        <div className="w-6 h-6 bg-accent rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
-                          <span className="text-accent-foreground text-xs font-bold">✓</span>
-                        </div>
-                        <div className="flex-1">
-                          <p className="text-foreground mb-2">
-                            {typeof item === 'string' 
-                              ? item 
-                              : item.description || item.action || item.task || JSON.stringify(item)}
-                          </p>
-                          <div className="flex items-center gap-2 flex-wrap">
-                            {typeof item !== 'string' && item.priority && (
-                              <span className={`px-2 py-1 rounded-full text-xs font-medium border ${getPriorityColor(item.priority)}`}>
-                                {item.priority.toUpperCase()}
-                              </span>
-                            )}
-                            {typeof item !== 'string' && item.owner && (
-                              <span className="px-2 py-1 bg-muted text-muted-foreground rounded-full text-xs">
-                                👤 {item.owner}
-                              </span>
-                            )}
-                            {typeof item !== 'string' && (item.dueDate || item.deadline) && (
-                              <span className="px-2 py-1 bg-muted text-muted-foreground rounded-full text-xs">
-                                📅 {item.dueDate || item.deadline}
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Right Column - Analytics & Insights */}
-            <div className="space-y-8">
-              {/* Meeting Effectiveness */}
-              <div className="p-6 bg-card/70 backdrop-blur-sm border border-border/50 rounded-lg shadow-md">
-                <div className="flex items-center gap-3 mb-4">
-                  <div className="w-8 h-8 bg-secondary/20 rounded-lg flex items-center justify-center">
-                    <BarChart3 className="w-4 h-4 text-secondary" />
-                  </div>
-                  <h3 className="text-lg font-semibold text-foreground">Meeting Effectiveness</h3>
-                </div>
-                <div className="space-y-4">
-                  {/* Overall Score */}
-                  <div>
-                    <div className="flex justify-between items-center mb-2">
-                      <span className="text-sm font-medium text-foreground">Overall</span>
-                      <span className={`text-sm font-bold ${getEffectivenessColor(report.summary.effectiveness.overall)}`}>
-                        {report.summary.effectiveness.overall}%
-                      </span>
-                    </div>
-                    <div className="w-full bg-muted rounded-full h-2">
-                      <div 
-                        className="bg-gradient-to-r from-primary to-secondary h-2 rounded-full transition-all duration-1000 ease-out"
-                        style={{ width: `${report.summary.effectiveness.overall}%` }}
-                      />
-                    </div>
-                  </div>
-
-                  {/* Communication Score */}
-                  <div>
-                    <div className="flex justify-between items-center mb-2">
-                      <span className="text-sm font-medium text-foreground">Communication</span>
-                      <span className={`text-sm font-bold ${getEffectivenessColor(report.summary.effectiveness.communication)}`}>
-                        {report.summary.effectiveness.communication}%
-                      </span>
-                    </div>
-                    <div className="w-full bg-muted rounded-full h-2">
-                      <div 
-                        className="bg-gradient-to-r from-primary to-primary/70 h-2 rounded-full transition-all duration-1000 ease-out"
-                        style={{ width: `${report.summary.effectiveness.communication}%` }}
-                      />
-                    </div>
-                  </div>
-
-                  {/* Goal Achievement Score */}
-                  <div>
-                    <div className="flex justify-between items-center mb-2">
-                      <span className="text-sm font-medium text-foreground">Goal Achievement</span>
-                      <span className={`text-sm font-bold ${getEffectivenessColor(report.summary.effectiveness.goalAchievement)}`}>
-                        {report.summary.effectiveness.goalAchievement}%
-                      </span>
-                    </div>
-                    <div className="w-full bg-muted rounded-full h-2">
-                      <div 
-                        className="bg-gradient-to-r from-secondary to-accent h-2 rounded-full transition-all duration-1000 ease-out"
-                        style={{ width: `${report.summary.effectiveness.goalAchievement}%` }}
-                      />
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Speaking Time Analysis */}
-              <div className="p-6 bg-card/70 backdrop-blur-sm border border-border/50 rounded-lg shadow-md">
-                <div className="flex items-center gap-3 mb-4">
-                  <div className="w-8 h-8 bg-primary/15 rounded-lg flex items-center justify-center">
-                    <MessageSquare className="w-4 h-4 text-primary" />
-                  </div>
-                  <h3 className="text-lg font-semibold text-foreground">Speaking Time</h3>
-                </div>
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-muted-foreground">{report.participants.me}</span>
-                    <span className="text-sm font-medium text-foreground">{report.analytics.speakingTime.me}%</span>
-                  </div>
-                  <div className="w-full bg-muted rounded-full h-2">
-                    <div 
-                      className="bg-gradient-to-r from-primary to-primary/70 h-2 rounded-full"
-                      style={{ width: `${report.analytics.speakingTime.me}%` }}
-                    />
-                  </div>
-                  
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-muted-foreground">{report.participants.them}</span>
-                    <span className="text-sm font-medium text-foreground">{report.analytics.speakingTime.them}%</span>
-                  </div>
-                  <div className="w-full bg-muted rounded-full h-2">
-                    <div 
-                      className="bg-gradient-to-r from-secondary to-accent h-2 rounded-full"
-                      style={{ width: `${report.analytics.speakingTime.them}%` }}
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* Follow-up Questions */}
-              {report.summary.followUpQuestions.length > 0 && (
-                <div className="p-6 bg-card/70 backdrop-blur-sm border border-border/50 rounded-lg shadow-md">
-                  <div className="flex items-center gap-3 mb-4">
-                    <div className="w-8 h-8 bg-accent/20 rounded-lg flex items-center justify-center">
-                      <Lightbulb className="w-4 h-4 text-accent-foreground" />
-                    </div>
-                    <h3 className="text-lg font-semibold text-foreground">Follow-up Questions</h3>
-                  </div>
-                  <div className="space-y-2">
-                    {report.summary.followUpQuestions.map((question, index) => (
-                      <div key={index} className="flex items-start gap-2 p-3 bg-accent/10 rounded-lg border border-accent/20">
-                        <span className="text-accent font-bold">?</span>
-                        <p className="text-foreground text-sm">
-                          {typeof question === 'string' 
-                            ? question 
-                            : question.question || question.text || JSON.stringify(question)}
-                        </p>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
+          {/* Tabbed Report Component */}
+          <TabbedReport 
+            report={report}
+            activeTab={activeTab}
+            setActiveTab={setActiveTab}
+            handleManualFinalize={handleManualFinalize}
+            finalizing={finalizing}
+          />
 
           {/* Quick Actions */}
           <div className="mt-12 flex justify-center">
             <div className="flex items-center gap-4">
-              {report.transcriptAvailable && (
-                <Button onClick={() => setActiveTab('transcript')} variant="outline">
-                  <MessageSquare className="w-4 h-4 mr-2" />
-                  View Full Transcript
-                </Button>
-              )}
               {report.recordingUrl && (
                 <Button onClick={() => window.open(report.recordingUrl, '_blank')} variant="outline">
                   <PlayCircle className="w-4 h-4 mr-2" />
