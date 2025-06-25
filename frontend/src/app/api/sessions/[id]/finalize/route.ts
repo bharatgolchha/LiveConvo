@@ -612,14 +612,14 @@ async function generateFinalSummary(transcript: string, context: MeetingContext,
       engagement_quality: summary.effectivenessScore?.breakdown?.participation > 80 ? 'high' : 'medium',
       dominant_speaker: 'balanced',
       pace: 'moderate',
-      tone: 'professional'
+      tone: 'formal'
     },
     effectiveness_metrics: summary.effectivenessScore?.breakdown || {},
     agenda_coverage: summary.nextMeeting ? {
       items_covered: [],
       items_missed: [],
       unexpected_topics: []
-    } : {},
+    } : undefined,
     coaching_recommendations: summary.coaching?.improvements || [],
     email_draft: emailDraft,
     risk_assessment: summary.riskAssessment,

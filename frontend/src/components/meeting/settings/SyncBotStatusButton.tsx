@@ -14,15 +14,15 @@ import {
 interface SyncBotStatusButtonProps {
   sessionId?: string;
   onSyncComplete?: () => void;
-  variant?: 'default' | 'outline' | 'ghost';
-  size?: 'default' | 'sm' | 'lg' | 'icon';
+  variant?: 'primary' | 'secondary' | 'ghost' | 'outline' | 'destructive' | 'link';
+  size?: 'sm' | 'md' | 'lg';
 }
 
 export function SyncBotStatusButton({ 
   sessionId, 
   onSyncComplete,
   variant = 'outline',
-  size = 'default'
+  size = 'md'
 }: SyncBotStatusButtonProps) {
   const [syncing, setSyncing] = useState(false);
   const [showResults, setShowResults] = useState(false);
