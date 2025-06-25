@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { getDefaultAiModelServer } from '@/lib/systemSettingsServer'
+import { getCurrentDateContext } from '@/lib/utils'
 
 export async function POST(request: NextRequest) {
   try {
@@ -49,6 +50,8 @@ export async function POST(request: NextRequest) {
           {
             role: 'system',
             content: `You are an AI assistant that extracts actionable smart notes from conversation guidance.
+
+${getCurrentDateContext()}
             
             Your task is to analyze the given message and create 1-5 specific, actionable smart notes.
             

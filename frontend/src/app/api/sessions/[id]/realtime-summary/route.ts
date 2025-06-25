@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { getDefaultAiModelServer } from '@/lib/systemSettingsServer';
 import { createAuthenticatedSupabaseClient } from '@/lib/supabase';
+import { getCurrentDateContext } from '@/lib/utils';
 
 const requestSchema = z.object({
   transcript: z.array(z.object({
@@ -205,6 +206,8 @@ export async function POST(
 
     // Simple prompt for analyzing the full transcript
     const systemPrompt = `You are a helpful AI assistant that analyzes a live ${conversationType} conversation between ${participantMe} and ${participantThem}. 
+
+${getCurrentDateContext()}
 
 Analyze the entire transcript and create a comprehensive summary in the JSON format below. 
 

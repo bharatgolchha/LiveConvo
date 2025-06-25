@@ -46,7 +46,9 @@ export interface PreviousMeetingCardProps {
   conversation: LinkedConversation;
   onExpand: (id: string) => void;
   onAskQuestion: (id: string, context: string) => void;
+  onRemove?: (id: string) => void;
   isExpanded: boolean;
+  isRemoving?: boolean;
 }
 
 export interface PreviousMeetingsTabProps {

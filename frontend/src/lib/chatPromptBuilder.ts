@@ -1,3 +1,5 @@
+import { getCurrentDateContext } from './utils';
+
 interface ChatMessage {
   id: string;
   type: 'user' | 'ai' | 'system' | 'auto-guidance';
@@ -34,6 +36,8 @@ export function buildChatPrompt(
   const recentHistory = chatHistory.slice(-15);
   
   let prompt = `You are an intelligent conversation coach providing real-time guidance. Your role is to help the user navigate their ${conversationType || 'conversation'} more effectively.
+
+${getCurrentDateContext()}
 
 CONTEXT:
 `;

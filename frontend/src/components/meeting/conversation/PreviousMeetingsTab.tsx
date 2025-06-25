@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   ClockIcon,
@@ -6,7 +6,10 @@ import {
   ArrowPathIcon,
   ChatBubbleLeftRightIcon,
   LinkIcon,
-  InformationCircleIcon
+  InformationCircleIcon,
+  PencilIcon,
+  CheckIcon,
+  PlusIcon
 } from '@heroicons/react/24/outline';
 import { PreviousMeetingCard } from './PreviousMeetingCard';
 import { usePreviousMeetings } from '@/lib/meeting/hooks/usePreviousMeetings';
@@ -14,6 +17,7 @@ import { PreviousMeetingsTabProps } from '@/lib/meeting/types/previous-meetings.
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/badge';
 import { LoadingStates } from '../common/LoadingStates';
+import { AddPreviousMeetingModal } from './AddPreviousMeetingModal';
 
 export function PreviousMeetingsTab({ 
   sessionId, 
@@ -25,12 +29,28 @@ export function PreviousMeetingsTab({
     error,
     expandedCards,
     toggleExpanded,
-    refetch
+    refetch,
+    removeLinkedConversation,
+    isRemoving
   } = usePreviousMeetings(sessionId);
+  
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [showAddModal, setShowAddModal] = useState(false);
 
   const handleAskQuestion = async (meetingId: string, context: string) => {
     if (onAskAboutMeeting) {
       await onAskAboutMeeting(meetingId, context);
+    }
+  };
+
+  const handleRemoveMeeting = async (linkedSessionId: string) => {
+    await removeLinkedConversation(linkedSessionId);
+  };
+
+  const toggleEditMode = () => {
+    setIsEditMode(!isEditMode);
+    if (showAddModal) {
+      setShowAddModal(false);
     }
   };
 
@@ -82,12 +102,23 @@ export function PreviousMeetingsTab({
     return (
       <div className="flex flex-col h-full">
         <div className="p-4 border-b border-border">
-          <div className="flex items-center gap-2">
-            <LinkIcon className="w-5 h-5 text-muted-foreground" />
-            <h3 className="font-medium text-foreground">Previous Meetings</h3>
-            <Badge variant="secondary" className="text-xs">
-              None
-            </Badge>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <LinkIcon className="w-5 h-5 text-muted-foreground" />
+              <h3 className="font-medium text-foreground">Previous Meetings</h3>
+              <Badge variant="secondary" className="text-xs">
+                None
+              </Badge>
+            </div>
+            <Button
+              onClick={() => setShowAddModal(true)}
+              variant="outline"
+              size="sm"
+              className="text-xs"
+            >
+              <PlusIcon className="w-3 h-3 mr-1" />
+              Add Meeting
+            </Button>
           </div>
         </div>
         <div className="flex-1 flex flex-col items-center justify-center p-8 text-center">
@@ -96,15 +127,30 @@ export function PreviousMeetingsTab({
           </div>
           <h4 className="font-medium text-foreground mb-2">No Previous Meetings Linked</h4>
           <p className="text-sm text-muted-foreground mb-4 max-w-sm">
-            This meeting doesn't have any linked previous meetings. You can link previous meetings when creating a new meeting to provide context.
+            Add previous meetings to provide context for the AI advisor.
           </p>
-          <div className="flex items-center gap-2 p-3 bg-muted/50 rounded-lg border border-border">
+          <Button
+            onClick={() => setShowAddModal(true)}
+            variant="primary"
+            size="sm"
+          >
+            <PlusIcon className="w-4 h-4 mr-2" />
+            Add Previous Meeting
+          </Button>
+          <div className="flex items-center gap-2 p-3 bg-muted/50 rounded-lg border border-border mt-6">
             <InformationCircleIcon className="w-4 h-4 text-muted-foreground flex-shrink-0" />
             <p className="text-xs text-muted-foreground">
               Linked meetings help the AI advisor provide better context and suggestions based on previous discussions.
             </p>
           </div>
         </div>
+        
+        <AddPreviousMeetingModal
+          isOpen={showAddModal}
+          onClose={() => setShowAddModal(false)}
+          sessionId={sessionId}
+          onMeetingsAdded={refetch}
+        />
       </div>
     );
   }
@@ -123,6 +169,35 @@ export function PreviousMeetingsTab({
           </div>
           
           <div className="flex items-center gap-2">
+            {isEditMode && (
+              <Button
+                onClick={() => setShowAddModal(true)}
+                variant="outline"
+                size="sm"
+                className="text-xs"
+              >
+                <PlusIcon className="w-3 h-3 mr-1" />
+                Add
+              </Button>
+            )}
+            <Button
+              onClick={toggleEditMode}
+              variant={isEditMode ? "primary" : "ghost"}
+              size="sm"
+              className="text-xs"
+            >
+              {isEditMode ? (
+                <>
+                  <CheckIcon className="w-3 h-3 mr-1" />
+                  Done
+                </>
+              ) : (
+                <>
+                  <PencilIcon className="w-3 h-3 mr-1" />
+                  Edit
+                </>
+              )}
+            </Button>
             <Button
               onClick={refetch}
               variant="ghost"
@@ -156,6 +231,26 @@ export function PreviousMeetingsTab({
 
       {/* Meetings List */}
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
+        {isEditMode && linkedConversations.length === 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="text-center p-8"
+          >
+            <p className="text-sm text-muted-foreground mb-4">
+              No meetings linked yet. Add some to provide context.
+            </p>
+            <Button
+              onClick={() => setShowAddModal(true)}
+              variant="primary"
+              size="sm"
+            >
+              <PlusIcon className="w-4 h-4 mr-2" />
+              Add Previous Meeting
+            </Button>
+          </motion.div>
+        )}
+        
         <AnimatePresence>
           {linkedConversations.map((conversation, index) => (
             <motion.div
@@ -169,7 +264,9 @@ export function PreviousMeetingsTab({
                 conversation={conversation}
                 onExpand={toggleExpanded}
                 onAskQuestion={handleAskQuestion}
+                onRemove={isEditMode ? handleRemoveMeeting : undefined}
                 isExpanded={expandedCards.has(conversation.linked_session_id)}
+                isRemoving={isRemoving === conversation.linked_session_id}
               />
             </motion.div>
           ))}
@@ -181,10 +278,22 @@ export function PreviousMeetingsTab({
         <div className="flex items-center gap-2 text-xs text-muted-foreground">
           <InformationCircleIcon className="w-4 h-4" />
           <p>
-            These meetings were linked when this meeting was created. The AI advisor uses this context to provide better suggestions.
+            {isEditMode 
+              ? "Add or remove meetings to customize the AI advisor's context."
+              : "These meetings provide context for the AI advisor's suggestions."
+            }
           </p>
         </div>
       </div>
+      
+      {/* Add Meeting Modal */}
+      <AddPreviousMeetingModal
+        isOpen={showAddModal}
+        onClose={() => setShowAddModal(false)}
+        sessionId={sessionId}
+        onMeetingsAdded={refetch}
+        currentLinkedIds={linkedConversations.map(c => c.linked_session_id)}
+      />
     </div>
   );
 } 

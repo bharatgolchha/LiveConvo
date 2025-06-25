@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { getCurrentDateContext } from '@/lib/utils';
 
 interface SuggestionItem {
   text: string;
@@ -87,6 +88,8 @@ Current meeting summary:
 ` : '';
 
     const systemPrompt = `You are an AI advisor that generates smart, actionable suggestions for meeting participants.
+
+${getCurrentDateContext()}
 
 Meeting Context:
 - Type: ${meetingType}

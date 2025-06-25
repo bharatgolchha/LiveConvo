@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import type { RealtimeSummary, SuggestedSmartNote, SummaryResponse } from '@/types/api';
 import { getDefaultAiModelServer } from '@/lib/systemSettingsServer';
 import JSON5 from 'json5';
+import { supabase } from '@/lib/supabase';
+import { getCurrentDateContext } from '@/lib/utils';
 
 const getContextSpecificGuidelines = (conversationType: string) => {
   switch (conversationType) {
@@ -147,43 +149,56 @@ export async function POST(request: NextRequest) {
     const meLabel = participantMe || 'You';
     const themLabel = participantThem || 'The other participant';
     
-    const systemPrompt = `You are an expert conversation analyst. Analyze the transcript of a conversation between ${meLabel} and ${themLabel} and provide a summary in the EXACT JSON format below.
+    const systemPrompt = `You are an expert conversation analyst who creates detailed, comprehensive meeting summaries.
 
-PARTICIPANT IDENTIFICATION:
-- "${meLabel}" = The person who recorded this conversation (the user of this system)
-- "${themLabel}" = The person they were speaking with
+${getCurrentDateContext()}
 
-When analyzing the conversation:
-- Identify action items and next steps primarily for ${meLabel}
-- Note decisions made by both ${meLabel} and ${themLabel}
-- Assess the overall sentiment of the interaction
-- Focus on what ${meLabel} should know and remember from this conversation
+Your task is to analyze this ${conversationType || 'conversation'} between ${meLabel} and ${themLabel} and provide a thorough, structured summary that captures all the important elements.
 
-CRITICAL: Return ONLY valid JSON. No markdown, no explanations, just the JSON object.
+PARTICIPANTS CLEARLY IDENTIFIED:
+- "${meLabel}" = The person who recorded this conversation (the user requesting this summary)
+- "${themLabel}" = The person ${meLabel} was speaking with
 
-REQUIRED JSON FORMAT:
+ANALYSIS FRAMEWORK:
+1. **Conversation Overview**: What was this conversation about? What were the main goals or purposes?
+2. **Key Discussion Points**: What were the most important topics discussed between ${meLabel} and ${themLabel}?
+3. **Decisions Made**: What decisions, agreements, or conclusions were reached?
+4. **Action Items**: What specific actions, tasks, or follow-ups were identified?
+5. **Key Insights**: What important insights, concerns, or opportunities emerged?
+6. **Communication Dynamics**: How did the conversation flow? What was the tone and engagement level?
+
+QUALITY STANDARDS:
+- Be comprehensive but concise - capture everything important without unnecessary detail
+- Reference both ${meLabel} and ${themLabel} by name when discussing their contributions
+- Use specific quotes or examples from the conversation when they illustrate key points
+- Organize information logically with clear sections
+- Focus on actionable insights and outcomes
+- Maintain professional, objective tone throughout
+
+Return your analysis as a JSON object with this exact structure:
 {
-  "tldr": "Brief 1-2 sentence summary of what ${meLabel} and ${themLabel} discussed",
-  "keyPoints": ["Point 1", "Point 2", "Point 3"],
-  "decisions": ["Decision 1 made by ${meLabel} or ${themLabel}"],
-  "actionItems": ["Action 1 for ${meLabel}", "Action 2 for ${themLabel}"],
-  "nextSteps": ["Next step 1 for ${meLabel}"],
-  "topics": ["Topic 1", "Topic 2", "Topic 3", "Topic 4"],
-  "sentiment": "positive",
-  "progressStatus": "building_momentum"
+  "tldr": "2-3 sentence executive summary of the entire conversation",
+  "key_discussion_points": [
+    "Specific topic or theme discussed (3-8 items)"
+  ],
+  "decisions_made": [
+    "Specific decision, agreement, or conclusion reached (0-5 items)"
+  ],
+  "action_items": [
+    "Specific task, follow-up, or next step identified (0-8 items)"
+  ],
+  "key_insights": [
+    "Important insight, concern, opportunity, or strategic point (2-6 items)"
+  ],
+  "conversation_highlights": [
+    "Notable moments, quotes, or exchanges that were particularly important (2-5 items)"
+  ],
+  "overall_sentiment": "positive|neutral|mixed|concerning - with brief explanation",
+  "meeting_effectiveness": "Brief assessment of how productive the conversation was",
+  "recommended_follow_up": "Suggested next steps or follow-up actions based on the conversation"
 }
 
-FIELD RULES:
-- tldr: 1-2 sentences max, mentioning both participants by name when relevant
-- keyPoints: 3-10 main discussion points between ${meLabel} and ${themLabel}
-- decisions: Actual decisions made, noting who made them (can be empty array)
-- actionItems: Specific tasks identified, noting who owns them (can be empty array)
-- nextSteps: Clear next actions primarily for ${meLabel} (can be empty array)  
-- topics: Main subjects discussed (include as many as are meaningfully covered)
-- sentiment: Must be "positive", "negative", or "neutral"
-- progressStatus: Must be "just_started", "building_momentum", "making_progress", or "wrapping_up"
-
-Return ONLY the JSON object. Ensure all strings are properly quoted and escaped.`;
+IMPORTANT: Use the participant names (${meLabel} and ${themLabel}) throughout your analysis, not generic terms like "participant" or "speaker".`;
 
     const model = await getDefaultAiModelServer();
 

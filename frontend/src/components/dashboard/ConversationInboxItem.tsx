@@ -216,14 +216,18 @@ const ConversationInboxItem: React.FC<Props> = ({
         y: -1, 
         boxShadow: isSelected 
           ? '0 8px 25px hsla(var(--primary) / 0.15)' 
-          : '0 4px 12px hsla(var(--foreground) / 0.08)' 
+          : '0 4px 12px hsla(var(--foreground) / 0.08)',
+        zIndex: 50
       }}
       transition={{ duration: 0.15 }}
       className={`group relative rounded-lg p-2.5 cursor-pointer transition-all duration-200 ${
         isSelected 
           ? 'bg-primary/10 border-2 border-primary shadow-lg shadow-primary/20' 
-          : 'bg-card border border-border hover:border-border/80 hover:bg-card/80'
+          : session.linkedConversationsCount && session.linkedConversationsCount > 0
+            ? 'bg-card border border-primary/20 hover:border-primary/30 hover:bg-primary/5 hover:shadow-sm hover:shadow-primary/10'
+            : 'bg-card border border-border hover:border-border/80 hover:bg-card/80'
       }`}
+      style={{ position: 'relative' }}
       onClick={onClick}
     >
       {/* Header Row */}
@@ -249,8 +253,14 @@ const ConversationInboxItem: React.FC<Props> = ({
               <VideoCameraIcon className="w-4 h-4 text-primary flex-shrink-0" />
             )}
             
-            <h3 className="text-sm font-medium text-foreground truncate flex-1">
+            <h3 className="text-sm font-medium text-foreground truncate flex-1 flex items-center gap-1.5">
               {session.title}
+              {session.linkedConversationsCount && session.linkedConversationsCount > 0 && (
+                <svg className="w-3.5 h-3.5 text-primary/60 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <title>{session.linkedConversationsCount} linked conversation{session.linkedConversationsCount > 1 ? 's' : ''}</title>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+                </svg>
+              )}
             </h3>
           </div>
           
@@ -335,35 +345,60 @@ const ConversationInboxItem: React.FC<Props> = ({
             </span>
           )}
 
-          {/* Linked Conversations */}
+          {/* Linked Conversations - Enhanced Display */}
           {session.linkedConversationsCount && session.linkedConversationsCount > 0 && (
-            <div className="relative group/tooltip">
-              <span className="flex items-center gap-1 text-primary">
-                <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+            <div className="relative group/tooltip" style={{ zIndex: 1 }}>
+              <span className="flex items-center gap-1.5 px-2 py-0.5 bg-primary/10 text-primary rounded-full text-xs font-medium transition-all duration-200 hover:bg-primary/20">
+                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
                 </svg>
-                {session.linkedConversationsCount}
+                {session.linkedConversationsCount} {session.linkedConversationsCount === 1 ? 'linked' : 'linked'}
               </span>
 
-              {/* Tooltip */}
+              {/* Enhanced Tooltip - Positioned below to avoid overlaps */}
               {session.linkedConversations && session.linkedConversations.length > 0 && (
-                <div className="absolute bottom-full left-0 mb-1 opacity-0 group-hover/tooltip:opacity-100 transition-opacity duration-200 z-10 pointer-events-none">
-                  <div className="bg-popover text-popover-foreground text-xs rounded-md shadow-lg p-2 min-w-[180px] max-w-[250px]">
-                    <div className="font-medium mb-1">Previous conversations:</div>
-                    <div className="space-y-0.5">
+                <div className="absolute top-full left-0 mt-2 opacity-0 group-hover/tooltip:opacity-100 transition-all duration-200 z-[9999] pointer-events-none">
+                  <motion.div 
+                    initial={{ scale: 0.95, y: -5 }}
+                    animate={{ scale: 1, y: 0 }}
+                    className="bg-popover/95 backdrop-blur-sm text-popover-foreground rounded-lg shadow-xl border border-border p-3 min-w-[220px] max-w-[320px]"
+                  >
+                    <div className="flex items-center gap-2 mb-2">
+                      <div className="p-1 bg-primary/10 rounded">
+                        <svg className="w-4 h-4 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+                        </svg>
+                      </div>
+                      <div>
+                        <div className="font-semibold text-sm">Previous Context</div>
+                        <div className="text-xs text-muted-foreground">Building on past discussions</div>
+                      </div>
+                    </div>
+                    
+                    <div className="space-y-1.5">
                       {session.linkedConversations.slice(0, 3).map((conv, index) => (
-                        <div key={conv.id} className="truncate text-xs">
-                          {index + 1}. {conv.title}
+                        <div key={conv.id} className="flex items-start gap-2 p-1.5 rounded hover:bg-muted/50 transition-colors">
+                          <div className="w-5 h-5 rounded-full bg-primary/20 flex items-center justify-center flex-shrink-0 mt-0.5">
+                            <span className="text-xs font-semibold text-primary">{index + 1}</span>
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="text-xs font-medium text-foreground truncate">
+                              {conv.title}
+                            </div>
+                          </div>
                         </div>
                       ))}
                       {session.linkedConversations.length > 3 && (
-                        <div className="text-muted-foreground text-xs">
-                          +{session.linkedConversations.length - 3} more...
+                        <div className="text-center pt-1 border-t border-border">
+                          <span className="text-xs text-muted-foreground font-medium">
+                            +{session.linkedConversations.length - 3} more conversation{session.linkedConversations.length - 3 > 1 ? 's' : ''}
+                          </span>
                         </div>
                       )}
                     </div>
-                                          <div className="absolute top-full left-3 w-0 h-0 border-l-2 border-r-2 border-t-2 border-transparent border-t-popover" />
-                  </div>
+                    
+                    <div className="absolute -top-1 left-6 w-2 h-2 bg-popover/95 border-l border-t border-border transform rotate-45" />
+                  </motion.div>
                 </div>
               )}
             </div>

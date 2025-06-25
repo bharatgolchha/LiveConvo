@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getDefaultAiModelServer } from '@/lib/systemSettingsServer';
+import { getCurrentDateContext } from '@/lib/utils';
 
 // Health check endpoint
 export async function GET() {
@@ -78,6 +79,8 @@ export async function POST(request: NextRequest) {
           {
             role: 'system',
             content: `You are an AI assistant that analyzes conversation transcripts and provides detailed, well-structured summaries about specific topics.
+
+${getCurrentDateContext()}
 
 PARTICIPANT IDENTIFICATION:
 ${participantMe && participantThem ? `- "${participantMe}" = The person who recorded this conversation (the user requesting this summary)

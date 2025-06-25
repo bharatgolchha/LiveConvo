@@ -7,6 +7,7 @@
 // install `node-fetch` as a dependency.
 
 import { getDefaultAiModelServer } from '@/lib/systemSettingsServer';
+import { getCurrentDateContext } from '@/lib/utils';
 
 /**
  * Generate an updated running summary given the previous summary and a new transcript chunk.
@@ -24,6 +25,9 @@ export async function updateRunningSummary(
   }
 
   const systemPrompt = `You are an expert note-taker. Merge the NEW TRANSCRIPT CHUNK into the EXISTING SUMMARY.
+
+${getCurrentDateContext()}
+
 Return a concise cumulative summary (max 250 words) that preserves key decisions, action items and topics.`;
 
   const userPrompt = `EXISTING SUMMARY:\n${prevSummary || 'None yet.'}\n\nNEW TRANSCRIPT CHUNK:\n${newTranscriptChunk}`;

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import type { SuggestedSmartNote } from '@/types/api';
 import { getDefaultAiModelServer } from '@/lib/systemSettingsServer';
+import { getCurrentDateContext } from '@/lib/utils';
 
 const getContextSpecificGuidelines = (conversationType: string) => {
   switch (conversationType) {
@@ -116,37 +117,45 @@ export async function POST(request: NextRequest) {
     const meLabel = participantMe || 'You';
     const themLabel = participantThem || 'The other participant';
     
-    const systemPrompt = `You are an expert conversation analyst. Generate smart note suggestions based on the conversation between ${meLabel} and ${themLabel}.
+    const systemPrompt = `You are an expert AI assistant that analyzes conversation transcripts and generates actionable smart notes to help participants track important insights, decisions, and follow-up actions.
 
-PARTICIPANT ROLES:
-- "${meLabel}" = The person who recorded this conversation (who needs these smart notes)
-- "${themLabel}" = The person ${meLabel} was speaking with
+${getCurrentDateContext()}
 
-CRITICAL: Return ONLY valid JSON. No markdown, no explanations, just the JSON object.
+Your role is to extract the most valuable, actionable insights from the conversation that the user should remember, act on, or reference later.
 
-REQUIRED JSON FORMAT:
-{
-  "suggestions": [
-    {
-      "text": "Specific actionable insight or task for ${meLabel}",
-      "priority": "high",
-      "type": "followup",
-      "relevance": 95
-    }
-  ]
-}
+ANALYSIS FOCUS:
+- Key decisions made during the conversation
+- Important insights or revelations shared
+- Action items or commitments mentioned
+- Critical information that affects future planning
+- Strategic points worth remembering
+- Questions that need follow-up
 
-RULES FOR SUGGESTIONS:
-- Generate 5-8 highly relevant smart notes primarily for ${meLabel}'s action
-- Each note should be specific and actionable for ${meLabel}
-- Text must be concise (max 80 characters)
-- Priority: "high" for critical items, "medium" for important, "low" for nice-to-have
-- Type must be one of: "preparation", "followup", "research", "decision", "action"
-- Relevance score 80-100 based on importance to ${meLabel}
-- Focus on concrete, specific actions ${meLabel} should take
-- Reference ${themLabel} by name when relevant (e.g., "Follow up with ${themLabel} on...")
-- Consider what ${meLabel} committed to or what ${themLabel} requested
-${conversationType ? `- ${getContextSpecificGuidelines(conversationType)}` : ''}
+SMART NOTES CRITERIA:
+1. **Actionable**: Each note should relate to something the user can act on
+2. **Specific**: Include names, dates, numbers, or concrete details when mentioned
+3. **Valuable**: Focus on high-impact information that matters for future reference
+4. **Concise**: Keep each note under 100 characters for easy scanning
+5. **Categorized**: Assign appropriate types and priorities
+
+CATEGORIES:
+- preparation: Things to prepare for future conversations/meetings
+- followup: Actions to take after this conversation
+- research: Information to investigate or validate
+- decision: Important decisions made or needed
+- action: Specific tasks or commitments
+
+PRIORITIES:
+- high: Critical items that need immediate attention
+- medium: Important items for near-term action
+- low: Useful information for future reference
+
+${participantMe && participantThem ? `
+PARTICIPANTS:
+- "${participantMe}" = The user requesting these smart notes
+- "${participantThem}" = The person they were speaking with
+
+Frame all notes from ${participantMe}'s perspective - what they should know, do, or remember.` : ''}
 
 Return ONLY the JSON object. Ensure all strings are properly quoted and escaped.`;
 

@@ -1,21 +1,53 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAuthenticatedSupabaseClient } from '@/lib/supabase';
+import { getCurrentDateContext } from '@/lib/utils';
 
-const SMART_NOTES_PROMPT = `You are an AI assistant helping to extract smart notes from a meeting transcript.
+const SMART_NOTES_PROMPT = `You are an expert AI assistant that analyzes meeting conversations and extracts actionable smart notes.
 
-Based on the conversation, identify and categorize important information into these categories:
-- key_point: Important points or conclusions
-- action_item: Tasks or actions that need to be taken
-- decision: Decisions that were made
-- question: Important questions that were raised
-- insight: Valuable insights or observations
+${getCurrentDateContext()}
 
-Return a JSON array of notes, each with:
-- category: one of the above categories
-- content: the actual note content (concise but clear)
-- importance: "high", "medium", or "low"
+Your goal is to identify and extract the most valuable, actionable insights from the conversation that participants should track, remember, or act upon.
 
-Focus on practical, actionable information. Be concise but specific.`;
+EXTRACTION CRITERIA:
+1. **Decisions Made**: Clear resolutions, agreements, or conclusions reached
+2. **Action Items**: Specific tasks, commitments, or next steps identified  
+3. **Key Insights**: Important revelations, strategic points, or breakthrough moments
+4. **Follow-up Items**: Questions to investigate, people to contact, or information to gather
+5. **Important Details**: Dates, numbers, names, deadlines, or specifications mentioned
+
+SMART NOTES GUIDELINES:
+- Each note should be specific and actionable (not vague observations)
+- Include relevant context like who, what, when, where if mentioned
+- Focus on information that affects future planning or decision-making
+- Keep notes concise but informative (max 100 characters each)
+- Prioritize based on importance and urgency
+- Categorize appropriately for easy organization
+
+CATEGORIES:
+- preparation: Items to prepare for future activities
+- followup: Actions to take after this meeting
+- research: Information to investigate or validate  
+- decision: Important decisions made or needed
+- action: Specific tasks or commitments
+
+PRIORITIES:
+- high: Critical items needing immediate attention
+- medium: Important items for near-term action
+- low: Useful information for future reference
+
+Return ONLY a JSON object with this structure:
+{
+  "notes": [
+    {
+      "text": "Specific actionable note with context",
+      "category": "preparation|followup|research|decision|action", 
+      "priority": "high|medium|low",
+      "confidence": 90
+    }
+  ]
+}
+
+Focus on extracting 5-10 high-quality notes that provide real value to the meeting participants.`;
 
 // ----------------------------------------------------------------------
 // GET /api/meeting/[id]/smart-notes

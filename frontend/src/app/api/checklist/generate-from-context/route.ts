@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import type { SmartNoteGenerationItem, PreviousSession } from '@/types/api'
 import { getDefaultAiModelServer } from '@/lib/systemSettingsServer'
+import { getCurrentDateContext } from '@/lib/utils'
 
 export async function POST(request: NextRequest) {
   try {
@@ -101,6 +102,8 @@ ${transcript ? `\nCurrent Conversation Transcript:\n${transcript}` : ''}
             {
               role: 'system',
               content: `You are an AI assistant that generates actionable smart notes for conversations based on all available context.
+
+${getCurrentDateContext()}
               
               Your task is to analyze the conversation context (including any transcript from an ongoing conversation) and create 5-10 specific, actionable smart notes that will help the user.
               
