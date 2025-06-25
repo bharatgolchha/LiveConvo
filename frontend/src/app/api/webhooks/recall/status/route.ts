@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerSupabaseClient } from '@/lib/supabase';
-import { headers } from 'next/headers';
 import * as crypto from 'crypto';
+import { WebhookEventProcessor } from '@/lib/webhooks/processor';
+import { WebhookRateLimiter } from '@/lib/webhooks/rate-limiter';
 
 interface BotStatusWebhookEvent {
   event: 'bot.joining_call' | 'bot.in_waiting_room' | 'bot.in_call_not_recording' | 
@@ -33,15 +34,47 @@ export async function POST(request: NextRequest) {
   try {
     console.log('🌐 Global bot status webhook received');
     
+    // Check rate limit
+    const rateLimitResult = await WebhookRateLimiter.checkRateLimit(request, {
+      windowMs: 60000, // 1 minute
+      maxRequests: 200 // 200 webhooks per minute
+    });
+    
+    if (!rateLimitResult.allowed) {
+      console.warn('⚠️ Webhook rate limit exceeded');
+      await WebhookRateLimiter.logSuspiciousActivity(request, 'Rate limit exceeded');
+      
+      return NextResponse.json({ 
+        error: 'Rate limit exceeded',
+        resetTime: rateLimitResult.resetTime 
+      }, { 
+        status: 429,
+        headers: {
+          'X-RateLimit-Limit': '200',
+          'X-RateLimit-Remaining': rateLimitResult.remaining.toString(),
+          'X-RateLimit-Reset': new Date(rateLimitResult.resetTime).toISOString()
+        }
+      });
+    }
+    
+    // Verify webhook source IP (optional - enable for production)
+    if (process.env.NODE_ENV === 'production' && process.env.VERIFY_WEBHOOK_SOURCE === 'true') {
+      const isValidSource = await WebhookRateLimiter.verifyWebhookSource(request);
+      if (!isValidSource) {
+        await WebhookRateLimiter.logSuspiciousActivity(request, 'Invalid source IP');
+        return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+      }
+    }
+    
     // Get the raw body for signature verification
     const body = await request.text();
     
     // Verify webhook authenticity
-    const signature = headers().get('x-recall-signature');
+    const signature = request.headers.get('x-recall-signature');
     const webhookSecret = process.env.RECALL_AI_WEBHOOK_SECRET;
     
     if (signature && webhookSecret) {
-      const timestamp = headers().get('x-recall-timestamp');
+      const timestamp = request.headers.get('x-recall-timestamp');
       if (!timestamp) {
         console.error('❌ Missing timestamp header for signature verification');
         return NextResponse.json({ error: 'Invalid webhook signature' }, { status: 401 });
@@ -73,14 +106,15 @@ export async function POST(request: NextRequest) {
       botId: event.data.bot.id,
       code: event.data.data.code,
       subCode: event.data.data.sub_code,
-      timestamp: event.data.data.updated_at
+      timestamp: event.data.data.updated_at,
+      metadata: event.data.bot.metadata
     });
     
     const supabase = createServerSupabaseClient();
     
     // Extract bot and session info
     const botId = event.data.bot.id;
-    const sessionId = event.data.bot.metadata?.session_id;
+    let sessionId = event.data.bot.metadata?.session_id;
     const statusCode = event.data.data.code;
     const timestamp = event.data.data.updated_at || new Date().toISOString();
     
@@ -152,6 +186,20 @@ export async function POST(request: NextRequest) {
       case 'bot.fatal':
         await handleBotFailed(botId, sessionId, timestamp, event.data.data.sub_code, session, supabase);
         break;
+    }
+    
+    // Broadcast event to connected clients via SSE
+    if (sessionId && session) {
+      await WebhookEventProcessor.processBotStatusEvent({
+        type: event.event,
+        botId,
+        sessionId,
+        userId: session.user_id,
+        organizationId: session.organization_id,
+        status: statusCode,
+        data: event.data.data,
+        timestamp
+      });
     }
     
     // Mark webhook as processed

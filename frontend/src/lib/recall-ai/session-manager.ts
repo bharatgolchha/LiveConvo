@@ -46,6 +46,29 @@ export class RecallSessionManager {
         throw new Error('Unsupported meeting platform');
       }
 
+      // Get session details for metadata
+      const { data: sessionData } = await supabase
+        .from('sessions')
+        .select(`
+          title,
+          user_id,
+          organization_id,
+          users!inner(email, full_name),
+          organizations!inner(name)
+        `)
+        .eq('id', sessionId)
+        .single();
+
+      // Prepare metadata
+      const metadata = {
+        userEmail: (sessionData as any)?.users?.email,
+        userName: (sessionData as any)?.users?.full_name,
+        organizationId: sessionData?.organization_id,
+        organizationName: (sessionData as any)?.organizations?.name,
+        meetingTitle: sessionData?.title,
+        platform: platform,
+      };
+
       // Create Recall bot with retry logic
       let bot;
       let lastError;
@@ -56,6 +79,7 @@ export class RecallSessionManager {
             sessionId,
             meetingUrl,
             transcriptionProvider: 'deepgram', // Use same as current
+            metadata,
           });
           break; // Success, exit retry loop
         } catch (error) {
@@ -256,7 +280,14 @@ export class RecallSessionManager {
       // Check if session already has a bot
       const { data: existingSession } = await supabase
         .from('sessions')
-        .select('recall_bot_id')
+        .select(`
+          recall_bot_id,
+          title,
+          user_id,
+          organization_id,
+          users!inner(email, full_name),
+          organizations!inner(name)
+        `)
         .eq('id', sessionId)
         .single();
       
@@ -265,14 +296,25 @@ export class RecallSessionManager {
         return existingSession.recall_bot_id;
       }
       
+      // Prepare metadata with user and organization info
+      const metadata = {
+        userEmail: (existingSession as any)?.users?.email,
+        userName: (existingSession as any)?.users?.full_name,
+        organizationId: existingSession?.organization_id,
+        organizationName: (existingSession as any)?.organizations?.name,
+        meetingTitle: existingSession?.title,
+        platform: platform || undefined,
+      };
+      
       bot = await this.recallClient.createBot({
         meetingUrl: meetingUrl,
         sessionId: sessionId,
         botName: "LivePrompt Assistant",
+        metadata,
       });
       
       botId = bot.id;
-      console.log(`✅ Bot created successfully: ${botId}`);
+      console.log(`✅ Bot created successfully: ${botId} with metadata:`, metadata);
       
       // Update session with bot ID
       await supabase.from('sessions').update({
