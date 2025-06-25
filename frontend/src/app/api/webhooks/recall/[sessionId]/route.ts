@@ -82,26 +82,7 @@ interface TranscriptData {
   };
 }
 
-/**
- * FAILSAFE: Auto-complete orphaned bot recordings
- * This runs periodically to catch missed webhook events
- */
-async function runFailsafeOrphanDetection(supabase: any): Promise<void> {
-  try {
-    console.log('🚨 Running failsafe orphan detection...');
-
-    // Auto-complete orphaned bot recordings using SQL
-    const { error } = await supabase.rpc('auto_complete_orphaned_recordings');
-    
-    if (error) {
-      console.error('❌ Failsafe orphan detection failed:', error);
-    } else {
-      console.log('✅ Failsafe orphan detection completed');
-    }
-  } catch (error) {
-    console.error('❌ Error in failsafe orphan detection:', error);
-  }
-}
+// Note: Failsafe orphan detection moved to cron job (/api/cron/sync-bot-status) for better performance
 
 /**
  * Track bot usage based on Recall.ai webhook events
@@ -337,8 +318,7 @@ async function ensureBotUsageTrackingFromTranscript(
     console.log(`🟢 Updated bot usage tracking to recording status for ${botId}`);
   }
 
-  // ENHANCED: Check for stale sessions and auto-complete them
-  await runFailsafeOrphanDetection(supabase);
+  // Note: Failsafe orphan detection now runs via cron job to avoid webhook performance impact
 }
 
 /**
@@ -695,10 +675,7 @@ export async function POST(
       }
     }
 
-    // Run periodic failsafe check (every 10th webhook to avoid performance impact)
-    if (Math.random() < 0.1) {
-      setTimeout(() => runFailsafeOrphanDetection(supabase), 1000);
-    }
+    // Note: Failsafe orphan detection now runs via cron job (/api/cron/sync-bot-status) every 30 minutes
 
     return NextResponse.json({ success: true });
   } catch (error) {
