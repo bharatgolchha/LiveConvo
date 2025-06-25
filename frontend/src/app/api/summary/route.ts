@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import type { RealtimeSummary, SuggestedSmartNote, SummaryResponse } from '@/types/api';
-import { getDefaultAiModelServer } from '@/lib/systemSettingsServer';
+import { getAIModelForAction, AIAction } from '@/lib/aiModelConfig';
 import JSON5 from 'json5';
 import { supabase } from '@/lib/supabase';
 import { getCurrentDateContext } from '@/lib/utils';
@@ -200,7 +200,7 @@ Return your analysis as a JSON object with this exact structure:
 
 IMPORTANT: Use the participant names (${meLabel} and ${themLabel}) throughout your analysis, not generic terms like "participant" or "speaker".`;
 
-    const model = await getDefaultAiModelServer();
+    const model = await getAIModelForAction(AIAction.SUMMARY);
 
     const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
       method: 'POST',

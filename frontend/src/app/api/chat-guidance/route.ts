@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { buildChatMessages } from '@/lib/chatPromptBuilder';
 import { updateRunningSummary } from '@/lib/summarizer';
 import { z } from 'zod';
-import { getDefaultAiModelServer } from '@/lib/systemSettingsServer';
+import { getAIModelForAction, AIAction } from '@/lib/aiModelConfig';
 import { createAuthenticatedSupabaseClient } from '@/lib/supabase';
 import { getCurrentDateContext } from '@/lib/utils';
 
@@ -425,7 +425,7 @@ export async function POST(request: NextRequest) {
       participantThem
     );
 
-    const defaultModel = await getDefaultAiModelServer();
+    const defaultModel = await getAIModelForAction(AIAction.CHAT_GUIDANCE);
 
     // Build smart notes context if provided
     let smartNotesPrompt = '';

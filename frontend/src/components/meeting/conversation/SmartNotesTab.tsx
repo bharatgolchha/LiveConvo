@@ -225,7 +225,7 @@ export function SmartNotesTab() {
         ) : (
           <AnimatePresence>
             {filteredNotes.map((note, index) => {
-              const config = categoryConfig[note.category];
+              const config = categoryConfig[note.category] || categoryConfig.key_point;
               const Icon = config.icon;
               
               return (

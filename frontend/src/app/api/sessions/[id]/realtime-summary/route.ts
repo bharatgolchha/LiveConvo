@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-import { getDefaultAiModelServer } from '@/lib/systemSettingsServer';
+import { getAIModelForAction, AIAction } from '@/lib/aiModelConfig';
 import { createAuthenticatedSupabaseClient } from '@/lib/supabase';
 import { getCurrentDateContext } from '@/lib/utils';
 
@@ -202,7 +202,7 @@ export async function POST(
       );
     }
 
-    const model = await getDefaultAiModelServer();
+    const model = await getAIModelForAction(AIAction.REALTIME_SUMMARY);
 
     // Simple prompt for analyzing the full transcript
     const systemPrompt = `You are a helpful AI assistant that analyzes a live ${conversationType} conversation between ${participantMe} and ${participantThem}. 

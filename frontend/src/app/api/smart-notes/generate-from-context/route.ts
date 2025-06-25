@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import type { SmartNoteGenerationItem, PreviousSession } from '@/types/api'
-import { getDefaultAiModelServer } from '@/lib/systemSettingsServer'
+import { getAIModelForAction, AIAction } from '@/lib/aiModelConfig'
 import { getCurrentDateContext } from '@/lib/utils'
 
 export async function POST(request: NextRequest) {
@@ -85,7 +85,7 @@ ${transcript ? `\nCurrent Conversation Transcript:\n${transcript}` : ''}
 
     const typeSpecificPrompt = conversationTypePrompts[conversationType] || 'Focus on key insights and strategic action items.'
 
-    const model = await getDefaultAiModelServer();
+    const model = await getAIModelForAction(AIAction.SMART_NOTES);
     let openRouterResponse;
     try {
       openRouterResponse = await fetch('https://openrouter.ai/api/v1/chat/completions', {
