@@ -76,12 +76,12 @@ export function useWebhookEvents(sessionId?: string) {
       console.error('❌ SSE connection error:', error);
       setIsConnected(false);
       
-      // Reconnect after 5 seconds
+      // Reconnect after 3 seconds
       setTimeout(() => {
         if (eventSourceRef.current === eventSource) {
           connect();
         }
-      }, 5000);
+      }, 3000);
     };
 
     eventSourceRef.current = eventSource;

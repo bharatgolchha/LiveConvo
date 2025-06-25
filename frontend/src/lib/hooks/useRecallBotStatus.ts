@@ -62,8 +62,8 @@ export function useRecallBotStatus({
     // Initial check
     checkBotStatus();
 
-    // Poll every 5 seconds
-    intervalRef.current = setInterval(checkBotStatus, 5000);
+    // Poll every 3 seconds
+    intervalRef.current = setInterval(checkBotStatus, 3000);
 
     return () => {
       if (intervalRef.current) {

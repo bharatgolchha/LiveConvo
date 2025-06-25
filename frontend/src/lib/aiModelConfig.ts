@@ -76,26 +76,40 @@ export const AI_ACTIONS: AIActionInfo[] = [
   }
 ];
 
-
 /**
  * Get the AI model configured for a specific action
  * Falls back to default model if action-specific model is not configured
  */
 export async function getAIModelForAction(action: AIAction): Promise<string> {
-  const settingKey = `ai_model_${action}`;
-  const actionModel = await getSystemSetting<string>(settingKey);
-  
-  if (actionModel) {
-    return actionModel;
+  try {
+    // Get the ai_model_config JSON object from system_settings
+    const aiConfig = await getSystemSetting<{
+      default_model?: string;
+      models?: Record<string, string>;
+    }>('ai_model_config');
+    
+    if (aiConfig) {
+      // First check if there's a specific model for this action
+      if (aiConfig.models && aiConfig.models[action]) {
+        return aiConfig.models[action];
+      }
+      
+      // Fall back to default_model from the config
+      if (aiConfig.default_model) {
+        return aiConfig.default_model;
+      }
+    }
+    
+    // Fall back to environment variable or hard-coded default
+    return (
+      process.env.NEXT_PUBLIC_OPENROUTER_MODEL ||
+      'openai/gpt-4o-mini'
+    );
+  } catch (error) {
+    console.error('Error getting AI model for action:', action, error);
+    // Return safe fallback
+    return 'openai/gpt-4o-mini';
   }
-  
-  // Fall back to default model
-  const defaultModel = await getSystemSetting<string>('default_ai_model');
-  return (
-    defaultModel ||
-    process.env.NEXT_PUBLIC_OPENROUTER_MODEL ||
-    'google/gemini-2.5-flash'
-  );
 }
 
 /**
