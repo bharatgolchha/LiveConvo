@@ -40,7 +40,7 @@ const DashboardSidebar: React.FC<DashboardSidebarProps> = ({ usageStats, activeP
   };
 
   const navItems = [
-    { path: 'conversations', label: 'Conversations', icon: MicrophoneIcon, count: activeCount },
+    { path: 'conversations', label: 'Meetings', icon: MicrophoneIcon, count: activeCount },
     { path: 'archive', label: 'Archive', icon: ArchiveBoxIcon, count: archivedCount },
     { path: 'settings', label: 'Settings', icon: Cog6ToothIcon },
   ];
@@ -64,7 +64,7 @@ const DashboardSidebar: React.FC<DashboardSidebarProps> = ({ usageStats, activeP
             key={item.path}
             onClick={() => onNavigate(item.path)}
             className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-left transition-colors ${
-              activePath === item.path ? 'bg-accent text-foreground' : 'text-muted-foreground hover:bg-accent/50'
+              activePath === item.path ? 'bg-primary/10 text-primary font-medium' : 'text-muted-foreground hover:bg-muted/50'
             }`}
           >
             <div className="flex items-center space-x-2">
@@ -81,33 +81,46 @@ const DashboardSidebar: React.FC<DashboardSidebarProps> = ({ usageStats, activeP
       </nav>
 
       {/* Usage Stats */}
-      <div className="px-4 py-6 border-t border-border">
-        <p className="text-xs font-medium text-muted-foreground mb-2">Monthly Usage</p>
-        <div className="h-2 w-full bg-border rounded-full overflow-hidden mb-2">
-          <div
-            className="h-full bg-primary transition-all"
-            style={{ width: `${usagePercentage}%` }}
-          />
+      <div className="px-4 py-3 border-t border-border">
+        <div className="space-y-2">
+          <div className="flex items-center justify-between text-sm">
+            <span className="text-muted-foreground">Minutes Used</span>
+            <span className="font-medium">
+              {isUnlimited ? 'Unlimited' : `${formatMinutes(usageStats.monthlyMinutesUsed || 0)} / ${formatMinutes(usageStats.monthlyMinutesLimit || 0)}`}
+            </span>
+          </div>
+          
+          {!isUnlimited && (
+            <div className="w-full bg-muted rounded-full h-2">
+              <div 
+                className={`h-2 rounded-full transition-all duration-300 ${
+                  usagePercentage >= 90 ? 'bg-destructive' : 
+                  usagePercentage >= 75 ? 'bg-accent' : 
+                  'bg-primary'
+                }`}
+                style={{ width: `${Math.min(usagePercentage, 100)}%` }}
+              />
+            </div>
+          )}
+          
+          {!isUnlimited && usagePercentage >= 90 && (
+            <p className="text-xs text-destructive mt-1">
+              {usagePercentage >= 100 ? 'Limit reached' : 'Approaching limit'}
+            </p>
+          )}
         </div>
-        <p className="text-xs text-muted-foreground">
-          {isUnlimited
-            ? 'Unlimited minutes'
-            : `${formatMinutes(usageStats.monthlyMinutesUsed || 0)} / ${formatMinutes(
-                usageStats.monthlyMinutesLimit || 600,
-              )}`}
-        </p>
-
-        {/* Upgrade Button for Free Plan */}
-        {currentUser.plan === 'free' && (
-          <button
-            onClick={() => setIsPricingOpen(true)}
-            className="mt-4 w-full flex items-center justify-center gap-2 px-3 py-2 bg-gradient-to-r from-primary to-primary/80 text-primary-foreground rounded-lg text-sm font-medium hover:from-primary/90 hover:to-primary disabled:opacity-50"
-          >
-            <Crown className="w-4 h-4" />
-            Upgrade to Pro
-          </button>
-        )}
       </div>
+
+      {/* Upgrade Button for Free Plan */}
+      {currentUser.plan === 'free' && (
+        <button
+          onClick={() => setIsPricingOpen(true)}
+          className="mt-4 w-full flex items-center justify-center gap-2 px-3 py-2 bg-gradient-to-r from-primary to-primary/80 text-primary-foreground rounded-lg text-sm font-medium hover:from-primary/90 hover:to-primary disabled:opacity-50"
+        >
+          <Crown className="w-4 h-4" />
+          Upgrade to Pro
+        </button>
+      )}
 
       {/* Pricing Modal */}
       <PricingModal isOpen={isPricingOpen} onClose={() => setIsPricingOpen(false)} />

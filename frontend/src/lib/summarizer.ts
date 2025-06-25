@@ -2,11 +2,12 @@
 // Node 18+ (used by Next.js) provides a global `fetch` implementation, so we
 // can rely on that to avoid an extra dependency and bundling issues.
 
-// eslint-disable-next-line @typescript-eslint/consistent-type-imports
+ 
 // Note: If you are using a Node version < 18 you must polyfill `fetch` or
 // install `node-fetch` as a dependency.
 
-import { getDefaultAiModelServer } from '@/lib/systemSettingsServer';
+import { getAIModelForAction, AIAction } from '@/lib/aiModelConfig';
+import { getCurrentDateContext } from '@/lib/utils';
 
 /**
  * Generate an updated running summary given the previous summary and a new transcript chunk.
@@ -24,11 +25,14 @@ export async function updateRunningSummary(
   }
 
   const systemPrompt = `You are an expert note-taker. Merge the NEW TRANSCRIPT CHUNK into the EXISTING SUMMARY.
+
+${getCurrentDateContext()}
+
 Return a concise cumulative summary (max 250 words) that preserves key decisions, action items and topics.`;
 
   const userPrompt = `EXISTING SUMMARY:\n${prevSummary || 'None yet.'}\n\nNEW TRANSCRIPT CHUNK:\n${newTranscriptChunk}`;
 
-  const model = await getDefaultAiModelServer();
+  const model = await getAIModelForAction(AIAction.REALTIME_SUMMARY);
 
   const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
     method: 'POST',

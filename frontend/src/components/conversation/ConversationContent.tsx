@@ -19,7 +19,8 @@ import {
   Brain,
   Mic,
   User,
-  Users
+  Users,
+  VideoIcon
 } from 'lucide-react';
 
 import { Button } from '@/components/ui/Button';
@@ -28,6 +29,8 @@ import { ConversationSummary } from '@/lib/useRealtimeSummary';
 import { ProcessingAnimation } from './ProcessingAnimation';
 import { SmartNotesTab } from '@/components/smart-notes/SmartNotesTab';
 import { VirtualizedTranscriptList, VirtualizedTranscriptListHandle } from './VirtualizedTranscriptList';
+import { MeetingBotStatus } from './MeetingBotStatus';
+import { MeetingUrlEditor } from './MeetingUrlEditor';
 
 interface TranscriptLine {
   id: string;
@@ -82,6 +85,15 @@ interface ConversationContentProps {
   // Participant names
   participantMe?: string;
   participantThem?: string;
+
+  // Meeting bot data
+  meetingUrl?: string;
+  meetingPlatform?: 'zoom' | 'google_meet' | 'teams' | null;
+  recallBotId?: string;
+  recallBotStatus?: 'created' | 'joining' | 'in_call' | 'completed' | 'failed' | 'timeout' | null;
+  onStopBot?: () => void;
+  onJoinMeeting?: () => void;
+  onUpdateMeetingUrl?: (url: string) => Promise<void>;
 }
 
 export const ConversationContent: React.FC<ConversationContentProps> = ({
@@ -109,7 +121,14 @@ export const ConversationContent: React.FC<ConversationContentProps> = ({
   previousConversationsContext,
   getSummaryTimeUntilNextRefresh,
   participantMe,
-  participantThem
+  participantThem,
+  meetingUrl,
+  meetingPlatform,
+  recallBotId,
+  recallBotStatus,
+  onStopBot,
+  onJoinMeeting,
+  onUpdateMeetingUrl
 }) => {
   const [isRefreshing, setIsRefreshing] = React.useState(false);
   const [selectedTopic, setSelectedTopic] = React.useState<string | null>(null);
@@ -447,6 +466,32 @@ export const ConversationContent: React.FC<ConversationContentProps> = ({
         </div>
       </div>
 
+      {/* Meeting URL Editor */}
+      {sessionId && onUpdateMeetingUrl && (
+        <div className="mx-6 mt-4 mb-2">
+          <MeetingUrlEditor
+            meetingUrl={meetingUrl}
+            meetingPlatform={meetingPlatform}
+            isEditable={!recallBotId || recallBotStatus === 'completed' || recallBotStatus === 'failed' || recallBotStatus === 'timeout'} // Can edit if no bot or bot in terminal state
+            onUpdateUrl={onUpdateMeetingUrl}
+          />
+        </div>
+      )}
+
+      {/* Meeting Bot Status */}
+      {meetingUrl && sessionId && (
+        <div className="mx-6 mt-4">
+          <MeetingBotStatus
+            sessionId={sessionId}
+            meetingUrl={meetingUrl}
+            meetingPlatform={meetingPlatform}
+            botId={recallBotId}
+            recallStatus={recallBotStatus || undefined}
+            onStopBot={onStopBot}
+          />
+        </div>
+      )}
+
       {/* Full-Screen Content Area */}
       <div className="flex-1 min-h-0 overflow-y-auto relative">
         {/* Processing State - Enhanced animation */}
@@ -469,43 +514,151 @@ export const ConversationContent: React.FC<ConversationContentProps> = ({
                     </div>
                     <h2 className="text-3xl font-bold text-foreground mb-4">Live Transcription</h2>
                     <p className="text-lg text-muted-foreground leading-relaxed">
-                      {conversationState === 'ready' 
-                        ? "Start recording to see real-time speech-to-text transcription of your conversation."
-                        : conversationState === 'recording'
-                        ? "Recording in progress... Speak and watch your words appear here in real-time!"
-                        : "Your conversation transcript will appear here during recording."
-                      }
+                      {meetingUrl ? (
+                        !recallBotId ? "Click 'Join Meeting' to start recording the meeting with our AI bot." :
+                        recallBotStatus === 'in_call' 
+                          ? "AI bot is recording the meeting. Transcripts will appear here in real-time."
+                          : recallBotStatus === 'joining'
+                          ? "AI bot is joining the meeting. Please admit the bot when it appears."
+                          : recallBotStatus === 'created'
+                          ? "AI bot is preparing to join the meeting..."
+                          : recallBotStatus === 'completed'
+                          ? "AI bot has finished recording. Click 'Rejoin Meeting' to start a new recording."
+                          : recallBotStatus === 'failed'
+                          ? "AI bot failed to join the meeting. Click 'Join Meeting' to try again."
+                          : recallBotStatus === 'timeout'
+                          ? "AI bot timed out while trying to join. Click 'Join Meeting' to try again."
+                          : "Waiting for AI bot to join the meeting..."
+                      ) : (
+                        conversationState === 'ready' 
+                          ? "Start recording to see real-time speech-to-text transcription of your conversation."
+                          : conversationState === 'recording'
+                          ? "Recording in progress... Speak and watch your words appear here in real-time!"
+                          : "Your conversation transcript will appear here during recording."
+                      )}
                     </p>
                   </div>
 
                   {/* Status Bar */}
                   <div className="mt-8 pt-6 border-t border-border">
                     <div className="flex items-center justify-center gap-8 text-sm text-muted-foreground">
-                      <div className="flex items-center gap-2">
-                        <div className={cn(
-                          "w-2 h-2 rounded-full",
-                          conversationState === 'recording' ? "bg-green-500 animate-pulse" : "bg-muted"
-                        )} />
-                        <span>Recording: {conversationState === 'recording' ? 'Active' : 'Inactive'}</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <div className="w-2 h-2 rounded-full bg-blue-500" />
-                        <span>Transcription: Ready</span>
-                      </div>
+                      {meetingUrl ? (
+                        // Meeting Mode Status
+                        recallBotId ? (
+                          // Bot is created - show bot status
+                          <>
+                            <div className="flex items-center gap-2">
+                              <div className={cn(
+                                "w-2 h-2 rounded-full",
+                                recallBotStatus === 'in_call' ? "bg-green-500 animate-pulse" : 
+                                recallBotStatus === 'joining' ? "bg-yellow-500 animate-pulse" :
+                                recallBotStatus === 'failed' ? "bg-red-500" : "bg-muted"
+                              )} />
+                              <span>Bot Status: {
+                                recallBotStatus === 'in_call' ? 'Recording' :
+                                recallBotStatus === 'joining' ? 'Joining Meeting' :
+                                recallBotStatus === 'created' ? 'Preparing' :
+                                recallBotStatus === 'failed' ? 'Failed' :
+                                recallBotStatus === 'completed' ? 'Finished' :
+                                recallBotStatus === 'timeout' ? 'Timed Out' :
+                                'Initializing'
+                              }</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <VideoIcon className="w-4 h-4" />
+                              <span>Meeting: {meetingPlatform === 'google_meet' ? 'Google Meet' : 
+                                             meetingPlatform === 'zoom' ? 'Zoom' : 
+                                             meetingPlatform === 'teams' ? 'Teams' : 'Connected'}</span>
+                            </div>
+                          </>
+                        ) : (
+                          // No bot yet - show meeting ready status
+                          <>
+                            <div className="flex items-center gap-2">
+                              <div className="w-2 h-2 rounded-full bg-blue-500" />
+                              <span>Meeting: Ready to Join</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <VideoIcon className="w-4 h-4" />
+                              <span>{meetingPlatform === 'google_meet' ? 'Google Meet' : 
+                                     meetingPlatform === 'zoom' ? 'Zoom' : 
+                                     meetingPlatform === 'teams' ? 'Teams' : 'Meeting'}</span>
+                            </div>
+                          </>
+                        )
+                      ) : (
+                        // Local Recording Status
+                        <>
+                          <div className="flex items-center gap-2">
+                            <div className={cn(
+                              "w-2 h-2 rounded-full",
+                              conversationState === 'recording' ? "bg-green-500 animate-pulse" : "bg-muted"
+                            )} />
+                            <span>Recording: {conversationState === 'recording' ? 'Active' : 'Inactive'}</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <div className="w-2 h-2 rounded-full bg-blue-500" />
+                            <span>Transcription: Ready</span>
+                          </div>
+                        </>
+                      )}
                     </div>
                   </div>
 
                   {/* CTA */}
                   {conversationState === 'ready' && !isFinalized && (
                     <div className="mt-8">
-                      <Button 
-                        onClick={handleStartRecording}
-                        size="lg"
-                        className="bg-primary hover:bg-primary/90 text-primary-foreground transition-all duration-200"
-                      >
-                        <Mic className="w-5 h-5 mr-2" />
-                        Start Recording
-                      </Button>
+                      {meetingUrl ? (
+                        // Join Meeting Button for Recall Bot - show if no bot or bot in terminal state
+                        (!recallBotId || recallBotStatus === 'completed' || recallBotStatus === 'failed' || recallBotStatus === 'timeout') && (
+                          <Button 
+                            onClick={onJoinMeeting}
+                            size="lg"
+                            className="bg-primary hover:bg-primary/90 text-primary-foreground transition-all duration-200"
+                          >
+                            <VideoIcon className="w-5 h-5 mr-2" />
+                            {(recallBotStatus === 'completed' || recallBotStatus === 'failed' || recallBotStatus === 'timeout') ? 'Rejoin Meeting' : 'Join Meeting'}
+                          </Button>
+                        )
+                      ) : (
+                        // Start Recording Button for Local Recording
+                        <Button 
+                          onClick={handleStartRecording}
+                          size="lg"
+                          className="bg-primary hover:bg-primary/90 text-primary-foreground transition-all duration-200"
+                        >
+                          <Mic className="w-5 h-5 mr-2" />
+                          Start Recording
+                        </Button>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Meeting Bot Status Message */}
+                  {meetingUrl && recallBotId && recallBotStatus !== 'in_call' && (
+                    <div className="mt-8">
+                      <div className="text-center">
+                        {recallBotStatus === 'joining' && (
+                          <p className="text-sm text-muted-foreground">
+                            AI bot is joining the meeting. Please admit the bot when it appears.
+                          </p>
+                        )}
+                        {recallBotStatus === 'created' && (
+                          <p className="text-sm text-muted-foreground">
+                            AI bot is preparing to join the meeting...
+                          </p>
+                        )}
+                        {recallBotStatus === 'failed' && (
+                          <p className="text-sm text-red-500">
+                            AI bot failed to join the meeting. Please check the meeting URL.
+                          </p>
+                        )}
+                        {recallBotStatus === 'timeout' && (
+                          <p className="text-sm text-orange-500">
+                            AI bot timed out while trying to join. Please try again.
+                          </p>
+                        )}
+                      </div>
                     </div>
                   )}
                 </div>

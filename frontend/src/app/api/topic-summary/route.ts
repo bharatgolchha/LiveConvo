@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getDefaultAiModelServer } from '@/lib/systemSettingsServer';
+import { getAIModelForAction, AIAction } from '@/lib/aiModelConfig';
+import { getCurrentDateContext } from '@/lib/utils';
 
 // Health check endpoint
 export async function GET() {
@@ -62,7 +63,7 @@ export async function POST(request: NextRequest) {
     }
 
     console.log('🚀 Calling OpenRouter API...');
-    const model = await getDefaultAiModelServer();
+    const model = await getAIModelForAction(AIAction.TOPIC_SUMMARY);
     // Use OpenRouter to generate topic-specific summary
     const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
       method: 'POST',
@@ -78,6 +79,8 @@ export async function POST(request: NextRequest) {
           {
             role: 'system',
             content: `You are an AI assistant that analyzes conversation transcripts and provides detailed, well-structured summaries about specific topics.
+
+${getCurrentDateContext()}
 
 PARTICIPANT IDENTIFICATION:
 ${participantMe && participantThem ? `- "${participantMe}" = The person who recorded this conversation (the user requesting this summary)

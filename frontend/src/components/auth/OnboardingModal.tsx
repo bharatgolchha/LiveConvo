@@ -69,19 +69,19 @@ export function OnboardingModal({ isOpen, onClose, onComplete }: OnboardingModal
             transition={{ type: "spring", duration: 0.3 }}
             className="fixed inset-0 z-50 flex items-center justify-center p-4"
           >
-            <div className="bg-card text-card-foreground rounded-2xl shadow-2xl max-w-md w-full max-h-[90vh] overflow-y-auto">
+            <div className="bg-card text-card-foreground rounded-2xl shadow-2xl max-w-md w-full max-h-[90vh] overflow-y-auto border border-border/50">
               {/* Header */}
               <div className="relative p-6 text-center border-b border-border">
                 <button
                   onClick={onClose}
-                  className="absolute right-4 top-4 p-2 hover:bg-muted rounded-full transition-colors"
+                  className="absolute right-4 top-4 p-2 hover:bg-muted rounded-full transition-all duration-200 hover:rotate-90"
                 >
                   <X className="w-5 h-5 text-muted-foreground" />
                 </button>
                 
                 <div className="flex justify-center mb-4">
-                  <div className="p-3 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full">
-                    <Sparkles className="w-8 h-8 text-white" />
+                  <div className="p-3 bg-gradient-to-br from-primary to-primary-foreground/20 rounded-full shadow-lg">
+                    <Sparkles className="w-8 h-8 text-primary-foreground" />
                   </div>
                 </div>
                 
@@ -98,7 +98,7 @@ export function OnboardingModal({ isOpen, onClose, onComplete }: OnboardingModal
                 {/* Organization Name */}
                 <div className="space-y-2">
                   <label className="flex items-center text-sm font-medium text-foreground">
-                    <Building2 className="w-4 h-4 mr-2 text-blue-500" />
+                    <Building2 className="w-4 h-4 mr-2 text-app-primary" />
                     Organization Name (Optional)
                   </label>
                   <input
@@ -116,7 +116,7 @@ export function OnboardingModal({ isOpen, onClose, onComplete }: OnboardingModal
                 {/* Timezone */}
                 <div className="space-y-2">
                   <label className="flex items-center text-sm font-medium text-foreground">
-                    <Clock className="w-4 h-4 mr-2 text-green-500" />
+                    <Clock className="w-4 h-4 mr-2 text-app-success" />
                     Timezone
                   </label>
                   <select
@@ -140,14 +140,14 @@ export function OnboardingModal({ isOpen, onClose, onComplete }: OnboardingModal
                 </div>
 
                 {/* Free Plan Info */}
-                <div className="bg-gradient-to-br from-green-50 to-blue-50 dark:from-green-950/20 dark:to-blue-950/20 border border-green-200 dark:border-green-800 rounded-lg p-4">
+                <div className="bg-gradient-to-br from-app-success/10 to-app-primary/10 border border-app-success/30 rounded-lg p-4">
                   <div className="flex items-start">
-                    <Globe className="w-5 h-5 text-green-600 dark:text-green-400 mt-0.5 mr-3 flex-shrink-0" />
+                    <Globe className="w-5 h-5 text-app-success mt-0.5 mr-3 flex-shrink-0" />
                     <div>
-                      <h3 className="font-medium text-green-900 dark:text-green-100 mb-1">
+                      <h3 className="font-medium text-foreground mb-1">
                         Starting with Free Plan
                       </h3>
-                      <p className="text-sm text-green-700 dark:text-green-300">
+                      <p className="text-sm text-muted-foreground">
                         • 3 hours of audio processing per month<br />
                         • Up to 10 conversation sessions<br />
                         • Real-time AI guidance<br />
@@ -159,8 +159,8 @@ export function OnboardingModal({ isOpen, onClose, onComplete }: OnboardingModal
 
                 {/* Error Message */}
                 {error && (
-                  <div className="p-3 bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 rounded-lg">
-                    <p className="text-sm text-red-600 dark:text-red-300">{error}</p>
+                  <div className="p-3 bg-destructive/10 border border-destructive/30 rounded-lg">
+                    <p className="text-sm text-destructive">{error}</p>
                   </div>
                 )}
 
@@ -178,11 +178,11 @@ export function OnboardingModal({ isOpen, onClose, onComplete }: OnboardingModal
                   <Button
                     type="submit"
                     disabled={isLoading}
-                    className="flex-1 bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 text-primary-foreground transition-all duration-200"
+                    className="flex-1 bg-gradient-to-r from-app-primary to-app-primary-dark hover:from-app-primary-dark hover:to-app-primary text-primary-foreground transition-all duration-200 shadow-md hover:shadow-lg"
                   >
                     {isLoading ? (
                       <div className="flex items-center">
-                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
+                        <div className="w-4 h-4 border-2 border-primary-foreground border-t-transparent rounded-full animate-spin mr-2" />
                         Setting up...
                       </div>
                     ) : (

@@ -38,6 +38,10 @@ export function useConversationCoreState(conversationId: string | null) {
     recording_started_at?: string;
     recording_ended_at?: string;
     finalized_at?: string;
+    meeting_url?: string;
+    meeting_platform?: 'zoom' | 'google_meet' | 'teams' | null;
+    recall_bot_id?: string;
+    recall_recording_id?: string;
   } | null>(null);
 
   /* Duration */
@@ -58,6 +62,9 @@ export function useConversationCoreState(conversationId: string | null) {
 
   /* Summary fetched from DB */
   const [loadedSummary, setLoadedSummary] = useState<ConversationSummary | null>(null);
+
+  /* Recall.ai bot status */
+  const [recallBotStatus, setRecallBotStatus] = useState<'created' | 'joining' | 'in_call' | 'completed' | 'failed' | 'timeout' | null>(null);
 
   /* UI / data-loading flags */
   const [isLoadingFromSession, setIsLoadingFromSession] = useState(false);
@@ -117,6 +124,10 @@ export function useConversationCoreState(conversationId: string | null) {
     /* db summary */
     loadedSummary,
     setLoadedSummary,
+
+    /* recall bot */
+    recallBotStatus,
+    setRecallBotStatus,
 
     /* flags */
     isLoadingFromSession,

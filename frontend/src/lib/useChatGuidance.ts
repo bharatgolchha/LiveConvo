@@ -1,4 +1,5 @@
 import { useState, useCallback, useRef } from 'react';
+import { supabase } from '@/lib/supabase';
 
 // Helper function to parse context from user messages and extract just the message
 function parseMessageForDisplay(message: string): string {
@@ -98,6 +99,8 @@ export function useChatGuidance({
   const [error, setError] = useState<string | null>(null);
   const [inputValue, setInputValue] = useState('');
   
+  // Keep a synchronous ref of all messages for chat history
+  const messagesRef = useRef<ChatMessage[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // Scroll to bottom of messages
@@ -115,7 +118,11 @@ export function useChatGuidance({
       read: message.type === 'user' ? true : false
     };
     
-    setMessages(prev => [...prev, newMessage]);
+    setMessages(prev => {
+      const updated = [...prev, newMessage];
+      messagesRef.current = updated; // Keep ref in sync
+      return updated;
+    });
     setTimeout(scrollToBottom, 100); // Delay to ensure DOM update
     return newMessage;
   }, [scrollToBottom]);
@@ -148,21 +155,40 @@ export function useChatGuidance({
     setInputValue('');
     setError(null);
 
-    // Add user message (display only the parsed message, not the context prefix)
-    addMessage({
+    // Create the user message object
+    const userMessage: ChatMessage = {
+      id: `msg_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`,
       type: 'user',
-      content: parsedMessage
+      content: parsedMessage,
+      timestamp: new Date(),
+      read: true
+    };
+
+    // Add user message (display only the parsed message, not the context prefix)
+    setMessages(prev => {
+      const updated = [...prev, userMessage];
+      messagesRef.current = updated; // Keep ref in sync
+      return updated;
     });
+    setTimeout(scrollToBottom, 100);
 
     // Show typing indicator
     setIsLoading(true);
 
     try {
+      // Include the current user message in chatHistory for the API call
+      // Use messagesRef.current for synchronous access to all messages
+      // Convert Date objects to strings for JSON serialization
+      const chatHistoryWithCurrentMessage = messagesRef.current.map(msg => ({
+        ...msg,
+        timestamp: msg.timestamp.toISOString()
+      }));
+      
       // Debug log the request payload
       const requestPayload = {
         message: messageToSend,
         transcript,
-        chatHistory: messages,
+        chatHistory: chatHistoryWithCurrentMessage,
         conversationType,
         sessionId,
         // Enhanced context
@@ -188,14 +214,24 @@ export function useChatGuidance({
         hasPersonalContext: !!requestPayload.personalContext,
         personalContextLength: requestPayload.personalContext?.length || 0,
         personalContextPreview: requestPayload.personalContext ? requestPayload.personalContext.substring(0, 100) + '...' : null,
-        messagePreview: messageToSend.substring(0, 50) + '...'
+        messagePreview: messageToSend.substring(0, 50) + '...',
+        chatHistoryLength: requestPayload.chatHistory.length,
+        chatHistoryPreview: requestPayload.chatHistory.slice(-3).map(m => `${m.type}: ${m.content.substring(0, 30)}...`)
       });
+
+      // Get auth token for API request
+      const { data: { session } } = await supabase.auth.getSession();
+      const authHeaders: Record<string, string> = {
+        'Content-Type': 'application/json'
+      };
+      
+      if (session?.access_token) {
+        authHeaders['Authorization'] = `Bearer ${session.access_token}`;
+      }
 
       const response = await fetch('/api/chat-guidance', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: authHeaders,
         body: JSON.stringify(requestPayload)
       });
 
@@ -240,7 +276,7 @@ export function useChatGuidance({
     } finally {
       setIsLoading(false);
     }
-  }, [inputValue, addMessage, transcript, messages, conversationType, sessionId, textContext, conversationTitle, summary, uploadedFiles, selectedPreviousConversations, personalContext, isRecording, transcriptLength, participantMe, participantThem]);
+  }, [inputValue, addMessage, transcript, conversationType, sessionId, textContext, conversationTitle, summary, uploadedFiles, selectedPreviousConversations, personalContext, isRecording, transcriptLength, participantMe, participantThem]);
 
   // Quick actions for common requests
   const sendQuickAction = useCallback((action: string) => {
@@ -264,6 +300,7 @@ export function useChatGuidance({
   // Clear chat history
   const clearChat = useCallback(() => {
     setMessages([]);
+    messagesRef.current = []; // Reset ref too
     setError(null);
   }, []);
 
@@ -288,9 +325,11 @@ export function useChatGuidance({
 
   // Mark messages as read
   const markMessagesAsRead = useCallback(() => {
-    setMessages(prev => 
-      prev.map(msg => ({ ...msg, read: true }))
-    );
+    setMessages(prev => {
+      const updated = prev.map(msg => ({ ...msg, read: true }));
+      messagesRef.current = updated; // Keep ref in sync
+      return updated;
+    });
   }, []);
 
   return {

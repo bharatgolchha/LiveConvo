@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import {
   PlayCircleIcon,
   EyeIcon,
@@ -9,20 +9,30 @@ import {
   ChatBubbleLeftRightIcon,
   ArrowTopRightOnSquareIcon,
   ArrowPathIcon,
+  VideoCameraIcon,
+  UserGroupIcon,
+  DocumentTextIcon,
 } from '@heroicons/react/24/outline';
 import { motion } from 'framer-motion';
 import { formatDistanceToNow } from 'date-fns';
 import type { Session } from '@/lib/hooks/useSessions';
 
 interface Props {
-  session: Session;
+  session: Session & {
+    threadPosition?: number;
+    threadSize?: number;
+    isThreadRoot?: boolean;
+  };
   onResume: (id: string) => void;
   onViewSummary: (id: string) => void;
   onArchive: (id: string) => void;
   onDelete: (id: string) => void;
-  onCreateFollowUp?: (session: Session) => void;
+  onCreateFollowUp?: ((session: Session) => void) | null;
   isSelected?: boolean;
   onClick?: () => void;
+  threadIndicator?: React.ReactNode;
+  additionalStats?: React.ReactNode;
+  isCompact?: boolean;
 }
 
 const ConversationInboxItem: React.FC<Props> = ({
@@ -34,46 +44,96 @@ const ConversationInboxItem: React.FC<Props> = ({
   onCreateFollowUp,
   isSelected = false,
   onClick,
+  threadIndicator,
+  additionalStats,
+  isCompact = false,
 }) => {
+  // Helper function to get unique participants from transcript speakers data only
+  const getParticipants = useMemo(() => {
+    // Use transcript_speakers as the single source of truth for participants
+    if (session.transcript_speakers && Array.isArray(session.transcript_speakers)) {
+      const uniqueSpeakers = session.transcript_speakers
+        .filter((speaker: string) => speaker && speaker.trim() && !['me', 'them', 'user', 'other'].includes(speaker.toLowerCase()))
+        .map((speaker: string) => speaker.trim());
+      
+      return [...new Set(uniqueSpeakers)];
+    }
+    
+    // Return empty array if no transcript speakers available
+    return [];
+  }, [session.transcript_speakers]);
+
+  // Helper function to get participant initials for avatar
+  const getInitials = (name: string): string => {
+    if (!name) return '?';
+    const words = name.trim().split(' ');
+    if (words.length === 1) {
+      return words[0].substring(0, 2).toUpperCase();
+    }
+    return words.map(word => word.charAt(0)).join('').substring(0, 2).toUpperCase();
+  };
+
+  // Helper function to get avatar color based on name
+  const getAvatarColor = (name: string): string => {
+    const colors = [
+      'bg-primary',
+      'bg-secondary', 
+      'bg-accent',
+      'bg-primary/80',
+      'bg-secondary/80',
+      'bg-accent/80',
+      'bg-primary/60',
+      'bg-secondary/60'
+    ];
+    
+    let hash = 0;
+    for (let i = 0; i < name.length; i++) {
+      hash = ((hash << 5) - hash) + name.charCodeAt(i);
+      hash = hash & hash; // Convert to 32-bit integer
+    }
+    
+    return colors[Math.abs(hash) % colors.length];
+  };
+
   const getStatusConfig = (status: Session['status']) => {
     switch (status) {
       case 'active':
         return {
-          color: 'bg-emerald-500',
-          textColor: 'text-emerald-700',
-          bgColor: 'bg-emerald-50',
+          color: 'bg-primary',
+          textColor: 'text-primary',
+          bgColor: 'bg-primary/10',
           label: 'Live',
           pulse: true,
         };
       case 'completed':
         return {
-          color: 'bg-blue-500',
-          textColor: 'text-blue-700',
-          bgColor: 'bg-blue-50',
+          color: 'bg-secondary',
+          textColor: 'text-secondary',
+          bgColor: 'bg-secondary/10',
           label: 'Done',
           pulse: false,
         };
       case 'archived':
         return {
-          color: 'bg-gray-400',
-          textColor: 'text-gray-600',
-          bgColor: 'bg-gray-50',
+          color: 'bg-muted-foreground',
+          textColor: 'text-muted-foreground',
+          bgColor: 'bg-muted/50',
           label: 'Archived',
           pulse: false,
         };
       case 'draft':
         return {
-          color: 'bg-amber-500',
-          textColor: 'text-amber-700',
-          bgColor: 'bg-amber-50',
+          color: 'bg-accent',
+          textColor: 'text-accent-foreground',
+          bgColor: 'bg-accent/10',
           label: 'Draft',
           pulse: false,
         };
       default:
         return {
-          color: 'bg-gray-400',
-          textColor: 'text-gray-600',
-          bgColor: 'bg-gray-50',
+          color: 'bg-muted-foreground',
+          textColor: 'text-muted-foreground',
+          bgColor: 'bg-muted/50',
           label: 'Unknown',
           pulse: false,
         };
@@ -95,24 +155,37 @@ const ConversationInboxItem: React.FC<Props> = ({
   // Safely return an icon based on the conversation type string.
   // Gracefully handles null/undefined values to avoid runtime errors.
   const getConversationTypeIcon = (type?: string | null) => {
-    if (!type) return '💬';
+    if (!type) return <ChatBubbleLeftRightIcon className="w-4 h-4" />;
 
     const normalized = type.toLowerCase();
 
     switch (normalized) {
       case 'sales':
       case 'sales_call':
-        return '💼';
+        return <span className="text-base">💼</span>;
       case 'support':
-        return '🤝';
+        return <span className="text-base">🤝</span>;
+      case 'team_meeting':
       case 'meeting':
-        return '📋';
+        return <span className="text-base">📋</span>;
       case 'interview':
-        return '👥';
+        return <span className="text-base">👥</span>;
       case 'consultation':
-        return '💡';
+        return <span className="text-base">💡</span>;
+      case 'one_on_one':
+        return <span className="text-base">👤</span>;
+      case 'training':
+        return <span className="text-base">🎓</span>;
+      case 'brainstorming':
+        return <span className="text-base">🧠</span>;
+      case 'demo':
+        return <span className="text-base">🎯</span>;
+      case 'standup':
+        return <span className="text-base">⚡</span>;
+      case 'custom':
+        return <span className="text-base">⚙️</span>;
       default:
-        return '💬';
+        return <ChatBubbleLeftRightIcon className="w-4 h-4" />;
     }
   };
 
@@ -124,30 +197,52 @@ const ConversationInboxItem: React.FC<Props> = ({
       'sales': 'Sales Call',
       'sales_call': 'Sales Call',
       'support': 'Support',
+      'team_meeting': 'Team Meeting',
       'meeting': 'Meeting',
       'interview': 'Interview',
-      'consultation': 'Consultation'
+      'consultation': 'Consultation',
+      'one_on_one': 'One-on-One',
+      'training': 'Training',
+      'brainstorming': 'Brainstorming',
+      'demo': 'Demo',
+      'standup': 'Standup',
+      'custom': 'Custom'
     };
 
     return typeMap[type.toLowerCase()] || type.charAt(0).toUpperCase() + type.slice(1).replace(/_/g, ' ');
   };
 
   const statusConfig = getStatusConfig(session.status);
+  const participants = getParticipants;
+  const maxDisplayParticipants = 4;
+  const displayParticipants = participants.slice(0, maxDisplayParticipants);
+  const remainingCount = Math.max(0, participants.length - maxDisplayParticipants);
 
   return (
     <motion.div
       initial={{ opacity: 0, y: 4 }}
       animate={{ opacity: 1, y: 0 }}
-      whileHover={{ y: -1, boxShadow: '0 4px 12px rgba(0,0,0,0.08)' }}
+      whileHover={{ 
+        y: -1, 
+        boxShadow: isSelected 
+          ? '0 8px 25px hsla(var(--primary) / 0.15)' 
+          : '0 4px 12px hsla(var(--foreground) / 0.08)',
+        zIndex: 50
+      }}
       transition={{ duration: 0.15 }}
-      className={`group relative bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-2.5 cursor-pointer transition-all duration-150 ${
-        isSelected ? 'ring-2 ring-blue-500 border-blue-300' : 'hover:border-gray-300 dark:hover:border-gray-600'
+      className={`group relative rounded-lg ${isCompact ? 'p-2' : 'p-2.5'} cursor-pointer transition-all duration-200 ${
+        isSelected 
+          ? 'bg-primary/10 border-2 border-primary shadow-lg shadow-primary/20' 
+          : session.linkedConversationsCount && session.linkedConversationsCount > 0
+            ? 'bg-card border border-primary/20 hover:border-primary/30 hover:bg-primary/5 hover:shadow-sm hover:shadow-primary/10'
+            : 'bg-card border border-border hover:border-border/80 hover:bg-card/80'
       }`}
+      style={{ position: 'relative' }}
       onClick={onClick}
     >
       {/* Header Row */}
       <div className="flex items-start justify-between gap-2 mb-1.5">
-        {/* Left: Title with status dot */}
+        {/* Left: Title with status dot and type */}
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
             {/* Status dot integrated with title */}
@@ -157,41 +252,103 @@ const ConversationInboxItem: React.FC<Props> = ({
                 <div className="absolute inset-0 w-2 h-2 rounded-full bg-emerald-400 animate-ping opacity-40" />
               )}
             </div>
-            <h3 className="text-sm font-medium text-gray-900 dark:text-white truncate flex-1">
-              {session.title}
+            
+            {/* Meeting Type Icon */}
+            <div className="flex items-center justify-center w-5 h-5 flex-shrink-0" title={formatConversationType(session.conversation_type)}>
+              {getConversationTypeIcon(session.conversation_type)}
+            </div>
+            
+            {/* Meeting platform icon if it has meeting_url */}
+            {session.meeting_url && (
+              <VideoCameraIcon className="w-4 h-4 text-primary flex-shrink-0" />
+            )}
+            
+            <h3 className="text-sm font-medium text-foreground truncate flex-1">
+              {/* Defensive fix: Clean title to remove any trailing numbers that might be linkedConversationsCount */}
+              {(() => {
+                const title = session.title?.toString() || '';
+                const count = session.linkedConversationsCount || 0;
+                // Remove trailing count if it matches linkedConversationsCount
+                if (count > 0 && title.endsWith(count.toString())) {
+                  return title.slice(0, -count.toString().length);
+                }
+                // Also handle case where 0 is appended for sessions with no links
+                if (count === 0 && title.endsWith('0')) {
+                  return title.slice(0, -1);
+                }
+                return title;
+              })()}
             </h3>
+          </div>
+          
+          {/* Meeting Type Label and Thread Indicator */}
+          <div className="flex items-center gap-2 mt-1">
+            {session.conversation_type && (
+              <span className="text-xs text-muted-foreground bg-muted/50 px-2 py-0.5 rounded-full">
+                {formatConversationType(session.conversation_type)}
+              </span>
+            )}
+            {threadIndicator}
           </div>
         </div>
 
-        {/* Right: Time and Type */}
+        {/* Right: Time */}
         <div className="flex items-center gap-2 flex-shrink-0">
-          {/* Conversation Type Icon */}
-          {session.conversation_type && (
-            <span className="text-xs opacity-60" title={formatConversationType(session.conversation_type)}>
-              {getConversationTypeIcon(session.conversation_type)}
-            </span>
-          )}
-          
-          {/* Time */}
-          <span className="text-xs text-gray-500 dark:text-gray-400">
+          <span className="text-xs text-muted-foreground">
             {formatDistanceToNow(new Date(session.updated_at), { addSuffix: true })}
           </span>
         </div>
       </div>
 
-      {/* Participants Row - Only show if present */}
-      {(session.participant_me || session.participant_them) && (
-        <div className="flex items-center gap-1 text-xs text-gray-600 dark:text-gray-400 mb-1.5">
-          <span className="font-medium">{session.participant_me || 'You'}</span>
-          <span className="text-gray-400">→</span>
-          <span>{session.participant_them || 'Participant'}</span>
+      {/* Participants Row - Enhanced with avatars */}
+      {participants.length > 0 && !isCompact && (
+        <div className="flex items-center gap-2 mb-1.5">
+          <UserGroupIcon className="w-3 h-3 text-muted-foreground flex-shrink-0" />
+          <div className="flex items-center gap-1 flex-1 min-w-0">
+            {/* Participant Avatars */}
+            <div className="flex items-center -space-x-1">
+              {displayParticipants.map((participant: string, index: number) => (
+                <div
+                  key={`${participant}-${index}`}
+                  className={`w-6 h-6 rounded-full ${getAvatarColor(participant)} flex items-center justify-center border-2 border-background relative`}
+                  title={participant}
+                >
+                  <span className="text-xs font-medium text-white">
+                    {getInitials(participant)}
+                  </span>
+                </div>
+              ))}
+              
+              {/* +X More indicator */}
+              {remainingCount > 0 && (
+                <div className="w-6 h-6 rounded-full bg-muted flex items-center justify-center border-2 border-background text-xs font-medium text-muted-foreground">
+                  +{remainingCount}
+                </div>
+              )}
+            </div>
+            
+            {/* Participant Names (truncated for small screens) */}
+            <div className="flex items-center gap-1 text-xs text-muted-foreground min-w-0 ml-2">
+              <span className="truncate">
+                {displayParticipants.join(', ')}
+                {remainingCount > 0 && `, +${remainingCount} more`}
+              </span>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Additional Stats */}
+      {additionalStats && !isCompact && (
+        <div className="mb-1.5">
+          {additionalStats}
         </div>
       )}
 
       {/* Metadata and Actions Row */}
       <div className="flex items-center justify-between">
         {/* Left: Metadata */}
-        <div className="flex items-center gap-3 text-xs text-gray-600 dark:text-gray-400">
+        <div className="flex items-center gap-3 text-xs text-muted-foreground">
           {/* Status Badge */}
           <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium ${statusConfig.bgColor} ${statusConfig.textColor}`}>
             {statusConfig.label}
@@ -213,35 +370,60 @@ const ConversationInboxItem: React.FC<Props> = ({
             </span>
           )}
 
-          {/* Linked Conversations */}
-          {session.linkedConversationsCount && session.linkedConversationsCount > 0 && (
-            <div className="relative group/tooltip">
-              <span className="flex items-center gap-1 text-blue-600 dark:text-blue-400">
-                <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+          {/* Linked Conversations - Enhanced Display */}
+          {session.linkedConversationsCount && session.linkedConversationsCount > 0 && !session.threadSize && (
+            <div className="relative group/tooltip" style={{ zIndex: 1 }}>
+              <span className="flex items-center gap-1.5 px-2 py-0.5 bg-primary/10 text-primary rounded-full text-xs font-medium transition-all duration-200 hover:bg-primary/20">
+                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
                 </svg>
-                {session.linkedConversationsCount}
+                {session.linkedConversationsCount} {session.linkedConversationsCount === 1 ? 'linked' : 'linked'}
               </span>
 
-              {/* Tooltip */}
+              {/* Enhanced Tooltip - Positioned below to avoid overlaps */}
               {session.linkedConversations && session.linkedConversations.length > 0 && (
-                <div className="absolute bottom-full left-0 mb-1 opacity-0 group-hover/tooltip:opacity-100 transition-opacity duration-200 z-10 pointer-events-none">
-                  <div className="bg-gray-900 dark:bg-gray-700 text-white text-xs rounded-md shadow-lg p-2 min-w-[180px] max-w-[250px]">
-                    <div className="font-medium mb-1">Previous conversations:</div>
-                    <div className="space-y-0.5">
+                <div className="absolute top-full left-0 mt-2 opacity-0 group-hover/tooltip:opacity-100 transition-all duration-200 z-[9999] pointer-events-none">
+                  <motion.div 
+                    initial={{ scale: 0.95, y: -5 }}
+                    animate={{ scale: 1, y: 0 }}
+                    className="bg-popover/95 backdrop-blur-sm text-popover-foreground rounded-lg shadow-xl border border-border p-3 min-w-[220px] max-w-[320px]"
+                  >
+                    <div className="flex items-center gap-2 mb-2">
+                      <div className="p-1 bg-primary/10 rounded">
+                        <svg className="w-4 h-4 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+                        </svg>
+                      </div>
+                      <div>
+                        <div className="font-semibold text-sm">Previous Context</div>
+                        <div className="text-xs text-muted-foreground">Building on past discussions</div>
+                      </div>
+                    </div>
+                    
+                    <div className="space-y-1.5">
                       {session.linkedConversations.slice(0, 3).map((conv, index) => (
-                        <div key={conv.id} className="truncate text-xs">
-                          {index + 1}. {conv.title}
+                        <div key={conv.id} className="flex items-start gap-2 p-1.5 rounded hover:bg-muted/50 transition-colors">
+                          <div className="w-5 h-5 rounded-full bg-primary/20 flex items-center justify-center flex-shrink-0 mt-0.5">
+                            <span className="text-xs font-semibold text-primary">{index + 1}</span>
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="text-xs font-medium text-foreground truncate">
+                              {conv.title}
+                            </div>
+                          </div>
                         </div>
                       ))}
                       {session.linkedConversations.length > 3 && (
-                        <div className="text-gray-400 text-xs">
-                          +{session.linkedConversations.length - 3} more...
+                        <div className="text-center pt-1 border-t border-border">
+                          <span className="text-xs text-muted-foreground font-medium">
+                            +{session.linkedConversations.length - 3} more conversation{session.linkedConversations.length - 3 > 1 ? 's' : ''}
+                          </span>
                         </div>
                       )}
                     </div>
-                    <div className="absolute top-full left-3 w-0 h-0 border-l-2 border-r-2 border-t-2 border-transparent border-t-gray-900 dark:border-t-gray-700" />
-                  </div>
+                    
+                    <div className="absolute -top-1 left-6 w-2 h-2 bg-popover/95 border-l border-t border-border transform rotate-45" />
+                  </motion.div>
                 </div>
               )}
             </div>
@@ -257,7 +439,7 @@ const ConversationInboxItem: React.FC<Props> = ({
                 e.stopPropagation();
                 onResume(session.id);
               }}
-              className="inline-flex items-center px-2 py-1 text-xs font-medium text-emerald-700 bg-emerald-100 hover:bg-emerald-200 rounded transition-colors duration-150"
+              className="inline-flex items-center px-2 py-1 text-xs font-medium text-primary bg-primary/10 hover:bg-primary/20 rounded transition-colors duration-150"
             >
               <PlayCircleIcon className="w-3 h-3 mr-0.5" />
               Resume
@@ -271,17 +453,17 @@ const ConversationInboxItem: React.FC<Props> = ({
                   e.stopPropagation();
                   onViewSummary(session.id);
                 }}
-                className="inline-flex items-center px-2 py-1 text-xs font-medium text-blue-700 bg-blue-100 hover:bg-blue-200 rounded transition-colors duration-150"
+                className="inline-flex items-center px-2 py-1 text-xs font-medium text-secondary bg-secondary/10 hover:bg-secondary/20 rounded transition-colors duration-150"
               >
-                <EyeIcon className="w-3 h-3 mr-0.5" />
-                Summary
+                <DocumentTextIcon className="w-3 h-3 mr-0.5" />
+                Report
               </button>
               <button
                 onClick={(e) => {
                   e.stopPropagation();
                   onResume(session.id);
                 }}
-                className="inline-flex items-center px-2 py-1 text-xs font-medium text-green-700 bg-green-100 hover:bg-green-200 rounded transition-colors duration-150"
+                className="inline-flex items-center px-2 py-1 text-xs font-medium text-primary bg-primary/10 hover:bg-primary/20 rounded transition-colors duration-150"
               >
                 <ArrowTopRightOnSquareIcon className="w-3 h-3 mr-0.5" />
                 Open
@@ -292,7 +474,7 @@ const ConversationInboxItem: React.FC<Props> = ({
                     e.stopPropagation();
                     onCreateFollowUp(session);
                   }}
-                  className="inline-flex items-center px-2 py-1 text-xs font-medium text-purple-700 bg-purple-100 hover:bg-purple-200 rounded transition-colors duration-150"
+                  className="inline-flex items-center px-2 py-1 text-xs font-medium text-accent-foreground dark:text-accent bg-accent/20 dark:bg-accent/10 hover:bg-accent/30 dark:hover:bg-accent/20 rounded transition-colors duration-150"
                 >
                   <ArrowPathIcon className="w-3 h-3 mr-0.5" />
                   Follow-Up
@@ -307,7 +489,7 @@ const ConversationInboxItem: React.FC<Props> = ({
                 e.stopPropagation();
                 onResume(session.id);
               }}
-              className="inline-flex items-center px-2 py-1 text-xs font-medium text-amber-700 bg-amber-100 hover:bg-amber-200 rounded transition-colors duration-150"
+              className="inline-flex items-center px-2 py-1 text-xs font-medium text-accent-foreground bg-accent/20 hover:bg-accent/30 rounded transition-colors duration-150"
             >
               <PlayCircleIcon className="w-3 h-3 mr-0.5" />
               Continue
@@ -318,7 +500,7 @@ const ConversationInboxItem: React.FC<Props> = ({
           <div className="relative group/menu">
             <button
               onClick={(e) => e.stopPropagation()}
-              className="p-1 text-gray-500 hover:text-gray-700 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors duration-150"
+              className="p-1 text-muted-foreground hover:text-foreground hover:bg-muted/50 rounded transition-colors duration-150"
             >
               <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
                 <path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z" />
@@ -326,26 +508,26 @@ const ConversationInboxItem: React.FC<Props> = ({
             </button>
 
             {/* Dropdown menu - positioned above to avoid being hidden */}
-            <div className="absolute right-0 bottom-full mb-1 w-36 bg-white dark:bg-gray-800 rounded-md shadow-lg border border-gray-200 dark:border-gray-700 opacity-0 group-hover/menu:opacity-100 pointer-events-none group-hover/menu:pointer-events-auto transition-opacity duration-150 z-50">
+            <div className="absolute right-0 bottom-full mb-1 w-36 bg-card rounded-md shadow-lg border border-border opacity-0 group-hover/menu:opacity-100 pointer-events-none group-hover/menu:pointer-events-auto transition-opacity duration-150 z-50">
               <button
                 onClick={(e) => {
                   e.stopPropagation();
                   onArchive(session.id);
                 }}
-                className="w-full text-left px-3 py-2 text-xs text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2"
+                className="w-full text-left px-3 py-2 text-xs text-foreground hover:bg-muted/50 flex items-center gap-2"
               >
                 <ArchiveBoxIcon className="w-3 h-3" />
                 {session.status === 'archived' ? 'Unarchive' : 'Archive'}
               </button>
               
-              <div className="border-t border-gray-200 dark:border-gray-700 my-1"></div>
+              <div className="border-t border-border my-1"></div>
               
               <button
                 onClick={(e) => {
                   e.stopPropagation();
                   onDelete(session.id);
                 }}
-                className="w-full text-left px-3 py-2 text-xs text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 flex items-center gap-2"
+                className="w-full text-left px-3 py-2 text-xs text-destructive hover:bg-destructive/10 flex items-center gap-2"
               >
                 <TrashIcon className="w-3 h-3" />
                 Delete
@@ -355,15 +537,25 @@ const ConversationInboxItem: React.FC<Props> = ({
         </div>
       </div>
 
-      {/* Selection Checkbox */}
+      {/* Selection Indicator */}
       {isSelected && (
         <div className="absolute top-2 right-2">
-          <div className="w-4 h-4 bg-blue-500 rounded-full flex items-center justify-center">
-            <svg className="w-2.5 h-2.5 text-white" fill="currentColor" viewBox="0 0 20 20">
+          <motion.div 
+            initial={{ scale: 0 }}
+            animate={{ scale: 1 }}
+            transition={{ type: "spring", stiffness: 300, damping: 20 }}
+            className="w-5 h-5 bg-gradient-to-br from-primary to-primary/80 rounded-full flex items-center justify-center shadow-lg shadow-primary/25 ring-2 ring-background"
+          >
+            <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
               <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
             </svg>
-          </div>
+          </motion.div>
         </div>
+      )}
+
+      {/* Left border accent for selected cards */}
+      {isSelected && (
+        <div className="absolute left-0 top-0 bottom-0 w-1 bg-primary rounded-l-lg"></div>
       )}
     </motion.div>
   );

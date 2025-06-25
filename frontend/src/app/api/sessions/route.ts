@@ -1,6 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabase, createServerSupabaseClient, createAuthenticatedSupabaseClient } from '@/lib/supabase';
 import type { SessionData, SessionContext, LinkedConversation, LinkedConversationsData } from '@/types/api';
+import { RecallSessionManager } from '@/lib/recall-ai/session-manager';
+
+// Helper function to detect meeting platform from URL
+function detectMeetingPlatform(url: string): string | null {
+  if (url.includes('zoom.us') || url.includes('zoom.com')) return 'zoom';
+  if (url.includes('meet.google.com')) return 'google_meet';
+  if (url.includes('teams.microsoft.com')) return 'teams';
+  return null;
+}
 
 /**
  * GET /api/sessions - Fetch user sessions/conversations
@@ -127,14 +136,19 @@ export async function GET(request: NextRequest) {
     // Get linked conversations info for all sessions
     const sessionIds = enhancedSessions.map(s => s.id);
     const linkedConversationsData = await getLinkedConversations(sessionIds, userData.current_organization_id, authClient);
+    
+    // Get transcript speakers for all sessions
+    const transcriptSpeakersData = await getTranscriptSpeakers(sessionIds, authClient);
 
-    // Add linked conversations data to each session
+    // Add linked conversations and transcript speakers data to each session
     const sessionsWithLinkedInfo = enhancedSessions.map(session => {
       const linkedData = linkedConversationsData.get(session.id) || { count: 0, conversations: [] };
+      const speakersData = transcriptSpeakersData.get(session.id) || [];
       return {
         ...session,
         linkedConversationsCount: linkedData.count,
-        linkedConversations: linkedData.conversations
+        linkedConversations: linkedData.conversations,
+        transcript_speakers: speakersData
       };
     });
 
@@ -168,6 +182,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
+    console.log('📥 Session creation request body:', body);
     const { 
       title, 
       conversation_type, 
@@ -175,8 +190,10 @@ export async function POST(request: NextRequest) {
       context, // { text: string, metadata?: object }
       linkedConversationIds,
       participant_me,
-      participant_them
+      participant_them,
+      meeting_url // New field for Recall.ai integration
     } = body;
+    console.log('🔗 Meeting URL received:', meeting_url);
 
     // Get current user from Supabase auth using the access token
     const authHeader = request.headers.get('authorization');
@@ -205,7 +222,7 @@ export async function POST(request: NextRequest) {
     const serviceClient = createServerSupabaseClient();
     const { data: userData, error: userError } = await serviceClient
       .from('users')
-      .select('current_organization_id')
+      .select('current_organization_id, full_name')
       .eq('id', user.id)
       .single();
 
@@ -215,6 +232,9 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
+
+    // Set participant_me to user's full name if not provided
+    const participantMe = participant_me || userData?.full_name || user.email?.split('@')[0] || 'Host';
 
     // Create the session using authenticated client
     const { data: session, error: sessionError } = await authClient
@@ -226,8 +246,10 @@ export async function POST(request: NextRequest) {
         conversation_type,
         selected_template_id,
         status: 'draft',
-        participant_me,
-        participant_them
+        participant_me: participantMe,
+        participant_them: participant_them || null,
+        meeting_url: meeting_url || null,
+        meeting_platform: meeting_url ? detectMeetingPlatform(meeting_url) : null
       })
       .select()
       .single();
@@ -281,6 +303,11 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // Meeting URL is saved, but bot creation is now manual via "Join Meeting" button
+    if (meeting_url) {
+      console.log('🔗 Meeting URL saved. Bot will be created when user clicks "Join Meeting"');
+    }
+
     return NextResponse.json({ 
       session,
       context: sessionContext,
@@ -303,66 +330,152 @@ export async function POST(request: NextRequest) {
  */
 async function getLinkedConversations(sessionIds: string[], organizationId: string, authClient: ReturnType<typeof createAuthenticatedSupabaseClient>): Promise<Map<string, LinkedConversationsData>> {
   try {
-    // Get session context data for the requested sessions
-    const { data: contextData, error } = await authClient
-      .from('session_context')
-      .select('session_id, context_metadata')
-      .eq('organization_id', organizationId)
-      .in('session_id', sessionIds)
-      .not('context_metadata', 'is', null);
+    if (sessionIds.length === 0) {
+      return new Map();
+    }
+
+    // Get linked conversations from conversation_links table with session details
+    const { data: linkedData, error } = await authClient
+      .from('conversation_links')
+      .select(`
+        session_id,
+        linked_session_id,
+        linked_session:sessions!conversation_links_linked_session_id_fkey (
+          id,
+          title,
+          created_at,
+          conversation_type
+        )
+      `)
+      .in('session_id', sessionIds);
 
     if (error) {
       console.error('Error fetching linked conversations:', error);
       return new Map();
     }
 
-    const linkedData = new Map<string, LinkedConversationsData>();
+    const linkedMap = new Map<string, LinkedConversationsData>();
 
     // Initialize all session IDs with empty data
-    sessionIds.forEach(id => linkedData.set(id, { count: 0, conversations: [] }));
+    sessionIds.forEach(id => linkedMap.set(id, { count: 0, conversations: [] }));
 
-    // Get all unique previous conversation IDs to fetch their titles
-    const allPreviousIds = new Set<string>();
-    contextData?.forEach((context: SessionContext) => {
-      if (context.context_metadata?.selectedPreviousConversations && Array.isArray(context.context_metadata.selectedPreviousConversations)) {
-        context.context_metadata.selectedPreviousConversations.forEach((id: string) => allPreviousIds.add(id));
-      }
-    });
+    // Process the linked conversations data
+    if (linkedData && linkedData.length > 0) {
+      // Group by session_id
+      linkedData.forEach((link: any) => {
+        const sessionId = link.session_id;
+        const linkedSession = link.linked_session;
+        
+        if (linkedSession) {
+          const existingData = linkedMap.get(sessionId) || { count: 0, conversations: [] };
+          
+          existingData.conversations.push({
+            id: linkedSession.id,
+            title: linkedSession.title || 'Untitled Conversation'
+          });
+          existingData.count = existingData.conversations.length;
+          
+          linkedMap.set(sessionId, existingData);
+        }
+      });
+    }
 
-    // Fetch titles for all previous conversations
-    const conversationTitles = new Map<string, string>();
-    if (allPreviousIds.size > 0) {
-      const { data: sessionTitles, error: titlesError } = await authClient
-        .from('sessions')
-        .select('id, title')
-        .in('id', Array.from(allPreviousIds));
+    // Also check session_context for backwards compatibility
+    const { data: contextData, error: contextError } = await authClient
+      .from('session_context')
+      .select('session_id, context_metadata')
+      .eq('organization_id', organizationId)
+      .in('session_id', sessionIds)
+      .not('context_metadata', 'is', null);
 
-      if (!titlesError && sessionTitles) {
-        sessionTitles.forEach((session: { id: string, title: string }) => {
-          conversationTitles.set(session.id, session.title);
-        });
+    if (!contextError && contextData) {
+      // Get all unique previous conversation IDs from context metadata
+      const allPreviousIds = new Set<string>();
+      contextData.forEach((context: SessionContext) => {
+        if (context.context_metadata?.selectedPreviousConversations && Array.isArray(context.context_metadata.selectedPreviousConversations)) {
+          context.context_metadata.selectedPreviousConversations.forEach((id: string) => allPreviousIds.add(id));
+        }
+      });
+
+      // Fetch titles for context-based linked conversations
+      if (allPreviousIds.size > 0) {
+        const { data: sessionTitles, error: titlesError } = await authClient
+          .from('sessions')
+          .select('id, title')
+          .in('id', Array.from(allPreviousIds));
+
+        if (!titlesError && sessionTitles) {
+          // Add context-based linked conversations if not already in conversation_links
+          contextData.forEach((context: SessionContext) => {
+            if (context.context_metadata?.selectedPreviousConversations && Array.isArray(context.context_metadata.selectedPreviousConversations)) {
+              const existingData = linkedMap.get(context.session_id) || { count: 0, conversations: [] };
+              const existingIds = new Set(existingData.conversations.map(c => c.id));
+              
+              context.context_metadata.selectedPreviousConversations.forEach((id: string) => {
+                if (!existingIds.has(id)) {
+                  const sessionTitle = sessionTitles.find((s: any) => s.id === id);
+                  existingData.conversations.push({
+                    id,
+                    title: sessionTitle?.title || 'Untitled Conversation'
+                  });
+                }
+              });
+              
+              existingData.count = existingData.conversations.length;
+              linkedMap.set(context.session_id, existingData);
+            }
+          });
+        }
       }
     }
 
-    // Process each session's linked conversations
-    contextData?.forEach((context: SessionContext) => {
-      if (context.context_metadata?.selectedPreviousConversations && Array.isArray(context.context_metadata.selectedPreviousConversations)) {
-        const selectedIds = context.context_metadata.selectedPreviousConversations;
-        const conversations: LinkedConversation[] = selectedIds.map((id: string) => ({
-          id,
-          title: conversationTitles.get(id) || 'Untitled Conversation'
-        }));
+    return linkedMap;
+  } catch (error) {
+    console.error('Error in getLinkedConversations:', error);
+    return new Map();
+  }
+}
 
-        linkedData.set(context.session_id, {
-          count: selectedIds.length,
-          conversations
-        });
+/**
+ * Get unique speakers from transcripts for each session
+ */
+async function getTranscriptSpeakers(sessionIds: string[], authClient: ReturnType<typeof createAuthenticatedSupabaseClient>): Promise<Map<string, string[]>> {
+  try {
+    if (sessionIds.length === 0) {
+      return new Map();
+    }
+
+    // Get unique speakers from transcripts for all sessions
+    const { data: transcripts, error } = await authClient
+      .from('transcripts')
+      .select('session_id, speaker')
+      .in('session_id', sessionIds)
+      .not('speaker', 'is', null)
+      .neq('speaker', '');
+
+    if (error) {
+      console.error('Error fetching transcript speakers:', error);
+      return new Map();
+    }
+
+    // Group speakers by session and get unique values
+    const speakersMap = new Map<string, string[]>();
+    
+    transcripts?.forEach(transcript => {
+      const sessionId = transcript.session_id;
+      const speaker = transcript.speaker?.trim();
+      
+      if (speaker && !['me', 'them', 'user', 'other'].includes(speaker.toLowerCase())) {
+        const existingSpeakers = speakersMap.get(sessionId) || [];
+        if (!existingSpeakers.includes(speaker)) {
+          speakersMap.set(sessionId, [...existingSpeakers, speaker]);
+        }
       }
     });
 
-    return linkedData;
+    return speakersMap;
   } catch (error) {
-    console.error('Error in getLinkedConversations:', error);
+    console.error('Error in getTranscriptSpeakers:', error);
     return new Map();
   }
 }

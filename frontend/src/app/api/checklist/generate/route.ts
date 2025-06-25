@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
-import { getDefaultAiModelServer } from '@/lib/systemSettingsServer'
+import { getAIModelForAction, AIAction } from '@/lib/aiModelConfig'
+import { getCurrentDateContext } from '@/lib/utils'
 
 export async function POST(request: NextRequest) {
   try {
@@ -32,7 +33,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'AI service not configured' }, { status: 500 })
     }
 
-    const model = await getDefaultAiModelServer()
+    const model = await getAIModelForAction(AIAction.CHECKLIST)
     let openRouterResponse;
     try {
       openRouterResponse = await fetch('https://openrouter.ai/api/v1/chat/completions', {
@@ -49,6 +50,8 @@ export async function POST(request: NextRequest) {
           {
             role: 'system',
             content: `You are an AI assistant that extracts actionable checklist items from conversation guidance.
+
+${getCurrentDateContext()}
             
             Your task is to analyze the given message and create 1-5 specific, actionable checklist items.
             

@@ -69,7 +69,7 @@ function LoginContent() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-950 flex flex-col justify-center px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-background flex flex-col justify-center px-4 sm:px-6 lg:px-8">
       {/* Logo */}
       <motion.div
         initial={{ opacity: 0, y: -20 }}
@@ -79,13 +79,12 @@ function LoginContent() {
       >
         <Link href="/" className="flex items-center gap-2">
           <Image 
-            src="https://ucvfgfbjcrxbzppwjpuu.supabase.co/storage/v1/object/public/images//dark.png"
-            alt="liveprompt.ai logo"
-            width={40}
+            src="https://ucvfgfbjcrxbzppwjpuu.supabase.co/storage/v1/object/public/images//DarkMode2.png"
+            alt="liveprompt.ai"
+            width={180}
             height={40}
             className="object-contain"
           />
-          <span className="text-2xl font-bold text-white">liveprompt.ai</span>
         </Link>
       </motion.div>
 
@@ -96,12 +95,12 @@ function LoginContent() {
         transition={{ duration: 0.5, delay: 0.1 }}
         className="mx-auto w-full max-w-md"
       >
-        <div className="bg-gray-900 rounded-2xl border border-gray-800 shadow-xl p-8">
+        <div className="bg-card rounded-2xl border border-border shadow-xl p-8">
           <div className="text-center mb-8">
-            <h1 className="text-2xl font-semibold text-white mb-2">
+            <h1 className="text-2xl font-semibold text-foreground mb-2">
               Welcome back
             </h1>
-            <p className="text-gray-400 text-sm">
+            <p className="text-muted-foreground text-sm">
               Sign in to your account to continue
             </p>
           </div>
@@ -112,7 +111,7 @@ function LoginContent() {
               animate={{ opacity: 1, height: 'auto' }}
               className="mb-6"
             >
-              <Alert className="border-red-900 bg-red-950/50 text-red-400">
+              <Alert className="border-destructive/50 bg-destructive/10 text-destructive">
                 {error}
               </Alert>
             </motion.div>
@@ -120,7 +119,7 @@ function LoginContent() {
 
           <form onSubmit={handleEmailLogin} className="space-y-6">
             <div>
-              <Label htmlFor="email" className="text-gray-300 text-sm font-medium">
+              <Label htmlFor="email" className="text-foreground text-sm font-medium">
                 Email
               </Label>
               <Input
@@ -129,13 +128,13 @@ function LoginContent() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
-                className="mt-2 h-12 bg-gray-800 border-gray-700 text-white placeholder-gray-500 focus:border-blue-600 focus:ring-0 rounded-lg"
+                className="mt-2 h-12 bg-input border-border text-foreground placeholder-muted-foreground focus:border-primary focus:ring-0 rounded-lg"
                 placeholder="you@example.com"
               />
             </div>
 
             <div>
-              <Label htmlFor="password" className="text-gray-300 text-sm font-medium">
+              <Label htmlFor="password" className="text-foreground text-sm font-medium">
                 Password
               </Label>
               <div className="relative mt-2">
@@ -145,12 +144,12 @@ function LoginContent() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
-                  className="h-12 pr-12 bg-gray-800 border-gray-700 text-white placeholder-gray-500 focus:border-blue-600 focus:ring-0 rounded-lg"
+                  className="h-12 pr-12 bg-input border-border text-foreground placeholder-muted-foreground focus:border-primary focus:ring-0 rounded-lg"
                   placeholder="Enter your password"
                 />
                 <button
                   type="button"
-                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-300 transition-colors"
+                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
                   onClick={() => setShowPassword(!showPassword)}
                 >
                   {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
@@ -161,7 +160,7 @@ function LoginContent() {
             <div className="flex items-center justify-end">
               <Link 
                 href="/auth/recovery" 
-                className="text-sm text-blue-400 hover:text-blue-300 transition-colors"
+                className="text-sm text-primary hover:text-primary/80 transition-colors"
               >
                 Forgot password?
               </Link>
@@ -169,7 +168,7 @@ function LoginContent() {
 
             <Button
               type="submit"
-              className="w-full h-12 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors"
+              className="w-full h-12 bg-primary hover:bg-primary/90 text-primary-foreground font-medium rounded-lg transition-colors"
               disabled={loading}
             >
               {loading ? (
@@ -182,17 +181,17 @@ function LoginContent() {
 
           <div className="relative my-8">
             <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-gray-800" />
+              <div className="w-full border-t border-border" />
             </div>
             <div className="relative flex justify-center text-sm">
-              <span className="px-4 bg-gray-900 text-gray-500">or</span>
+              <span className="px-4 bg-card text-muted-foreground">or</span>
             </div>
           </div>
 
           <Button
             type="button"
             variant="outline"
-            className="w-full h-12 bg-gray-800 hover:bg-gray-700 text-gray-300 border-gray-700 font-medium rounded-lg transition-colors"
+            className="w-full h-12 bg-secondary hover:bg-secondary/90 text-secondary-foreground border-border font-medium rounded-lg transition-colors"
             onClick={handleGoogleLogin}
             disabled={loading}
           >
@@ -217,11 +216,11 @@ function LoginContent() {
             Continue with Google
           </Button>
 
-          <p className="mt-8 text-center text-sm text-gray-400">
+          <p className="mt-8 text-center text-sm text-muted-foreground">
             Don't have an account?{' '}
             <Link 
               href="/auth/signup" 
-              className="text-blue-400 hover:text-blue-300 font-medium transition-colors"
+              className="text-primary hover:text-primary/80 font-medium transition-colors"
             >
               Sign up
             </Link>
@@ -235,8 +234,8 @@ function LoginContent() {
 export default function LoginPage() {
   return (
     <Suspense fallback={
-      <div className="min-h-screen bg-gray-950 flex items-center justify-center">
-        <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
       </div>
     }>
       <LoginContent />

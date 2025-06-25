@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
@@ -17,7 +17,8 @@ import {
   ArrowRightOnRectangleIcon,
   ChevronDownIcon,
   TrashIcon,
-  XCircleIcon
+  XCircleIcon,
+  LinkIcon
 } from '@heroicons/react/24/outline';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
@@ -27,6 +28,7 @@ import ProtectedRoute from '@/components/auth/ProtectedRoute';
 import { OnboardingModal } from '@/components/auth/OnboardingModal';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSessions, type Session } from '@/lib/hooks/useSessions';
+import { useSessionThreads } from '@/lib/hooks/useSessionThreads';
 import { useUserStats, defaultStats } from '@/lib/hooks/useUserStats';
 import { useSessionData } from '@/lib/hooks/useSessionData';
 import { useSubscription } from '@/lib/hooks/useSubscription';
@@ -36,6 +38,7 @@ import { SettingsPanel } from '@/components/settings/SettingsPanel';
 import { ConversationListDate } from '@/components/ui/ConversationDateIndicator';
 import { LoadingModal } from '@/components/ui/LoadingModal';
 import type { ConversationConfig } from '@/types/app';
+import { ConversationThread } from '@/components/dashboard/ConversationThread';
 import dynamic from 'next/dynamic';
 
 // Dynamically load smaller components to reduce initial bundle size
@@ -47,6 +50,8 @@ const ConversationInboxItem = dynamic(() => import('@/components/dashboard/Conve
 const EmptyState = dynamic(() => import('@/components/dashboard/EmptyState'));
 const NewConversationModal = dynamic(() => import('@/components/dashboard/NewConversationModal'));
 const ContextUploadWidget = dynamic(() => import('@/components/dashboard/ContextUploadWidget'));
+const NewConversationButton = dynamic(() => import('@/components/dashboard/NewConversationButton').then(mod => ({ default: mod.NewConversationButton })));
+const CreateMeetingModal = dynamic(() => import('@/components/meeting/create/CreateMeetingModal').then(mod => ({ default: mod.CreateMeetingModal })));
 
 // Types (using Session from useSessions hook)
 
@@ -77,6 +82,7 @@ const DashboardPage: React.FC = () => {
   const router = useRouter();
   const [activePath, setActivePath] = useState('conversations');
   const [showNewConversationModal, setShowNewConversationModal] = useState(false);
+  const [showNewMeetingModal, setShowNewMeetingModal] = useState(false);
   const [showOnboardingModal, setShowOnboardingModal] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedSessions, setSelectedSessions] = useState<Set<string>>(new Set());
@@ -84,6 +90,7 @@ const DashboardPage: React.FC = () => {
   const [isNavigating, setIsNavigating] = useState(false);
   const [navigationSessionTitle, setNavigationSessionTitle] = useState('');
   const [isNewSession, setIsNewSession] = useState(false);
+  const [groupByThread, setGroupByThread] = useState(true);
 
   // Get sessions and stats from hooks
   const { 
@@ -118,6 +125,9 @@ const DashboardPage: React.FC = () => {
     planType
   } = useSubscription();
 
+  // Get thread grouping for sessions
+  const { enhancedSessions, threads, standaloneSessions, isGrouped } = useSessionThreads(sessions, groupByThread);
+
   // Get auth session for API calls
   const { session: authSession } = useAuth();
 
@@ -149,87 +159,108 @@ const DashboardPage: React.FC = () => {
     }
   }, [sessionsError]);
 
-  // Filter sessions based on search query and active path
-  const filteredSessions = sessions.filter(session => {
-    // Filter by archive status
-    if (activePath === 'archive' && session.status !== 'archived') return false;
-    if (activePath === 'conversations' && session.status === 'archived') return false;
-    
-    // Filter by search query
-    if (!searchQuery) return true;
-    return session.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-           session.conversation_type?.toLowerCase().includes(searchQuery.toLowerCase());
-  });
+  // Filter sessions or threads based on search query and active path
+  const filtered = useMemo(() => {
+    if (isGrouped) {
+      // Filter threads and standalone sessions
+      const filteredThreads = threads.filter(thread => {
+        const latestSession = thread.sessions[thread.sessions.length - 1];
+        // Filter by archive status
+        if (activePath === 'archive' && latestSession.status !== 'archived') return false;
+        if (activePath === 'conversations' && latestSession.status === 'archived') return false;
+        
+        // Filter by search query
+        if (!searchQuery) return true;
+        return thread.sessions.some(session => 
+          session.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          session.conversation_type?.toLowerCase().includes(searchQuery.toLowerCase())
+        );
+      });
+      
+      const filteredStandalone = standaloneSessions.filter(session => {
+        // Filter by archive status
+        if (activePath === 'archive' && session.status !== 'archived') return false;
+        if (activePath === 'conversations' && session.status === 'archived') return false;
+        
+        // Filter by search query
+        if (!searchQuery) return true;
+        return session.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+               session.conversation_type?.toLowerCase().includes(searchQuery.toLowerCase());
+      });
+      
+      return { threads: filteredThreads, standalone: filteredStandalone };
+    } else {
+      // Regular session filtering
+      const filteredSessions = enhancedSessions.filter(session => {
+        // Filter by archive status
+        if (activePath === 'archive' && session.status !== 'archived') return false;
+        if (activePath === 'conversations' && session.status === 'archived') return false;
+        
+        // Filter by search query
+        if (!searchQuery) return true;
+        return session.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+               session.conversation_type?.toLowerCase().includes(searchQuery.toLowerCase());
+      });
+      
+      return { sessions: filteredSessions };
+    }
+  }, [isGrouped, threads, standaloneSessions, enhancedSessions, activePath, searchQuery]);
+  
+  const totalFilteredCount = useMemo(() => {
+    return isGrouped 
+      ? (filtered.threads?.length || 0) + (filtered.standalone?.length || 0)
+      : (filtered.sessions?.length || 0);
+  }, [filtered, isGrouped]);
 
   const handleSearch = (query: string) => {
     setSearchQuery(query);
   };
 
   const handleNewConversation = () => {
-    setShowNewConversationModal(true);
+    // Regular conversations are deprecated, redirect to meeting
+    setShowNewMeetingModal(true);
+  };
+
+  const handleNewMeeting = () => {
+    setShowNewMeetingModal(true);
   };
 
   const handleStartConversation = async (config: ConversationConfig) => {
+    // Regular conversations are deprecated - redirect to meeting creation
+    console.warn('Regular conversations are deprecated. Please use meetings.');
+    setShowNewMeetingModal(true);
+  };
+
+  const handleStartMeeting = async (data: any) => {
     try {
       setIsNavigating(true);
-      setNavigationSessionTitle(config.title);
+      setNavigationSessionTitle(data.title);
       setIsNewSession(true);
-      
-      // Create a new session with context data
-      const newSession = await createSession({
-        title: config.title,
-        conversation_type: config.conversationType,
-        selected_template_id: config.templateId,
-        context: config.context?.text ? {
-          text: config.context.text,
-          metadata: {
-            conversation_type: config.conversationType,
-            created_from: 'dashboard',
-            has_files: !!(config.context?.files && config.context.files.length > 0)
-          }
-        } : undefined,
-        linkedConversationIds: config.selectedPreviousConversations || [],
-        participant_me: config.participantMe,
-        participant_them: config.participantThem
-      } as any);
-      
-      if (newSession) {
-        // Upload files if any were provided
-        const files = config.context?.files;
-        if (files && files.length > 0) {
-          try {
-            await uploadDocuments(newSession.id, files);
-            console.log('✅ Files uploaded successfully for session:', newSession.id);
-          } catch (error) {
-            console.error('❌ Failed to upload files:', error);
-            // Don't block navigation if file upload fails
-          }
-        }
 
-        // Store conversation config in localStorage for the conversation page to pick up
-        const conversationConfig = {
-          id: newSession.id,
-          title: config.title,
-          type: config.conversationType,
-          context: config.context || { text: '', files: [] },
-          selectedPreviousConversations: config.selectedPreviousConversations || [],
-          createdAt: new Date().toISOString(),
-          participantMe: config.participantMe,
-          participantThem: config.participantThem
-        };
-        
-        if (typeof window !== 'undefined') {
-          localStorage.setItem(`conversation_${newSession.id}`, JSON.stringify(conversationConfig));
-          
-          // Navigate to the conversation page with the session ID
-          window.location.href = `/app?cid=${newSession.id}`;
-        }
-      } else {
-        setIsNavigating(false);
-        setIsNewSession(false);
+      // Create meeting via API
+      const headers: HeadersInit = { 'Content-Type': 'application/json' };
+      if (authSession?.access_token) {
+        headers['Authorization'] = `Bearer ${authSession.access_token}`;
+      }
+
+      const response = await fetch('/api/meeting/create', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(data)
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to create meeting');
+      }
+
+      const { meeting } = await response.json();
+
+      if (meeting && typeof window !== 'undefined') {
+        // Navigate to meeting page
+        window.location.href = `/meeting/${meeting.id}`;
       }
     } catch (error) {
-      console.error('❌ Failed to create conversation:', error);
+      console.error('❌ Failed to create meeting:', error);
       setIsNavigating(false);
       setIsNewSession(false);
       // TODO: Show error toast to user
@@ -243,32 +274,17 @@ const DashboardPage: React.FC = () => {
       setIsNavigating(true);
       setNavigationSessionTitle(session.title);
       setIsNewSession(false);
-      // For completed sessions, just navigate without storing resuming config
-      if (session.status === 'completed') {
-        // Clear any existing localStorage state for completed sessions
-        localStorage.removeItem(`conversation_${sessionId}`);
-        localStorage.removeItem(`conversation_state_${sessionId}`);
-      } else {
-        // Only store resuming config for non-completed sessions
-        const conversationConfig = {
-          id: sessionId,
-          title: session.title,
-          type: session.conversation_type,
-          context: { text: '', files: [] }, // Context will be loaded from backend in conversation page
-          createdAt: session.created_at,
-          isResuming: true
-        };
-        
-        localStorage.setItem(`conversation_${sessionId}`, JSON.stringify(conversationConfig));
-      }
       
-      // Navigate to conversation page
-      window.location.href = `/app?cid=${sessionId}`;
+      // Check if this is a meeting session
+      const isVideoConference = !!(session as any).meeting_url || !!(session as any).meeting_platform;
+      
+      // All conversations now use the meeting interface
+      window.location.href = `/meeting/${sessionId}`;
     }
   };
 
   const handleViewSummary = (sessionId: string) => {
-    window.location.href = `/summary/${sessionId}`;
+    window.location.href = `/report/${sessionId}`;
   };
 
   const handleArchiveSession = async (sessionId: string) => {
@@ -352,10 +368,21 @@ const DashboardPage: React.FC = () => {
   };
 
   const handleSelectAll = () => {
-    if (selectedSessions.size === filteredSessions.length) {
+    const allSessionIds = () => {
+      if (isGrouped) {
+        const threadSessionIds = filtered.threads?.flatMap(thread => thread.sessions.map(s => s.id)) || [];
+        const standaloneSessionIds = filtered.standalone?.map(s => s.id) || [];
+        return [...threadSessionIds, ...standaloneSessionIds];
+      } else {
+        return filtered.sessions?.map(s => s.id) || [];
+      }
+    };
+    
+    const allIds = allSessionIds();
+    if (selectedSessions.size === allIds.length) {
       setSelectedSessions(new Set());
     } else {
-      setSelectedSessions(new Set(filteredSessions.map(s => s.id)));
+      setSelectedSessions(new Set(allIds));
     }
   };
 
@@ -427,7 +454,7 @@ const DashboardPage: React.FC = () => {
     window.location.reload();
   };
 
-  const activeSessions = filteredSessions.filter(s => s.status === 'active');
+  const activeSessions = enhancedSessions.filter(s => s.status === 'active');
   const hasAnySessions = sessions.length > 0;
 
   const handleCreateFollowUp = async (originalSession: Session) => {
@@ -441,30 +468,41 @@ const DashboardPage: React.FC = () => {
         ...(originalSession.linkedConversations?.map(c => c.id) || [])
       ];
 
-      const newSession = await createSession({
-        title: `${originalSession.title} – Follow-up`,
-        conversation_type: originalSession.conversation_type,
-        linkedConversationIds: previousIds,
-        participant_me: originalSession.participant_me,
-        participant_them: originalSession.participant_them,
-        context: {
-          metadata: {
-            selectedPreviousConversations: previousIds,
-            created_from: 'follow_up'
+      // Create follow-up as a meeting (since regular conversations are deprecated)
+      const headers: HeadersInit = { 'Content-Type': 'application/json' };
+      if (authSession?.access_token) {
+        headers['Authorization'] = `Bearer ${authSession.access_token}`;
+      }
+
+      const response = await fetch('/api/meeting/create', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          title: `${originalSession.title} – Follow-up`,
+          type: originalSession.conversation_type || 'meeting',
+          linkedConversationIds: previousIds,
+          participantMe: originalSession.participant_me,
+          participantThem: originalSession.participant_them,
+          context: {
+            metadata: {
+              selectedPreviousConversations: previousIds,
+              created_from: 'follow_up'
+            }
           }
-        }
+        })
       });
 
-      if (newSession) {
-        if (typeof window !== 'undefined') {
-          window.location.href = `/app?cid=${newSession.id}`;
-        }
-      } else {
-        setIsNavigating(false);
-        setIsNewSession(false);
+      if (!response.ok) {
+        throw new Error('Failed to create follow-up meeting');
+      }
+
+      const { meeting } = await response.json();
+
+      if (meeting && typeof window !== 'undefined') {
+        window.location.href = `/meeting/${meeting.id}`;
       }
     } catch (error) {
-      console.error('❌ Failed to create follow-up conversation:', error);
+      console.error('❌ Failed to create follow-up meeting:', error);
       setIsNavigating(false);
       setIsNewSession(false);
     }
@@ -513,7 +551,7 @@ const DashboardPage: React.FC = () => {
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
           <div className="w-8 h-8 border-2 border-app-primary border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-          <p className="text-muted-foreground">Loading your conversations...</p>
+          <p className="text-muted-foreground">Loading your meetings...</p>
         </div>
       </div>
     );
@@ -556,17 +594,14 @@ const DashboardPage: React.FC = () => {
                     <h1 className="text-2xl font-bold mb-2 text-foreground">Welcome back, {currentUser.name}!</h1>
                     <p className="text-muted-foreground">
                       {activeSessions.length > 0 
-                        ? `You have ${activeSessions.length} active conversation${activeSessions.length === 1 ? '' : 's'}`
-                        : 'Ready to start a new conversation?'}
+                        ? `You have ${activeSessions.length} active meeting${activeSessions.length === 1 ? '' : 's'}`
+                        : 'Ready to start a new meeting?'}
                     </p>
                   </div>
-                  <Button 
-                    onClick={handleNewConversation}
-                    className="bg-primary hover:bg-primary/90 text-primary-foreground"
-                  >
-                    <PlusIcon className="w-5 h-5 mr-2" />
-                    New Conversation
-                  </Button>
+                  <NewConversationButton 
+                    onNewConversation={handleNewConversation}
+                    onNewMeeting={handleNewMeeting}
+                  />
                 </div>
               </motion.div>
             )}
@@ -580,7 +615,7 @@ const DashboardPage: React.FC = () => {
                 }}
               />
             ) : !hasAnySessions ? (
-              <EmptyState onNewConversation={handleNewConversation} />
+              <EmptyState onNewConversation={handleNewConversation} onNewMeeting={handleNewMeeting} />
             ) : (
               <div className="flex flex-col flex-1">
                 {/* Search Results Header */}
@@ -591,13 +626,13 @@ const DashboardPage: React.FC = () => {
                     className="mb-4"
                   >
                     <p className="text-muted-foreground">
-                      {filteredSessions.length} result{filteredSessions.length === 1 ? '' : 's'} for &quot;{searchQuery}&quot;
+                      {totalFilteredCount} result{totalFilteredCount === 1 ? '' : 's'} for &quot;{searchQuery}&quot;
                     </p>
                   </motion.div>
                 )}
 
-                {/* Conversations Inbox List */}
-                {filteredSessions.length > 0 ? (
+                {/* Meetings Inbox List */}
+                {totalFilteredCount > 0 ? (
                   <motion.div 
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
@@ -611,7 +646,7 @@ const DashboardPage: React.FC = () => {
                           <label className="flex items-center">
                             <input
                               type="checkbox"
-                              checked={selectedSessions.size === filteredSessions.length && filteredSessions.length > 0}
+                              checked={selectedSessions.size === totalFilteredCount && totalFilteredCount > 0}
                               onChange={handleSelectAll}
                               className="rounded border-input text-app-primary focus:ring-app-primary"
                             />
@@ -622,8 +657,8 @@ const DashboardPage: React.FC = () => {
                               `${selectedSessions.size} selected`
                             ) : (
                               activePath === 'archive' 
-                                ? `Archived Conversations (${filteredSessions.length})`
-                                : `Conversations (${filteredSessions.length})`
+                                ? `Archived Meetings (${totalFilteredCount})`
+                                : `Meetings (${totalFilteredCount})`
                             )}
                           </h2>
                           
@@ -660,34 +695,80 @@ const DashboardPage: React.FC = () => {
                         
                         {selectedSessions.size === 0 && (
                           <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                            <button
+                              onClick={() => setGroupByThread(!groupByThread)}
+                              className="flex items-center gap-1.5 px-2 py-1 hover:bg-muted/50 rounded transition-colors"
+                            >
+                              <LinkIcon className="w-3.5 h-3.5" />
+                              {groupByThread ? 'Grouped' : 'List View'}
+                            </button>
                             <span className="flex items-center gap-2">
                               <div className="w-2 h-2 rounded-full bg-app-success"></div>
-                              Active ({filteredSessions.filter(s => s.status === 'active').length})
+                              Active ({activeSessions.length})
                             </span>
                             <span className="flex items-center gap-2">
                               <div className="w-2 h-2 rounded-full bg-app-primary"></div>
-                              Completed ({filteredSessions.filter(s => s.status === 'completed').length})
+                              Completed ({enhancedSessions.filter(s => s.status === 'completed').length})
                             </span>
                           </div>
                         )}
                       </div>
                     </div>
 
-                    {/* Conversation List */}
-                    <div className="flex-1 overflow-y-auto p-4 space-y-3">
-                      {filteredSessions.map((session) => (
-                        <ConversationInboxItem
-                          key={session.id}
-                          session={session}
-                          isSelected={selectedSessions.has(session.id)}
-                          onClick={() => handleSessionSelect(session.id)}
-                          onResume={handleResumeSession}
-                          onViewSummary={handleViewSummary}
-                          onArchive={handleArchiveSession}
-                          onDelete={handleDeleteSession}
-                          onCreateFollowUp={handleCreateFollowUp}
-                        />
-                      ))}
+                    {/* Meeting List */}
+                    <div className="flex-1 overflow-y-auto overflow-x-visible p-4 space-y-3">
+                      {isGrouped ? (
+                        <>
+                          {/* Render Threads */}
+                          {filtered.threads?.map((thread) => (
+                            <ConversationThread
+                              key={`thread-${thread.id}`}
+                              thread={thread}
+                              isSelected={thread.sessions.every(s => selectedSessions.has(s.id))}
+                              onSelectThread={(sessionIds) => {
+                                sessionIds.forEach(id => handleSessionSelect(id));
+                              }}
+                              selectedSessions={selectedSessions}
+                              onSelectSession={handleSessionSelect}
+                              onResume={handleResumeSession}
+                              onViewSummary={handleViewSummary}
+                              onArchive={handleArchiveSession}
+                              onDelete={handleDeleteSession}
+                              onCreateFollowUp={handleCreateFollowUp}
+                            />
+                          ))}
+                          
+                          {/* Render Standalone Sessions */}
+                          {filtered.standalone?.map((session) => (
+                            <ConversationInboxItem
+                              key={`standalone-session-${session.id}`}
+                              session={session}
+                              isSelected={selectedSessions.has(session.id)}
+                              onClick={() => handleSessionSelect(session.id)}
+                              onResume={handleResumeSession}
+                              onViewSummary={handleViewSummary}
+                              onArchive={handleArchiveSession}
+                              onDelete={handleDeleteSession}
+                              onCreateFollowUp={handleCreateFollowUp}
+                            />
+                          ))}
+                        </>
+                      ) : (
+                        /* Render Regular Session List */
+                        filtered.sessions?.map((session) => (
+                          <ConversationInboxItem
+                            key={`session-${session.id}`}
+                            session={session}
+                            isSelected={selectedSessions.has(session.id)}
+                            onClick={() => handleSessionSelect(session.id)}
+                            onResume={handleResumeSession}
+                            onViewSummary={handleViewSummary}
+                            onArchive={handleArchiveSession}
+                            onDelete={handleDeleteSession}
+                            onCreateFollowUp={handleCreateFollowUp}
+                          />
+                        ))
+                      )}
                     </div>
                   </motion.div>
                 ) : (
@@ -698,14 +779,14 @@ const DashboardPage: React.FC = () => {
                   >
                     <div className="text-center py-16">
                       <MagnifyingGlassIcon className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
-                      <h3 className="text-lg font-medium text-foreground mb-2">No conversations found</h3>
-                      <p className="text-muted-foreground mb-6">Try adjusting your search terms or start a new conversation.</p>
-                      <Button
+                      <h3 className="text-lg font-medium text-foreground mb-2">No meetings found</h3>
+                      <p className="text-muted-foreground mb-6">Try adjusting your search terms or start a new meeting.</p>
+                                              <Button
                         onClick={handleNewConversation}
                         className="bg-primary hover:bg-primary/90 text-primary-foreground"
                       >
                         <PlusIcon className="w-4 h-4 mr-2" />
-                        Start New Conversation
+                        Start New Meeting
                       </Button>
                     </div>
                   </motion.div>
@@ -722,6 +803,13 @@ const DashboardPage: React.FC = () => {
         onClose={() => setShowNewConversationModal(false)}
         onStart={handleStartConversation}
         sessions={sessions}
+      />
+
+      {/* Create Meeting Modal */}
+      <CreateMeetingModal
+        isOpen={showNewMeetingModal}
+        onClose={() => setShowNewMeetingModal(false)}
+        onStart={handleStartMeeting}
       />
 
       {/* Onboarding Modal */}

@@ -19,7 +19,17 @@ export async function getSystemSetting<T = any>(key: string): Promise<T | null> 
     return null;
   }
 
-  return (data?.value as T) ?? null;
+  // Handle JSONB stored strings - if value is a string wrapped in quotes, unwrap it
+  const value = data?.value;
+  if (typeof value === 'string' && value.startsWith('"') && value.endsWith('"')) {
+    try {
+      return JSON.parse(value) as T;
+    } catch {
+      return value as T;
+    }
+  }
+  
+  return (value as T) ?? null;
 }
 
 /**

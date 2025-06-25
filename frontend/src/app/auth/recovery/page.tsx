@@ -42,7 +42,7 @@ export default function PasswordRecoveryPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-950 flex flex-col justify-center px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-background flex flex-col justify-center px-4 sm:px-6 lg:px-8">
       {/* Logo */}
       <motion.div
         initial={{ opacity: 0, y: -20 }}
@@ -52,13 +52,12 @@ export default function PasswordRecoveryPage() {
       >
         <Link href="/" className="flex items-center gap-2">
           <Image 
-            src="https://ucvfgfbjcrxbzppwjpuu.supabase.co/storage/v1/object/public/images//dark.png"
-            alt="liveprompt.ai logo"
-            width={40}
+            src="https://ucvfgfbjcrxbzppwjpuu.supabase.co/storage/v1/object/public/images//DarkMode2.png"
+            alt="liveprompt.ai"
+            width={180}
             height={40}
             className="object-contain"
           />
-          <span className="text-2xl font-bold text-white">liveprompt.ai</span>
         </Link>
       </motion.div>
 
@@ -69,14 +68,14 @@ export default function PasswordRecoveryPage() {
         transition={{ duration: 0.5, delay: 0.1 }}
         className="mx-auto w-full max-w-md"
       >
-        <div className="bg-gray-900 rounded-2xl border border-gray-800 shadow-xl p-8">
+        <div className="bg-card rounded-2xl border border-border shadow-xl p-8">
           {!success ? (
             <>
               <div className="text-center mb-8">
-                <h1 className="text-2xl font-semibold text-white mb-2">
+                <h1 className="text-2xl font-semibold text-foreground mb-2">
                   Reset your password
                 </h1>
-                <p className="text-gray-400 text-sm">
+                <p className="text-muted-foreground text-sm">
                   Enter your email and we'll send you a reset link
                 </p>
               </div>
@@ -87,7 +86,7 @@ export default function PasswordRecoveryPage() {
                   animate={{ opacity: 1, height: 'auto' }}
                   className="mb-6"
                 >
-                  <Alert className="border-red-900 bg-red-950/50 text-red-400">
+                  <Alert className="border-destructive/50 bg-destructive/10 text-destructive">
                     {error}
                   </Alert>
                 </motion.div>
@@ -95,7 +94,7 @@ export default function PasswordRecoveryPage() {
 
               <form onSubmit={handlePasswordReset} className="space-y-6">
                 <div>
-                  <Label htmlFor="email" className="text-gray-300 text-sm font-medium">
+                  <Label htmlFor="email" className="text-foreground text-sm font-medium">
                     Email address
                   </Label>
                   <Input
@@ -104,14 +103,14 @@ export default function PasswordRecoveryPage() {
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     required
-                    className="mt-2 h-12 bg-gray-800 border-gray-700 text-white placeholder-gray-500 focus:border-blue-600 focus:ring-0 rounded-lg"
+                    className="mt-2 h-12 bg-input border-border text-foreground placeholder-muted-foreground focus:border-primary focus:ring-0 rounded-lg"
                     placeholder="you@example.com"
                   />
                 </div>
 
                 <Button
                   type="submit"
-                  className="w-full h-12 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors"
+                  className="w-full h-12 bg-primary hover:bg-primary/90 text-primary-foreground font-medium rounded-lg transition-colors"
                   disabled={loading}
                 >
                   {loading ? (
@@ -123,7 +122,7 @@ export default function PasswordRecoveryPage() {
 
                 <Link 
                   href="/auth/login"
-                  className="flex items-center justify-center gap-2 text-sm text-gray-400 hover:text-gray-300 transition-colors"
+                  className="flex items-center justify-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
                 >
                   <ArrowLeft className="w-4 h-4" />
                   Back to sign in
@@ -136,22 +135,22 @@ export default function PasswordRecoveryPage() {
               animate={{ opacity: 1, scale: 1 }}
               className="text-center"
             >
-              <div className="w-16 h-16 bg-green-950/50 rounded-full flex items-center justify-center mx-auto mb-6">
-                <svg className="w-8 h-8 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <div className="w-16 h-16 bg-secondary/20 rounded-full flex items-center justify-center mx-auto mb-6">
+                <svg className="w-8 h-8 text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                 </svg>
               </div>
 
-              <h2 className="text-xl font-semibold text-white mb-2">
+              <h2 className="text-xl font-semibold text-foreground mb-2">
                 Check your email
               </h2>
-              <p className="text-gray-400 text-sm mb-6">
+              <p className="text-muted-foreground text-sm mb-6">
                 We've sent a password reset link to {email}
               </p>
 
               <Button
                 onClick={() => router.push('/auth/login')}
-                className="w-full h-12 bg-gray-800 hover:bg-gray-700 text-gray-300 border-gray-700 font-medium rounded-lg transition-colors"
+                className="w-full h-12 bg-secondary hover:bg-secondary/90 text-secondary-foreground font-medium rounded-lg transition-colors"
               >
                 Back to sign in
               </Button>
