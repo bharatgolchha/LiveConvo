@@ -3,11 +3,11 @@ import { createServerSupabaseClient, createAuthenticatedSupabaseClient } from '@
 
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { key: string } }
+  { params }: { params: Promise<{ key: string }> }
 ) {
   try {
     const supabase = createServerSupabaseClient();
-    const { key } = params;
+    const { key } = await params;
 
     if (!key) {
       return NextResponse.json({ error: 'Bad request', message: 'Setting key required' }, { status: 400 });
