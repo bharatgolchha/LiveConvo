@@ -55,15 +55,17 @@ export function useRecallBotStatus(sessionId: string, botId: string | undefined)
 
   // Separate effect for polling
   useEffect(() => {
-    // Only poll if we have an active bot that's not completed
+    // Poll for active bots and also for bots showing as recording locally
+    // to catch cases where webhooks might have failed
     const shouldPoll = sessionId && status && (
       status.status === 'created' || 
       status.status === 'joining' ||
-      status.status === 'in_call'
+      status.status === 'in_call' ||
+      (status.localStatus === 'recording' && status.status !== 'completed') // Poll if local shows recording but not completed
     );
     
     if (shouldPoll) {
-      console.log('🔄 Starting bot status polling for active bot');
+      console.log('🔄 Starting bot status polling for bot in status:', status.status, 'local:', status.localStatus);
       const interval = setInterval(fetchStatus, 3000); // Poll every 3 seconds
       return () => {
         console.log('🛑 Stopping bot status polling');

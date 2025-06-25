@@ -13,11 +13,13 @@ import {
   RefreshCw,
   AlertCircle,
   CheckCircle,
-  XCircle
+  XCircle,
+  Loader2
 } from 'lucide-react';
 import { useBotUsage } from '@/lib/meeting/hooks/useBotUsage';
 import { cn } from '@/lib/utils';
 import { format, parseISO, formatDistanceToNow } from 'date-fns';
+import { SyncBotStatusButton } from './SyncBotStatusButton';
 
 interface BotUsageDisplayProps {
   organizationId?: string;
@@ -47,13 +49,11 @@ const statusIcons = {
 
 export function BotUsageDisplay({ organizationId, className }: BotUsageDisplayProps) {
   const [expandedSessions, setExpandedSessions] = useState<Set<string>>(new Set());
+  const [syncingSessions, setSyncingSessions] = useState<Set<string>>(new Set());
   
   console.log('🤖 BotUsageDisplay received organizationId:', organizationId);
   
   const { sessions, stats, loading, error, refetch } = useBotUsage(organizationId);
-
-  // Create a unique component identifier to prevent key conflicts with other components
-  const componentId = 'bot-usage-display';
 
   const toggleSession = (sessionId: string) => {
     const newExpanded = new Set(expandedSessions);
@@ -84,6 +84,28 @@ export function BotUsageDisplay({ organizationId, className }: BotUsageDisplayPr
       currency: 'USD',
       minimumFractionDigits: 2
     }).format(num);
+  };
+
+  const syncBotStatus = async (sessionId: string) => {
+    setSyncingSessions(prev => new Set(prev).add(sessionId));
+    try {
+      // Force sync by calling the bot-status endpoint
+      const response = await fetch(`/api/sessions/${sessionId}/bot-status`);
+      if (response.ok) {
+        // Wait a moment for the updates to propagate
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        // Refresh the display
+        await refetch();
+      }
+    } catch (error) {
+      console.error('Failed to sync bot status:', error);
+    } finally {
+      setSyncingSessions(prev => {
+        const next = new Set(prev);
+        next.delete(sessionId);
+        return next;
+      });
+    }
   };
 
   if (loading) {
@@ -154,13 +176,20 @@ export function BotUsageDisplay({ organizationId, className }: BotUsageDisplayPr
           <Bot className="w-5 h-5" />
           Bot Usage
         </h3>
-        <button 
-          onClick={refetch}
-          className="p-2 hover:bg-muted rounded-full transition-colors"
-          title="Refresh"
-        >
-          <RefreshCw className="w-4 h-4" />
-        </button>
+        <div className="flex items-center gap-2">
+          <SyncBotStatusButton 
+            onSyncComplete={refetch}
+            variant="ghost"
+            size="sm"
+          />
+          <button 
+            onClick={refetch}
+            className="p-2 hover:bg-muted rounded-full transition-colors"
+            title="Refresh"
+          >
+            <RefreshCw className="w-4 h-4" />
+          </button>
+        </div>
       </div>
 
       {/* Stats Overview */}
@@ -217,7 +246,7 @@ export function BotUsageDisplay({ organizationId, className }: BotUsageDisplayPr
                 
                 return (
                   <motion.div
-                    key={`${componentId}-${session.id}`}
+                    key={session.id}
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: -20 }}
@@ -244,6 +273,25 @@ export function BotUsageDisplay({ organizationId, className }: BotUsageDisplayPr
                                 <StatusIcon className="w-3 h-3" />
                                 {session.status}
                               </span>
+                              {/* Show sync button for sessions stuck in recording state with 0 minutes */}
+                              {session.status === 'active' && session.botRecordingMinutes === 0 && (
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    syncBotStatus(session.sessionId);
+                                  }}
+                                  disabled={syncingSessions.has(session.sessionId)}
+                                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-700 hover:bg-blue-200 transition-colors disabled:opacity-50"
+                                  title="Sync bot status with Recall.ai"
+                                >
+                                  {syncingSessions.has(session.sessionId) ? (
+                                    <Loader2 className="w-3 h-3 animate-spin" />
+                                  ) : (
+                                    <RefreshCw className="w-3 h-3" />
+                                  )}
+                                  Sync
+                                </button>
+                              )}
                             </div>
                             <div className="flex items-center gap-4 text-sm text-muted-foreground mt-1">
                               <span className="flex items-center gap-1">

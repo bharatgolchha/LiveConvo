@@ -149,62 +149,99 @@ async function handleBotStatusChange(
   const status = eventData?.status;
   const timestamp = eventData?.timestamp || new Date().toISOString();
 
-  console.log(`🔄 Bot status change: ${botId} -> ${status}`);
+  console.log(`🔄 Bot status change: ${botId} -> ${status} at ${timestamp}`);
 
-  // Ensure bot usage tracking record exists
-  await ensureBotUsageRecord(sessionId, botId, session, supabase);
+  try {
+    // Ensure bot usage tracking record exists
+    await ensureBotUsageRecord(sessionId, botId, session, supabase);
 
-  switch (status) {
-    case 'joining_call':
-      await updateBotUsageStatus(botId, 'joining', timestamp, supabase);
-      break;
+    switch (status) {
+      case 'joining_call':
+        await updateBotUsageStatus(botId, 'joining', timestamp, supabase);
+        break;
+        
+      case 'in_waiting_room':
+        await updateBotUsageStatus(botId, 'waiting', timestamp, supabase);
+        break;
+        
+      case 'in_call_not_recording':
+        await updateBotUsageStatus(botId, 'in_call', timestamp, supabase);
+        break;
+        
+      case 'recording_permission_allowed':
+      case 'in_call_recording':
+        await updateBotUsageStatus(botId, 'recording', timestamp, supabase);
+        await markRecordingStarted(botId, timestamp, supabase);
+        break;
       
-    case 'in_waiting_room':
-      await updateBotUsageStatus(botId, 'waiting', timestamp, supabase);
-      break;
+      case 'recording_permission_denied':
+        await updateBotUsageStatus(botId, 'permission_denied', timestamp, supabase);
+        break;
       
-    case 'in_call_not_recording':
-      await updateBotUsageStatus(botId, 'in_call', timestamp, supabase);
-      break;
+      case 'call_ended':
+      case 'done':
+        console.log(`🎯 Processing bot completion for ${botId}`);
+        
+        // First mark the recording as completed
+        const completionResult = await markRecordingCompleted(botId, timestamp, session, supabase);
+        
+        if (completionResult) {
+          console.log(`✅ Bot usage tracking marked as completed for ${botId}`);
+        } else {
+          console.error(`❌ Failed to mark bot usage as completed for ${botId}`);
+        }
+        
+        // Update the session status to completed
+        const { error: sessionUpdateError } = await supabase
+          .from('sessions')
+          .update({
+            status: 'completed',
+            recording_ended_at: timestamp,
+            recall_bot_status: 'completed',
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', sessionId);
+          
+        if (sessionUpdateError) {
+          console.error(`❌ Failed to update session status: ${sessionUpdateError.message}`);
+        } else {
+          console.log(`🏁 Session ${sessionId} marked as completed`);
+        }
+        
+        // Force update the bot usage tracking status even if other updates fail
+        await supabase
+          .from('bot_usage_tracking')
+          .update({
+            status: 'completed',
+            updated_at: new Date().toISOString()
+          })
+          .eq('bot_id', botId);
+          
+        break;
       
-    case 'recording_permission_allowed':
-    case 'in_call_recording':
-      await updateBotUsageStatus(botId, 'recording', timestamp, supabase);
-      await markRecordingStarted(botId, timestamp, supabase);
-      break;
-    
-    case 'recording_permission_denied':
-      await updateBotUsageStatus(botId, 'permission_denied', timestamp, supabase);
-      break;
-    
-    case 'call_ended':
-    case 'done':
-      await markRecordingCompleted(botId, timestamp, session, supabase);
-      // Also update the session status to completed
-      await supabase
-        .from('sessions')
-        .update({
-          status: 'completed',
-          recording_ended_at: timestamp,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', sessionId);
-      console.log(`🏁 Session ${sessionId} marked as completed`);
-      break;
-    
-    case 'fatal':
-      await updateBotUsageStatus(botId, 'failed', timestamp, supabase);
-      await markRecordingCompleted(botId, timestamp, session, supabase);
-      // Mark session as failed
-      await supabase
-        .from('sessions')
-        .update({
-          status: 'failed',
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', sessionId);
-      console.log(`❌ Session ${sessionId} marked as failed`);
-      break;
+      case 'fatal':
+        await updateBotUsageStatus(botId, 'failed', timestamp, supabase);
+        await markRecordingCompleted(botId, timestamp, session, supabase);
+        // Mark session as failed
+        const { error: failedUpdateError } = await supabase
+          .from('sessions')
+          .update({
+            status: 'failed',
+            recall_bot_status: 'failed',
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', sessionId);
+          
+        if (failedUpdateError) {
+          console.error(`❌ Failed to update session as failed: ${failedUpdateError.message}`);
+        } else {
+          console.log(`❌ Session ${sessionId} marked as failed`);
+        }
+        break;
+    }
+  } catch (error) {
+    console.error(`❌ Error in handleBotStatusChange for ${botId}:`, error);
+    // Don't throw - allow webhook to succeed even if some updates fail
   }
 }
 
@@ -350,47 +387,72 @@ async function markRecordingCompleted(
   timestamp: string,
   session: any,
   supabase: any
-): Promise<void> {
-  // Get current bot usage data
-  const { data: botUsage } = await supabase
-    .from('bot_usage_tracking')
-    .select('recording_started_at')
-    .eq('bot_id', botId)
-    .single();
+): Promise<boolean> {
+  try {
+    // Get current bot usage data
+    const { data: botUsage, error: fetchError } = await supabase
+      .from('bot_usage_tracking')
+      .select('recording_started_at, session_id, status')
+      .eq('bot_id', botId)
+      .single();
 
-  if (!botUsage?.recording_started_at) {
-    console.warn(`⚠️ No recording start time found for bot ${botId}`);
-    return;
+    if (fetchError) {
+      console.error(`❌ Error fetching bot usage data for ${botId}:`, fetchError);
+      return false;
+    }
+
+    // If already completed, skip processing
+    if (botUsage?.status === 'completed') {
+      console.log(`✅ Bot ${botId} already marked as completed`);
+      return true;
+    }
+
+    if (!botUsage?.recording_started_at) {
+      console.warn(`⚠️ No recording start time found for bot ${botId}, using default duration`);
+      // Use the session creation time or current time minus 1 minute as fallback
+      const fallbackStartTime = new Date(new Date(timestamp).getTime() - 60000).toISOString();
+      
+      // Update the bot usage with fallback start time
+      await supabase
+        .from('bot_usage_tracking')
+        .update({
+          recording_started_at: fallbackStartTime,
+          updated_at: new Date().toISOString()
+        })
+        .eq('bot_id', botId);
+        
+      botUsage.recording_started_at = fallbackStartTime;
+    }
+
+    const startTime = new Date(botUsage.recording_started_at);
+    const endTime = new Date(timestamp);
+    const durationSeconds = Math.max(0, Math.floor((endTime.getTime() - startTime.getTime()) / 1000));
+    const billableMinutes = Math.ceil(durationSeconds / 60);
+
+    const sessionId = botUsage?.session_id;
+    if (!sessionId) {
+      console.error(`❌ No session ID found for bot ${botId}`);
+      return false;
+    }
+
+    console.log(`📊 Bot ${botId} recording duration: ${durationSeconds}s (${billableMinutes} billable minutes)`);
+
+    await finalizeRecordingUsage(
+      botId,
+      botUsage.recording_started_at,
+      timestamp,
+      durationSeconds,
+      billableMinutes,
+      sessionId,
+      session,
+      supabase
+    );
+    
+    return true;
+  } catch (error) {
+    console.error(`❌ Error in markRecordingCompleted for bot ${botId}:`, error);
+    return false;
   }
-
-  const startTime = new Date(botUsage.recording_started_at);
-  const endTime = new Date(timestamp);
-  const durationSeconds = Math.floor((endTime.getTime() - startTime.getTime()) / 1000);
-  const billableMinutes = Math.ceil(durationSeconds / 60);
-
-  // We need to get the sessionId from the bot_usage_tracking since the session object only has user_id/organization_id
-  const { data: botUsageData } = await supabase
-    .from('bot_usage_tracking')
-    .select('session_id')
-    .eq('bot_id', botId)
-    .single();
-
-  const sessionId = botUsageData?.session_id;
-  if (!sessionId) {
-    console.warn(`⚠️ No session ID found for bot ${botId}`);
-    return;
-  }
-
-  await finalizeRecordingUsage(
-    botId,
-    botUsage.recording_started_at,
-    timestamp,
-    durationSeconds,
-    billableMinutes,
-    sessionId,
-    session,
-    supabase
-  );
 }
 
 /**
@@ -512,10 +574,30 @@ export async function POST(
     // The bot information location varies by event type
     let botId = '00000000-0000-0000-0000-000000000000';
     
-    // For transcript events, bot is at event.data.bot
-    // For participant events, bot is also at event.data.bot
+    // Extract bot ID based on event structure
+    // For bot status events: event.data.bot.id
+    // For transcript/participant events: event.data.bot.id
+    // Some events might have it at: event.data.data.bot_id
     if (event.data?.bot?.id) {
       botId = event.data.bot.id;
+    } else if (event.data?.data?.bot_id) {
+      botId = event.data.data.bot_id;
+    }
+    
+    // For bot status events, ensure we have the bot ID
+    if (event.event.startsWith('bot.') && botId === '00000000-0000-0000-0000-000000000000') {
+      console.error('⚠️ Bot status event without bot ID, checking session for bot ID');
+      // Try to get bot ID from session
+      const { data: session } = await supabase
+        .from('sessions')
+        .select('recall_bot_id')
+        .eq('id', sessionId)
+        .single();
+      
+      if (session?.recall_bot_id) {
+        botId = session.recall_bot_id;
+        console.log('🔍 Found bot ID from session:', botId);
+      }
     }
     
     console.log('🤖 Bot ID:', botId);

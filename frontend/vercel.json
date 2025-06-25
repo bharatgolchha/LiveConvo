@@ -1,0 +1,26 @@
+{
+  "crons": [
+    {
+      "path": "/api/cron/monitor-bots",
+      "schedule": "*/1 * * * *"
+    },
+    {
+      "path": "/api/cron/sync-bot-status",
+      "schedule": "0 */6 * * *"
+    }
+  ],
+  "functions": {
+    "src/app/api/cron/monitor-bots/route.ts": {
+      "maxDuration": 60
+    },
+    "src/app/api/cron/sync-bot-status/route.ts": {
+      "maxDuration": 300
+    },
+    "src/app/api/webhooks/recall/[sessionId]/route.ts": {
+      "maxDuration": 30
+    },
+    "src/app/api/webhooks/recall/status/route.ts": {
+      "maxDuration": 30
+    }
+  }
+}
