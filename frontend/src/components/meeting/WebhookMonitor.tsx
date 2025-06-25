@@ -11,7 +11,7 @@ import {
   ArrowRight,
   Filter
 } from 'lucide-react';
-import { createClient } from '@/lib/supabase';
+import { supabase } from '@/lib/supabase';
 import { cn } from '@/lib/utils';
 import { format, formatDistanceToNow } from 'date-fns';
 
@@ -42,7 +42,6 @@ export function WebhookMonitor({ sessionId }: { sessionId?: string }) {
   const [autoRefresh, setAutoRefresh] = useState(true);
 
   const fetchWebhookData = async () => {
-    const supabase = createClient();
     
     try {
       // Build query
