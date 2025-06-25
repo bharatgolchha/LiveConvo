@@ -5,7 +5,6 @@ import { AuthProvider } from "@/contexts/AuthContext";
 import { ThemeProvider } from "@/contexts/ThemeContext";
 import { AuthErrorBoundary } from "@/components/auth/AuthErrorBoundary";
 import { Toaster } from "sonner";
-import { BrowserCompatibilityNotice } from "@/components/ui/BrowserCompatibilityNotice";
 import Script from "next/script";
 
 // Suppress React DevTools warning in development
@@ -156,7 +155,6 @@ export default function RootLayout({
         <AuthErrorBoundary>
           <ThemeProvider defaultTheme="dark" storageKey="liveprompt-theme">
             <AuthProvider>
-              <BrowserCompatibilityNotice />
               {children}
               <Toaster 
                 position="top-right"
