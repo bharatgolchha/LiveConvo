@@ -40,6 +40,14 @@ export class RecallSessionManager {
     const retryDelay = 2000; // 2 seconds
     
     try {
+      // Get streaming provider from system settings
+      const { data: providerSetting } = await supabase
+        .from('system_settings')
+        .select('value')
+        .eq('key', 'streaming_provider')
+        .single();
+      
+      const streamingProvider = providerSetting?.value || 'deepgram';
       // Validate meeting URL
       const platform = this.recallClient.detectMeetingPlatform(meetingUrl);
       if (!platform) {
@@ -78,7 +86,7 @@ export class RecallSessionManager {
           bot = await this.recallClient.createBot({
             sessionId,
             meetingUrl,
-            transcriptionProvider: 'deepgram', // Use same as current
+            transcriptionProvider: streamingProvider as 'deepgram' | 'assembly_ai' | 'speechmatics',
             metadata,
           });
           break; // Success, exit retry loop
@@ -274,6 +282,14 @@ export class RecallSessionManager {
     let botId;
     
     try {
+      // Get streaming provider from system settings
+      const { data: providerSetting } = await supabase
+        .from('system_settings')
+        .select('value')
+        .eq('key', 'streaming_provider')
+        .single();
+      
+      const streamingProvider = providerSetting?.value || 'deepgram';
       const platform = this.recallClient.detectMeetingPlatform(meetingUrl);
       console.log(`📱 Detected platform: ${platform}`);
       
@@ -310,6 +326,7 @@ export class RecallSessionManager {
         meetingUrl: meetingUrl,
         sessionId: sessionId,
         botName: "LivePrompt Assistant",
+        transcriptionProvider: streamingProvider as 'deepgram' | 'assembly_ai' | 'speechmatics',
         metadata,
       });
       
