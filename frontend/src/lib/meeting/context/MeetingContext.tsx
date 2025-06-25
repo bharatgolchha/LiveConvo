@@ -108,11 +108,15 @@ export function MeetingProvider({ children }: MeetingProviderProps) {
 
   // Smart notes methods
   const addSmartNote = useCallback((note: SmartNote) => {
+    console.log('[MeetingContext] Adding smart note:', note);
     setSmartNotes(prev => {
       if (prev.some(n => n.id === note.id)) {
+        console.log('[MeetingContext] Smart note already exists, skipping:', note.id);
         return prev; // avoid duplicates
       }
-      return [...prev, note];
+      const newNotes = [...prev, note];
+      console.log('[MeetingContext] Smart notes state updated, total notes:', newNotes.length);
+      return newNotes;
     });
   }, []);
 

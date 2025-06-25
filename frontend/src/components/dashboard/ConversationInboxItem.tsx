@@ -18,14 +18,21 @@ import { formatDistanceToNow } from 'date-fns';
 import type { Session } from '@/lib/hooks/useSessions';
 
 interface Props {
-  session: Session;
+  session: Session & {
+    threadPosition?: number;
+    threadSize?: number;
+    isThreadRoot?: boolean;
+  };
   onResume: (id: string) => void;
   onViewSummary: (id: string) => void;
   onArchive: (id: string) => void;
   onDelete: (id: string) => void;
-  onCreateFollowUp?: (session: Session) => void;
+  onCreateFollowUp?: ((session: Session) => void) | null;
   isSelected?: boolean;
   onClick?: () => void;
+  threadIndicator?: React.ReactNode;
+  additionalStats?: React.ReactNode;
+  isCompact?: boolean;
 }
 
 const ConversationInboxItem: React.FC<Props> = ({
@@ -37,6 +44,9 @@ const ConversationInboxItem: React.FC<Props> = ({
   onCreateFollowUp,
   isSelected = false,
   onClick,
+  threadIndicator,
+  additionalStats,
+  isCompact = false,
 }) => {
   // Helper function to get unique participants from transcript speakers data only
   const getParticipants = useMemo(() => {
@@ -220,7 +230,7 @@ const ConversationInboxItem: React.FC<Props> = ({
         zIndex: 50
       }}
       transition={{ duration: 0.15 }}
-      className={`group relative rounded-lg p-2.5 cursor-pointer transition-all duration-200 ${
+      className={`group relative rounded-lg ${isCompact ? 'p-2' : 'p-2.5'} cursor-pointer transition-all duration-200 ${
         isSelected 
           ? 'bg-primary/10 border-2 border-primary shadow-lg shadow-primary/20' 
           : session.linkedConversationsCount && session.linkedConversationsCount > 0
@@ -271,14 +281,15 @@ const ConversationInboxItem: React.FC<Props> = ({
             </h3>
           </div>
           
-          {/* Meeting Type Label - Show below title for better visibility */}
-          {session.conversation_type && (
-            <div className="flex items-center gap-2 mt-1">
+          {/* Meeting Type Label and Thread Indicator */}
+          <div className="flex items-center gap-2 mt-1">
+            {session.conversation_type && (
               <span className="text-xs text-muted-foreground bg-muted/50 px-2 py-0.5 rounded-full">
                 {formatConversationType(session.conversation_type)}
               </span>
-            </div>
-          )}
+            )}
+            {threadIndicator}
+          </div>
         </div>
 
         {/* Right: Time */}
@@ -290,7 +301,7 @@ const ConversationInboxItem: React.FC<Props> = ({
       </div>
 
       {/* Participants Row - Enhanced with avatars */}
-      {participants.length > 0 && (
+      {participants.length > 0 && !isCompact && (
         <div className="flex items-center gap-2 mb-1.5">
           <UserGroupIcon className="w-3 h-3 text-muted-foreground flex-shrink-0" />
           <div className="flex items-center gap-1 flex-1 min-w-0">
@@ -327,6 +338,13 @@ const ConversationInboxItem: React.FC<Props> = ({
         </div>
       )}
 
+      {/* Additional Stats */}
+      {additionalStats && !isCompact && (
+        <div className="mb-1.5">
+          {additionalStats}
+        </div>
+      )}
+
       {/* Metadata and Actions Row */}
       <div className="flex items-center justify-between">
         {/* Left: Metadata */}
@@ -353,7 +371,7 @@ const ConversationInboxItem: React.FC<Props> = ({
           )}
 
           {/* Linked Conversations - Enhanced Display */}
-          {session.linkedConversationsCount && session.linkedConversationsCount > 0 && (
+          {session.linkedConversationsCount && session.linkedConversationsCount > 0 && !session.threadSize && (
             <div className="relative group/tooltip" style={{ zIndex: 1 }}>
               <span className="flex items-center gap-1.5 px-2 py-0.5 bg-primary/10 text-primary rounded-full text-xs font-medium transition-all duration-200 hover:bg-primary/20">
                 <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
@@ -456,7 +474,7 @@ const ConversationInboxItem: React.FC<Props> = ({
                     e.stopPropagation();
                     onCreateFollowUp(session);
                   }}
-                  className="inline-flex items-center px-2 py-1 text-xs font-medium text-accent-foreground bg-accent/20 hover:bg-accent/30 rounded transition-colors duration-150"
+                  className="inline-flex items-center px-2 py-1 text-xs font-medium text-accent-foreground dark:text-accent bg-accent/20 dark:bg-accent/10 hover:bg-accent/30 dark:hover:bg-accent/20 rounded transition-colors duration-150"
                 >
                   <ArrowPathIcon className="w-3 h-3 mr-0.5" />
                   Follow-Up

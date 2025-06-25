@@ -20,18 +20,18 @@ SMART NOTES GUIDELINES:
 - Each note should be specific and actionable (not vague observations)
 - Include relevant context like who, what, when, where if mentioned
 - Focus on information that affects future planning or decision-making
-- Keep notes concise but informative (max 100 characters each)
+- Keep notes concise but informative (max 150 characters each)
 - Prioritize based on importance and urgency
 - Categorize appropriately for easy organization
 
 CATEGORIES:
-- preparation: Items to prepare for future activities
-- followup: Actions to take after this meeting
-- research: Information to investigate or validate  
+- key_point: Important information or insights shared
+- action_item: Specific tasks or commitments made
 - decision: Important decisions made or needed
-- action: Specific tasks or commitments
+- question: Questions raised that need follow-up
+- insight: Strategic insights or breakthrough moments
 
-PRIORITIES:
+IMPORTANCE LEVELS:
 - high: Critical items needing immediate attention
 - medium: Important items for near-term action
 - low: Useful information for future reference
@@ -40,15 +40,14 @@ Return ONLY a JSON object with this structure:
 {
   "notes": [
     {
-      "text": "Specific actionable note with context",
-      "category": "preparation|followup|research|decision|action", 
-      "priority": "high|medium|low",
-      "confidence": 90
+      "content": "Specific actionable note with context",
+      "category": "key_point|action_item|decision|question|insight", 
+      "importance": "high|medium|low"
     }
   ]
 }
 
-Focus on extracting 5-10 high-quality notes that provide real value to the meeting participants.`;
+Focus on extracting 3-8 high-quality notes that provide real value to the meeting participants.`;
 
 // ----------------------------------------------------------------------
 // GET /api/meeting/[id]/smart-notes
@@ -99,7 +98,16 @@ export async function GET(
       );
     }
 
-    return NextResponse.json(notes || []);
+    console.log(`📋 GET /api/meeting/${id}/smart-notes - Found ${notes?.length || 0} notes:`, notes);
+
+    // Filter out notes with null/empty content (from previous bug)
+    const validNotes = (notes || []).filter(note => note.content && note.content.trim().length > 0);
+    
+    if (validNotes.length !== (notes?.length || 0)) {
+      console.log(`🧹 Filtered out ${(notes?.length || 0) - validNotes.length} notes with empty content`);
+    }
+
+    return NextResponse.json(validNotes);
   } catch (err) {
     console.error('Smart notes GET error:', err);
     return NextResponse.json(
@@ -271,7 +279,18 @@ export async function POST(
         is_manual: false
       }));
 
-      await supabase.from('smart_notes').insert(notesToInsert);
+      console.log('💾 Inserting smart notes to database:', notesToInsert);
+      
+      const { data: insertedNotes, error: insertError } = await supabase
+        .from('smart_notes')
+        .insert(notesToInsert);
+
+      if (insertError) {
+        console.error('❌ Failed to insert smart notes:', insertError);
+        throw new Error('Failed to save smart notes to database');
+      }
+
+      console.log('✅ Successfully inserted', notesToInsert.length, 'smart notes');
     } else {
       console.warn('AI returned no smart notes');
     }

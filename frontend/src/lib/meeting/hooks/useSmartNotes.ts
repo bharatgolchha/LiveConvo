@@ -19,6 +19,8 @@ export function useSmartNotes() {
     setError(null);
 
     try {
+      console.log('[useSmartNotes] Generating smart notes for meeting:', meeting.id);
+      
       const headers: HeadersInit = { 'Content-Type': 'application/json' };
       if (session?.access_token) {
         headers['Authorization'] = `Bearer ${session.access_token}`;
@@ -37,6 +39,7 @@ export function useSmartNotes() {
       }
 
       const { notes } = await response.json();
+      console.log('[useSmartNotes] Generated notes from API:', notes);
 
       // Add generated notes
       notes.forEach((note: any) => {
@@ -47,8 +50,11 @@ export function useSmartNotes() {
           importance: note.importance || 'medium',
           timestamp: new Date().toISOString()
         };
+        console.log('[useSmartNotes] Adding generated note:', smartNote);
         addSmartNote(smartNote);
       });
+      
+      console.log('[useSmartNotes] Successfully added', notes.length, 'generated notes');
     } catch (err) {
       console.error('Error generating smart notes:', err);
       setError(err as Error);
@@ -75,12 +81,27 @@ export function useSmartNotes() {
       });
 
       if (!response.ok) {
+        console.error('[useSmartNotes] API response not OK:', response.status, response.statusText);
         throw new Error('Failed to fetch smart notes');
       }
 
       const notes: any[] = await response.json();
+      console.log('[useSmartNotes] Raw API response:', notes);
+      console.log('[useSmartNotes] Found', notes.length, 'notes in database');
 
-      notes.forEach((note) => {
+      if (notes.length === 0) {
+        console.log('[useSmartNotes] No smart notes found in database for session:', meeting.id);
+      }
+
+      notes.forEach((note, index) => {
+        console.log(`[useSmartNotes] Processing note ${index + 1}:`, {
+          id: note.id,
+          category: note.category,
+          content: note.content,
+          importance: note.importance,
+          created_at: note.created_at
+        });
+
         const smartNote: SmartNote = {
           id: note.id,
           category: note.category,
@@ -88,8 +109,12 @@ export function useSmartNotes() {
           importance: (note.importance || 'medium') as 'high' | 'medium' | 'low',
           timestamp: note.created_at || new Date().toISOString(),
         };
+        
+        console.log('[useSmartNotes] Adding smart note to context:', smartNote);
         addSmartNote(smartNote);
       });
+
+      console.log('[useSmartNotes] Finished loading notes');
     } catch (err) {
       console.error('Error loading smart notes:', err);
       setError(err as Error);
