@@ -453,7 +453,7 @@ export async function POST(
         error: 'Failed to finalize session',
         details: error instanceof Error ? error.message : 'Unknown error',
         type: error instanceof Error ? error.constructor.name : 'UnknownError',
-        sessionId
+        sessionId: (await params).id
       },
       { status: 500 }
     );
@@ -598,7 +598,7 @@ async function generateFinalSummary(transcript: string, context: MeetingContext,
   // Map the new structure to the expected database fields
   return {
     tldr: summary.executiveSummary?.oneLineSummary || summary.tldr,
-    key_points: summary.discussion?.mainTopics?.map(t => t.summary) || summary.key_points || [],
+    key_points: summary.discussion?.mainTopics?.map((t: { summary: string }) => t.summary) || summary.key_points || [],
     action_items: summary.actionItems?.map((item: any) => 
       `${item.task} (${item.owner}) - ${item.deadline} [${item.priority}]`
     ) || [],

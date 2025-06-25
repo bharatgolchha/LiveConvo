@@ -584,6 +584,9 @@ export async function POST(
       botId = event.data.data.bot_id;
     }
     
+    // Store webhook event
+    const supabase = createServerSupabaseClient();
+    
     // For bot status events, ensure we have the bot ID
     if (event.event.startsWith('bot.') && botId === '00000000-0000-0000-0000-000000000000') {
       console.error('⚠️ Bot status event without bot ID, checking session for bot ID');
@@ -601,9 +604,6 @@ export async function POST(
     }
     
     console.log('🤖 Bot ID:', botId);
-    
-    // Store webhook event
-    const supabase = createServerSupabaseClient();
     
     // Store webhook event - handle UUID validation
     const { error: webhookInsertError } = await supabase.from('recall_ai_webhooks').insert({
