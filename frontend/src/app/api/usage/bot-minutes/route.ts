@@ -154,12 +154,42 @@ export async function GET(req: NextRequest) {
       return acc;
     }, {} as Record<string, { sessions: number; totalMinutes: number; totalSeconds: number }>);
 
-    // Get organization usage limits for context
-    const { data: orgData } = await serviceClient
-      .from('organizations')
-      .select('subscription_plan, monthly_minute_limit')
-      .eq('id', organizationId)
+    // Get user's subscription and plan details
+    const { data: subscriptionData } = await serviceClient
+      .from('subscriptions')
+      .select(`
+        id,
+        status,
+        current_period_start,
+        current_period_end,
+        plans!inner(
+          name,
+          display_name,
+          monthly_bot_minutes_limit,
+          price_monthly
+        )
+      `)
+      .eq('user_id', userId)
+      .eq('status', 'active')
       .single();
+
+    // Get plan limits
+    let monthlyBotMinutesLimit = 60; // Default free plan limit
+    let planName = 'individual_free';
+    let planDisplayName = 'Free';
+    
+    if (subscriptionData?.plans) {
+      const plan = subscriptionData.plans as any;
+      monthlyBotMinutesLimit = plan.monthly_bot_minutes_limit || 60;
+      planName = plan.name;
+      planDisplayName = plan.display_name;
+    }
+
+    // Calculate remaining minutes and overage
+    const remainingMinutes = Math.max(0, monthlyBotMinutesLimit - totalBillableMinutes);
+    const overageMinutes = Math.max(0, totalBillableMinutes - monthlyBotMinutesLimit);
+    const overageCost = overageMinutes * 0.10;
+    const totalCost = overageCost; // Cost is 0 if within plan limits
 
     return NextResponse.json({
       success: true,
@@ -170,13 +200,23 @@ export async function GET(req: NextRequest) {
           totalSessions,
           averageMinutesPerSession: totalSessions > 0 ? Math.round(totalBillableMinutes / totalSessions * 100) / 100 : 0,
           periodStart: monthStart.toISOString(),
-          periodEnd: monthEnd.toISOString()
+          periodEnd: monthEnd.toISOString(),
+          // New fields for plan limits
+          monthlyBotMinutesLimit,
+          remainingMinutes,
+          overageMinutes,
+          totalCost,
+          overageCost
         },
         platformBreakdown,
         dailyBreakdown,
-        organization: {
-          plan: orgData?.subscription_plan || 'free',
-          monthlyLimit: orgData?.monthly_minute_limit || 0
+        subscription: {
+          planName,
+          planDisplayName,
+          monthlyLimit: monthlyBotMinutesLimit,
+          status: subscriptionData?.status || 'inactive',
+          currentPeriodStart: subscriptionData?.current_period_start,
+          currentPeriodEnd: subscriptionData?.current_period_end
         },
         sessions: botUsageData.map(record => ({
           id: record.id,

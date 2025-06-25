@@ -58,7 +58,7 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({ user, onSearch, onNav
     <motion.header
       initial={{ opacity: 0, y: -20 }}
       animate={{ opacity: 1, y: 0 }}
-      className="bg-card/95 backdrop-blur-sm border-b border-border px-6 py-4"
+      className="relative z-40 bg-card/95 backdrop-blur-sm border-b border-border px-6 py-4"
     >
       <div className="flex items-center justify-between">
         {/* Logo */}
@@ -134,11 +134,6 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({ user, onSearch, onNav
                   >
                     <Cog6ToothIcon className="w-4 h-4" />
                     <span>Settings</span>
-                  </button>
-
-                  <button className="w-full text-left px-4 py-2 text-sm text-foreground hover:bg-accent flex items-center space-x-2">
-                    <UserCircleIcon className="w-4 h-4" />
-                    <span>Profile</span>
                   </button>
 
                   <div className="border-t border-border mt-1 pt-1">
