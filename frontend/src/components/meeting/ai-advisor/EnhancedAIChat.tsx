@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useRef, useEffect, useCallback, forwardRef, useImperativeHandle } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   PaperAirplaneIcon, 
@@ -12,6 +12,7 @@ import ReactMarkdown from 'react-markdown';
 import { useMeetingContext } from '@/lib/meeting/context/MeetingContext';
 import { useChatGuidance } from '@/lib/meeting/hooks/useChatGuidance';
 import { supabase } from '@/lib/supabase';
+import { SuggestedPrompts } from './SuggestedPrompts';
 
 interface ChatMessage {
   id: string;
@@ -21,13 +22,26 @@ interface ChatMessage {
   isError?: boolean;
 }
 
-export function EnhancedAIChat() {
-  const { meeting, transcript, smartNotes, summary } = useMeetingContext();
+interface SuggestedAction {
+  text: string;
+  prompt: string;
+  impact?: number;
+}
+
+export interface EnhancedAIChatRef {
+  clearChat: () => void;
+}
+
+export const EnhancedAIChat = forwardRef<EnhancedAIChatRef>((props, ref) => {
+  const { meeting, transcript, smartNotes, summary, linkedConversations } = useMeetingContext();
   const { sendMessage, loading } = useChatGuidance();
   const [input, setInput] = useState('');
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isTyping, setIsTyping] = useState(false);
   const [isLivePrompting, setIsLivePrompting] = useState(false);
+  const [suggestedPrompts, setSuggestedPrompts] = useState<SuggestedAction[]>([]);
+  const [initialPrompts, setInitialPrompts] = useState<SuggestedAction[]>([]);
+  const [isLoadingInitialPrompts, setIsLoadingInitialPrompts] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -45,6 +59,64 @@ export function EnhancedAIChat() {
     inputRef.current?.focus();
   }, []);
 
+  // Fetch initial prompts
+  const fetchInitialPrompts = useCallback(async () => {
+    if (!meeting || isLoadingInitialPrompts) return;
+
+    setIsLoadingInitialPrompts(true);
+    try {
+      const response = await fetch('/api/chat-guidance/initial-prompts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          meetingType: meeting.type,
+          meetingTitle: meeting.title,
+          context: meeting.context,
+          participantMe: meeting.participantMe,
+          participantThem: meeting.participantThem,
+          hasTranscript: transcript.length > 0,
+          linkedConversations: linkedConversations
+        })
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data.suggestedActions) {
+          setInitialPrompts(data.suggestedActions);
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching initial prompts:', error);
+    } finally {
+      setIsLoadingInitialPrompts(false);
+    }
+  }, [meeting, transcript.length, linkedConversations]);
+
+  // Clear chat function
+  const clearChat = useCallback(() => {
+    // Reset to welcome message only
+    setMessages([{
+      id: 'welcome',
+      role: 'system',
+      content: "👋 Hi! I'm your AI meeting advisor. Ask me anything about the conversation, request suggestions, or get help with next steps.",
+      timestamp: new Date().toISOString()
+    }]);
+    
+    // Clear suggested prompts
+    setSuggestedPrompts([]);
+    
+    // Fetch new initial prompts
+    fetchInitialPrompts();
+    
+    // Focus input
+    inputRef.current?.focus();
+  }, [fetchInitialPrompts]);
+
+  // Expose clear function via ref
+  useImperativeHandle(ref, () => ({
+    clearChat
+  }), [clearChat]);
+
   // Add welcome message on first load
   useEffect(() => {
     if (messages.length === 0) {
@@ -56,6 +128,13 @@ export function EnhancedAIChat() {
       }]);
     }
   }, [messages.length]);
+
+  // Fetch initial prompts when meeting data is available
+  useEffect(() => {
+    if (meeting && messages.length === 1 && messages[0].id === 'welcome') {
+      fetchInitialPrompts();
+    }
+  }, [meeting, messages, fetchInitialPrompts]);
 
   // Listen for previous meeting questions
   useEffect(() => {
@@ -263,17 +342,27 @@ export function EnhancedAIChat() {
         throw new Error('Failed to get AI response');
       }
 
-      const { response: aiResponse } = await response.json();
+      const data = await response.json();
+      console.log('AI response data:', data);
+
+      // Extract response and suggested actions
+      const aiResponse = data.response || data;
+      const suggestedActions = data.suggestedActions || [];
 
       // Add AI response
       const aiMessage: ChatMessage = {
         id: `ai-${Date.now()}`,
         role: 'assistant',
-        content: aiResponse,
+        content: typeof aiResponse === 'string' ? aiResponse : aiResponse.response || 'I understand. How can I help you further?',
         timestamp: new Date().toISOString()
       };
 
       setMessages(prev => [...prev, aiMessage]);
+      
+      // Update suggested prompts
+      if (suggestedActions.length > 0) {
+        setSuggestedPrompts(suggestedActions);
+      }
     } catch (error) {
       console.error('Chat error:', error);
       
@@ -315,6 +404,23 @@ export function EnhancedAIChat() {
     } finally {
       setIsLivePrompting(false);
     }
+  };
+
+  const handlePromptClick = (prompt: string) => {
+    if (loading) return;
+    
+    // Set the input to the prompt and submit
+    setInput(prompt);
+    
+    // Create a synthetic form event and submit
+    const syntheticEvent = {
+      preventDefault: () => {},
+    } as React.FormEvent;
+    
+    // Small delay to ensure input state is updated
+    setTimeout(() => {
+      handleSubmit(syntheticEvent);
+    }, 0);
   };
 
   const formatTime = (timestamp: string) => {
@@ -414,7 +520,27 @@ export function EnhancedAIChat() {
 
           <div ref={messagesEndRef} />
         </div>
+        
+        {/* Initial Prompts - Show after welcome message when no other messages */}
+        {messages.length === 1 && messages[0].id === 'welcome' && initialPrompts.length > 0 && !isTyping && (
+          <div className="px-4 pb-4">
+            <SuggestedPrompts
+              suggestions={initialPrompts}
+              onPromptClick={handlePromptClick}
+              loading={loading || isLoadingInitialPrompts}
+            />
+          </div>
+        )}
       </div>
+
+      {/* Suggested Prompts - Show for regular AI responses */}
+      {suggestedPrompts.length > 0 && !isTyping && messages.length > 1 && (
+        <SuggestedPrompts
+          suggestions={suggestedPrompts}
+          onPromptClick={handlePromptClick}
+          loading={loading}
+        />
+      )}
 
       {/* Input */}
       <div className="flex-shrink-0 p-4 border-t border-border bg-card/50">
@@ -465,5 +591,7 @@ export function EnhancedAIChat() {
       </div>
     </div>
   );
-}
+});
+
+EnhancedAIChat.displayName = 'EnhancedAIChat';
                     

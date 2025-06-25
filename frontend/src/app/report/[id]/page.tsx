@@ -248,9 +248,9 @@ export default function MeetingReportPage() {
               return { description: item, priority: 'medium' };
             }
             return {
-              description: item.task || item.description || item,
+              description: item.task || item.description || item.action || JSON.stringify(item),
               owner: item.owner,
-              dueDate: item.timeline || item.dueDate,
+              dueDate: item.timeline || item.dueDate || item.deadline,
               priority: item.priority || 'medium'
             };
           }) || [],
@@ -619,7 +619,9 @@ export default function MeetingReportPage() {
                         <div className="w-6 h-6 bg-primary rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
                           <span className="text-primary-foreground text-xs font-bold">{index + 1}</span>
                         </div>
-                        <p className="text-foreground">{decision}</p>
+                        <p className="text-foreground">
+                          {typeof decision === 'string' ? decision : decision.decision || decision.impact || JSON.stringify(decision)}
+                        </p>
                       </div>
                     ))}
                   </div>
@@ -642,21 +644,25 @@ export default function MeetingReportPage() {
                           <span className="text-accent-foreground text-xs font-bold">✓</span>
                         </div>
                         <div className="flex-1">
-                          <p className="text-foreground mb-2">{item.description}</p>
+                          <p className="text-foreground mb-2">
+                            {typeof item === 'string' 
+                              ? item 
+                              : item.description || item.action || item.task || JSON.stringify(item)}
+                          </p>
                           <div className="flex items-center gap-2 flex-wrap">
-                            {item.priority && (
+                            {typeof item !== 'string' && item.priority && (
                               <span className={`px-2 py-1 rounded-full text-xs font-medium border ${getPriorityColor(item.priority)}`}>
                                 {item.priority.toUpperCase()}
                               </span>
                             )}
-                            {item.owner && (
+                            {typeof item !== 'string' && item.owner && (
                               <span className="px-2 py-1 bg-muted text-muted-foreground rounded-full text-xs">
                                 👤 {item.owner}
                               </span>
                             )}
-                            {item.dueDate && (
+                            {typeof item !== 'string' && (item.dueDate || item.deadline) && (
                               <span className="px-2 py-1 bg-muted text-muted-foreground rounded-full text-xs">
-                                📅 {item.dueDate}
+                                📅 {item.dueDate || item.deadline}
                               </span>
                             )}
                           </div>
@@ -775,7 +781,11 @@ export default function MeetingReportPage() {
                     {report.summary.followUpQuestions.map((question, index) => (
                       <div key={index} className="flex items-start gap-2 p-3 bg-accent/10 rounded-lg border border-accent/20">
                         <span className="text-accent font-bold">?</span>
-                        <p className="text-foreground text-sm">{question}</p>
+                        <p className="text-foreground text-sm">
+                          {typeof question === 'string' 
+                            ? question 
+                            : question.question || question.text || JSON.stringify(question)}
+                        </p>
                       </div>
                     ))}
                   </div>

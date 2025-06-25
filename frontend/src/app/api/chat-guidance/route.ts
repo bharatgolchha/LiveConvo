@@ -392,9 +392,6 @@ export async function POST(request: NextRequest) {
     const parsedContext = parseContextFromMessage(message);
     const effectiveConversationType = parsedContext.conversationType || conversationType;
 
-    // If request body contains a recognized callStage we treat as chip-generation request
-    const chipsMode = !!stage;
-
     let runningSummary = summary?.tldr || '';
     let effectiveTranscript = transcript;
 
@@ -408,106 +405,6 @@ export async function POST(request: NextRequest) {
         console.error('Running summary update failed:', e);
       }
     }
-
-    const getChipPrompt = (conv:string, stg:string, obj:string, transcript:string, meLabel:string, themLabel:string)=>{
-      const transcriptContext = transcript ? transcript.slice(-1000) : ''; // Increased context
-      const contextInfo = obj ? `\nMeeting Context/Agenda: "${obj}"` : '';
-      
-      return `You are an expert ${conv || 'meeting'} conversation coach generating contextual action suggestions for ${meLabel} during their conversation with ${themLabel}.
-
-${getCurrentDateContext()}
-
-PARTICIPANTS:
-- "${meLabel}" = The person using this AI advisor (needs suggestions)
-- "${themLabel}" = The person ${meLabel} is speaking with
-
-CONVERSATION DETAILS:
-- Type: ${conv || 'meeting'}
-- Stage: ${stg}${contextInfo}
-- Recent conversation: "${transcriptContext || 'No transcript yet'}"
-
-Generate EXACTLY 3 contextual suggestions that ${meLabel} can use RIGHT NOW in their conversation with ${themLabel}. Each suggestion should be:
-1. ACTIONABLE: Something ${meLabel} can do immediately
-2. CONTEXTUAL: Based on the current conversation stage and content
-3. STRATEGIC: Helps ${meLabel} achieve their goals with ${themLabel}
-
-Focus on what ${meLabel} should do, ask, or say next with ${themLabel} based on:
-- The current conversation stage (${stg})
-- What's been discussed so far
-- What ${meLabel} needs to accomplish
-- How to move the conversation forward effectively
-
-CRITICAL: Return ONLY a valid JSON array. No text before or after the JSON.
-The response must start with [ and end with ]
-
-Return exactly this format:
-[
-  {"text":"<emoji> 3-5 word action","prompt":"Specific question ${meLabel} can ask their AI advisor about what to do with ${themLabel}","impact":90},
-  {"text":"<emoji> 3-5 word action","prompt":"Specific question ${meLabel} can ask their AI advisor about what to do with ${themLabel}","impact":80},
-  {"text":"<emoji> 3-5 word action","prompt":"Specific question ${meLabel} can ask their AI advisor about what to do with ${themLabel}","impact":70}
-]
-
-STAGE-SPECIFIC GUIDANCE:
-${stg === 'opening' ? `
-OPENING STAGE - Focus on:
-- Setting agenda and expectations
-- Building rapport and trust
-- Understanding ${themLabel}'s needs/goals
-- Establishing conversation flow
-Example: {"text":"🎯 Set clear agenda","prompt":"How should I structure the rest of this conversation with ${themLabel}?","impact":90}` : ''}
-
-${stg === 'discovery' ? `
-DISCOVERY STAGE - Focus on:
-- Asking probing questions to ${themLabel}
-- Understanding ${themLabel}'s challenges/needs
-- Gathering important information from ${themLabel}
-- Identifying opportunities
-Example: {"text":"🔍 Ask deeper questions","prompt":"What follow-up questions should I ask ${themLabel} about their challenges?","impact":90}` : ''}
-
-${stg === 'discussion' ? `
-DISCUSSION STAGE - Focus on:
-- Presenting solutions to ${themLabel}
-- Addressing ${themLabel}'s concerns
-- Negotiating or problem-solving with ${themLabel}
-- Moving toward decisions
-Example: {"text":"💡 Present solution","prompt":"How should I position our solution to address ${themLabel}'s specific needs?","impact":90}` : ''}
-
-${stg === 'closing' ? `
-CLOSING STAGE - Focus on:
-- Summarizing key points with ${themLabel}
-- Confirming next steps with ${themLabel}
-- Getting commitments from ${themLabel}
-- Planning follow-up
-Example: {"text":"📋 Confirm next steps","prompt":"How should I establish clear next steps with ${themLabel}?","impact":90}` : ''}
-
-CONVERSATION TYPE GUIDANCE:
-${conv === 'sales' ? `
-SALES CONVERSATION - Prioritize:
-- Qualifying ${themLabel}'s budget and timeline
-- Understanding ${themLabel}'s decision-making process
-- Presenting value proposition to ${themLabel}
-- Handling ${themLabel}'s objections
-- Moving ${themLabel} toward purchase decision` : ''}
-
-${conv === 'interview' ? `
-INTERVIEW CONVERSATION - Prioritize:
-- Understanding ${themLabel}'s role requirements
-- Showcasing relevant experience to ${themLabel}
-- Asking thoughtful questions about ${themLabel}'s team/company
-- Demonstrating cultural fit to ${themLabel}
-- Following up on next steps with ${themLabel}` : ''}
-
-${conv === 'meeting' ? `
-MEETING CONVERSATION - Prioritize:
-- Keeping discussion focused with ${themLabel}
-- Ensuring all participants (including ${themLabel}) contribute
-- Making decisions with ${themLabel}
-- Assigning action items to ${themLabel} and others
-- Planning follow-up with ${themLabel}` : ''}
-
-Make each suggestion specific to the current conversation with ${themLabel}. 
-Remember: Start with [ and end with ] - no other text allowed.`;
-    };
 
     // Debug log chat history being received
     console.log('🔍 Chat API - Received chat history:', {
@@ -538,12 +435,18 @@ Remember: Start with [ and end with ] - no other text allowed.`;
       smartNotesPrompt = `SMART NOTES (last ${topNotes.length}):\n${notesText}`;
     }
 
-    // Generate system prompt
-    const baseSystemPrompt = chipsMode 
-      ? getChipPrompt(effectiveConversationType || 'meeting', stage || 'opening', enhancedTextContext || '', effectiveTranscript, participantMe || 'You', participantThem || 'The other participant')
-      : getChatGuidanceSystemPrompt(effectiveConversationType, isRecording, transcriptLength, participantMe, participantThem, conversationTitle || undefined, enhancedTextContext || undefined, meetingUrl || undefined);
-
-    const systemPrompt = `${baseSystemPrompt}${previousSummariesSection ? `\n\n${previousSummariesSection}` : ''}`;
+    // Generate system prompt - always include transcript for context
+    const systemPrompt = getChatGuidanceSystemPrompt(
+      effectiveConversationType, 
+      isRecording, 
+      transcriptLength, 
+      participantMe, 
+      participantThem, 
+      conversationTitle || undefined, 
+      enhancedTextContext || undefined, 
+      meetingUrl || undefined,
+      effectiveTranscript || undefined
+    );
 
     // Debug: Log the system prompt
     console.log('🤖 AI Advisor System Prompt:');
@@ -586,7 +489,7 @@ Remember: Start with [ and end with ] - no other text allowed.`;
         ],
         temperature: 0.4,
         max_tokens: 1500,
-        ...(defaultModel.startsWith('google/') ? {} : { response_format: { type: 'json_object' } })
+        response_format: { type: 'json_object' }
       })
     });
 
@@ -607,68 +510,61 @@ Remember: Start with [ and end with ] - no other text allowed.`;
     
     const rawContent = data.choices[0].message.content.trim();
 
-    if (chipsMode) {
-      // Expecting an array of chip objects
+    // Always expect JSON response with both response and suggestedActions
+    try {
+      let parsedContent;
       try {
-        // First try to parse the raw content
-        let parsedContent;
-        try {
-          parsedContent = JSON.parse(rawContent);
-        } catch (parseError) {
-          // If raw parsing fails, try to extract JSON array from the response
-          const jsonMatch = rawContent.match(/\[\s*\{[\s\S]*?\}\s*\]/);
-          if (jsonMatch) {
-            parsedContent = JSON.parse(jsonMatch[0]);
-          } else {
-            throw new Error('No valid JSON array found in response');
-          }
+        parsedContent = JSON.parse(rawContent);
+      } catch (parseError) {
+        // If raw parsing fails, try to extract JSON object from the response
+        const jsonMatch = rawContent.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          parsedContent = JSON.parse(jsonMatch[0]);
+        } else {
+          throw new Error('No valid JSON object found in response');
         }
-
-        // Validate the parsed content
-        const chips = z
-          .array(
-            z.object({
-              text: z.string().max(40),
-              prompt: z.string(),
-              impact: z.number().min(0).max(100).optional(),
-            })
-          )
-          .parse(parsedContent);
-
-        console.log('chips_shown', { stage, texts: chips.map((c) => c.text) });
-        return NextResponse.json({ suggestedActions: chips });
-      } catch (e) {
-        console.error('Chip JSON parse/validate failed:', e);
-        console.error('Raw content was:', rawContent.substring(0, 200) + '...');
-        
-        // Return fallback chips based on conversation type and stage
-        const fallbackChips = getFallbackChips(effectiveConversationType || 'meeting', stage || 'discovery');
-        console.log('Returning fallback chips:', { 
-          conversationType: effectiveConversationType, 
-          stage,
-          chips: fallbackChips.map(c => c.text) 
-        });
-        return NextResponse.json({ suggestedActions: fallbackChips });
-      }
-    } else {
-      // Expecting full ChatResponse object
-      let chatResp: any;
-      try {
-        chatResp = JSON.parse(rawContent);
-      } catch {
-        // If not JSON, wrap string into response field
-        chatResp = { response: rawContent, confidence: 0 };
       }
 
-      // Basic shape validation
-      if (typeof chatResp.response !== 'string') {
-        chatResp.response = rawContent;
-      }
-      if (typeof chatResp.confidence !== 'number') {
-        chatResp.confidence = 0;
+      // Validate the response structure
+      const validatedResponse = z.object({
+        response: z.string(),
+        suggestedActions: z.array(
+          z.object({
+            text: z.string().max(40),
+            prompt: z.string(),
+            impact: z.number().min(0).max(100).optional().default(80),
+          })
+        ).optional().default([])
+      }).parse(parsedContent);
+
+      // If no suggested actions were provided, use fallback
+      if (!validatedResponse.suggestedActions || validatedResponse.suggestedActions.length === 0) {
+        const currentStage = getConversationStage(transcriptLength);
+        validatedResponse.suggestedActions = getFallbackChips(
+          effectiveConversationType || 'meeting', 
+          currentStage
+        ).slice(0, 3); // Take top 3 fallback chips
       }
 
-      return NextResponse.json(chatResp);
+      console.log('AI response with chips:', { 
+        responseLength: validatedResponse.response.length,
+        chipsCount: validatedResponse.suggestedActions.length,
+        chips: validatedResponse.suggestedActions.map(c => c.text) 
+      });
+
+      return NextResponse.json(validatedResponse);
+    } catch (e) {
+      console.error('JSON parse/validate failed:', e);
+      console.error('Raw content was:', rawContent.substring(0, 200) + '...');
+      
+      // Return fallback response
+      const currentStage = getConversationStage(transcriptLength);
+      const fallbackChips = getFallbackChips(effectiveConversationType || 'meeting', currentStage).slice(0, 3);
+      
+      return NextResponse.json({
+        response: rawContent || "I'm here to help. What would you like to know about your conversation?",
+        suggestedActions: fallbackChips
+      });
     }
 
   } catch (error) {
@@ -696,12 +592,14 @@ function getChatGuidanceSystemPrompt(
   participantThem?: string,
   meetingTitle?: string,
   meetingContext?: string,
-  meetingUrl?: string
+  meetingUrl?: string,
+  transcript?: string
 ): string {
   const live = isRecording && transcriptLength > 0;
   const modeDescriptor = live ? '🎥 LIVE (conversation in progress)' : '📝 PREP (planning before the call)';
   const meLabel = participantMe || 'You';
   const themLabel = participantThem || 'The other participant';
+  const stage = getConversationStage(transcriptLength);
 
   // Build meeting context section - make it more prominent
   let meetingContextSection = '';
@@ -719,38 +617,57 @@ function getChatGuidanceSystemPrompt(
     console.log('⚠️ No meeting context provided to AI system prompt');
   }
 
-  /*
-  Prompt design rationale  
-  1. Give model clear role + objective 
-  2. Keep answers concise with headline + 1-2 insights
-  3. Markdown allowed because UI renders it
-  4. NO JSON in the model output – we'll wrap it server-side for the UI.
-  */
-
   return `You are ${meLabel}'s helpful AI meeting advisor. Your job is to be genuinely useful - answer questions directly, give practical advice, and help ${meLabel} navigate their conversation with ${themLabel}.
 
 ${getCurrentDateContext()}
 
 CURRENT SITUATION: ${modeDescriptor}${meetingContextSection}
+Conversation Stage: ${stage}
+${transcript ? `Recent Context: ${transcript.slice(-500)}` : ''}
 
-BE CONVERSATIONAL AND HELPFUL:
-- Answer questions directly and practically
-- Give specific advice based on what's actually happening
-- Reference the transcript when relevant (e.g., "When ${themLabel} mentioned X, that suggests...")
-- **ALWAYS USE the meeting context/agenda above to provide more targeted advice**
-- If asked "who said what", just summarize the key points from each person
-- Keep responses under 100 words unless more detail is genuinely needed
-- Write like you're a smart colleague, not a formal coach
+YOUR RESPONSE FORMAT:
+You must ALWAYS respond with a JSON object containing two fields:
+1. "response": Your helpful answer to the user's question (string)
+2. "suggestedActions": An array of 3 contextual actions the user can take next
 
-EXAMPLES OF GOOD RESPONSES:
-- "Based on the transcript, ${themLabel} seems most interested in the pricing discussion. I'd focus on that next."
-- "Here's what happened: ${meLabel} asked about timeline, ${themLabel} said they need it by March. You should clarify if that's flexible."
-- "The conversation stalled when ${themLabel} mentioned budget concerns. Try asking what specific budget range they're working with."
-- "Given this meeting is about [meeting purpose from context], you should focus on [specific advice based on context]."
+Example format:
+{
+  "response": "Based on the transcript, ${themLabel} seems concerned about pricing. I'd suggest addressing their budget constraints directly and offering flexible payment options.",
+  "suggestedActions": [
+    {"text": "💰 Discuss budget", "prompt": "How can I tactfully explore their budget constraints?", "impact": 90},
+    {"text": "📊 Show ROI", "prompt": "What ROI examples would resonate with their industry?", "impact": 85},
+    {"text": "🎯 Offer options", "prompt": "What flexible pricing options can I present?", "impact": 80}
+  ]
+}
 
-**Remember: Always reference the meeting context/agenda when giving advice to make it relevant to their specific situation.**
+RESPONSE GUIDELINES:
+- Keep your response concise (under 100 words unless more detail is needed)
+- Be conversational and practical, not formal
+- Reference specific things from the transcript when relevant
+- Give actionable advice based on the current situation
 
-Just be helpful and direct. No coaching jargon, no meta-commentary about being a coach.`;
+SUGGESTED ACTIONS GUIDELINES:
+- Each action should be immediately relevant to the current conversation stage
+- Text: 3-5 words with an emoji (max 25 chars)
+- Prompt: A specific question ${meLabel} can ask you about the situation with ${themLabel}
+- Impact: Priority score 0-100 based on relevance
+- Focus on what ${meLabel} should do next with ${themLabel}
+
+Stage-specific focus for suggestions:
+${stage === 'opening' ? '- Building rapport, setting agenda, understanding needs' : ''}
+${stage === 'discovery' ? '- Asking deeper questions, understanding challenges, gathering information' : ''}
+${stage === 'discussion' ? '- Presenting solutions, addressing concerns, moving toward decisions' : ''}
+${stage === 'closing' ? '- Summarizing, confirming next steps, getting commitments' : ''}
+
+IMPORTANT: You must ALWAYS return valid JSON with both fields. No other format is acceptable.`;
+}
+
+// Helper function to determine conversation stage based on transcript length
+function getConversationStage(transcriptLength: number): string {
+  if (transcriptLength < 500) return 'opening';
+  if (transcriptLength < 1500) return 'discovery';
+  if (transcriptLength < 3000) return 'discussion';
+  return 'closing';
 }
 
 // New function to parse context from user messages

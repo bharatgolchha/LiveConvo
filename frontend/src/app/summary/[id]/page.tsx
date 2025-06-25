@@ -322,7 +322,8 @@ export default function SummaryPage() {
     if (sessionData.summary.decisions?.length > 0) {
       body += `DECISIONS MADE\n`;
       sessionData.summary.decisions.forEach((decision, idx) => {
-        body += `${idx + 1}. ${decision}\n`;
+        const decisionText = typeof decision === 'string' ? decision : decision.decision;
+        body += `${idx + 1}. ${decisionText}\n`;
       });
       body += '\n';
     }
@@ -745,7 +746,7 @@ export default function SummaryPage() {
                   <div className="flex items-center justify-between mb-3">
                     <h4 className="font-medium text-foreground">Decisions Made</h4>
                     <CopyButton 
-                      text={formatSectionForCopy('DECISIONS MADE', sessionData.summary.decisions)} 
+                      text={formatSectionForCopy('DECISIONS MADE', sessionData.summary.decisions.map(d => typeof d === 'string' ? d : d.decision))} 
                       size="sm"
                       showLabel={false}
                     />
@@ -754,7 +755,9 @@ export default function SummaryPage() {
                     {sessionData.summary.decisions.map((decision, index) => (
                       <li key={index} className="flex items-start gap-2">
                         <CheckCircle className="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" />
-                        <span className="text-muted-foreground">{decision}</span>
+                        <span className="text-muted-foreground">
+                          {typeof decision === 'string' ? decision : decision.decision}
+                        </span>
                       </li>
                     ))}
                   </ul>
@@ -1180,7 +1183,8 @@ const ExportModal: React.FC<{
             textContent += `DECISIONS\n`;
             textContent += `---------\n`;
             sessionData.summary.decisions.forEach((decision, idx) => {
-              textContent += `${idx + 1}. ${decision}\n`;
+              const decisionText = typeof decision === 'string' ? decision : decision.decision;
+              textContent += `${idx + 1}. ${decisionText}\n`;
             });
             textContent += '\n';
           }

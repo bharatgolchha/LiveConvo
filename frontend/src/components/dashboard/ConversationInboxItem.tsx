@@ -253,14 +253,21 @@ const ConversationInboxItem: React.FC<Props> = ({
               <VideoCameraIcon className="w-4 h-4 text-primary flex-shrink-0" />
             )}
             
-            <h3 className="text-sm font-medium text-foreground truncate flex-1 flex items-center gap-1.5">
-              {session.title}
-              {session.linkedConversationsCount && session.linkedConversationsCount > 0 && (
-                <svg className="w-3.5 h-3.5 text-primary/60 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <title>{session.linkedConversationsCount} linked conversation{session.linkedConversationsCount > 1 ? 's' : ''}</title>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
-                </svg>
-              )}
+            <h3 className="text-sm font-medium text-foreground truncate flex-1">
+              {/* Defensive fix: Clean title to remove any trailing numbers that might be linkedConversationsCount */}
+              {(() => {
+                const title = session.title?.toString() || '';
+                const count = session.linkedConversationsCount || 0;
+                // Remove trailing count if it matches linkedConversationsCount
+                if (count > 0 && title.endsWith(count.toString())) {
+                  return title.slice(0, -count.toString().length);
+                }
+                // Also handle case where 0 is appended for sessions with no links
+                if (count === 0 && title.endsWith('0')) {
+                  return title.slice(0, -1);
+                }
+                return title;
+              })()}
             </h3>
           </div>
           
