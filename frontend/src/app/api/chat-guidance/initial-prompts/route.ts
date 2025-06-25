@@ -156,8 +156,14 @@ Make prompts specific to the meeting context. For example:
 
 ${hasTranscript ? 'Since the meeting is in progress, make prompts tactical and immediate.' : 'Since the meeting hasn\'t started, make prompts about preparation and strategy.'}`;
 
-    // Get the AI model for initial prompts
-    const defaultModel = await getAIModelForAction(AIAction.INITIAL_PROMPTS);
+    // Get the AI model for initial prompts with error handling
+    let defaultModel = 'openai/gpt-4o-mini'; // Safe fallback
+    try {
+      defaultModel = await getAIModelForAction(AIAction.INITIAL_PROMPTS);
+      console.log('📝 Using AI model for initial prompts:', defaultModel);
+    } catch (modelError) {
+      console.warn('Failed to get AI model config, using fallback:', modelError);
+    }
 
     // Call OpenRouter API
     const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
@@ -208,7 +214,7 @@ ${hasTranscript ? 'Since the meeting is in progress, make prompts tactical and i
         impact: p.impact || (95 - index * 5)
       }));
 
-      console.log('Generated initial prompts:', validatedPrompts.map((p: any) => p.text));
+      console.log('✅ Generated initial prompts:', validatedPrompts.map((p: any) => p.text));
       return NextResponse.json({ suggestedActions: validatedPrompts });
 
     } catch (parseError) {
@@ -222,12 +228,15 @@ ${hasTranscript ? 'Since the meeting is in progress, make prompts tactical and i
 
   } catch (error) {
     console.error('Initial prompts API error:', error);
+    
+    // Always return a successful response with fallback prompts instead of 500 error
+    const fallbackPrompts = getFallbackPrompts('custom', false);
     return NextResponse.json(
       { 
-        error: 'Failed to generate initial prompts',
-        suggestedActions: getFallbackPrompts('custom', false).slice(0, 4)
+        suggestedActions: fallbackPrompts.slice(0, 4),
+        note: 'Using fallback prompts due to configuration issue'
       },
-      { status: 500 }
+      { status: 200 } // Return 200 instead of 500 to prevent client-side errors
     );
   }
 }
