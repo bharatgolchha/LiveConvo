@@ -8,7 +8,7 @@ import type {
   SummaryActionItem,
   SummaryDecision 
 } from '@/types/api';
-import { getDefaultAiModelServer } from '@/lib/systemSettingsServer';
+import { getAIModelForAction, AIAction } from '@/lib/aiModelConfig';
 import { getCurrentDateContext } from '@/lib/utils';
 
 const openrouterApiKey = process.env.OPENROUTER_API_KEY;
@@ -310,7 +310,7 @@ export async function POST(
         risk_factors: finalData?.risk_factors || []
       }), // Store enhanced data as structured notes
       generation_status: 'completed',
-      model_used: await getDefaultAiModelServer()
+      model_used: await getAIModelForAction(AIAction.SUMMARY)
     };
 
     console.log('💾 Attempting to save summary to database:', {
@@ -589,7 +589,7 @@ Return a JSON object with this EXACT structure:
   ]
 }`;
 
-  const model = await getDefaultAiModelServer();
+  const model = await getAIModelForAction(AIAction.SUMMARY);
   const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
     method: 'POST',
     headers: {
@@ -776,7 +776,7 @@ Return a JSON object with this structure:
   ]
 }`;
 
-  const model2 = await getDefaultAiModelServer();
+  const model2 = await getAIModelForAction(AIAction.SUMMARY);
   const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
     method: 'POST',
     headers: {

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
-import { getDefaultAiModelServer } from '@/lib/systemSettingsServer';
+import { getAIModelForAction, AIAction } from '@/lib/aiModelConfig';
 import { getCurrentDateContext } from '@/lib/utils';
 
 export async function POST(request: NextRequest) {
@@ -40,7 +40,7 @@ export async function POST(request: NextRequest) {
       participantThem
     });
 
-    const model = await getDefaultAiModelServer();
+    const model = await getAIModelForAction(AIAction.GUIDANCE);
     const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
       method: 'POST',
       headers: {

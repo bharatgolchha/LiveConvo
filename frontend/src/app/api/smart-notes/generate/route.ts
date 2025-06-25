@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
-import { getDefaultAiModelServer } from '@/lib/systemSettingsServer'
+import { getAIModelForAction, AIAction } from '@/lib/aiModelConfig'
 import { getCurrentDateContext } from '@/lib/utils'
 
 export async function POST(request: NextRequest) {
@@ -33,7 +33,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'AI service not configured' }, { status: 500 })
     }
 
-    const model = await getDefaultAiModelServer()
+    const model = await getAIModelForAction(AIAction.SMART_NOTES)
     let openRouterResponse;
     try {
       openRouterResponse = await fetch('https://openrouter.ai/api/v1/chat/completions', {

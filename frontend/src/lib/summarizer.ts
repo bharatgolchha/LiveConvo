@@ -6,7 +6,7 @@
 // Note: If you are using a Node version < 18 you must polyfill `fetch` or
 // install `node-fetch` as a dependency.
 
-import { getDefaultAiModelServer } from '@/lib/systemSettingsServer';
+import { getAIModelForAction, AIAction } from '@/lib/aiModelConfig';
 import { getCurrentDateContext } from '@/lib/utils';
 
 /**
@@ -32,7 +32,7 @@ Return a concise cumulative summary (max 250 words) that preserves key decisions
 
   const userPrompt = `EXISTING SUMMARY:\n${prevSummary || 'None yet.'}\n\nNEW TRANSCRIPT CHUNK:\n${newTranscriptChunk}`;
 
-  const model = await getDefaultAiModelServer();
+  const model = await getAIModelForAction(AIAction.REALTIME_SUMMARY);
 
   const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
     method: 'POST',

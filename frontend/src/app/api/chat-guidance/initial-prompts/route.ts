@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getDefaultAiModelServer } from '@/lib/systemSettingsServer';
+import { getAIModelForAction, AIAction } from '@/lib/aiModelConfig';
 import { createAuthenticatedSupabaseClient } from '@/lib/supabase';
 import { getCurrentDateContext } from '@/lib/utils';
 import { z } from 'zod';
@@ -156,8 +156,8 @@ Make prompts specific to the meeting context. For example:
 
 ${hasTranscript ? 'Since the meeting is in progress, make prompts tactical and immediate.' : 'Since the meeting hasn\'t started, make prompts about preparation and strategy.'}`;
 
-    // Get the default AI model
-    const defaultModel = await getDefaultAiModelServer();
+    // Get the AI model for initial prompts
+    const defaultModel = await getAIModelForAction(AIAction.INITIAL_PROMPTS);
 
     // Call OpenRouter API
     const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
@@ -208,7 +208,7 @@ ${hasTranscript ? 'Since the meeting is in progress, make prompts tactical and i
         impact: p.impact || (95 - index * 5)
       }));
 
-      console.log('Generated initial prompts:', validatedPrompts.map(p => p.text));
+      console.log('Generated initial prompts:', validatedPrompts.map((p: any) => p.text));
       return NextResponse.json({ suggestedActions: validatedPrompts });
 
     } catch (parseError) {

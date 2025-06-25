@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import type { SuggestedSmartNote } from '@/types/api';
-import { getDefaultAiModelServer } from '@/lib/systemSettingsServer';
+import { getAIModelForAction, AIAction } from '@/lib/aiModelConfig';
 import { getCurrentDateContext } from '@/lib/utils';
 
 const getContextSpecificGuidelines = (conversationType: string) => {
@@ -159,7 +159,7 @@ Frame all notes from ${participantMe}'s perspective - what they should know, do,
 
 Return ONLY the JSON object. Ensure all strings are properly quoted and escaped.`;
 
-    const model = await getDefaultAiModelServer();
+    const model = await getAIModelForAction(AIAction.SMART_NOTES);
 
     const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
       method: 'POST',

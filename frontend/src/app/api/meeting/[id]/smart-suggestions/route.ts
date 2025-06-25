@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { getCurrentDateContext } from '@/lib/utils';
-import { getDefaultAiModelServer } from '@/lib/systemSettingsServer';
+import { getAIModelForAction, AIAction } from '@/lib/aiModelConfig';
 
 interface SuggestionItem {
   text: string;
@@ -126,8 +126,8 @@ Categories:
 
 Focus on what's actually happening in the conversation, not generic advice.`;
 
-    // Get the default AI model (same as chat guidance)
-    const defaultModel = await getDefaultAiModelServer();
+    // Get the AI model for smart suggestions
+    const defaultModel = await getAIModelForAction(AIAction.SMART_SUGGESTIONS);
 
     // Call OpenRouter API with the same model as chat guidance
     const openRouterResponse = await fetch('https://openrouter.ai/api/v1/chat/completions', {

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAuthenticatedSupabaseClient } from '@/lib/supabase';
 import { getCurrentDateContext } from '@/lib/utils';
+import { getAIModelForAction, AIAction } from '@/lib/aiModelConfig';
 
 const SMART_NOTES_PROMPT = `You are an expert AI assistant that analyzes meeting conversations and extracts actionable smart notes.
 
@@ -168,6 +169,9 @@ export async function POST(
       );
     }
 
+    // Get the AI model for smart notes
+    const model = await getAIModelForAction(AIAction.SMART_NOTES);
+
     // Generate smart notes using AI
     const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
       method: 'POST',
@@ -178,7 +182,7 @@ export async function POST(
         'X-Title': 'LivePrompt Meeting Notes'
       },
       body: JSON.stringify({
-        model: 'google/gemini-2.5-flash',
+        model,
         messages: [
           {
             role: 'system',
