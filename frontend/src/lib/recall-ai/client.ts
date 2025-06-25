@@ -185,14 +185,7 @@ export class RecallAIClient {
       case 'deepgram':
         return { 
           deepgram_streaming: {
-            model: 'nova-3',  // Latest and most accurate model
-            language: 'en-US',
-            punctuate: true,
-            filler_words: false,
-            smart_format: true,
-            diarize: true,
-            interim_results: true,
-            profanity_filter: false
+            model: 'nova-3'
           }
         };
       case 'speechmatics':
@@ -202,12 +195,7 @@ export class RecallAIClient {
       default:
         return { 
           deepgram_streaming: {
-            model: 'nova-3',
-            language: 'en-US',
-            punctuate: true,
-            smart_format: true,
-            diarize: true,
-            interim_results: true
+            model: 'nova-3'
           }
         };
     }
