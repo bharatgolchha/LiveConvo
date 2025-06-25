@@ -1,3 +1,5 @@
+import { getCurrentDateContext } from './utils';
+
 interface ChatMessage {
   id: string;
   type: 'user' | 'ai' | 'system' | 'auto-guidance';
@@ -20,7 +22,8 @@ export function buildChatPrompt(
   summary?: { tldr?: string; key_points?: string[]; sentiment?: string; keyPoints?: string[]; decisions?: string[]; actionItems?: string[] }, 
   uploadedFiles?: Array<{ name: string; type: string; size: number }>, 
   selectedPreviousConversations?: string[], 
-  personalContext?: string
+  personalContext?: string,
+  smartNotes?: Array<{ category: string; content: string; importance?: string }>
 ): string {
   // Detect if user is in live conversation or preparation mode
   const hasActiveTranscript = transcript && transcript.trim().length > 0;
@@ -29,10 +32,12 @@ export function buildChatPrompt(
   // Determine session phase
   const sessionPhase = hasActiveTranscript ? 'live' : 'preparation';
   
-  // Get recent chat history (last 6 messages for context)
-  const recentHistory = chatHistory.slice(-6);
+  // Get recent chat history (last 15 messages for context)
+  const recentHistory = chatHistory.slice(-15);
   
   let prompt = `You are an intelligent conversation coach providing real-time guidance. Your role is to help the user navigate their ${conversationType || 'conversation'} more effectively.
+
+${getCurrentDateContext()}
 
 CONTEXT:
 `;
@@ -112,6 +117,13 @@ CONTEXT:
     });
   }
 
+  // Add smart notes if available
+  if (smartNotes && smartNotes.length > 0) {
+    const topNotes = smartNotes.slice(0, 5);
+    const notesText = topNotes.map((n, idx) => `${idx + 1}. (${n.category}) ${n.content}`).join('\n');
+    prompt += `Smart Notes (top ${topNotes.length}):\n${notesText}\n`;
+  }
+
   prompt += `\nCurrent User Message: "${message}"
 
 INSTRUCTIONS:
@@ -143,9 +155,9 @@ function buildPreviousConversationsContext(selectedPreviousConversations: string
 
 /**
  * Build a compact `messages` array for OpenAI / Gemini style chat completions.
- * The function intentionally keeps the payload small by:
- *   • sending only the last few turns verbatim (default 4)
- *   • truncating long transcripts to the last ~1 500 characters
+ * The function includes sufficient context by:
+ *   • sending the last 15 turns verbatim for better conversation continuity
+ *   • truncating long transcripts to the last ~4000 characters
  *   • adding optional summary / personal context in a single short system line
  *
  * Args:
@@ -173,11 +185,18 @@ export function buildChatMessages(
   participantMe?: string,
   participantThem?: string
 ): Array<{ role: 'system' | 'user' | 'assistant'; content: string }> {
-  // 1. Latest few turns (verbatim)
-  const latestTurns = chatHistory.slice(-4).map((m) => ({
+  // 1. Latest 15 turns (verbatim) to provide better context
+  const latestTurns = chatHistory.slice(-15).map((m) => ({
     role: m.type === 'user' ? ('user' as const) : ('assistant' as const),
     content: m.content,
   }));
+
+  // Debug log to see how many messages we're including
+  console.log('🔍 buildChatMessages - Processing chat history:', {
+    totalChatHistory: chatHistory.length,
+    latestTurnsCount: latestTurns.length,
+    latestMessages: latestTurns.slice(-3).map(m => `${m.role}: ${m.content.substring(0, 30)}...`)
+  });
 
   // 2. Compact context line (single system msg)
   const contextPieces: string[] = [];

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabase, createServerSupabaseClient, createAuthenticatedSupabaseClient } from '@/lib/supabase';
+import { RecallSessionManager } from '@/lib/recall-ai/session-manager';
 
 /**
  * GET /api/sessions/[id] - Get session details with transcripts and summaries
@@ -266,6 +267,25 @@ export async function DELETE(
 
     // Create authenticated client with user's token for RLS
     const authClient = createAuthenticatedSupabaseClient(token);
+
+    // Check if session has a Recall bot that needs to be stopped
+    const { data: sessionData } = await authClient
+      .from('sessions')
+      .select('recall_bot_id, status')
+      .eq('id', sessionId)
+      .eq('organization_id', userData.current_organization_id)
+      .single();
+      
+    if (sessionData?.recall_bot_id) {
+      console.log('🤖 Stopping Recall bot before deleting session...');
+      try {
+        const recallManager = new RecallSessionManager();
+        await recallManager.stopRecallBot(sessionId);
+      } catch (error) {
+        console.error('Failed to stop Recall bot during deletion:', error);
+        // Continue with deletion even if bot stop fails
+      }
+    }
 
     let result;
     let message;

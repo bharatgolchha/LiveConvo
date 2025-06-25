@@ -1,0 +1,163 @@
+import React from 'react';
+import { motion } from 'framer-motion';
+import { CalendarDaysIcon, ClockIcon } from '@heroicons/react/24/outline';
+import { PreviousConversationsMultiSelect } from './PreviousConversationsMultiSelect';
+
+interface SessionOption {
+  id: string;
+  title: string;
+  conversation_type?: string;
+  created_at: string;
+  recording_duration_seconds?: number;
+  status?: string;
+  total_words_spoken?: number;
+}
+
+interface MeetingContextStepProps {
+  context: string;
+  setContext: (context: string) => void;
+  selectedPrevious: SessionOption[];
+  setSelectedPrevious: (sessions: SessionOption[]) => void;
+  scheduledAt?: string;
+  setScheduledAt?: (date: string) => void;
+}
+
+const contextExamples = [
+  "Quarterly review with focus on performance goals and career development",
+  "Discovery call for enterprise SaaS solution - budget range $50-100k",
+  "Technical interview for senior developer position - focus on React and Node.js",
+  "Customer onboarding call - implementing new features",
+  "Team retrospective - discussing Q4 achievements and Q1 planning"
+];
+
+export function MeetingContextStep({
+  context,
+  setContext,
+  selectedPrevious,
+  setSelectedPrevious,
+  scheduledAt,
+  setScheduledAt
+}: MeetingContextStepProps) {
+  const handleExampleClick = () => {
+    const randomExample = contextExamples[Math.floor(Math.random() * contextExamples.length)];
+    console.log('📝 MeetingContextStep: Setting example context:', randomExample.substring(0, 50) + '...');
+    setContext(randomExample);
+  };
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, x: -20 }}
+      animate={{ opacity: 1, x: 0 }}
+      exit={{ opacity: 0, x: -20 }}
+      className="space-y-8"
+    >
+      {/* Context/Agenda */}
+      <div className="space-y-3">
+        <label className="text-sm font-semibold text-foreground flex items-center gap-2">
+          <span className="w-1.5 h-1.5 bg-primary rounded-full"></span>
+          Meeting Context & Agenda
+          <span className="text-muted-foreground font-normal text-xs ml-1">(optional)</span>
+        </label>
+        <div className="relative group">
+          <textarea
+            value={context}
+            onChange={(e) => {
+              console.log('📝 MeetingContextStep: Context changed, length:', e.target.value.length);
+              setContext(e.target.value);
+            }}
+            placeholder="Add background information, goals, or specific topics you want to cover..."
+            rows={6}
+            className="w-full px-5 py-4 bg-card border-2 border-border/50 rounded-2xl focus:outline-none focus:ring-0 focus:border-primary/50 focus:bg-background transition-all duration-200 placeholder:text-muted-foreground/60 resize-none group-hover:border-border"
+            maxLength={2000}
+          />
+          <div className="absolute inset-x-0 -bottom-1 h-px bg-gradient-to-r from-transparent via-primary/20 to-transparent opacity-0 group-focus-within:opacity-100 transition-opacity duration-300"></div>
+        </div>
+        <div className="flex items-center justify-between px-1">
+          <motion.button
+            type="button"
+            onClick={handleExampleClick}
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            className="text-xs font-medium text-primary hover:text-primary-dark transition-colors duration-200 flex items-center gap-1"
+          >
+            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+            </svg>
+            Try an example
+          </motion.button>
+          <span className="text-xs text-muted-foreground font-medium">
+            {context.length}/2000
+          </span>
+        </div>
+      </div>
+
+      {/* Previous conversations selector */}
+      <PreviousConversationsMultiSelect selected={selectedPrevious} setSelected={setSelectedPrevious} />
+
+      {/* Schedule (Optional) */}
+      {setScheduledAt && (
+        <div className="space-y-2">
+          <label className="text-sm font-medium text-foreground">
+            Schedule Meeting <span className="text-muted-foreground font-normal">(optional)</span>
+          </label>
+          <div className="relative">
+            <input
+              type="datetime-local"
+              value={scheduledAt || ''}
+              onChange={(e) => setScheduledAt(e.target.value)}
+              className="w-full pl-10 pr-4 py-3 bg-background border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
+              min={new Date().toISOString().slice(0, 16)}
+            />
+            <CalendarDaysIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Schedule for later (reminder only - automatic joining not available)
+          </p>
+        </div>
+      )}
+
+      {/* Tips */}
+      <motion.div 
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.2 }}
+        className="bg-gradient-to-br from-primary/5 to-secondary/5 rounded-2xl p-5 space-y-3 border border-primary/10"
+      >
+        <h4 className="text-sm font-semibold text-foreground flex items-center gap-2">
+          <div className="p-1.5 bg-primary/10 rounded-lg">
+            <ClockIcon className="w-4 h-4 text-primary" />
+          </div>
+          Pro Tips for Better AI Guidance
+        </h4>
+        <ul className="space-y-2 text-sm text-muted-foreground">
+          <li className="flex items-start gap-2">
+            <span className="text-primary mt-1">•</span>
+            <span>Include key topics or questions you want to cover</span>
+          </li>
+          <li className="flex items-start gap-2">
+            <span className="text-primary mt-1">•</span>
+            <span>Mention any specific goals or outcomes you're hoping for</span>
+          </li>
+          <li className="flex items-start gap-2">
+            <span className="text-primary mt-1">•</span>
+            <span>Add relevant background information about participants</span>
+          </li>
+          <li className="flex items-start gap-2">
+            <span className="text-primary mt-1">•</span>
+            <span>Note any follow-ups from previous meetings</span>
+          </li>
+          {selectedPrevious.length > 0 && (
+            <motion.li 
+              initial={{ opacity: 0, x: -10 }}
+              animate={{ opacity: 1, x: 0 }}
+              className="flex items-start gap-2 text-primary-dark font-medium"
+            >
+              <span className="text-primary mt-1">✓</span>
+              <span>Previous meeting context will help the AI understand ongoing discussions</span>
+            </motion.li>
+          )}
+        </ul>
+      </motion.div>
+    </motion.div>
+  );
+}

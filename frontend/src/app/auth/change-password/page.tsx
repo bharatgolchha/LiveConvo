@@ -78,13 +78,12 @@ export default function ChangePasswordPage() {
       >
         <Link href="/" className="flex items-center gap-2">
           <Image 
-            src="https://ucvfgfbjcrxbzppwjpuu.supabase.co/storage/v1/object/public/images//dark.png"
-            alt="liveprompt.ai logo"
-            width={40}
+            src="https://ucvfgfbjcrxbzppwjpuu.supabase.co/storage/v1/object/public/images//DarkMode2.png"
+            alt="liveprompt.ai"
+            width={180}
             height={40}
             className="object-contain"
           />
-          <span className="text-2xl font-bold text-white">liveprompt.ai</span>
         </Link>
       </motion.div>
 

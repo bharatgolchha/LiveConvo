@@ -8,6 +8,17 @@ import { Toaster } from "sonner";
 import { BrowserCompatibilityNotice } from "@/components/ui/BrowserCompatibilityNotice";
 import Script from "next/script";
 
+// Suppress React DevTools warning in development
+if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
+  // @ts-ignore
+  window.__REACT_DEVTOOLS_GLOBAL_HOOK__ = window.__REACT_DEVTOOLS_GLOBAL_HOOK__ || {
+    supportsFiber: true,
+    inject: () => {},
+    onCommitFiberRoot: () => {},
+    onCommitFiberUnmount: () => {},
+  };
+}
+
 const geistSans = Geist({
   variable: "--font-geist-sans",
   subsets: ["latin"],
@@ -46,23 +57,23 @@ export const metadata: Metadata = {
   icons: {
     icon: [
       {
-        url: '/favicon-16x16.png',
+        url: 'https://ucvfgfbjcrxbzppwjpuu.supabase.co/storage/v1/object/public/images//LogoSquare%20LivePrompt.png',
         sizes: '16x16',
         type: 'image/png',
       },
       {
-        url: '/favicon-32x32.png',
+        url: 'https://ucvfgfbjcrxbzppwjpuu.supabase.co/storage/v1/object/public/images//LogoSquare%20LivePrompt.png',
         sizes: '32x32',
         type: 'image/png',
       },
       {
-        url: '/favicon.ico',
+        url: 'https://ucvfgfbjcrxbzppwjpuu.supabase.co/storage/v1/object/public/images//LogoSquare%20LivePrompt.png',
         sizes: 'any',
       },
     ],
     apple: [
       {
-        url: '/apple-touch-icon.png',
+        url: 'https://ucvfgfbjcrxbzppwjpuu.supabase.co/storage/v1/object/public/images//LogoSquare%20LivePrompt.png',
         sizes: '180x180',
         type: 'image/png',
       },
@@ -70,8 +81,8 @@ export const metadata: Metadata = {
     other: [
       {
         rel: 'mask-icon',
-        url: '/apple-touch-icon.png',
-        color: '#000000',
+        url: 'https://ucvfgfbjcrxbzppwjpuu.supabase.co/storage/v1/object/public/images//LogoSquare%20LivePrompt.png',
+        color: '#0B3D2E',
       },
     ],
   },
@@ -143,7 +154,7 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} ${poppins.variable} antialiased`}
       >
         <AuthErrorBoundary>
-          <ThemeProvider defaultTheme="system" storageKey="liveprompt-theme">
+          <ThemeProvider defaultTheme="dark" storageKey="liveprompt-theme">
             <AuthProvider>
               <BrowserCompatibilityNotice />
               {children}

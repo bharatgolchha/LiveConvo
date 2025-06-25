@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
@@ -8,6 +8,7 @@ import { ThemeToggle } from '@/components/ui/ThemeToggle';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useUserStats } from '@/lib/hooks/useUserStats';
 import { SubscriptionManager } from './SubscriptionManager';
+import { BotUsageDisplay } from '@/components/meeting/settings/BotUsageDisplay';
 import { 
   UserIcon, 
   PaintBrushIcon, 
@@ -27,12 +28,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ onSessionsDeleted 
   const [personalContext, setPersonalContext] = useState('');
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState('');
-
-  useEffect(() => {
-    if (session?.access_token) {
-      loadPersonalContext();
-    }
-  }, [session]);
+  const [organizationId, setOrganizationId] = useState<string | undefined>();
 
   const loadPersonalContext = async () => {
     try {
@@ -56,6 +52,40 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ onSessionsDeleted 
       console.error('Failed to load personal context:', error);
     }
   };
+
+  const loadOrganizationId = useCallback(async () => {
+    try {
+      const headers: HeadersInit = { 'Content-Type': 'application/json' };
+      if (session?.access_token) {
+        headers['Authorization'] = `Bearer ${session.access_token}`;
+      }
+
+      const response = await fetch('/api/users/organization', {
+        method: 'GET',
+        headers,
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        console.log('🏢 Organization API response:', data);
+        if (data.organization_id) {
+          console.log('✅ Setting organization ID:', data.organization_id);
+          setOrganizationId(data.organization_id);
+        }
+      } else {
+        console.error('❌ Failed to fetch organization:', response.status, response.statusText);
+      }
+    } catch (error) {
+      console.error('Failed to load organization ID:', error);
+    }
+  }, [session]);
+
+  useEffect(() => {
+    if (session?.access_token) {
+      loadPersonalContext();
+      loadOrganizationId();
+    }
+  }, [session, loadOrganizationId]);
 
   const handleSaveContext = async () => {
     setSaving(true);
@@ -291,51 +321,58 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ onSessionsDeleted 
         </TabsContent>
 
         {/* Usage Tab */}
-        <TabsContent value="usage" className="space-y-4">
+        <TabsContent value="usage" className="space-y-6">
+          {/* Quick Stats Overview */}
           <Card className="p-6">
-            <h2 className="text-xl font-semibold mb-4">Usage Statistics</h2>
+            <h2 className="text-xl font-semibold mb-4">Usage Overview</h2>
             {statsLoading ? (
-              <p className="text-muted-foreground">Loading usage data...</p>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="animate-pulse">
+                  <div className="h-4 bg-muted rounded mb-2"></div>
+                  <div className="h-8 bg-muted rounded"></div>
+                </div>
+                <div className="animate-pulse">
+                  <div className="h-4 bg-muted rounded mb-2"></div>
+                  <div className="h-8 bg-muted rounded"></div>
+                </div>
+              </div>
             ) : stats ? (
-              <div className="space-y-6">
-                <div>
-                  <h3 className="font-medium mb-3">Current Month Usage</h3>
-                  <div className="space-y-3">
-                    <div>
-                      <div className="flex justify-between text-sm mb-1">
-                        <span className="text-muted-foreground">Audio Time</span>
-                        <span className="font-medium">
-                          {formatUsage(stats.monthlySecondsUsed || 0)}
-                          {stats.monthlyAudioLimit !== null 
-                            ? ` / ${stats.monthlyAudioLimit < 1 
-                                ? `${stats.monthlyAudioLimit * 60} min` 
-                                : `${stats.monthlyAudioLimit} hr`}`
-                            : ' (Unlimited)'}
-                        </span>
-                      </div>
-                      <div className="w-full bg-gray-200 rounded-full h-2">
-                        <div
-                          className="bg-primary h-2 rounded-full transition-all duration-300"
-                          style={{ width: `${Math.min(stats.usagePercentage || 0, 100)}%` }}
-                        />
-                      </div>
-                    </div>
-                    <div className="grid grid-cols-2 gap-4 mt-4">
-                      <div>
-                        <p className="text-sm text-muted-foreground">Sessions</p>
-                        <p className="text-2xl font-semibold">{stats.totalSessions || 0}</p>
-                      </div>
-                      <div>
-                        <p className="text-sm text-muted-foreground">Completed</p>
-                        <p className="text-2xl font-semibold">{stats.completedSessions || 0}</p>
-                      </div>
-                    </div>
-                  </div>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="text-center p-4 bg-muted/30 rounded-lg">
+                  <p className="text-sm text-muted-foreground mb-1">Total Sessions</p>
+                  <p className="text-2xl font-bold">{stats.totalSessions || 0}</p>
+                </div>
+                <div className="text-center p-4 bg-muted/30 rounded-lg">
+                  <p className="text-sm text-muted-foreground mb-1">Completed</p>
+                  <p className="text-2xl font-bold">{stats.completedSessions || 0}</p>
+                </div>
+                <div className="text-center p-4 bg-muted/30 rounded-lg">
+                  <p className="text-sm text-muted-foreground mb-1">Bot Minutes</p>
+                  <p className="text-2xl font-bold">{Math.round((stats.monthlySecondsUsed || 0) / 60)}</p>
+                </div>
+                <div className="text-center p-4 bg-muted/30 rounded-lg">
+                  <p className="text-sm text-muted-foreground mb-1">Usage</p>
+                  <p className="text-2xl font-bold">{Math.round(stats.usagePercentage || 0)}%</p>
                 </div>
               </div>
             ) : (
               <p className="text-muted-foreground">No usage data available</p>
             )}
+          </Card>
+
+          {/* Bot Usage Display - Primary Focus */}
+          <Card className="p-6 border-2 border-primary/20">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-2xl font-bold flex items-center gap-3">
+                <span className="text-3xl">🤖</span>
+                Bot Recording Usage
+              </h2>
+              <div className="text-sm text-muted-foreground">
+                AI Meeting Bot Sessions
+              </div>
+            </div>
+            
+            <BotUsageDisplay organizationId={organizationId} />
           </Card>
         </TabsContent>
 

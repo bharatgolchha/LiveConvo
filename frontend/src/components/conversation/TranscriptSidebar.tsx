@@ -14,7 +14,8 @@ import {
   User,
   Users,
   Clock,
-  RefreshCw
+  RefreshCw,
+  Star
 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/input';
@@ -29,6 +30,7 @@ interface TranscriptLine {
   start_time_seconds: number;
   sequence_number?: number;
   created_at?: string;
+  is_owner?: boolean;
 }
 
 interface TranscriptSidebarProps {
@@ -107,7 +109,8 @@ export function TranscriptSidebar({
     const transcript = filteredTranscripts[index];
     if (!transcript) return null;
 
-    const isMySpeaker = transcript.speaker === 'user' || transcript.speaker === 'ME';
+    const isMySpeaker = transcript.speaker === 'user' || transcript.speaker === 'ME' || transcript.speaker === participantMe;
+    const isOwner = transcript.is_owner || (isMySpeaker && transcript.speaker === participantMe);
 
     return (
       <div style={style} className="px-3">
@@ -116,10 +119,11 @@ export function TranscriptSidebar({
           animate={{ opacity: 1, x: 0 }}
           className={cn(
             "flex gap-2 py-2 px-3 rounded-lg transition-colors hover:bg-gray-50",
-            isMySpeaker ? "bg-blue-50/50" : "bg-green-50/50"
+            isMySpeaker ? "bg-blue-50/50" : "bg-green-50/50",
+            isOwner && "ring-1 ring-yellow-400/30"
           )}
         >
-          <div className="flex-shrink-0 mt-1">
+          <div className="flex-shrink-0 mt-1 relative">
             <div className={cn(
               "w-6 h-6 rounded-full flex items-center justify-center text-white",
               isMySpeaker ? "bg-blue-600" : "bg-green-600"
@@ -130,11 +134,19 @@ export function TranscriptSidebar({
                 <Users className="h-3 w-3" />
               )}
             </div>
+            {isOwner && (
+              <div className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-yellow-500 rounded-full flex items-center justify-center">
+                <Star className="h-2 w-2 text-white fill-white" />
+              </div>
+            )}
           </div>
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-0.5">
-              <span className="text-xs font-medium text-gray-700">
+              <span className="text-xs font-medium text-gray-700 flex items-center gap-1">
                 {isMySpeaker ? (participantMe || 'You') : (participantThem || 'Them')}
+                {isOwner && (
+                  <span className="text-xs text-yellow-600 font-normal">(Organizer)</span>
+                )}
               </span>
               <span className="text-xs text-gray-500">
                 {formatTimestamp(transcript.start_time_seconds)}
@@ -248,14 +260,21 @@ export function TranscriptSidebar({
 
         {/* Stats */}
         {!isCollapsed && (
-          <div className="flex items-center gap-3 text-xs text-gray-600">
-            <div className="flex items-center gap-1">
-              <Clock className="h-3 w-3" />
-              <span>{formatDuration(sessionDuration)}</span>
+          <div className="space-y-2">
+            <div className="flex items-center gap-3 text-xs text-gray-600">
+              <div className="flex items-center gap-1">
+                <Clock className="h-3 w-3" />
+                <span>{formatDuration(sessionDuration)}</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <FileText className="h-3 w-3" />
+                <span>{transcripts.length} messages</span>
+              </div>
             </div>
-            <div className="flex items-center gap-1">
-              <FileText className="h-3 w-3" />
-              <span>{transcripts.length} messages</span>
+            {/* Legend for owner indicator */}
+            <div className="flex items-center gap-1 text-xs text-yellow-600">
+              <Star className="h-3 w-3 fill-yellow-600" />
+              <span>Meeting Organizer</span>
             </div>
           </div>
         )}
