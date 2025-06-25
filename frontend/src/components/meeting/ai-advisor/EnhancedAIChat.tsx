@@ -209,7 +209,9 @@ export function EnhancedAIChat() {
         contextLength: meeting?.context?.length || 0,
         contextPreview: meeting?.context?.substring(0, 100) + (meeting?.context && meeting.context.length > 100 ? '...' : ''),
         meetingTitle: meeting?.title,
-        transcriptLines: transcript.length
+        transcriptLines: transcript.length,
+        chatHistoryLength: messages.length,
+        chatHistoryPreview: messages.slice(-3).map(m => `${m.role}: ${m.content.substring(0, 30)}...`)
       });
 
       // Get auth token for API request
@@ -221,6 +223,16 @@ export function EnhancedAIChat() {
       if (session?.access_token) {
         authHeaders['Authorization'] = `Bearer ${session.access_token}`;
       }
+
+      // Convert messages to the format expected by the API (exclude system messages)
+      const chatHistory = messages
+        .filter(msg => msg.role !== 'system')
+        .map(msg => ({
+          id: msg.id,
+          type: msg.role === 'user' ? 'user' : 'ai',
+          content: msg.content,
+          timestamp: msg.timestamp
+        }));
 
       const response = await fetch('/api/chat-guidance', {
         method: 'POST',
@@ -234,6 +246,7 @@ export function EnhancedAIChat() {
           meetingUrl: meeting?.meetingUrl,
           transcript: transcriptText,
           transcriptLength: transcript.length,
+          chatHistory: chatHistory, // Include the chat history!
           smartNotes: smartNotes.map(n => ({ category: n.category, content: n.content, importance: n.importance })),
           summary: summary ? {
             tldr: summary.tldr,

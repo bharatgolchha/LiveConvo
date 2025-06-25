@@ -653,7 +653,7 @@ const DashboardPage: React.FC = () => {
                     <div className="flex-1 overflow-y-auto p-4 space-y-3">
                       {filteredSessions.map((session) => (
                         <ConversationInboxItem
-                          key={session.id}
+                          key={`dashboard-session-${session.id}`}
                           session={session}
                           isSelected={selectedSessions.has(session.id)}
                           onClick={() => handleSessionSelect(session.id)}

@@ -52,6 +52,9 @@ export function BotUsageDisplay({ organizationId, className }: BotUsageDisplayPr
   
   const { sessions, stats, loading, error, refetch } = useBotUsage(organizationId);
 
+  // Create a unique component identifier to prevent key conflicts with other components
+  const componentId = 'bot-usage-display';
+
   const toggleSession = (sessionId: string) => {
     const newExpanded = new Set(expandedSessions);
     if (newExpanded.has(sessionId)) {
@@ -214,7 +217,7 @@ export function BotUsageDisplay({ organizationId, className }: BotUsageDisplayPr
                 
                 return (
                   <motion.div
-                    key={session.id}
+                    key={`${componentId}-${session.id}`}
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: -20 }}

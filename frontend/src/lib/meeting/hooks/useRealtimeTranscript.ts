@@ -102,7 +102,7 @@ export function useRealtimeTranscript(sessionId: string) {
         },
       )
       .subscribe(status => {
-        // eslint-disable-next-line no-console
+         
         console.log('[RealtimeTranscript] subscription status:', status);
       });
 

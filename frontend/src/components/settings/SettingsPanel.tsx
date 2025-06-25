@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
@@ -30,13 +30,6 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ onSessionsDeleted 
   const [message, setMessage] = useState('');
   const [organizationId, setOrganizationId] = useState<string | undefined>();
 
-  useEffect(() => {
-    if (session?.access_token) {
-      loadPersonalContext();
-      loadOrganizationId();
-    }
-  }, [session]);
-
   const loadPersonalContext = async () => {
     try {
       const headers: HeadersInit = { 'Content-Type': 'application/json' };
@@ -60,7 +53,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ onSessionsDeleted 
     }
   };
 
-  const loadOrganizationId = async () => {
+  const loadOrganizationId = useCallback(async () => {
     try {
       const headers: HeadersInit = { 'Content-Type': 'application/json' };
       if (session?.access_token) {
@@ -85,7 +78,14 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ onSessionsDeleted 
     } catch (error) {
       console.error('Failed to load organization ID:', error);
     }
-  };
+  }, [session]);
+
+  useEffect(() => {
+    if (session?.access_token) {
+      loadPersonalContext();
+      loadOrganizationId();
+    }
+  }, [session, loadOrganizationId]);
 
   const handleSaveContext = async () => {
     setSaving(true);

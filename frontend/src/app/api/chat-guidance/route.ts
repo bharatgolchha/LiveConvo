@@ -110,7 +110,7 @@ interface ChatMessage {
   id: string;
   type: 'user' | 'ai' | 'system' | 'auto-guidance';
   content: string;
-  timestamp: Date;
+  timestamp: Date | string; // Allow both Date objects and ISO strings
   metadata?: {
     confidence?: number;
     guidanceType?: string;
@@ -505,6 +505,12 @@ MEETING CONVERSATION - Prioritize:
 Make each suggestion specific to the current conversation with ${themLabel}. 
 Remember: Start with [ and end with ] - no other text allowed.`;
     };
+
+    // Debug log chat history being received
+    console.log('🔍 Chat API - Received chat history:', {
+      chatHistoryLength: chatHistory.length,
+      chatHistoryPreview: chatHistory.slice(-5).map((m: ChatMessage) => `${m.type}: ${m.content.substring(0, 50)}...`)
+    });
 
     const chatMessages = buildChatMessages(
       parsedContext.userMessage,

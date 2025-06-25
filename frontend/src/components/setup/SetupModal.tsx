@@ -752,7 +752,7 @@ export const SetupModal: React.FC<SetupModalProps> = ({
                           
                           return (
                             <div
-                              key={session.id}
+                              key={`setup-modal-${session.id}`}
                               onClick={() => handlePreviousConversationToggle(session.id)}
                               className={cn(
                                 "p-4 rounded-xl border-2 transition-all cursor-pointer",
