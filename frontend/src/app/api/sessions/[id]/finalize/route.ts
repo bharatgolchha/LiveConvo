@@ -10,6 +10,13 @@ import type {
 } from '@/types/api';
 import { getAIModelForAction, AIAction } from '@/lib/aiModelConfig';
 import { getCurrentDateContext } from '@/lib/utils';
+import { 
+  generateEnhancedSummaryPrompt, 
+  generateCoachingPrompt,
+  generateEmailDraftPrompt,
+  type MeetingContext,
+  type SummaryPromptConfig 
+} from '@/lib/prompts/summaryPrompts';
 
 const openrouterApiKey = process.env.OPENROUTER_API_KEY;
 
@@ -30,7 +37,16 @@ export async function POST(
 ) {
   try {
     const { id: sessionId } = await params;
-    const { textContext, conversationType, conversationTitle, uploadedFiles, selectedPreviousConversations, personalContext, participantMe, participantThem } = await request.json();
+    const body = await request.json();
+    const { textContext, conversationType, conversationTitle, uploadedFiles, selectedPreviousConversations, personalContext, participantMe, participantThem } = body;
+
+    console.log('📝 Finalize request received:', {
+      sessionId,
+      conversationType,
+      conversationTitle,
+      hasTextContext: !!textContext,
+      hasParticipants: !!participantMe && !!participantThem
+    });
 
     if (!openrouterApiKey) {
       return NextResponse.json(
@@ -267,8 +283,35 @@ export async function POST(
       fullContextLength: fullContext.length
     });
     
-    const summary = await generateFinalSummary(transcriptText, conversationType, fullContext, participantMe, participantThem);
-    const finalData = await generateFinalizationData(transcriptText, fullContext, conversationType, summary, participantMe, participantThem);
+    // Create meeting context for enhanced prompts
+    // Map conversation types to our expected types
+    const normalizedType = (() => {
+      const lowerType = conversationType?.toLowerCase() || '';
+      if (lowerType.includes('sales') || lowerType.includes('demo')) return 'sales';
+      if (lowerType.includes('interview') || lowerType.includes('hiring')) return 'interview';
+      if (lowerType.includes('support') || lowerType.includes('help')) return 'support';
+      if (lowerType.includes('meeting') || lowerType.includes('sync')) return 'meeting';
+      return 'general';
+    })();
+
+    const meetingContext: MeetingContext = {
+      type: normalizedType,
+      agenda: textContext,
+      context: personalContext,
+      previousMeetings: selectedPreviousConversations,
+      participantCount: Object.keys(speakingStats).length || 2,
+      duration: sessionDuration
+    };
+
+    const promptConfig: SummaryPromptConfig = {
+      includeEmailDraft: true,
+      includeRiskAssessment: normalizedType === 'sales' || normalizedType === 'meeting',
+      includeEffectivenessScore: true,
+      includeNextMeetingTemplate: normalizedType === 'meeting' || normalizedType === 'sales'
+    };
+    
+    const summary = await generateFinalSummary(transcriptText, meetingContext, promptConfig, participantMe, participantThem);
+    const finalData = await generateFinalizationData(transcriptText, summary, meetingContext, participantMe, participantThem);
 
     console.log('🤖 AI Summary generated:', {
       hasTldr: !!summary.tldr,
@@ -307,7 +350,13 @@ export async function POST(
         key_techniques_used: finalData?.key_techniques_used || [],
         follow_up_strategy: finalData?.follow_up_strategy || {},
         success_indicators: finalData?.success_indicators || [],
-        risk_factors: finalData?.risk_factors || []
+        risk_factors: finalData?.risk_factors || [],
+        // Add the new enhanced fields
+        email_draft: summary.email_draft || null,
+        risk_assessment: summary.risk_assessment || null,
+        effectiveness_score: summary.effectiveness_score || null,
+        next_meeting_template: summary.next_meeting_template || null,
+        templates: finalData?.templates || null
       }), // Store enhanced data as structured notes
       generation_status: 'completed',
       model_used: await getAIModelForAction(AIAction.SUMMARY)
@@ -391,12 +440,20 @@ export async function POST(
       stack: error instanceof Error ? error.stack : 'No stack trace'
     });
     
+    // Log the request details for debugging
+    console.error('💥 Request details:', {
+      sessionId: (await params).id,
+      hasAuth: !!request.headers.get('authorization'),
+      errorName: error instanceof Error ? error.name : 'Unknown'
+    });
+    
     // Return a more detailed error response
     return NextResponse.json(
       { 
         error: 'Failed to finalize session',
         details: error instanceof Error ? error.message : 'Unknown error',
-        type: error instanceof Error ? error.constructor.name : 'UnknownError'
+        type: error instanceof Error ? error.constructor.name : 'UnknownError',
+        sessionId
       },
       { status: 500 }
     );
@@ -434,160 +491,9 @@ function buildFullContext(textContext?: string, personalContext?: string, upload
   return fullContext || 'No additional context provided.';
 }
 
-async function generateFinalSummary(transcript: string, conversationType?: string, fullContext?: string, participantMe?: string, participantThem?: string): Promise<EnhancedSummary> {
-  const typeSpecificPrompts = {
-    sales: `Pay special attention to:
-- Customer pain points and needs identified
-- Budget discussions and decision timeline
-- Product/service fit assessment
-- Objections raised and how they were handled
-- Competitive mentions or comparisons
-- Next steps in the sales process
-- Probability of closing the deal`,
-    
-    interview: `Focus on:
-- Candidate's relevant experience and skills
-- Technical competency demonstrated
-- Cultural fit indicators
-- Communication effectiveness
-- Red flags or concerns raised
-- Strengths and growth areas
-- Overall hiring recommendation`,
-    
-    meeting: `Analyze:
-- Agenda items discussed and decisions made
-- Action items with clear owners
-- Strategic initiatives or changes
-- Resource allocations or budget decisions
-- Risks identified and mitigation plans
-- Timeline and milestones established
-- Follow-up meeting requirements`,
-    
-    support: `Examine:
-- Customer issue or problem statement
-- Troubleshooting steps taken
-- Root cause identification
-- Resolution provided or escalation needed
-- Customer satisfaction indicators
-- Knowledge gaps identified
-- Process improvement opportunities`
-  };
-
-  const conversationTypePrompt = typeSpecificPrompts[conversationType as keyof typeof typeSpecificPrompts] || 
-    'Provide a comprehensive analysis of key discussion points, decisions, and outcomes.';
-
-  const meLabel = participantMe || 'Speaker 1';
-  const themLabel = participantThem || 'Speaker 2';
-  
-  const systemPrompt = `You are an expert conversation analyst specializing in comprehensive meeting analysis and coaching insights.
-
-${getCurrentDateContext()}
-
-Your task is to analyze this ${conversationType || 'business'} conversation between ${participantMe || 'the participants'} and ${participantThem || ''} and provide detailed, actionable insights.
-
-PARTICIPANT IDENTIFICATION:
-${participantMe && participantThem ? `- "${participantMe}" = The person who recorded this conversation (the user requesting this analysis)
-- "${participantThem}" = The person ${participantMe} was speaking with` : '- Participants not specified'}
-
-ANALYSIS OBJECTIVES:
-1. **Meeting Performance**: How effectively did the conversation achieve its stated goals?
-2. **Content Analysis**: What key topics, decisions, and outcomes emerged?
-3. **Communication Dynamics**: How did the conversation flow and what patterns emerged?
-4. **Strategic Insights**: What important insights or opportunities were identified?
-5. **Action Planning**: What specific next steps and follow-ups are needed?
-
-Your analysis should be thorough, insightful, and actionable - providing value that goes beyond a simple transcript summary.
-
-${conversationTypePrompt}
-
-IMPORTANT: 
-- Be SPECIFIC, not generic. Reference actual content from the transcript.
-- Every point must be supported by evidence from the conversation.
-- Focus on actionable insights that can improve future conversations.
-- For SHORT conversations, focus on the main purpose and outcome rather than trying to extract non-existent insights
-- Don't overanalyze brief technical checks or scheduling confirmations - be proportional to the conversation depth
-- Use the actual speaker names from the transcript in your analysis
-- Compare what was discussed against the meeting agenda/context to identify what was covered and what was missed
-
-EFFECTIVENESS METRICS CALCULATION GUIDE:
-- objective_achievement: How well did the conversation achieve its stated goals? (0-100)
-- communication_clarity: Were ideas expressed clearly and understood? Look for confusion, clarifications needed (0-100)
-- participant_satisfaction: Did both parties seem engaged and satisfied? Look for positive responses, agreement (0-100)
-- overall_success: General assessment of whether this was a productive conversation (0-100)
-- agenda_alignment: How well did the conversation stick to the planned agenda/context? (0-100)
-- speaking_balance: Was speaking time reasonably balanced or did one person dominate? 50-50 = 100, heavily skewed = lower (0-100)
-- engagement_level: How engaged were the participants? Look for questions, active responses, enthusiasm (0-100)
-
-Be realistic with scores - most conversations aren't perfect. Use 60-80 range for typical good conversations, 80+ for exceptional ones.
-
-Return a JSON object with this EXACT structure:
-{
-  "tldr": "2-3 sentence executive summary that captures the essence and outcome",
-  "key_points": [
-    "Specific point with context from the conversation",
-    "Another specific insight with supporting evidence",
-    "Important topic discussed with outcome"
-  ],
-  "decisions_made": [
-    {
-      "decision": "Specific decision reached",
-      "rationale": "Why this decision was made",
-      "impact": "Expected outcome or implication"
-    }
-  ],
-  "action_items": [
-    {
-      "task": "Specific action to be taken",
-      "owner": "Who is responsible (use actual name from transcript)",
-      "timeline": "When it should be completed",
-      "priority": "high|medium|low"
-    }
-  ],
-  "insights": [
-    {
-      "observation": "Key insight from the conversation",
-      "evidence": "Quote or paraphrase supporting this",
-      "recommendation": "How to leverage this insight"
-    }
-  ],
-  "missed_opportunities": [
-    "Opportunity that wasn't explored",
-    "Question that should have been asked"
-  ],
-  "successful_moments": [
-    "Effective technique or approach used",
-    "Positive interaction or breakthrough"
-  ],
-  "follow_up_questions": [
-    "Important question for next conversation",
-    "Clarification needed on specific topic"
-  ],
-  "conversation_dynamics": {
-    "rapport_level": "excellent|good|neutral|poor",
-    "engagement_quality": "high|medium|low",
-    "dominant_speaker": "ME|THEM|balanced",
-    "pace": "fast|moderate|slow",
-    "tone": "formal|casual|mixed"
-  },
-  "effectiveness_metrics": {
-    "objective_achievement": 0-100,
-    "communication_clarity": 0-100,
-    "participant_satisfaction": 0-100,
-    "overall_success": 0-100,
-    "agenda_alignment": 0-100,
-    "speaking_balance": 0-100,
-    "engagement_level": 0-100
-  },
-  "agenda_coverage": {
-    "items_covered": ["List of agenda items that were discussed"],
-    "items_missed": ["List of agenda items that were not covered"],
-    "unexpected_topics": ["Topics discussed that weren't in the agenda"]
-  },
-  "coaching_recommendations": [
-    "Specific advice for improving future conversations",
-    "Skill to develop based on this conversation"
-  ]
-}`;
+async function generateFinalSummary(transcript: string, context: MeetingContext, config: SummaryPromptConfig, participantMe?: string, participantThem?: string): Promise<EnhancedSummary> {
+  // Generate the enhanced prompt using our new system
+  const promptContent = generateEnhancedSummaryPrompt(transcript, context, config);
 
   const model = await getAIModelForAction(AIAction.SUMMARY);
   const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
@@ -602,36 +508,12 @@ Return a JSON object with this EXACT structure:
       model,
       messages: [
         {
-          role: 'system',
-          content: systemPrompt
-        },
-        {
           role: 'user',
-          content: `Analyze this ${conversationType || 'business'} conversation and provide specific, actionable insights.
-
-MEETING AGENDA AND CONTEXT:
-${fullContext || 'No additional context provided.'}
-
-KEY ANALYSIS REQUIREMENTS:
-1. Compare what was actually discussed against the meeting agenda/context above
-2. Identify which agenda items were covered and which were missed
-3. Assess how well the meeting achieved its stated goals
-4. Note any unexpected topics that arose outside the agenda
-
-CONVERSATION TRANSCRIPT:
-${transcript}
-
-Remember: 
-- Be specific, reference actual content, and provide value beyond generic observations
-- Use the provided context to understand the background and continuity
-- Use the speaker names exactly as they appear in the transcript
-- For brief conversations, keep the analysis proportional - don't over-interpret simple exchanges
-- If previous conversations are mentioned, consider follow-up on past action items or decisions
-- Explicitly mention how the conversation aligned with or deviated from the meeting agenda`
+          content: promptContent
         }
       ],
       temperature: 0.3,
-      max_tokens: 2500,
+      max_tokens: 8000,
       response_format: { type: 'json_object' }
     })
   });
@@ -650,14 +532,29 @@ Remember:
 
   let summary;
   try {
-    const rawContent = data.choices[0].message.content;
+    let rawContent = data.choices[0].message.content;
     console.log('📄 Raw AI response (first 500 chars):', rawContent?.substring(0, 500));
+    console.log('📄 Raw AI response length:', rawContent?.length);
+    
+    // Check if the response seems truncated
+    if (rawContent && !rawContent.trim().endsWith('}')) {
+      console.warn('⚠️ Response appears to be truncated');
+      // Try to add missing closing braces
+      const openBraces = (rawContent.match(/{/g) || []).length;
+      const closeBraces = (rawContent.match(/}/g) || []).length;
+      const missingBraces = openBraces - closeBraces;
+      if (missingBraces > 0) {
+        rawContent += '}'.repeat(missingBraces);
+        console.log('🔧 Added missing closing braces:', missingBraces);
+      }
+    }
     
     summary = JSON.parse(rawContent);
     console.log('✅ Successfully parsed AI summary JSON');
   } catch (parseError) {
     console.error('❌ Failed to parse AI summary JSON:', parseError);
-    console.error('🔍 Raw content that failed to parse:', data.choices[0].message.content);
+    console.error('🔍 Raw content length:', data.choices[0].message.content?.length);
+    console.error('🔍 Raw content last 200 chars:', data.choices[0].message.content?.slice(-200));
     
     // Return a fallback summary structure
     summary = {
@@ -692,89 +589,48 @@ Remember:
     };
   }
   
+  // Process email draft if included
+  let emailDraft = null;
+  if (config.includeEmailDraft && summary.followUpEmail) {
+    emailDraft = summary.followUpEmail;
+  }
+  
   // Map the new structure to the expected database fields
   return {
-    tldr: summary.tldr,
-    key_points: summary.key_points || [],
-    action_items: summary.action_items?.map((item: string | SummaryActionItem) => 
-      typeof item === 'string' ? item : `${item.task} (${item.owner}) - ${item.timeline}`
+    tldr: summary.executiveSummary?.oneLineSummary || summary.tldr,
+    key_points: summary.discussion?.mainTopics?.map(t => t.summary) || summary.key_points || [],
+    action_items: summary.actionItems?.map((item: any) => 
+      `${item.task} (${item.owner}) - ${item.deadline} [${item.priority}]`
     ) || [],
-    outcomes: summary.decisions_made?.map((d: SummaryDecision) => d.decision) || [],
-    next_steps: summary.follow_up_questions || [],
-    insights: summary.insights || [],
-    missed_opportunities: summary.missed_opportunities || [],
-    successful_moments: summary.successful_moments || [],
-    conversation_dynamics: summary.conversation_dynamics || {},
-    effectiveness_metrics: summary.effectiveness_metrics || {},
-    agenda_coverage: summary.agenda_coverage || {},
-    coaching_recommendations: summary.coaching_recommendations || []
+    outcomes: summary.discussion?.keyDecisions?.map((d: any) => d.decision) || [],
+    next_steps: summary.actionItems?.map((item: any) => item.task) || [],
+    insights: summary.analysis?.momentum?.positive || [],
+    missed_opportunities: summary.analysis?.momentum?.concerns || [],
+    successful_moments: summary.analysis?.relationships?.strongAlignment || [],
+    conversation_dynamics: {
+      rapport_level: 'good',
+      engagement_quality: summary.effectivenessScore?.breakdown?.participation > 80 ? 'high' : 'medium',
+      dominant_speaker: 'balanced',
+      pace: 'moderate',
+      tone: 'professional'
+    },
+    effectiveness_metrics: summary.effectivenessScore?.breakdown || {},
+    agenda_coverage: summary.nextMeeting ? {
+      items_covered: [],
+      items_missed: [],
+      unexpected_topics: []
+    } : {},
+    coaching_recommendations: summary.coaching?.improvements || [],
+    email_draft: emailDraft,
+    risk_assessment: summary.riskAssessment,
+    effectiveness_score: summary.effectivenessScore,
+    next_meeting_template: summary.nextMeeting
   };
 }
 
-async function generateFinalizationData(transcript: string, context: string, conversationType?: string, summary?: EnhancedSummary, participantMe?: string, participantThem?: string): Promise<FinalizationData> {
-  const meLabel = participantMe || 'Speaker 1';
-  const themLabel = participantThem || 'Speaker 2';
-  
-  const systemPrompt = `You are an expert conversation coach providing deep analysis and actionable recommendations.
-
-${getCurrentDateContext()}
-
-Analyze the conversation for patterns, techniques, and opportunities.
-
-IMPORTANT: 
-- The transcript contains actual speaker names. Use these names exactly as they appear in your analysis.
-- Use the meeting context/agenda to assess effectiveness against intended goals.
-
-Return a JSON object with this structure:
-{
-  "performance_analysis": {
-    "strengths": [
-      "Specific strength demonstrated with example",
-      "Effective technique used and when"
-    ],
-    "areas_for_improvement": [
-      "Specific area needing work with suggestion",
-      "Missed opportunity with alternative approach"
-    ],
-    "communication_effectiveness": 0-100,
-    "goal_achievement": 0-100,
-    "listening_quality": 0-100,
-    "question_effectiveness": 0-100
-  },
-  "conversation_patterns": {
-    "opening_effectiveness": "How well the conversation started",
-    "flow_management": "How well topics transitioned",
-    "closing_quality": "How effectively it concluded",
-    "energy_levels": "High/Medium/Low throughout"
-  },
-  "key_techniques_used": [
-    {
-      "technique": "Name of technique",
-      "example": "How it was used",
-      "effectiveness": "Impact it had"
-    }
-  ],
-  "recommendations": [
-    {
-      "area": "Specific skill or approach",
-      "suggestion": "Concrete improvement strategy",
-      "practice_tip": "How to implement this"
-    }
-  ],
-  "follow_up_strategy": {
-    "immediate_actions": ["Within 24 hours"],
-    "short_term": ["Within a week"],
-    "long_term": ["Ongoing relationship building"]
-  },
-  "success_indicators": [
-    "What went particularly well",
-    "Positive outcomes achieved"
-  ],
-  "risk_factors": [
-    "Potential issues to monitor",
-    "Areas requiring attention"
-  ]
-}`;
+async function generateFinalizationData(transcript: string, summaryData: any, context: MeetingContext, participantMe?: string, participantThem?: string): Promise<FinalizationData> {
+  // Generate the coaching prompt using our new system
+  const promptContent = generateCoachingPrompt(transcript, summaryData, context);
 
   const model2 = await getAIModelForAction(AIAction.SUMMARY);
   const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
@@ -789,29 +645,12 @@ Return a JSON object with this structure:
       model: model2,
       messages: [
         {
-          role: 'system',
-          content: systemPrompt
-        },
-        {
           role: 'user',
-          content: `Provide deep performance analysis and coaching for this ${conversationType || 'business'} conversation.
-
-MEETING AGENDA AND CONTEXT:
-${context || 'No additional context'}
-
-ANALYSIS FOCUS:
-1. How well did the conversation achieve the goals outlined in the agenda/context?
-2. Which planned topics were covered effectively vs. missed?
-3. How could the conversation have been more aligned with the stated objectives?
-
-CONVERSATION TRANSCRIPT:
-${transcript}
-
-Provide specific, evidence-based analysis with actionable recommendations that reference both the transcript and the meeting agenda/context.`
+          content: promptContent
         }
       ],
       temperature: 0.4,
-      max_tokens: 2000,
+      max_tokens: 6000,
       response_format: { type: 'json_object' }
     })
   });
@@ -829,12 +668,40 @@ Provide specific, evidence-based analysis with actionable recommendations that r
   });
 
   try {
-    const rawContent = data.choices[0].message.content;
+    let rawContent = data.choices[0].message.content;
     console.log('📄 Raw finalization response (first 500 chars):', rawContent?.substring(0, 500));
+    console.log('📄 Raw finalization response length:', rawContent?.length);
+    
+    // Check if the response seems truncated
+    if (rawContent && !rawContent.trim().endsWith('}')) {
+      console.warn('⚠️ Response appears to be truncated');
+      // Try to add missing closing braces
+      const openBraces = (rawContent.match(/{/g) || []).length;
+      const closeBraces = (rawContent.match(/}/g) || []).length;
+      const missingBraces = openBraces - closeBraces;
+      if (missingBraces > 0) {
+        rawContent += '}'.repeat(missingBraces);
+        console.log('🔧 Added missing closing braces:', missingBraces);
+      }
+    }
     
     const result = JSON.parse(rawContent);
     console.log('✅ Successfully parsed finalization JSON');
-    return result;
+    // Map the coaching analysis to FinalizationData structure
+    return {
+      performance_analysis: result.performanceAnalysis || result.performance_analysis,
+      conversation_patterns: result.communicationPatterns || result.conversation_patterns,
+      key_techniques_used: result.strategicInsights?.opportunities || result.key_techniques_used || [],
+      recommendations: result.nextTimeRecommendations?.techniques || result.recommendations || [],
+      follow_up_strategy: result.strategicInsights || result.follow_up_strategy || {
+        immediate_actions: [],
+        short_term: [],
+        long_term: []
+      },
+      success_indicators: result.performanceAnalysis?.strengths?.map((s: any) => s.area) || result.success_indicators || [],
+      risk_factors: result.strategicInsights?.risks?.map((r: any) => r.what) || result.risk_factors || [],
+      templates: result.templates
+    };
   } catch (parseError) {
     console.error('❌ Failed to parse finalization JSON:', parseError);
     console.error('🔍 Raw finalization content that failed to parse:', data.choices[0].message.content);

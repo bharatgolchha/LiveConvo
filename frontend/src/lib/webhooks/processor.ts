@@ -1,4 +1,4 @@
-import { broadcastWebhookEvent } from '@/app/api/webhooks/events/route';
+import { broadcastWebhookEvent } from '@/lib/webhooks/event-broadcaster';
 
 export interface WebhookEvent {
   type: string;
