@@ -22,7 +22,8 @@ import {
   Star,
   Calendar,
   TrendingUp,
-  Mail
+  Mail,
+  RefreshCw
 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
@@ -134,6 +135,8 @@ export default function SummaryPage() {
   const [showShareModal, setShowShareModal] = useState(false);
   const [shareLink, setShareLink] = useState<string | null>(null);
   const [isGeneratingShareLink, setIsGeneratingShareLink] = useState(false);
+  const [isRegenerating, setIsRegenerating] = useState(false);
+  const [regenerateSuccess, setRegenerateSuccess] = useState(false);
 
   useEffect(() => {
     if (user && session) {
@@ -265,6 +268,51 @@ export default function SummaryPage() {
       });
     }
     setIsEditing(false);
+  };
+
+  const handleRegenerateSummary = async () => {
+    if (!sessionData) return;
+    
+    setIsRegenerating(true);
+    try {
+      const headers: HeadersInit = { 'Content-Type': 'application/json' };
+      if (session?.access_token) {
+        headers['Authorization'] = `Bearer ${session.access_token}`;
+      }
+
+      // Call the finalize endpoint with regenerate flag
+      const response = await fetch(`/api/sessions/${sessionId}/finalize`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          regenerate: true,
+          conversationType: sessionData.conversation_type,
+          conversationTitle: sessionData.title,
+          participantMe: sessionData.participant_me,
+          participantThem: sessionData.participant_them
+        })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to regenerate summary');
+      }
+
+      const result = await response.json();
+      
+      // Refresh the session data after regeneration
+      await fetchSessionSummary();
+      
+      // Show success message
+      console.log('✅ Summary regenerated successfully');
+      setRegenerateSuccess(true);
+      setTimeout(() => setRegenerateSuccess(false), 5000);
+    } catch (err) {
+      console.error('Failed to regenerate summary:', err);
+      setError(err instanceof Error ? err.message : 'Failed to regenerate summary');
+    } finally {
+      setIsRegenerating(false);
+    }
   };
 
   const formatDuration = (seconds: number) => {
@@ -665,6 +713,19 @@ export default function SummaryPage() {
             animate={{ opacity: 1, y: 0 }}
             className="lg:col-span-3 space-y-6"
           >
+            {/* Success Message */}
+            {regenerateSuccess && (
+              <motion.div
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                className="bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-800 rounded-lg p-4 flex items-center gap-2"
+              >
+                <CheckCircle className="w-5 h-5 text-green-600 dark:text-green-400" />
+                <p className="text-green-800 dark:text-green-200">Summary regenerated successfully!</p>
+              </motion.div>
+            )}
+
             {/* TL;DR */}
             <Card className="p-6">
               <div className="flex items-center justify-between mb-4">
@@ -687,24 +748,45 @@ export default function SummaryPage() {
             <Card className="p-6">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-lg font-semibold text-foreground">AI Summary</h3>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => isEditing ? handleSave() : setIsEditing(true)}
-                  className="flex items-center gap-2"
-                >
-                  {isEditing ? (
-                    <>
-                      <Check className="w-4 h-4" />
-                      Save
-                    </>
-                  ) : (
-                    <>
-                      <Edit3 className="w-4 h-4" />
-                      Edit
-                    </>
-                  )}
-                </Button>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleRegenerateSummary}
+                    disabled={isRegenerating}
+                    className="flex items-center gap-2"
+                  >
+                    {isRegenerating ? (
+                      <>
+                        <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                        Regenerating...
+                      </>
+                    ) : (
+                      <>
+                        <RefreshCw className="w-4 h-4" />
+                        Regenerate
+                      </>
+                    )}
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => isEditing ? handleSave() : setIsEditing(true)}
+                    className="flex items-center gap-2"
+                  >
+                    {isEditing ? (
+                      <>
+                        <Check className="w-4 h-4" />
+                        Save
+                      </>
+                    ) : (
+                      <>
+                        <Edit3 className="w-4 h-4" />
+                        Edit
+                      </>
+                    )}
+                  </Button>
+                </div>
               </div>
               
               {isEditing ? (
