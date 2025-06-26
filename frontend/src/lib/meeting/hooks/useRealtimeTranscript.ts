@@ -2,6 +2,9 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useMeetingContext } from '../context/MeetingContext';
 import { TranscriptMessage } from '../types/transcript.types';
+import { useRecallTranscriptStream } from '@/lib/hooks/useRecallTranscriptStream';
+import { useAuth } from '@/contexts/AuthContext';
+import { TranscriptLine } from '@/types/conversation';
 
 /**
  * useRealtimeTranscript
@@ -11,14 +14,17 @@ import { TranscriptMessage } from '../types/transcript.types';
  * for maximum reliability and reduced complexity.
  */
 export function useRealtimeTranscript(sessionId: string) {
-  const { setTranscript, addTranscriptMessage } = useMeetingContext();
+  const { setTranscript, addTranscriptMessage, updateTranscriptMessage, removeTranscriptMessage } = useMeetingContext();
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<Error | null>(null);
+  const [connectionStatus, setConnectionStatus] = useState<'disconnected' | 'connected' | 'polling' | 'sse'>('disconnected');
+  const { session } = useAuth();
 
   // Keep a set of IDs we've already processed to avoid duplicates
   const seenIds = useRef<Set<string>>(new Set());
   const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
   const lastSeqRef = useRef<number>(0);
+  const partialMessages = useRef<Map<string, string>>(new Map()); // Track partial message IDs by speaker
 
   /** Load the full transcript once (or refresh on demand) */
   const loadTranscript = useCallback(async () => {
@@ -61,6 +67,67 @@ export function useRealtimeTranscript(sessionId: string) {
     }
   }, [sessionId, setTranscript]);
 
+  // SSE handler for partial transcripts
+  const handleSSETranscript = useCallback((line: TranscriptLine) => {
+    console.log('[SSE] Received transcript:', line);
+    
+    // Convert TranscriptLine to TranscriptMessage
+    const message: TranscriptMessage = {
+      id: line.id,
+      sessionId: sessionId,
+      speaker: line.displayName || line.speaker,
+      text: line.text,
+      timestamp: line.timestamp.toISOString(),
+      timeSeconds: (line as any).timeSeconds || 0, // Get from webhook data
+      isFinal: line.isFinal || !line.isPartial,
+      isPartial: line.isPartial,
+      confidence: line.confidence,
+      displayName: line.displayName,
+      isOwner: line.isOwner
+    };
+    
+    if (line.isPartial) {
+      // Handle partial transcript
+      const speakerKey = line.speaker;
+      const existingPartialId = partialMessages.current.get(speakerKey);
+      
+      if (existingPartialId) {
+        // Update the message with the new partial ID to maintain proper React keys
+        updateTranscriptMessage(existingPartialId, { ...message, id: existingPartialId });
+      } else {
+        // Add new partial message
+        addTranscriptMessage(message);
+        partialMessages.current.set(speakerKey, line.id);
+      }
+      setConnectionStatus('sse');
+    } else if (line.isFinal) {
+      // Replace partial with final
+      const speakerKey = line.speaker;
+      const existingPartialId = partialMessages.current.get(speakerKey);
+      
+      if (existingPartialId) {
+        // Remove the partial message first
+        removeTranscriptMessage(existingPartialId);
+        // Remove partial message tracking
+        partialMessages.current.delete(speakerKey);
+      }
+      
+      // Add final message if not already seen
+      if (!seenIds.current.has(line.id)) {
+        addTranscriptMessage(message);
+        seenIds.current.add(line.id);
+      }
+    }
+  }, [addTranscriptMessage, updateTranscriptMessage, removeTranscriptMessage, sessionId]);
+
+  // Use SSE stream for real-time partial transcripts
+  useRecallTranscriptStream({
+    sessionId,
+    enabled: !!sessionId && !!session,
+    onTranscript: handleSSETranscript,
+    authToken: session?.access_token
+  });
+
   /** Subscribe to INSERT events for this session */
   useEffect(() => {
     if (!sessionId) return;
@@ -102,8 +169,12 @@ export function useRealtimeTranscript(sessionId: string) {
         },
       )
       .subscribe(status => {
-         
         console.log('[RealtimeTranscript] subscription status:', status);
+        if (status === 'SUBSCRIBED') {
+          setConnectionStatus('connected');
+        } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+          setConnectionStatus('disconnected');
+        }
       });
 
     channelRef.current = channel;
@@ -114,11 +185,12 @@ export function useRealtimeTranscript(sessionId: string) {
     };
   }, [sessionId, loadTranscript, addTranscriptMessage]);
 
-  /** Polling fallback: checks every 5 s for new rows in case Realtime misses something */
+  /** Polling fallback: checks every 2s for new rows in case Realtime misses something */
   useEffect(() => {
     if (!sessionId) return;
 
     const interval = setInterval(async () => {
+      setConnectionStatus('polling');
       try {
         const { data, error: fetchError } = await supabase
           .from('transcripts')
@@ -154,7 +226,7 @@ export function useRealtimeTranscript(sessionId: string) {
       } catch (err) {
         // silent
       }
-    }, 5000);
+    }, 2000); // every 2 seconds for faster updates
 
     return () => clearInterval(interval);
   }, [sessionId, addTranscriptMessage]);
@@ -163,5 +235,6 @@ export function useRealtimeTranscript(sessionId: string) {
     loading,
     error,
     refresh: loadTranscript,
+    connectionStatus,
   };
 } 

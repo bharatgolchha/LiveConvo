@@ -78,9 +78,6 @@ export class RecallAIClient {
             ]
           },
         ] : [],
-        video_mixed_layout: 'audio_only', // We only need audio
-        participant_events: {},            // Track join/leave for robust presence detection
-        include_bot_in_recording: { visible: false },
       },
       automatic_leave: {
         waiting_room_timeout: 3600, // 1 hour instead of 20 minutes
@@ -184,9 +181,7 @@ export class RecallAIClient {
     switch (provider) {
       case 'deepgram':
         return { 
-          deepgram_streaming: {
-            model: 'nova-3'
-          }
+          deepgram_streaming: {}
         };
       case 'speechmatics':
         return { speechmatics_streaming: {} };
@@ -194,9 +189,7 @@ export class RecallAIClient {
         return { assembly_ai_streaming: {} };
       default:
         return { 
-          deepgram_streaming: {
-            model: 'nova-3'
-          }
+          deepgram_streaming: {}
         };
     }
   }

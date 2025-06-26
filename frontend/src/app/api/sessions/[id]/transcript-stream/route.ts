@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server';
 import { createServerSupabaseClient } from '@/lib/supabase';
-import { addConnection, removeConnection } from '@/lib/recall-ai/transcript-broadcaster';
+import { addConnection, removeConnection, getBufferedMessages } from '@/lib/recall-ai/transcript-broadcaster';
 
 export async function GET(
   request: NextRequest,
@@ -20,6 +20,18 @@ export async function GET(
       controller.enqueue(
         encoder.encode(`data: ${JSON.stringify({ type: 'connected', sessionId })}\n\n`)
       );
+      
+      // Send any buffered messages (last 1 minute)
+      const oneMinuteAgo = Date.now() - 60000;
+      const bufferedMessages = getBufferedMessages(sessionId, oneMinuteAgo);
+      if (bufferedMessages.length > 0) {
+        console.log(`📦 Sending ${bufferedMessages.length} buffered messages to catch up`);
+        bufferedMessages.forEach(msg => {
+          controller.enqueue(
+            encoder.encode(`data: ${JSON.stringify(msg)}\n\n`)
+          );
+        });
+      }
       
       // Create listener for this connection
       const listener = (data: any) => {

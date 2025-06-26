@@ -12,7 +12,7 @@ interface TranscriptMessageProps {
   previousSpeaker?: string;
 }
 
-export function TranscriptMessage({ message, previousSpeaker }: TranscriptMessageProps) {
+function TranscriptMessageComponent({ message, previousSpeaker }: TranscriptMessageProps) {
   const { meeting } = useMeetingContext();
   const speakerLabel = message.displayName || message.speaker;
   const showAvatar = speakerLabel !== previousSpeaker;
@@ -145,3 +145,15 @@ export function TranscriptMessage({ message, previousSpeaker }: TranscriptMessag
     </motion.div>
   );
 }
+
+// Memoize the component to prevent unnecessary re-renders
+export const TranscriptMessage = React.memo(TranscriptMessageComponent, (prevProps, nextProps) => {
+  // Custom comparison function - only re-render if message content or speaker changes
+  return (
+    prevProps.message.id === nextProps.message.id &&
+    prevProps.message.text === nextProps.message.text &&
+    prevProps.message.isPartial === nextProps.message.isPartial &&
+    prevProps.message.confidence === nextProps.message.confidence &&
+    prevProps.previousSpeaker === nextProps.previousSpeaker
+  );
+});

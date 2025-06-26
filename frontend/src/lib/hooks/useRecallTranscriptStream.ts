@@ -52,7 +52,9 @@ export function useRecallTranscriptStream({
                 speaker: data.data.speaker as 'ME' | 'THEM',
                 confidence: data.data.confidence,
                 isOwner: data.data.isOwner,
-                displayName: data.data.displayName
+                displayName: data.data.displayName,
+                isPartial: data.data.isPartial,
+                isFinal: data.data.isFinal
               };
               
               console.log('📝 Processing transcript:', transcriptLine);
@@ -72,9 +74,9 @@ export function useRecallTranscriptStream({
         eventSourceRef.current.onerror = (error) => {
           console.error('Transcript stream error:', error);
           
-          // Reconnect with exponential backoff
-          if (reconnectAttemptsRef.current < 5) {
-            const delay = Math.min(1000 * Math.pow(2, reconnectAttemptsRef.current), 30000);
+          // Reconnect with faster exponential backoff (start at 500ms instead of 1s)
+          if (reconnectAttemptsRef.current < 10) { // More attempts
+            const delay = Math.min(500 * Math.pow(1.5, reconnectAttemptsRef.current), 5000); // Max 5s instead of 30s
             reconnectAttemptsRef.current++;
             
             console.log(`Reconnecting in ${delay}ms (attempt ${reconnectAttemptsRef.current})`);
