@@ -210,18 +210,18 @@ LiveConvo is deployed with the following infrastructure:
 
 - **Platform**: Vercel
 - **Database**: Supabase PostgreSQL
-- **Production Database**: `txacbzmkbbhtuvvbscwi` (LiveConvo Production)
+- **Production Database**: `juuysuamfoteblrqqdnu` (LiveConvo Production)
 - **Development Database**: `ucvfgfbjcrxbzppwjpuu` (VoiceConvo Dev)
 
 ### Environment URLs
 
 #### Production
-- **Database URL**: `https://txacbzmkbbhtuvvbscwi.supabase.co`
+- **Database URL**: `https://juuysuamfoteblrqqdnu.supabase.co`
 - **Edge Functions**:
-  - Stripe Webhooks: `https://txacbzmkbbhtuvvbscwi.supabase.co/functions/v1/stripe-webhooks`
-  - Create Checkout: `https://txacbzmkbbhtuvvbscwi.supabase.co/functions/v1/create-checkout-session`
-  - Billing Portal: `https://txacbzmkbbhtuvvbscwi.supabase.co/functions/v1/create-portal-session`
-  - Test Stripe Config: `https://txacbzmkbbhtuvvbscwi.supabase.co/functions/v1/test-stripe-config`
+  - Stripe Webhooks: `https://juuysuamfoteblrqqdnu.supabase.co/functions/v1/stripe-webhooks`
+  - Create Checkout: `https://juuysuamfoteblrqqdnu.supabase.co/functions/v1/create-checkout-session`
+  - Billing Portal: `https://juuysuamfoteblrqqdnu.supabase.co/functions/v1/create-portal-session`
+  - Test Stripe Config: `https://juuysuamfoteblrqqdnu.supabase.co/functions/v1/test-stripe-config`
 
 #### Development
 - **Database URL**: `https://ucvfgfbjcrxbzppwjpuu.supabase.co`
@@ -246,8 +246,8 @@ For production deployment, configure these environment variables in Vercel:
 
 ```bash
 # Production Database
-NEXT_PUBLIC_SUPABASE_URL=https://txacbzmkbbhtuvvbscwi.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR4YWNiem1rYmJodHV2dmJzY3dpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTAwNTkwMjQsImV4cCI6MjA2NTYzNTAyNH0.qzb4ufGObX_MpRf7cUt7LYA7JPnHA_ondjIUqtMr9zE
+NEXT_PUBLIC_SUPABASE_URL=https://juuysuamfoteblrqqdnu.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=[Your production anon key from Supabase Dashboard]
 SUPABASE_SERVICE_ROLE_KEY=[Get from Supabase Dashboard]
 
 # API Keys

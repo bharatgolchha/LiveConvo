@@ -28,6 +28,7 @@ Please use Supabase MCP for anything database related.
 }
 
 SUPABASE_URL=https://ucvfgfbjcrxbzppwjpuu.supabase.co
+PRODUCTION_SUPABASE_URL=https://juuysuamfoteblrqqdnu.supabase.co
 ### Core Technologies
 - **Frontend**: Next.js 15.3.2, TypeScript, Tailwind CSS, Radix UI
 - **Backend**: Next.js API routes, Supabase PostgreSQL
@@ -37,7 +38,7 @@ SUPABASE_URL=https://ucvfgfbjcrxbzppwjpuu.supabase.co
 
 ### Database Environments
 - **Development**: `ucvfgfbjcrxbzppwjpuu` (VoiceConvo Dev)
-- **Production**: `txacbzmkbbhtuvvbscwi` (LiveConvo Production)
+- **Production**: `juuysuamfoteblrqqdnu` (livePrompt Live)
 
 
 ## Tech Stack
@@ -189,16 +190,16 @@ DEEPGRAM_API_KEY=
 - **Status**: Active development database
 
 ### Production Environment  
-- **Database**: LiveConvo Production (`txacbzmkbbhtuvvbscwi`)
-- **URL**: https://txacbzmkbbhtuvvbscwi.supabase.co
-- **Region**: ap-southeast-1 (Singapore)
+- **Database**: livePrompt Live (West) (`juuysuamfoteblrqqdnu`)
+- **URL**: https://juuysuamfoteblrqqdnu.supabase.co
+- **Region**: us-west-1 (US West)
 - **Status**: Production-ready with full schema and edge functions
 
 ### Edge Functions (Production)
-- **Stripe Webhooks**: `https://txacbzmkbbhtuvvbscwi.supabase.co/functions/v1/stripe-webhooks`
-- **Create Checkout**: `https://txacbzmkbbhtuvvbscwi.supabase.co/functions/v1/create-checkout-session`
-- **Billing Portal**: `https://txacbzmkbbhtuvvbscwi.supabase.co/functions/v1/create-portal-session`
-- **Test Stripe Config**: `https://txacbzmkbbhtuvvbscwi.supabase.co/functions/v1/test-stripe-config`
+- **Stripe Webhooks**: `https://juuysuamfoteblrqqdnu.supabase.co/functions/v1/stripe-webhooks`
+- **Create Checkout**: `https://juuysuamfoteblrqqdnu.supabase.co/functions/v1/create-checkout-session`
+- **Billing Portal**: `https://juuysuamfoteblrqqdnu.supabase.co/functions/v1/create-portal-session`
+- **Test Stripe Config**: `https://juuysuamfoteblrqqdnu.supabase.co/functions/v1/test-stripe-config`
 
 ### Deployment Configuration
 - **Platform**: Vercel
@@ -210,8 +211,8 @@ DEEPGRAM_API_KEY=
 ### Production Environment Variables
 ```bash
 # Production Database
-NEXT_PUBLIC_SUPABASE_URL=https://txacbzmkbbhtuvvbscwi.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR4YWNiem1rYmJodHV2dmJzY3dpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTAwNTkwMjQsImV4cCI6MjA2NTYzNTAyNH0.qzb4ufGObX_MpRf7cUt7LYA7JPnHA_ondjIUqtMr9zE
+NEXT_PUBLIC_SUPABASE_URL=https://juuysuamfoteblrqqdnu.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=[Get from Supabase Dashboard - production anon key]
 SUPABASE_SERVICE_ROLE_KEY=[Get from Supabase Dashboard]
 
 # API Keys

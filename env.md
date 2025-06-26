@@ -31,7 +31,7 @@ For production deployment, ensure you have the following additional variables:
 
 ```bash
 # Production Database
-NEXT_PUBLIC_SUPABASE_URL=https://txacbzmkbbhtuvvbscwi.supabase.co
+NEXT_PUBLIC_SUPABASE_URL=https://juuysuamfoteblrqqdnu.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your-production-anon-key
 SUPABASE_SERVICE_ROLE_KEY=your-production-service-role-key
 
