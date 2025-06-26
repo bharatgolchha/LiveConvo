@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createServerSupabaseClient } from '@/lib/supabase';
 import { headers } from 'next/headers';
 import { broadcastTranscript } from '@/lib/recall-ai/transcript-broadcaster';
+import { RecallAIClient } from '@/lib/recall-ai/client';
 
 interface RecallWebhookEvent {
   event: 'transcript.data' | 'transcript.partial_data' | 'participant_events.join' | 'participant_events.leave' | 'participant_events.update' | 'participant_events.speech_on' | 'participant_events.speech_off' | 'participant_events.webcam_on' | 'participant_events.webcam_off' | 'participant_events.screenshare_on' | 'participant_events.screenshare_off' | 'participant_events.chat_message' | 'bot.joining_call' | 'bot.in_waiting_room' | 'bot.in_call_not_recording' | 'bot.recording_permission_allowed' | 'bot.in_call_recording' | 'bot.recording_permission_denied' | 'bot.call_ended' | 'bot.done' | 'bot.fatal';
@@ -171,6 +172,9 @@ async function handleBotStatusChange(
         } else {
           console.error(`❌ Failed to mark bot usage as completed for ${botId}`);
         }
+        
+        // Fetch and store recording URL
+        await fetchAndStoreRecordingUrl(botId, sessionId, supabase);
         
         // Update the session status to completed
         const { error: sessionUpdateError } = await supabase
@@ -530,6 +534,64 @@ async function createUsageTrackingEntries(
       .insert(entries);
 
     console.log(`📊 Created ${entries.length} usage tracking entries for bot recording`);
+  }
+}
+
+/**
+ * Fetch and store recording URL from Recall.ai
+ */
+async function fetchAndStoreRecordingUrl(
+  botId: string,
+  sessionId: string,
+  supabase: any
+): Promise<void> {
+  try {
+    console.log(`🎬 Fetching recording URL for bot ${botId}`);
+    
+    // Initialize Recall client
+    const recallClient = new RecallAIClient({
+      apiKey: process.env.RECALL_API_KEY!,
+      region: (process.env.RECALL_REGION as any) || 'us-west-2',
+    });
+    
+    // Get bot with recordings
+    const bot = await recallClient.getBotWithRecordings(botId);
+    
+    if (!bot.recordings || bot.recordings.length === 0) {
+      console.log(`⚠️ No recordings found for bot ${botId}`);
+      return;
+    }
+    
+    // Get the first recording (usually there's only one per bot)
+    const recording = bot.recordings[0];
+    const videoUrl = recallClient.extractVideoUrl(recording);
+    
+    if (!videoUrl) {
+      console.log(`⚠️ No video URL available for recording ${recording.id}`);
+      return;
+    }
+    
+    // Update session with recording information
+    const { error: updateError } = await supabase
+      .from('sessions')
+      .update({
+        recall_recording_id: recording.id,
+        recall_recording_url: videoUrl,
+        recall_recording_status: recording.status.code,
+        recall_recording_expires_at: recording.expires_at,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', sessionId);
+      
+    if (updateError) {
+      console.error(`❌ Failed to update session with recording URL:`, updateError);
+    } else {
+      console.log(`✅ Recording URL stored for session ${sessionId}`);
+      console.log(`🔗 Video URL: ${videoUrl.substring(0, 100)}...`);
+    }
+  } catch (error) {
+    console.error(`❌ Error fetching recording URL for bot ${botId}:`, error);
+    // Don't throw - allow webhook to succeed even if this fails
   }
 }
 

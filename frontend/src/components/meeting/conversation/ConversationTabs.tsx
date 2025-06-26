@@ -4,13 +4,15 @@ import {
   ChatBubbleLeftRightIcon, 
   DocumentTextIcon,
   ClipboardDocumentListIcon,
-  LinkIcon
+  LinkIcon,
+  VideoCameraIcon
 } from '@heroicons/react/24/outline';
 import { useMeetingContext } from '@/lib/meeting/context/MeetingContext';
 import { LiveTranscriptTab } from './LiveTranscriptTab';
 import { RealtimeSummaryTab } from './RealtimeSummaryTab';
 import { SmartNotesTab } from './SmartNotesTab';
 import { PreviousMeetingsTab } from './PreviousMeetingsTab';
+import { RecordingTab } from './RecordingTab';
 import { TabContent } from './TabContent';
 
 const tabs = [
@@ -37,6 +39,12 @@ const tabs = [
     label: 'Previous Meetings',
     icon: LinkIcon,
     description: 'Linked previous meetings context'
+  },
+  {
+    id: 'recording' as const,
+    label: 'Recording',
+    icon: VideoCameraIcon,
+    description: 'Meeting video recording'
   }
 ];
 
@@ -55,6 +63,9 @@ export function ConversationTabs() {
             // Show badge for Previous Meetings tab if there are linked conversations
             const showBadge = tab.id === 'previous' && linkedConversations && linkedConversations.length > 0;
             
+            // Show recording indicator
+            const showRecordingBadge = tab.id === 'recording' && meeting?.recallRecordingStatus === 'done';
+            
             return (
               <button
                 key={tab.id}
@@ -72,6 +83,10 @@ export function ConversationTabs() {
                   <span className="ml-1 px-1.5 py-0.5 text-xs bg-primary text-primary-foreground rounded-full">
                     {linkedConversations.length}
                   </span>
+                )}
+                
+                {showRecordingBadge && (
+                  <span className="ml-1 w-2 h-2 bg-green-500 rounded-full"></span>
                 )}
                 
                 {isActive && (
@@ -113,6 +128,7 @@ export function ConversationTabs() {
               }}
             />
           )}
+          {activeTab === 'recording' && <RecordingTab />}
         </TabContent>
       </div>
     </div>

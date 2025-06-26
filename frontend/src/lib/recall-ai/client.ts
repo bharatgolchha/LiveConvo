@@ -34,6 +34,54 @@ export interface RecallBot {
     message?: string;
     sub_code?: string;
   }>;
+  recordings?: RecallRecording[];
+}
+
+export interface RecallRecording {
+  id: string;
+  started_at: string | null;
+  completed_at: string | null;
+  expires_at: string;
+  status: {
+    code: 'processing' | 'paused' | 'done' | 'failed' | 'deleted';
+    sub_code?: string | null;
+    updated_at: string;
+  };
+  media_shortcuts?: {
+    video_mixed?: {
+      status: {
+        code: string;
+      };
+      data?: {
+        download_url: string;
+      };
+      format?: string;
+    };
+    transcript?: {
+      status: {
+        code: string;
+      };
+      data?: {
+        download_url: string;
+      };
+    };
+    participant_events?: {
+      status: {
+        code: string;
+      };
+      data?: {
+        download_url: string;
+      };
+    };
+    meeting_metadata?: {
+      status: {
+        code: string;
+      };
+      data?: {
+        download_url: string;
+      };
+    };
+  };
 }
 
 export class RecallAIClient {
@@ -175,6 +223,60 @@ export class RecallAIClient {
     }
 
     return response.json();
+  }
+
+  async getBotWithRecordings(botId: string): Promise<RecallBot> {
+    console.log('📡 Recall API - Getting bot with recordings:', botId);
+    
+    const response = await fetch(`${this.baseUrl}/bot/${botId}`, {
+      method: 'GET',
+      headers: this.headers,
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('❌ Failed to get bot with recordings:', errorText);
+      throw new Error(`Failed to get bot: ${response.statusText}`);
+    }
+
+    const bot = await response.json();
+    console.log('✅ Got bot with recordings:', bot);
+    return bot;
+  }
+
+  async getRecording(recordingId: string): Promise<RecallRecording> {
+    console.log('📡 Recall API - Getting recording:', recordingId);
+    
+    const response = await fetch(`${this.baseUrl}/recording/${recordingId}`, {
+      method: 'GET',
+      headers: this.headers,
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('❌ Failed to get recording:', errorText);
+      throw new Error(`Failed to get recording: ${response.statusText}`);
+    }
+
+    const recording = await response.json();
+    console.log('✅ Got recording:', recording);
+    return recording;
+  }
+
+  extractVideoUrl(recording: RecallRecording): string | null {
+    const videoMixed = recording.media_shortcuts?.video_mixed;
+    if (videoMixed?.status?.code === 'done' && videoMixed?.data?.download_url) {
+      return videoMixed.data.download_url;
+    }
+    return null;
+  }
+
+  extractTranscriptUrl(recording: RecallRecording): string | null {
+    const transcript = recording.media_shortcuts?.transcript;
+    if (transcript?.status?.code === 'done' && transcript?.data?.download_url) {
+      return transcript.data.download_url;
+    }
+    return null;
   }
 
   private getTranscriptionProvider(provider?: string) {
