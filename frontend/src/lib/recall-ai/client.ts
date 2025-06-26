@@ -181,7 +181,15 @@ export class RecallAIClient {
     switch (provider) {
       case 'deepgram':
         return { 
-          deepgram_streaming: {}
+          deepgram_streaming: {
+            model: 'nova-3',
+            smart_format: true,
+            punctuate: true,
+            profanity_filter: false,
+            diarize: true,
+            utterances: true,
+            interim_results: true
+          }
         };
       case 'speechmatics':
         return { speechmatics_streaming: {} };
@@ -189,7 +197,15 @@ export class RecallAIClient {
         return { assembly_ai_streaming: {} };
       default:
         return { 
-          deepgram_streaming: {}
+          deepgram_streaming: {
+            model: 'nova-3',
+            smart_format: true,
+            punctuate: true,
+            profanity_filter: false,
+            diarize: true,
+            utterances: true,
+            interim_results: true
+          }
         };
     }
   }

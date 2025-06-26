@@ -24,7 +24,15 @@ export function useRealtimeTranscript(sessionId: string) {
   const seenIds = useRef<Set<string>>(new Set());
   const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
   const lastSeqRef = useRef<number>(0);
-  const partialMessages = useRef<Map<string, string>>(new Map()); // Track partial message IDs by speaker
+  const partialMessages = useRef<Map<string, { id: string; timestamp: number; contentHash: string }>>(new Map()); // Track partial messages with timestamp and content
+  const partialCleanupInterval = useRef<NodeJS.Timeout | null>(null);
+  const recentFinalMessages = useRef<Map<string, number>>(new Map()); // Track recent final messages by content hash
+
+  // Simple hash function for content deduplication
+  const getContentHash = (text: string, speaker: string): string => {
+    const normalized = `${speaker}:${text.toLowerCase().trim().replace(/\s+/g, ' ')}`;
+    return normalized;
+  };
 
   /** Load the full transcript once (or refresh on demand) */
   const loadTranscript = useCallback(async () => {
@@ -52,13 +60,17 @@ export function useRealtimeTranscript(sessionId: string) {
         displayName: row.speaker,
       }));
 
+      // Track the highest sequence number from loaded data
+      let maxSequence = 0;
       messages.forEach(m => {
         seenIds.current.add(m.id);
-        // @ts-ignore - historic type may have sequence_number
-        if ((m as any).sequence_number && (m as any).sequence_number > lastSeqRef.current) {
-          lastSeqRef.current = (m as any).sequence_number;
-        }
       });
+      
+      // Get the actual max sequence from the raw data
+      if (data && data.length > 0) {
+        maxSequence = Math.max(...data.map(row => row.sequence_number || 0));
+        lastSeqRef.current = maxSequence;
+      }
       setTranscript(messages);
     } catch (err) {
       setError(err as Error);
@@ -89,33 +101,59 @@ export function useRealtimeTranscript(sessionId: string) {
     if (line.isPartial) {
       // Handle partial transcript
       const speakerKey = line.speaker;
-      const existingPartialId = partialMessages.current.get(speakerKey);
+      const contentHash = getContentHash(line.text, line.speaker);
+      const existingPartial = partialMessages.current.get(speakerKey);
       
-      if (existingPartialId) {
+      if (existingPartial) {
         // Update the message with the new partial ID to maintain proper React keys
-        updateTranscriptMessage(existingPartialId, { ...message, id: existingPartialId });
+        updateTranscriptMessage(existingPartial.id, { ...message, id: existingPartial.id });
+        // Update timestamp and content hash for cleanup tracking
+        partialMessages.current.set(speakerKey, { 
+          id: existingPartial.id, 
+          timestamp: Date.now(),
+          contentHash: contentHash
+        });
       } else {
-        // Add new partial message
+        // Add new partial message - use the deterministic ID from webhook
         addTranscriptMessage(message);
-        partialMessages.current.set(speakerKey, line.id);
+        partialMessages.current.set(speakerKey, { 
+          id: message.id, 
+          timestamp: Date.now(),
+          contentHash: contentHash
+        });
       }
       setConnectionStatus('sse');
     } else if (line.isFinal) {
       // Replace partial with final
       const speakerKey = line.speaker;
-      const existingPartialId = partialMessages.current.get(speakerKey);
+      const contentHash = getContentHash(line.text, line.speaker);
+      const existingPartial = partialMessages.current.get(speakerKey);
       
-      if (existingPartialId) {
-        // Remove the partial message first
-        removeTranscriptMessage(existingPartialId);
-        // Remove partial message tracking
-        partialMessages.current.delete(speakerKey);
+      // Check if this final message matches any partial by content
+      let shouldRemovePartial = false;
+      if (existingPartial) {
+        // Check if content is similar (partial might be subset of final)
+        const partialText = existingPartial.contentHash.split(':')[1];
+        const finalText = contentHash.split(':')[1];
+        shouldRemovePartial = finalText.includes(partialText) || partialText.includes(finalText);
+        
+        if (shouldRemovePartial) {
+          // Remove the partial message first
+          removeTranscriptMessage(existingPartial.id);
+          // Remove partial message tracking
+          partialMessages.current.delete(speakerKey);
+        }
       }
       
-      // Add final message if not already seen
-      if (!seenIds.current.has(line.id)) {
+      // Add final message if not already seen by ID or content
+      if (!seenIds.current.has(line.id) && !recentFinalMessages.current.has(contentHash)) {
         addTranscriptMessage(message);
         seenIds.current.add(line.id);
+        // Track this final message by content hash for 30 seconds
+        recentFinalMessages.current.set(contentHash, Date.now());
+        setTimeout(() => {
+          recentFinalMessages.current.delete(contentHash);
+        }, 30000);
       }
     }
   }, [addTranscriptMessage, updateTranscriptMessage, removeTranscriptMessage, sessionId]);
@@ -127,6 +165,53 @@ export function useRealtimeTranscript(sessionId: string) {
     onTranscript: handleSSETranscript,
     authToken: session?.access_token
   });
+
+  // Cleanup stuck partial messages (mark as stale after 15 seconds, convert to final after 30 seconds)
+  useEffect(() => {
+    partialCleanupInterval.current = setInterval(() => {
+      const now = Date.now();
+      const staleTimeout = 15000; // 15 seconds to mark as stale
+      const convertTimeout = 30000; // 30 seconds to convert to final
+      const removeTimeout = 120000; // 120 seconds to remove completely (only if already converted)
+      
+      partialMessages.current.forEach((partial, speakerKey) => {
+        const age = now - partial.timestamp;
+        
+        if (age > removeTimeout) {
+          // Remove very old partial messages only if they've been converted
+          console.log(`Removing old partial message for ${speakerKey} (age: ${Math.round(age/1000)}s)`);
+          removeTranscriptMessage(partial.id);
+          partialMessages.current.delete(speakerKey);
+        } else if (age > convertTimeout) {
+          // Convert partial to final if no final message arrived
+          console.log(`Converting partial to final for ${speakerKey} (age: ${Math.round(age/1000)}s)`);
+          updateTranscriptMessage(partial.id, { 
+            isPartial: false,
+            isStale: false,
+            isFinal: true,
+            confidence: 0.9 // Slightly lower confidence since it's a forced conversion
+          });
+          // Keep tracking it for eventual removal
+          partialMessages.current.set(speakerKey, { 
+            ...partial, 
+            timestamp: now - convertTimeout // Reset age to prevent immediate removal
+          });
+        } else if (age > staleTimeout) {
+          // Mark as stale but keep visible
+          updateTranscriptMessage(partial.id, { 
+            isPartial: true,
+            isStale: true 
+          });
+        }
+      });
+    }, 5000); // Check every 5 seconds
+
+    return () => {
+      if (partialCleanupInterval.current) {
+        clearInterval(partialCleanupInterval.current);
+      }
+    };
+  }, [removeTranscriptMessage, updateTranscriptMessage]);
 
   /** Subscribe to INSERT events for this session */
   useEffect(() => {
@@ -162,9 +247,9 @@ export function useRealtimeTranscript(sessionId: string) {
 
           addTranscriptMessage(message);
           seenIds.current.add(row.id);
-          // @ts-ignore - historic type may have sequence_number
-          if ((row as any).sequence_number && (row as any).sequence_number > lastSeqRef.current) {
-            lastSeqRef.current = (row as any).sequence_number;
+          // Update sequence tracking
+          if (row.sequence_number && row.sequence_number > lastSeqRef.current) {
+            lastSeqRef.current = row.sequence_number;
           }
         },
       )
@@ -192,16 +277,32 @@ export function useRealtimeTranscript(sessionId: string) {
     const interval = setInterval(async () => {
       setConnectionStatus('polling');
       try {
-        const { data, error: fetchError } = await supabase
+        // First, try to get messages by sequence number (using gte to catch same sequence)
+        const { data: seqData, error: seqError } = await supabase
           .from('transcripts')
           .select('*')
           .eq('session_id', sessionId)
-          .gt('sequence_number', lastSeqRef.current)
+          .gte('sequence_number', lastSeqRef.current)
           .order('sequence_number', { ascending: true });
 
-        if (fetchError) throw fetchError;
+        if (seqError) throw seqError;
 
-        (data || []).forEach(row => {
+        // Also check for recent messages by timestamp (last 30 seconds) to catch any with sequence issues
+        const thirtySecondsAgo = new Date(Date.now() - 30000).toISOString();
+        const { data: timeData, error: timeError } = await supabase
+          .from('transcripts')
+          .select('*')
+          .eq('session_id', sessionId)
+          .gte('created_at', thirtySecondsAgo)
+          .order('sequence_number', { ascending: true });
+
+        if (timeError) throw timeError;
+
+        // Combine and deduplicate results
+        const allData = [...(seqData || []), ...(timeData || [])];
+        const uniqueData = Array.from(new Map(allData.map(row => [row.id, row])).values());
+
+        uniqueData.forEach(row => {
           if (seenIds.current.has(row.id)) return;
 
           const message: TranscriptMessage = {
@@ -218,13 +319,14 @@ export function useRealtimeTranscript(sessionId: string) {
 
           addTranscriptMessage(message);
           seenIds.current.add(row.id);
-          // @ts-ignore - historic type may have sequence_number
-          if ((row as any).sequence_number && (row as any).sequence_number > lastSeqRef.current) {
-            lastSeqRef.current = (row as any).sequence_number;
+          // Update sequence tracking
+          if (row.sequence_number && row.sequence_number > lastSeqRef.current) {
+            lastSeqRef.current = row.sequence_number;
           }
         });
       } catch (err) {
-        // silent
+        // silent - don't interrupt the user experience
+        console.error('[Polling] Error fetching transcripts:', err);
       }
     }, 2000); // every 2 seconds for faster updates
 
