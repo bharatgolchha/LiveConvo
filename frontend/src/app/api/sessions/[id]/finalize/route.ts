@@ -38,14 +38,15 @@ export async function POST(
   try {
     const { id: sessionId } = await params;
     const body = await request.json();
-    const { textContext, conversationType, conversationTitle, uploadedFiles, selectedPreviousConversations, personalContext, participantMe, participantThem } = body;
+    const { textContext, conversationType, conversationTitle, uploadedFiles, selectedPreviousConversations, personalContext, participantMe, participantThem, regenerate } = body;
 
     console.log('📝 Finalize request received:', {
       sessionId,
       conversationType,
       conversationTitle,
       hasTextContext: !!textContext,
-      hasParticipants: !!participantMe && !!participantThem
+      hasParticipants: !!participantMe && !!participantThem,
+      regenerate: !!regenerate
     });
 
     if (!openrouterApiKey) {
@@ -115,7 +116,7 @@ export async function POST(
     }
 
     // Check if session is already finalized
-    if (sessionData.finalized_at) {
+    if (sessionData.finalized_at && !regenerate) {
       console.log('⚠️ Session already finalized:', {
         sessionId,
         finalizedAt: sessionData.finalized_at
@@ -155,6 +156,22 @@ export async function POST(
           finalizedAt: sessionData.finalized_at,
           warning: 'Session was already finalized. Returning existing summary.'
         });
+      }
+    }
+
+    // If regenerating, delete the existing summary first
+    if (regenerate && sessionData.finalized_at) {
+      console.log('🔄 Regenerating summary for already finalized session');
+      const { error: deleteError } = await authenticatedSupabase
+        .from('summaries')
+        .delete()
+        .eq('session_id', sessionId);
+      
+      if (deleteError) {
+        console.error('⚠️ Failed to delete existing summary:', deleteError);
+        // Continue anyway - we'll update the existing record if needed
+      } else {
+        console.log('✅ Deleted existing summary for regeneration');
       }
     }
 

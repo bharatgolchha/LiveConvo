@@ -68,7 +68,7 @@ export function MeetingContextStep({
             placeholder="Add background information, goals, or specific topics you want to cover..."
             rows={6}
             className="w-full px-5 py-4 bg-card border-2 border-border/50 rounded-2xl focus:outline-none focus:ring-0 focus:border-primary/50 focus:bg-background transition-all duration-200 placeholder:text-muted-foreground/60 resize-none group-hover:border-border"
-            maxLength={2000}
+            maxLength={6000}
           />
           <div className="absolute inset-x-0 -bottom-1 h-px bg-gradient-to-r from-transparent via-primary/20 to-transparent opacity-0 group-focus-within:opacity-100 transition-opacity duration-300"></div>
         </div>
@@ -86,7 +86,7 @@ export function MeetingContextStep({
             Try an example
           </motion.button>
           <span className="text-xs text-muted-foreground font-medium">
-            {context.length}/2000
+            {context.length}/6000
           </span>
         </div>
       </div>
