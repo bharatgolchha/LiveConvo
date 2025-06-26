@@ -247,7 +247,7 @@ export function generateCoachingPrompt(
 
 Key areas: ${typeContext.focus}
 
-Generate coaching feedback:
+Generate coaching feedback as a JSON response with the following structure:
 
 {
   "performanceAnalysis": {

@@ -82,33 +82,31 @@ export const AI_ACTIONS: AIActionInfo[] = [
  */
 export async function getAIModelForAction(action: AIAction): Promise<string> {
   try {
-    // Get the ai_model_config JSON object from system_settings
-    const aiConfig = await getSystemSetting<{
-      default_model?: string;
-      models?: Record<string, string>;
-    }>('ai_model_config');
+    // First, try to get the action-specific model
+    const actionKey = `ai_model_${action}`;
+    const actionModel = await getSystemSetting<string>(actionKey);
     
-    if (aiConfig) {
-      // First check if there's a specific model for this action
-      if (aiConfig.models && aiConfig.models[action]) {
-        return aiConfig.models[action];
-      }
-      
-      // Fall back to default_model from the config
-      if (aiConfig.default_model) {
-        return aiConfig.default_model;
-      }
+    if (actionModel && actionModel.trim()) {
+      console.log(`Using configured model for ${action}:`, actionModel);
+      return actionModel;
     }
     
-    // Fall back to environment variable or hard-coded default
-    return (
-      process.env.NEXT_PUBLIC_OPENROUTER_MODEL ||
-      'openai/gpt-4o-mini'
-    );
+    // If no action-specific model, get the default model
+    const defaultModel = await getSystemSetting<string>('default_ai_model');
+    
+    if (defaultModel && defaultModel.trim()) {
+      console.log(`Using default model for ${action}:`, defaultModel);
+      return defaultModel;
+    }
+    
+    // Fall back to environment variable or hard-coded default only if no admin config exists
+    const fallbackModel = process.env.NEXT_PUBLIC_OPENROUTER_MODEL || 'google/gemini-2.5-flash';
+    console.log(`No admin config found for ${action}, using fallback:`, fallbackModel);
+    return fallbackModel;
   } catch (error) {
     console.error('Error getting AI model for action:', action, error);
     // Return safe fallback
-    return 'openai/gpt-4o-mini';
+    return 'google/gemini-2.5-flash';
   }
 }
 
