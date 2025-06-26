@@ -118,7 +118,7 @@ export async function GET(request: NextRequest) {
 
     // Get usage limits using the database function with service client
     const { data: limits, error: limitsError } = await serviceClient
-      .rpc('check_usage_limit_v2', {
+      .rpc('check_usage_limit', {
         p_user_id: user.id,
         p_organization_id: userData.current_organization_id
       });
@@ -132,8 +132,7 @@ export async function GET(request: NextRequest) {
       minutes_used: 0,
       minutes_limit: 60, // Default 60 minutes (free plan)
       minutes_remaining: 60,
-      percentage_used: 0,
-      is_unlimited: false
+      percentage_used: 0
     };
     
     // Debug logging
@@ -192,8 +191,8 @@ export async function GET(request: NextRequest) {
       new Date(s.created_at) >= last30Days
     ).length;
 
-    // Handle unlimited plans
-    const isUnlimited = limitData.is_unlimited || limitData.minutes_limit >= 999999;
+    // Handle unlimited plans (when limit is very high)
+    const isUnlimited = limitData.minutes_limit >= 999999;
     
     // Convert hours limit to minutes for consistency
     const monthlyMinutesLimit = isUnlimited ? null : limitData.minutes_limit;
