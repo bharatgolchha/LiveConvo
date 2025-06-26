@@ -65,6 +65,8 @@ export interface SessionDataFull {
   total_words_spoken?: number;
   participant_me?: string;
   participant_them?: string;
+  recording_type?: 'local' | 'meeting' | 'desktop';
+  recall_sdk_upload_id?: string;
 }
 
 export interface TranscriptData {
@@ -110,4 +112,5 @@ export interface ConversationConfig {
   participantMe?: string;
   participantThem: string;
   meetingUrl?: string; // New field for Recall.ai integration
+  recordingMode?: 'local' | 'meeting' | 'desktop'; // Recording mode selection
 }

@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LivePrompt Desktop Recorder</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="app">
+    <!-- Header -->
+    <header class="header">
+      <div class="header-content">
+        <h1 class="app-title">
+          <svg class="logo" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+            <circle cx="12" cy="12" r="10"></circle>
+            <circle cx="12" cy="12" r="3"></circle>
+          </svg>
+          LivePrompt Desktop Recorder
+        </h1>
+        <div class="connection-status" id="connectionStatus">
+          <span class="status-dot"></span>
+          <span class="status-text">Connecting...</span>
+        </div>
+      </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="main">
+      <!-- Permissions Panel -->
+      <div class="panel permissions-panel" id="permissionsPanel">
+        <h2 class="panel-title">Required Permissions</h2>
+        <div class="permissions-list">
+          <div class="permission-item" data-permission="accessibility">
+            <span class="permission-icon">🔓</span>
+            <div class="permission-info">
+              <h3>Accessibility</h3>
+              <p>Required to detect meeting windows</p>
+            </div>
+            <button class="btn btn-small" onclick="requestPermission('accessibility')">Grant</button>
+          </div>
+          <div class="permission-item" data-permission="screen-capture">
+            <span class="permission-icon">🖥️</span>
+            <div class="permission-info">
+              <h3>Screen Recording</h3>
+              <p>Required to capture video</p>
+            </div>
+            <button class="btn btn-small" onclick="requestPermission('screen-capture')">Grant</button>
+          </div>
+          <div class="permission-item" data-permission="microphone">
+            <span class="permission-icon">🎤</span>
+            <div class="permission-info">
+              <h3>Microphone</h3>
+              <p>Required to capture audio</p>
+            </div>
+            <button class="btn btn-small" onclick="requestPermission('microphone')">Grant</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Desktop Recording Panel -->
+      <div class="panel desktop-recording-panel">
+        <h2 class="panel-title">Desktop Audio Recording</h2>
+        <p class="panel-description">Record all audio from your desktop (useful for in-person meetings)</p>
+        <div class="desktop-controls">
+          <input type="text" id="desktopSessionId" placeholder="Enter session ID from LivePrompt" class="session-input">
+          <button class="btn btn-primary" id="desktopRecordBtn" onclick="toggleDesktopRecording()">
+            Start Desktop Recording
+          </button>
+        </div>
+      </div>
+
+      <!-- Meetings Panel -->
+      <div class="panel meetings-panel">
+        <h2 class="panel-title">Active Meetings</h2>
+        <div id="meetingsList" class="meetings-list">
+          <div class="empty-state">
+            <p>No meetings detected. Start a Zoom or Google Meet call to begin.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Transcript Panel -->
+      <div class="panel transcript-panel">
+        <h2 class="panel-title">Live Transcript</h2>
+        <div id="transcriptContainer" class="transcript-container">
+          <div class="empty-state">
+            <p>Transcript will appear here when recording starts...</p>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer">
+      <div class="footer-content">
+        <span>© 2024 LivePrompt.ai</span>
+        <a href="#" onclick="openWebApp()" class="footer-link">Open Web App</a>
+      </div>
+    </footer>
+  </div>
+
+  <script src="renderer.js"></script>
+</body>
+</html>

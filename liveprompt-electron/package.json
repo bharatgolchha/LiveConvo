@@ -1,0 +1,65 @@
+{
+  "name": "liveprompt-electron",
+  "version": "1.0.0",
+  "description": "LivePrompt Desktop Recorder - Electron app for recording and transcribing meetings",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "build": "electron-builder",
+    "dist": "electron-builder --mac --win --linux",
+    "dist:mac": "electron-builder --mac",
+    "dist:win": "electron-builder --win",
+    "postinstall": "electron-builder install-app-deps"
+  },
+  "keywords": [
+    "electron",
+    "recording",
+    "transcription",
+    "recall.ai"
+  ],
+  "author": "LivePrompt",
+  "license": "MIT",
+  "devDependencies": {
+    "electron": "^27.0.0",
+    "electron-builder": "^24.13.3"
+  },
+  "dependencies": {
+    "@recallai/desktop-sdk": "^2025.6.23-425eeb0809b1dcbef42a7fecef4c80180352f8c2",
+    "dotenv": "^16.5.0",
+    "electron-updater": "^6.3.9"
+  },
+  "build": {
+    "appId": "ai.liveprompt.desktop",
+    "productName": "LivePrompt Desktop",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "renderer.js",
+      "index.html",
+      "styles.css",
+      "icon.png"
+    ],
+    "mac": {
+      "category": "public.app-category.productivity",
+      "hardenedRuntime": true,
+      "gatekeeperAssess": false,
+      "entitlements": "build/entitlements.mac.plist",
+      "entitlementsInherit": "build/entitlements.mac.plist"
+    },
+    "win": {
+      "target": "nsis"
+    },
+    "linux": {
+      "target": "AppImage",
+      "category": "Utility"
+    },
+    "publish": {
+      "provider": "github",
+      "owner": "liveprompt",
+      "repo": "desktop-recorder"
+    }
+  }
+}

@@ -21,6 +21,7 @@
     "@radix-ui/react-select": "^2.2.5",
     "@radix-ui/react-slot": "^1.2.3",
     "@radix-ui/react-tabs": "^1.1.12",
+    "@recallai/desktop-sdk": "^2025.6.23-425eeb0809b1dcbef42a7fecef4c80180352f8c2",
     "@stagewise/toolbar-next": "^0.1.2",
     "@supabase/auth-ui-react": "^0.4.7",
     "@supabase/auth-ui-shared": "^0.1.8",
