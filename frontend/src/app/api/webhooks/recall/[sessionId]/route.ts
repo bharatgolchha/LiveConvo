@@ -551,6 +551,20 @@ export async function POST(
     const event: RecallWebhookEvent = JSON.parse(body);
     console.log('🎯 Webhook event type:', event.event);
     
+    // Log transcript event details
+    if (event.event === 'transcript.data' || event.event === 'transcript.partial_data') {
+      const transcriptData = event.data as TranscriptData;
+      console.log(`📊 Transcript stats:`, {
+        eventType: event.event,
+        hasWords: !!transcriptData?.data?.words,
+        wordCount: transcriptData?.data?.words?.length || 0,
+        firstWord: transcriptData?.data?.words?.[0]?.text,
+        lastWord: transcriptData?.data?.words?.[transcriptData?.data?.words?.length - 1]?.text,
+        participant: transcriptData?.data?.participant?.name,
+        isHost: transcriptData?.data?.participant?.is_host
+      });
+    }
+    
     // The bot information location varies by event type
     let botId = '00000000-0000-0000-0000-000000000000';
     
@@ -705,6 +719,17 @@ export async function POST(
 async function handleTranscriptData(sessionId: string, eventData: TranscriptData, isPartial: boolean) {
   const supabase = createServerSupabaseClient();
   
+  // Log transcript type for debugging
+  console.log(`📝 Handling ${isPartial ? 'PARTIAL' : 'FINAL'} transcript for session ${sessionId}`);
+  console.log(`🔍 Transcript event details:`, {
+    isPartial,
+    wordsCount: eventData?.data?.words?.length || 0,
+    speaker: eventData?.data?.participant?.name,
+    isHost: eventData?.data?.participant?.is_host,
+    botId: eventData?.bot?.id,
+    metadata: eventData?.bot?.metadata
+  });
+  
   // Extract the transcript data
   const { data } = eventData;
   
@@ -757,9 +782,17 @@ async function handleTranscriptData(sessionId: string, eventData: TranscriptData
 
   // For partial data, just broadcast without storing
   if (isPartial) {
-    // Use a more unique ID with random component to avoid duplicates
-    const partialId = `partial-${Date.now()}-${speakerAlias}-${Math.random().toString(36).substr(2, 9)}`;
-    console.log('📨 Broadcasting partial transcript:', partialId, 'Text:', fullText);
+    // Use deterministic ID based on session and speaker to ensure updates work correctly
+    const partialId = `partial-${sessionId}-${speakerAlias}`;
+    console.log('📨 Broadcasting partial transcript:', {
+      id: partialId,
+      speaker: speakerAlias,
+      displayName: speakerName,
+      textLength: fullText.length,
+      text: fullText.substring(0, 100) + (fullText.length > 100 ? '...' : ''),
+      startTime,
+      endTime
+    });
     
     broadcastTranscript(sessionId, {
       type: 'transcript',

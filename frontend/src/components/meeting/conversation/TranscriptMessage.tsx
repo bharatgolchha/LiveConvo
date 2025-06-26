@@ -4,7 +4,7 @@ import { TranscriptMessage as TranscriptMessageType } from '@/lib/meeting/types/
 import { SpeakerAvatar } from './SpeakerAvatar';
 import { formatTimestamp } from '@/lib/meeting/utils/time-formatters';
 import { useMeetingContext } from '@/lib/meeting/context/MeetingContext';
-import { ClockIcon, ExclamationTriangleIcon, StarIcon } from '@heroicons/react/24/outline';
+import { ClockIcon, ExclamationTriangleIcon } from '@heroicons/react/24/outline';
 import { StarIcon as StarIconSolid } from '@heroicons/react/24/solid';
 
 interface TranscriptMessageProps {
@@ -20,10 +20,10 @@ function TranscriptMessageComponent({ message, previousSpeaker }: TranscriptMess
   
   return (
     <motion.div
-      initial={{ opacity: 0, y: 20, scale: 0.95 }}
-      animate={{ opacity: 1, y: 0, scale: 1 }}
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
       transition={{ 
-        duration: 0.3,
+        duration: 0.2,
         ease: "easeOut"
       }}
       className={`group relative ${showAvatar ? 'mt-6' : 'mt-2'}`}
@@ -33,9 +33,9 @@ function TranscriptMessageComponent({ message, previousSpeaker }: TranscriptMess
         <div className="flex-shrink-0">
           {showAvatar && (
             <motion.div
-              initial={{ scale: 0 }}
-              animate={{ scale: 1 }}
-              transition={{ delay: 0.1, type: "spring", stiffness: 200 }}
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ delay: 0.05, duration: 0.15, ease: "easeOut" }}
             >
               <SpeakerAvatar 
                 speaker={speakerLabel} 
@@ -51,9 +51,9 @@ function TranscriptMessageComponent({ message, previousSpeaker }: TranscriptMess
         <div className={`flex-1 min-w-0 max-w-[85%] ${isMe ? 'flex flex-col items-end' : 'flex flex-col items-start'}`}>
           {showAvatar && (
             <motion.div 
-              initial={{ opacity: 0, x: isMe ? 20 : -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: 0.15 }}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.1, duration: 0.2 }}
               className={`flex items-center gap-3 mb-2 ${isMe ? 'flex-row-reverse' : 'flex-row'}`}
             >
               <span className={`text-sm font-semibold ${
@@ -83,11 +83,11 @@ function TranscriptMessageComponent({ message, previousSpeaker }: TranscriptMess
           )}
           
           <motion.div 
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.2 }}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.15, duration: 0.2 }}
             className={`relative ${
-              message.isPartial ? 'opacity-80' : ''
+              message.isPartial ? (message.isStale ? 'opacity-50' : 'opacity-80') : ''
             }`}
           >
             {/* Message Bubble */}
@@ -97,7 +97,7 @@ function TranscriptMessageComponent({ message, previousSpeaker }: TranscriptMess
                 ? 'bg-primary text-primary-foreground border-primary/20' 
                 : 'bg-card text-card-foreground border-border hover:border-border/80'
               }
-              ${message.isPartial ? 'animate-pulse' : ''}
+              ${message.isPartial ? '' : ''}
               ${message.isOwner ? 'ring-1 ring-yellow-400/30' : ''}
               group-hover:shadow-md
             `}>
@@ -109,13 +109,35 @@ function TranscriptMessageComponent({ message, previousSpeaker }: TranscriptMess
               
               {/* Partial indicator */}
               {message.isPartial && (
-                <div className="flex items-center gap-1 mt-2 pt-2 border-t border-current/20">
-                  <span className="text-xs opacity-70">Transcribing</span>
-                  <div className="flex items-center gap-1">
-                    <div className="w-1 h-1 bg-current rounded-full animate-pulse" />
-                    <div className="w-1 h-1 bg-current rounded-full animate-pulse delay-100" />
-                    <div className="w-1 h-1 bg-current rounded-full animate-pulse delay-200" />
-                  </div>
+                <div className="flex items-center gap-1.5 mt-2 pt-2 border-t border-current/10">
+                  <span className={`text-xs font-medium ${message.isStale ? 'opacity-40' : 'opacity-60'}`}>
+                    {message.isStale ? 'Waiting for final...' : 'Transcribing'}
+                  </span>
+                  {!message.isStale && (
+                    <div className="flex items-center gap-0.5">
+                      <div 
+                        className="w-1.5 h-1.5 bg-current/60 rounded-full"
+                        style={{
+                          animation: 'subtle-fade 2s infinite ease-in-out',
+                          animationDelay: '0ms'
+                        }}
+                      />
+                      <div 
+                        className="w-1.5 h-1.5 bg-current/60 rounded-full"
+                        style={{
+                          animation: 'subtle-fade 2s infinite ease-in-out',
+                          animationDelay: '400ms'
+                        }}
+                      />
+                      <div 
+                        className="w-1.5 h-1.5 bg-current/60 rounded-full"
+                        style={{
+                          animation: 'subtle-fade 2s infinite ease-in-out',
+                          animationDelay: '800ms'
+                        }}
+                      />
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -153,6 +175,7 @@ export const TranscriptMessage = React.memo(TranscriptMessageComponent, (prevPro
     prevProps.message.id === nextProps.message.id &&
     prevProps.message.text === nextProps.message.text &&
     prevProps.message.isPartial === nextProps.message.isPartial &&
+    prevProps.message.isStale === nextProps.message.isStale &&
     prevProps.message.confidence === nextProps.message.confidence &&
     prevProps.previousSpeaker === nextProps.previousSpeaker
   );
