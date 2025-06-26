@@ -23,7 +23,39 @@ This guide provides essential information for AI agents working on the LiveConvo
 
 ### Database Environments
 - **Development**: `ucvfgfbjcrxbzppwjpuu` (VoiceConvo Dev)
-- **Production**: `txacbzmkbbhtuvvbscwi` (LiveConvo Production)
+  - URL: https://ucvfgfbjcrxbzppwjpuu.supabase.co
+- **Production**: `juuysuamfoteblrqqdnu` (livePrompt Live) 
+  - URL: https://juuysuamfoteblrqqdnu.supabase.co
+  - Region: us-west-1 (US West)
+  - Status: Production-ready with full schema and edge functions
+
+### Supabase MCP Configuration
+The database is Postgres hosted on Supabase. Please use Supabase MCP for anything database related:
+```json
+{
+  "mcpServers": {
+    "supabase": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@supabase/mcp-server-supabase@latest",
+        "--access-token",
+        "sbp_f8add63cb4621e0d0ab3e61c6db3dc566a7c5af0"
+      ]
+    }
+  }
+}
+```
+
+### Production Environment Variables
+```bash
+# Production Database
+NEXT_PUBLIC_SUPABASE_URL=https://juuysuamfoteblrqqdnu.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=[Get from Supabase Dashboard - production anon key]
+SUPABASE_SERVICE_ROLE_KEY=[Get from Supabase Dashboard]
+```
+
+**⚠️ IMPORTANT**: Always test database changes in development environment first before applying to production!
 
 ## ✅ DO's - Essential Guidelines
 

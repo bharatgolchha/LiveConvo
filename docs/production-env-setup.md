@@ -6,8 +6,8 @@ Your production database has been successfully created and configured with all n
 
 ### Production Database Details
 
-- **Project ID**: `txacbzmkbbhtuvvbscwi`
-- **URL**: `https://txacbzmkbbhtuvvbscwi.supabase.co`
+- **Project ID**: `juuysuamfoteblrqqdnu`
+- **URL**: `https://juuysuamfoteblrqqdnu.supabase.co`
 - **Anon Key**: `eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR4YWNiem1rYmJodHV2dmJzY3dpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTAwNTkwMjQsImV4cCI6MjA2NTYzNTAyNH0.qzb4ufGObX_MpRf7cUt7LYA7JPnHA_ondjIUqtMr9zE`
 
 ## 📋 What Was Created
@@ -34,10 +34,10 @@ Your production database has been successfully created and configured with all n
 
 Your production edge functions are now available at:
 
-- **Stripe Webhooks**: `https://txacbzmkbbhtuvvbscwi.supabase.co/functions/v1/stripe-webhooks`
-- **Create Checkout**: `https://txacbzmkbbhtuvvbscwi.supabase.co/functions/v1/create-checkout-session`
-- **Billing Portal**: `https://txacbzmkbbhtuvvbscwi.supabase.co/functions/v1/create-portal-session`
-- **Test Stripe Config**: `https://txacbzmkbbhtuvvbscwi.supabase.co/functions/v1/test-stripe-config`
+- **Stripe Webhooks**: `https://juuysuamfoteblrqqdnu.supabase.co/functions/v1/stripe-webhooks`
+- **Create Checkout**: `https://juuysuamfoteblrqqdnu.supabase.co/functions/v1/create-checkout-session`
+- **Billing Portal**: `https://juuysuamfoteblrqqdnu.supabase.co/functions/v1/create-portal-session`
+- **Test Stripe Config**: `https://juuysuamfoteblrqqdnu.supabase.co/functions/v1/test-stripe-config`
 
 ## 🔧 Production Environment Variables
 
@@ -47,7 +47,7 @@ Create these environment variables in your Vercel production deployment:
 
 ```bash
 # Production Database
-NEXT_PUBLIC_SUPABASE_URL=https://txacbzmkbbhtuvvbscwi.supabase.co
+NEXT_PUBLIC_SUPABASE_URL=https://juuysuamfoteblrqqdnu.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR4YWNiem1rYmJodHV2dmJzY3dpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTAwNTkwMjQsImV4cCI6MjA2NTYzNTAyNH0.qzb4ufGObX_MpRf7cUt7LYA7JPnHA_ondjIUqtMr9zE
 
 # Get this from Supabase Dashboard > Settings > API
@@ -72,7 +72,7 @@ NEXT_PUBLIC_ENV=production
 ## 🚀 Next Steps for Production Deployment
 
 ### 1. Get Service Role Key
-1. Go to [Supabase Dashboard](https://supabase.com/dashboard/project/txacbzmkbbhtuvvbscwi)
+1. Go to [Supabase Dashboard](https://supabase.com/dashboard/project/juuysuamfoteblrqqdnu)
 2. Navigate to Settings > API
 3. Copy the `service_role` key (starts with `eyJ...`)
 4. Add it as `SUPABASE_SERVICE_ROLE_KEY` in your production environment
@@ -96,7 +96,7 @@ NEXT_PUBLIC_ENV=production
 ### 5. Configure Edge Functions (if any)
 If you have Supabase Edge Functions, deploy them to production:
 ```bash
-supabase functions deploy --project-ref txacbzmkbbhtuvvbscwi
+supabase functions deploy --project-ref juuysuamfoteblrqqdnu
 ```
 
 ### 6. Set up Monitoring
