@@ -508,6 +508,24 @@ async function generateFinalSummary(transcript: string, context: MeetingContext,
   console.log('🔑 OpenRouter API key present:', !!openrouterApiKey);
   console.log('📊 Prompt content length:', promptContent.length);
   
+  // Only use response_format for OpenAI models
+  const requestBody: any = {
+    model,
+    messages: [
+      {
+        role: 'user',
+        content: promptContent
+      }
+    ],
+    temperature: 0.3,
+    max_tokens: 8000
+  };
+  
+  // Add response_format only for OpenAI models that support it
+  if (model.includes('openai/')) {
+    requestBody.response_format = { type: 'json_object' };
+  }
+  
   const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
     method: 'POST',
     headers: {
@@ -516,18 +534,7 @@ async function generateFinalSummary(transcript: string, context: MeetingContext,
       'HTTP-Referer': 'https://liveconvo.app',
       'X-Title': 'liveprompt.ai Session Summary',
     },
-    body: JSON.stringify({
-      model,
-      messages: [
-        {
-          role: 'user',
-          content: promptContent
-        }
-      ],
-      temperature: 0.3,
-      max_tokens: 8000,
-      response_format: { type: 'json_object' }
-    })
+    body: JSON.stringify(requestBody)
   });
 
   if (!response.ok) {
@@ -655,6 +662,24 @@ async function generateFinalizationData(transcript: string, summaryData: any, co
   const model2 = await getAIModelForAction(AIAction.SUMMARY);
   console.log('🤖 Using AI model for finalization:', model2);
   
+  // Only use response_format for OpenAI models
+  const requestBody2: any = {
+    model: model2,
+    messages: [
+      {
+        role: 'user',
+        content: promptContent
+      }
+    ],
+    temperature: 0.4,
+    max_tokens: 6000
+  };
+  
+  // Add response_format only for OpenAI models that support it
+  if (model2.includes('openai/')) {
+    requestBody2.response_format = { type: 'json_object' };
+  }
+  
   const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
     method: 'POST',
     headers: {
@@ -663,18 +688,7 @@ async function generateFinalizationData(transcript: string, summaryData: any, co
       'HTTP-Referer': 'https://liveconvo.app',
       'X-Title': 'liveprompt.ai Conversation Analysis',
     },
-    body: JSON.stringify({
-      model: model2,
-      messages: [
-        {
-          role: 'user',
-          content: promptContent
-        }
-      ],
-      temperature: 0.4,
-      max_tokens: 6000,
-      response_format: { type: 'json_object' }
-    })
+    body: JSON.stringify(requestBody2)
   });
 
   if (!response.ok) {
