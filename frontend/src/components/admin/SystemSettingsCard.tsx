@@ -7,7 +7,7 @@ import { AI_ACTIONS, AIAction } from '@/lib/aiModelConfig';
 export default function SystemSettingsCard() {
   const { settings, loading, error, refresh } = useSystemSettings();
   const [modelConfigs, setModelConfigs] = useState<Record<string, string>>({});
-  const [streamingProvider, setStreamingProvider] = useState<string>('deepgram');
+  const [streamingProvider, setStreamingProvider] = useState<string>('assembly_ai');
   const [saving, setSaving] = useState(false);
   const [saveMsg, setSaveMsg] = useState<string | null>(null);
   const [expandedSection, setExpandedSection] = useState<string | null>(null);
@@ -28,7 +28,7 @@ export default function SystemSettingsCard() {
       setModelConfigs(configs);
       
       // Load streaming provider
-      setStreamingProvider(settings.streaming_provider || 'deepgram');
+      setStreamingProvider(settings.streaming_provider || 'assembly_ai');
     }
   }, [settings]);
 

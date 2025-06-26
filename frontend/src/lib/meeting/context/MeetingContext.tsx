@@ -17,6 +17,7 @@ interface MeetingContextValue {
   setTranscript: (messages: TranscriptMessage[]) => void;
   addTranscriptMessage: (message: TranscriptMessage) => void;
   updateTranscriptMessage: (id: string, message: Partial<TranscriptMessage>) => void;
+  removeTranscriptMessage: (id: string) => void;
   
   // Summary
   summary: RealtimeSummary | null;
@@ -106,6 +107,10 @@ export function MeetingProvider({ children }: MeetingProviderProps) {
     ));
   }, []);
 
+  const removeTranscriptMessage = useCallback((id: string) => {
+    setTranscript(prev => prev.filter(msg => msg.id !== id));
+  }, []);
+
   // Smart notes methods
   const addSmartNote = useCallback((note: SmartNote) => {
     console.log('[MeetingContext] Adding smart note:', note);
@@ -149,6 +154,7 @@ export function MeetingProvider({ children }: MeetingProviderProps) {
     setTranscript: setTranscriptMessages,
     addTranscriptMessage,
     updateTranscriptMessage,
+    removeTranscriptMessage,
     summary,
     setSummary,
     smartNotes,

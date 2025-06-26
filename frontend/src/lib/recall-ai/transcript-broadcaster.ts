@@ -1,8 +1,24 @@
 // Store active WebSocket connections per session
 const activeConnections = new Map<string, Set<(data: any) => void>>();
 
+// Message buffer to store recent messages per session (last 50 messages)
+const messageBuffer = new Map<string, any[]>();
+const BUFFER_SIZE = 50;
+
 // Helper function to broadcast to all connections for a session
 export function broadcastTranscript(sessionId: string, data: any) {
+  // Add to message buffer
+  if (!messageBuffer.has(sessionId)) {
+    messageBuffer.set(sessionId, []);
+  }
+  const buffer = messageBuffer.get(sessionId)!;
+  buffer.push({ ...data, bufferedAt: Date.now() });
+  
+  // Keep buffer size limited
+  if (buffer.length > BUFFER_SIZE) {
+    buffer.shift(); // Remove oldest message
+  }
+  
   const connections = activeConnections.get(sessionId);
   console.log(`📢 Broadcasting to session ${sessionId}: ${connections ? connections.size : 0} connections`);
   console.log('📊 Broadcast data:', JSON.stringify(data, null, 2));
@@ -45,4 +61,12 @@ export function getActiveConnections() {
     result[sessionId] = connections.size;
   });
   return result;
+}
+
+export function getBufferedMessages(sessionId: string, sinceTimestamp?: number): any[] {
+  const buffer = messageBuffer.get(sessionId) || [];
+  if (sinceTimestamp) {
+    return buffer.filter(msg => msg.bufferedAt > sinceTimestamp);
+  }
+  return [...buffer]; // Return a copy
 }

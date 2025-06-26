@@ -8,11 +8,12 @@ export function useMeetingTranscript(sessionId: string) {
   const { setTranscript, addTranscriptMessage, updateTranscriptMessage } = useMeetingContext();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
+  const [connectionStatus, setConnectionStatus] = useState<'disconnected' | 'sse' | 'supabase' | 'polling'>('disconnected');
   const eventSourceRef = useRef<EventSource | null>(null);
   const lastPolledSequence = useRef<number>(0);
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const supabaseChannelRef = useRef<RealtimeChannel | null>(null);
-  const currentPollDelay = useRef<number>(2000); // Reduced from 3s to 2s for faster updates
+  const currentPollDelay = useRef<number>(500); // Reduced to 500ms for much faster updates
   const isSSEConnected = useRef<boolean>(false);
   const lastTranscriptLength = useRef<number>(0);
 
@@ -111,21 +112,22 @@ export function useMeetingTranscript(sessionId: string) {
         lastPolledSequence.current = maxSequence;
         lastTranscriptLength.current += data.length;
         // Reset delay back to minimum on new data
-        currentPollDelay.current = 2000;
+        currentPollDelay.current = 500;
         
         console.log('✅ [Polling] Updated sequence to:', maxSequence, 'Total messages:', lastTranscriptLength.current);
       } else {
-        // No data, increase delay (max 10s) to reduce load
-        currentPollDelay.current = Math.min(currentPollDelay.current + 1000, 10000);
+        // No data, increase delay (max 2s) to reduce load but stay responsive
+        currentPollDelay.current = Math.min(currentPollDelay.current + 250, 2000);
         console.log('🔄 [Polling] No new data, delay increased to:', currentPollDelay.current);
       }
     } catch (err) {
       console.error('❌ [Polling] Error:', err);
       // Continue polling even on error
-      currentPollDelay.current = Math.min(currentPollDelay.current + 2000, 10000);
+      currentPollDelay.current = Math.min(currentPollDelay.current + 500, 2000);
     } finally {
       // Reschedule next poll with adaptive delay if still polling
       if (!isSSEConnected.current && !supabaseChannelRef.current) {
+        setConnectionStatus('polling');
         pollingIntervalRef.current = setTimeout(pollForUpdates, currentPollDelay.current);
       }
     }
@@ -176,6 +178,7 @@ export function useMeetingTranscript(sessionId: string) {
         console.log('📡 [Supabase Realtime] Subscription status:', status);
         if (status === 'SUBSCRIBED') {
           console.log('✅ [Supabase Realtime] Successfully subscribed');
+          setConnectionStatus('supabase');
           // Stop polling when realtime is connected
           if (pollingIntervalRef.current) {
             clearTimeout(pollingIntervalRef.current);
@@ -211,6 +214,7 @@ export function useMeetingTranscript(sessionId: string) {
     es.onopen = () => {
       console.log('✅ SSE connection opened');
       isSSEConnected.current = true;
+      setConnectionStatus('sse');
       // Stop polling and Supabase realtime when SSE is connected
       if (pollingIntervalRef.current) {
         clearTimeout(pollingIntervalRef.current);
@@ -267,6 +271,7 @@ export function useMeetingTranscript(sessionId: string) {
     es.onerror = (err) => {
       console.error('❌ SSE error:', err);
       isSSEConnected.current = false;
+      setConnectionStatus('disconnected');
       es.close();
       
       // Start Supabase realtime fallback first (more reliable than polling)
@@ -281,11 +286,11 @@ export function useMeetingTranscript(sessionId: string) {
         pollingIntervalRef.current = setTimeout(pollForUpdates, currentPollDelay.current);
       }
       
-      // Reconnect SSE after 10 seconds
+      // Reconnect SSE after 2 seconds for faster recovery
       setTimeout(() => {
         console.log('🔄 Reconnecting SSE after error');
         connectToStream();
-      }, 10000);
+      }, 2000);
     };
 
     eventSourceRef.current = es;
@@ -301,21 +306,21 @@ export function useMeetingTranscript(sessionId: string) {
     // Start real-time connections immediately
     connectToStream();
     
-    // Start Supabase realtime as primary fallback
+    // Start Supabase realtime as immediate primary fallback
     const realtimeTimer = setTimeout(() => {
       if (!isSSEConnected.current) {
-        console.log('⚠️ SSE not connected in 5s, starting Supabase realtime');
+        console.log('⚠️ SSE not connected, starting Supabase realtime immediately');
         connectSupabaseRealtime();
       }
-    }, 5000);
+    }, 1000); // Reduced from 5s to 1s
     
-    // Start polling as secondary fallback
+    // Start polling as immediate secondary fallback
     const pollingTimer = setTimeout(() => {
       if (!isSSEConnected.current && !supabaseChannelRef.current) {
-        console.log('⚠️ No real-time connection in 10s, starting polling');
+        console.log('⚠️ No real-time connection, starting polling immediately');
         pollingIntervalRef.current = setTimeout(pollForUpdates, currentPollDelay.current);
       }
-    }, 10000);
+    }, 2000); // Reduced from 10s to 2s
 
     return () => {
       clearTimeout(realtimeTimer);
@@ -353,5 +358,5 @@ export function useMeetingTranscript(sessionId: string) {
     loadTranscript();
   }, [loadTranscript]);
 
-  return { loading, error, forceRefresh };
+  return { loading, error, forceRefresh, connectionStatus };
 }

@@ -91,7 +91,7 @@ export function useSessions(): SessionsHookReturn {
    * Fetch sessions from the API
    */
   const fetchSessions = useCallback(async (filters: SessionFilters = {}) => {
-    if (!user || authLoading) {
+    if (!user || authLoading || !session) {
       return;
     }
 
@@ -155,7 +155,7 @@ export function useSessions(): SessionsHookReturn {
     } finally {
       setLoading(false);
     }
-  }, [user, authLoading, setSessionExpiredMessage]);
+  }, [user, authLoading, session, setSessionExpiredMessage]);
 
   /**
    * Generic error handler for PATCH, DELETE, POST
@@ -177,7 +177,7 @@ export function useSessions(): SessionsHookReturn {
    * Update a session
    */
   const updateSession = useCallback(async (id: string, updates: Partial<Session>): Promise<Session | null> => {
-    if (!user || authLoading) {
+    if (!user || authLoading || !session) {
       return null;
     }
 
@@ -213,13 +213,13 @@ export function useSessions(): SessionsHookReturn {
       console.error('Session update error:', err);
       return null;
     }
-  }, [user, authLoading, session?.access_token]);
+  }, [user, authLoading, session, setSessionExpiredMessage]);
 
   /**
    * Delete a session (now with hard delete support)
    */
   const deleteSession = useCallback(async (id: string, hard: boolean = false): Promise<boolean> => {
-    if (!user || authLoading) {
+    if (!user || authLoading || !session) {
       return false;
     }
 
@@ -255,7 +255,7 @@ export function useSessions(): SessionsHookReturn {
       console.error('Session delete error:', err);
       return false;
     }
-  }, [user, authLoading, session?.access_token]);
+  }, [user, authLoading, session, setSessionExpiredMessage]);
 
   /**
    * Create a new session
@@ -270,7 +270,7 @@ export function useSessions(): SessionsHookReturn {
     participant_them?: string;
     meeting_url?: string;
   }): Promise<Session | null> => {
-    if (!user || authLoading) {
+    if (!user || authLoading || !session) {
       return null;
     }
 
@@ -308,7 +308,7 @@ export function useSessions(): SessionsHookReturn {
       console.error('Session create error:', err);
       return null;
     }
-  }, [user, authLoading, session?.access_token]);
+  }, [user, authLoading, session, setSessionExpiredMessage]);
 
   /**
    * Refresh sessions with current filters
@@ -319,7 +319,7 @@ export function useSessions(): SessionsHookReturn {
 
   // Initial fetch on mount with higher limit to show more sessions
   useEffect(() => {
-    if (user && !authLoading) {
+    if (user && session && !authLoading) {
       fetchSessions({ ...currentFilters, limit: 100 }); // Increase default limit to 100
     } else if (!user && !authLoading) {
       setSessions([]);
@@ -329,7 +329,7 @@ export function useSessions(): SessionsHookReturn {
       setHasMore(false);
       setPagination(null);
     }
-  }, [user, authLoading, fetchSessions]);
+  }, [user, session, authLoading, fetchSessions]);
 
   return {
     sessions,

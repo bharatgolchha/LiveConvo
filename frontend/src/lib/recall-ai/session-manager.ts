@@ -47,7 +47,7 @@ export class RecallSessionManager {
         .eq('key', 'streaming_provider')
         .single();
       
-      const streamingProvider = providerSetting?.value || 'deepgram';
+      const streamingProvider = providerSetting?.value || 'assembly_ai';
       // Validate meeting URL
       const platform = this.recallClient.detectMeetingPlatform(meetingUrl);
       if (!platform) {
@@ -289,7 +289,7 @@ export class RecallSessionManager {
         .eq('key', 'streaming_provider')
         .single();
       
-      const streamingProvider = providerSetting?.value || 'deepgram';
+      const streamingProvider = providerSetting?.value || 'assembly_ai';
       const platform = this.recallClient.detectMeetingPlatform(meetingUrl);
       console.log(`📱 Detected platform: ${platform}`);
       

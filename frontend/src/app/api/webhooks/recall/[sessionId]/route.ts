@@ -757,7 +757,8 @@ async function handleTranscriptData(sessionId: string, eventData: TranscriptData
 
   // For partial data, just broadcast without storing
   if (isPartial) {
-    const partialId = `partial-${Date.now()}-${speakerAlias}`;
+    // Use a more unique ID with random component to avoid duplicates
+    const partialId = `partial-${Date.now()}-${speakerAlias}-${Math.random().toString(36).substr(2, 9)}`;
     console.log('📨 Broadcasting partial transcript:', partialId, 'Text:', fullText);
     
     broadcastTranscript(sessionId, {
@@ -773,6 +774,7 @@ async function handleTranscriptData(sessionId: string, eventData: TranscriptData
         timeSeconds: startTime,
         displayName: speakerName,
         isOwner: isOwner || false,
+        sequenceNumber: 0 // Partial messages don't have sequence numbers
       }
     });
     return;

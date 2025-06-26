@@ -10,6 +10,9 @@ export interface TranscriptLine {
   confidence?: number;
   isOwner?: boolean;
   displayName?: string;
+  isPartial?: boolean;
+  isFinal?: boolean;
+  timeSeconds?: number;
 }
 
 export interface DatabaseTranscriptLine {
