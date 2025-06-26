@@ -77,7 +77,7 @@ ${typeContext.risks.map(r => `- ${r}`).join('\n')}
 TRANSCRIPT:
 ${transcript}
 
-Generate a comprehensive JSON report with the following structure:
+Generate a comprehensive JSON report with the following structure (respond with valid JSON only, no markdown formatting or code blocks):
 
 {
   "executiveSummary": {
@@ -231,7 +231,9 @@ Remember:
 - Include SPECIFIC names, numbers, and dates
 - Make action items CRYSTAL CLEAR with owners and deadlines
 - Focus on VALUE - what matters most for follow-through
-- Keep language NATURAL and professional`;
+- Keep language NATURAL and professional
+
+IMPORTANT: Respond with valid JSON only. Do not include markdown code blocks or any other formatting.`;
 
   return prompt;
 }
@@ -247,7 +249,7 @@ export function generateCoachingPrompt(
 
 Key areas: ${typeContext.focus}
 
-Generate coaching feedback as a JSON response with the following structure:
+Generate coaching feedback as a JSON response with the following structure (respond with valid JSON only, no markdown formatting or code blocks):
 
 {
   "performanceAnalysis": {
@@ -331,7 +333,9 @@ Focus on:
 - SPECIFIC moments from the transcript
 - ACTIONABLE advice they can implement immediately
 - REALISTIC improvements based on their current level
-- ${typeContext.focus}`;
+- ${typeContext.focus}
+
+IMPORTANT: Respond with valid JSON only. Do not include markdown code blocks or any other formatting.`;
 }
 
 export function generateEmailDraftPrompt(summaryData: any, context: MeetingContext): string {

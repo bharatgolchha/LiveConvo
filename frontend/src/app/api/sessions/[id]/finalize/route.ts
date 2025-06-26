@@ -563,6 +563,16 @@ async function generateFinalSummary(transcript: string, context: MeetingContext,
     console.log('📄 Raw AI response (first 500 chars):', rawContent?.substring(0, 500));
     console.log('📄 Raw AI response length:', rawContent?.length);
     
+    // Strip markdown code blocks if present
+    if (rawContent.includes('```')) {
+      // Remove any markdown code blocks (```json or just ```)
+      rawContent = rawContent.replace(/```(?:json)?\s*\n?/g, '').replace(/```\s*$/g, '');
+      console.log('🔧 Stripped markdown code blocks from response');
+    }
+    
+    // Trim any whitespace
+    rawContent = rawContent.trim();
+    
     // Check if the response seems truncated
     if (rawContent && !rawContent.trim().endsWith('}')) {
       console.warn('⚠️ Response appears to be truncated');
@@ -709,6 +719,16 @@ async function generateFinalizationData(transcript: string, summaryData: any, co
     let rawContent = data.choices[0].message.content;
     console.log('📄 Raw finalization response (first 500 chars):', rawContent?.substring(0, 500));
     console.log('📄 Raw finalization response length:', rawContent?.length);
+    
+    // Strip markdown code blocks if present
+    if (rawContent.includes('```')) {
+      // Remove any markdown code blocks (```json or just ```)
+      rawContent = rawContent.replace(/```(?:json)?\s*\n?/g, '').replace(/```\s*$/g, '');
+      console.log('🔧 Stripped markdown code blocks from finalization response');
+    }
+    
+    // Trim any whitespace
+    rawContent = rawContent.trim();
     
     // Check if the response seems truncated
     if (rawContent && !rawContent.trim().endsWith('}')) {
