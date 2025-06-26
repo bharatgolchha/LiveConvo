@@ -49,6 +49,14 @@ export async function POST(
     });
 
     if (!openrouterApiKey) {
+      console.error('❌ CRITICAL: OpenRouter API key not configured');
+      console.error('❌ Environment check:', {
+        NODE_ENV: process.env.NODE_ENV,
+        hasOpenRouterKey: !!process.env.OPENROUTER_API_KEY,
+        hasSupabaseUrl: !!process.env.NEXT_PUBLIC_SUPABASE_URL,
+        hasSupabaseAnon: !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+        hasSupabaseService: !!process.env.SUPABASE_SERVICE_ROLE_KEY
+      });
       return NextResponse.json(
         { error: 'OpenRouter API key not configured. Please set OPENROUTER_API_KEY in your environment variables.' },
         { status: 500 }
@@ -496,6 +504,10 @@ async function generateFinalSummary(transcript: string, context: MeetingContext,
   const promptContent = generateEnhancedSummaryPrompt(transcript, context, config);
 
   const model = await getAIModelForAction(AIAction.SUMMARY);
+  console.log('🤖 Using AI model for summary:', model);
+  console.log('🔑 OpenRouter API key present:', !!openrouterApiKey);
+  console.log('📊 Prompt content length:', promptContent.length);
+  
   const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
     method: 'POST',
     headers: {
@@ -519,8 +531,16 @@ async function generateFinalSummary(transcript: string, context: MeetingContext,
   });
 
   if (!response.ok) {
+    const errorText = await response.text();
     console.error('❌ OpenRouter API error:', response.status, response.statusText);
-    throw new Error(`OpenRouter API error: ${response.status}`);
+    console.error('❌ OpenRouter error details:', errorText);
+    console.error('❌ Request details:', {
+      model,
+      hasApiKey: !!openrouterApiKey,
+      apiKeyLength: openrouterApiKey?.length,
+      promptLength: promptContent.length
+    });
+    throw new Error(`OpenRouter API error: ${response.status} - ${errorText}`);
   }
 
   const data = await response.json();
@@ -633,6 +653,8 @@ async function generateFinalizationData(transcript: string, summaryData: any, co
   const promptContent = generateCoachingPrompt(transcript, summaryData, context);
 
   const model2 = await getAIModelForAction(AIAction.SUMMARY);
+  console.log('🤖 Using AI model for finalization:', model2);
+  
   const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
     method: 'POST',
     headers: {
@@ -656,8 +678,10 @@ async function generateFinalizationData(transcript: string, summaryData: any, co
   });
 
   if (!response.ok) {
+    const errorText = await response.text();
     console.error('❌ OpenRouter API error (finalization):', response.status, response.statusText);
-    throw new Error(`OpenRouter API error: ${response.status}`);
+    console.error('❌ OpenRouter finalization error details:', errorText);
+    throw new Error(`OpenRouter API error: ${response.status} - ${errorText}`);
   }
 
   const data = await response.json();

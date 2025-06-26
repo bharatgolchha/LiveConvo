@@ -1,0 +1,50 @@
+// This is a backup file showing how to manually handle cascade deletes if needed
+// This approach is NOT recommended now that the database constraints are fixed
+
+/**
+ * Manual cascade delete implementation (for reference only)
+ * This shows how to manually delete related records before deleting the session
+ */
+async function manualCascadeDelete(sessionId: string, authClient: any) {
+  // Delete in reverse dependency order
+  const tables = [
+    'usage_tracking',
+    'bot_usage_tracking',
+    'recall_ai_webhooks',
+    'smart_notes',
+    'meeting_metadata',
+    'conversation_links',
+    'session_timeline_events',
+    'session_context',
+    'prep_checklist',
+    'documents',
+    'summaries',
+    'guidance',
+    'transcripts'
+  ];
+
+  for (const table of tables) {
+    try {
+      const { error } = await authClient
+        .from(table)
+        .delete()
+        .eq('session_id', sessionId);
+      
+      if (error) {
+        console.error(`Failed to delete from ${table}:`, error);
+      }
+    } catch (e) {
+      console.error(`Error deleting from ${table}:`, e);
+    }
+  }
+
+  // Finally delete the session
+  const { data: session, error } = await authClient
+    .from('sessions')
+    .delete()
+    .eq('id', sessionId)
+    .select()
+    .single();
+
+  return { session, error };
+}
