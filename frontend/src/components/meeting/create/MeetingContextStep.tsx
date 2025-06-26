@@ -38,6 +38,9 @@ export function MeetingContextStep({
   scheduledAt,
   setScheduledAt
 }: MeetingContextStepProps) {
+  // Debug log to verify component is using updated limits
+  console.log('🔍 MeetingContextStep mounted with 6000 char limit');
+  
   const handleExampleClick = () => {
     const randomExample = contextExamples[Math.floor(Math.random() * contextExamples.length)];
     console.log('📝 MeetingContextStep: Setting example context:', randomExample.substring(0, 50) + '...');
