@@ -18,6 +18,10 @@ export interface Meeting {
   createdAt: string;
   updatedAt: string;
   recordingDurationSeconds?: number;
+  recallRecordingUrl?: string;
+  recallRecordingStatus?: string;
+  recallRecordingExpiresAt?: string;
+  recallRecordingId?: string;
 }
 
 export interface CreateMeetingData {

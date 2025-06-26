@@ -38,8 +38,8 @@ interface MeetingContextValue {
   addChatMessage: (message: ChatMessage) => void;
   
   // UI State
-  activeTab: 'transcript' | 'summary' | 'notes' | 'previous';
-  setActiveTab: (tab: 'transcript' | 'summary' | 'notes' | 'previous') => void;
+  activeTab: 'transcript' | 'summary' | 'notes' | 'previous' | 'recording';
+  setActiveTab: (tab: 'transcript' | 'summary' | 'notes' | 'previous' | 'recording') => void;
   
   // Linked conversations
   linkedConversations: { id: string; title: string }[];
@@ -84,7 +84,7 @@ export function MeetingProvider({ children }: MeetingProviderProps) {
   const [linkedConversations, setLinkedConversations] = useState<{ id: string; title: string }[]>([]);
   
   // UI State
-  const [activeTab, setActiveTab] = useState<'transcript' | 'summary' | 'notes' | 'previous'>('transcript');
+  const [activeTab, setActiveTab] = useState<'transcript' | 'summary' | 'notes' | 'previous' | 'recording'>('transcript');
 
   // Transcript methods
   const setTranscriptMessages = useCallback((messages: TranscriptMessage[]) => {

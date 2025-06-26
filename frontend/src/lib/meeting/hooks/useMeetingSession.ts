@@ -75,7 +75,11 @@ export function useMeetingSession(meetingId: string) {
           participantThem: data.participant_them || 'Participant',
           createdAt: data.created_at,
           updatedAt: data.updated_at,
-          recordingDurationSeconds: data.recording_duration_seconds
+          recordingDurationSeconds: data.recording_duration_seconds,
+          recallRecordingUrl: data.recall_recording_url,
+          recallRecordingStatus: data.recall_recording_status,
+          recallRecordingExpiresAt: data.recall_recording_expires_at,
+          recallRecordingId: data.recall_recording_id
         };
 
         setLocalMeeting(meeting);

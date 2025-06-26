@@ -78,7 +78,11 @@ export async function GET(
           structured_notes,
           generation_status,
           created_at
-        )
+        ),
+        recall_recording_id,
+        recall_recording_url,
+        recall_recording_status,
+        recall_recording_expires_at
       `)
       .eq('id', sessionId)
       .eq('organization_id', userData.current_organization_id)
