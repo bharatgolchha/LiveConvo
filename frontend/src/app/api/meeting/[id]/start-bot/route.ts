@@ -67,7 +67,7 @@ export async function POST(
 
     // Check usage limits using the database function
     const { data: limits, error: limitsError } = await serviceClient
-      .rpc('check_usage_limit_v2', {
+      .rpc('check_usage_limit', {
         p_user_id: user.id,
         p_organization_id: organizationId
       });
@@ -83,7 +83,7 @@ export async function POST(
     const limitData = limits?.[0];
     
     // Prevent bot creation if user is out of minutes
-    if (limitData && !limitData.can_record && !limitData.is_unlimited) {
+    if (limitData && !limitData.can_record) {
       const minutesUsed = limitData.minutes_used || 0;
       const minutesLimit = limitData.minutes_limit || 0;
       const minutesRemaining = limitData.minutes_remaining || 0;
@@ -108,8 +108,7 @@ export async function POST(
       canRecord: limitData?.can_record,
       minutesUsed: limitData?.minutes_used,
       minutesLimit: limitData?.minutes_limit,
-      minutesRemaining: limitData?.minutes_remaining,
-      isUnlimited: limitData?.is_unlimited
+      minutesRemaining: limitData?.minutes_remaining
     });
 
     // Check if there's an old bot ID
