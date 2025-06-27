@@ -26,12 +26,16 @@ import { Button } from '@/components/ui/Button';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { TabbedReport } from '@/components/report/TabbedReport';
+import { ReportGenerationProgress } from '@/components/report/ReportGenerationProgress';
+import { ThemeToggle } from '@/components/ui/ThemeToggle';
+import { ShareReportModal } from '@/components/report/ShareReportModal';
 import type {
   EmailDraft,
   RiskAssessment,
   EffectivenessScore,
   NextMeetingTemplate,
-  ConversationTemplates
+  ConversationTemplates,
+  SummaryDecision
 } from '@/types/api';
 
 // Types
@@ -50,7 +54,7 @@ interface MeetingReport {
   status: 'completed';
   summary: {
     tldr: string;
-    keyDecisions: string[];
+    keyDecisions: string[] | SummaryDecision[];
     actionItems: Array<{
       description: string;
       owner?: string;
@@ -99,6 +103,12 @@ export default function MeetingReportPage() {
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<string>('overview');
   const [finalizing, setFinalizing] = useState(false);
+  const [finalizationProgress, setFinalizationProgress] = useState<{
+    step: string;
+    progress: number;
+    total: number;
+  } | null>(null);
+  const [shareModalOpen, setShareModalOpen] = useState(false);
 
   useEffect(() => {
     if (user && session) {
@@ -345,16 +355,7 @@ export default function MeetingReportPage() {
   };
 
   const handleShare = () => {
-    if (navigator.share) {
-      navigator.share({
-        title: `Meeting Report: ${report?.title}`,
-        text: `Check out this meeting report from ${report?.title}`,
-        url: window.location.href
-      }).catch(console.error);
-    } else {
-      navigator.clipboard.writeText(window.location.href);
-      alert('Report link copied to clipboard!');
-    }
+    setShareModalOpen(true);
   };
 
   const handleExport = () => {
@@ -366,35 +367,89 @@ export default function MeetingReportPage() {
     if (!report || finalizing) return;
     
     setFinalizing(true);
+    setFinalizationProgress({ step: 'Initializing...', progress: 0, total: 8 });
+    
     try {
-      const headers: HeadersInit = { 'Content-Type': 'application/json' };
+      const headers: HeadersInit = { 
+        'Accept': 'text/event-stream',
+      };
       if (session?.access_token) {
         headers['Authorization'] = `Bearer ${session.access_token}`;
       }
 
-      const finalizeResponse = await fetch(`/api/sessions/${meetingId}/finalize`, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({
-          conversationType: report.type,
-          conversationTitle: report.title,
-          participantMe: report.participants.me,
-          participantThem: report.participants.them
-        })
+      const body = JSON.stringify({
+        conversationType: report.type,
+        conversationTitle: report.title,
+        participantMe: report.participants.me,
+        participantThem: report.participants.them,
+        regenerate: true
       });
 
-      if (finalizeResponse.ok) {
-        console.log('✅ Session finalized successfully');
-        // Reload the page to fetch the new summary
-        window.location.reload();
-      } else {
-        const errorData = await finalizeResponse.json();
-        console.error('❌ Failed to finalize session:', errorData);
-        alert('Failed to generate summary. Please try again.');
+      const response = await fetch(`/api/sessions/${meetingId}/finalize`, {
+        method: 'POST',
+        headers: {
+          ...headers,
+          'Content-Type': 'application/json'
+        },
+        body
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to start report generation');
+      }
+
+      // Handle SSE stream
+      const reader = response.body?.getReader();
+      const decoder = new TextDecoder();
+
+      if (!reader) {
+        throw new Error('No response stream available');
+      }
+
+      let buffer = '';
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop() || ''; // Keep incomplete line in buffer
+
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            try {
+              const data = JSON.parse(line.slice(6));
+              console.log('📊 SSE data received:', data);
+              
+              if (data.error) {
+                throw new Error(data.message || 'Report generation failed');
+              }
+              
+              if (data.complete) {
+                console.log('✅ Report generation complete');
+                // Reload the page to fetch the new summary
+                window.location.reload();
+                return;
+              }
+              
+              if (data.step !== undefined) {
+                console.log('📈 Setting progress:', data);
+                setFinalizationProgress({
+                  step: data.step,
+                  progress: data.progress,
+                  total: data.total || 8
+                });
+              }
+            } catch (e) {
+              console.error('Error parsing SSE data:', e);
+            }
+          }
+        }
       }
     } catch (error) {
       console.error('❌ Error finalizing session:', error);
       alert('An error occurred while generating the summary.');
+      setFinalizationProgress(null);
     } finally {
       setFinalizing(false);
     }
@@ -441,80 +496,86 @@ export default function MeetingReportPage() {
     );
   }
 
+  const getMeetingTypeBadge = (type: string) => {
+    const typeMap: { [key: string]: { label: string; color: string } } = {
+      sales: { label: 'Sales', color: 'bg-blue-100 text-blue-700 border-blue-200' },
+      interview: { label: 'Interview', color: 'bg-purple-100 text-purple-700 border-purple-200' },
+      support: { label: 'Support', color: 'bg-green-100 text-green-700 border-green-200' },
+      meeting: { label: 'Meeting', color: 'bg-gray-100 text-gray-700 border-gray-200' },
+      general: { label: 'General', color: 'bg-gray-100 text-gray-700 border-gray-200' }
+    };
+    const config = typeMap[type.toLowerCase()] || typeMap.general;
+    return config;
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-primary/5">
-      <div className="container mx-auto px-4 py-8">
+      <div className="container mx-auto px-4 py-6">
         <div className="max-w-6xl mx-auto">
-          {/* Header */}
-          <div className="flex items-center justify-between mb-8">
-            <div className="flex items-center gap-4">
-              <button
-                onClick={() => router.back()}
-                className="p-2 hover:bg-muted/60 rounded-lg transition-colors"
-              >
-                <ArrowLeft className="w-5 h-5 text-muted-foreground" />
-              </button>
-              <div>
-                <h1 className="text-3xl font-bold text-foreground mb-2">
-                  {report.title}
-                </h1>
-                <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                  <span className="flex items-center gap-1">
-                    {getPlatformIcon(report.platform)} {report.platform}
+          {/* Enhanced Header */}
+          <div className="mb-6">
+            {/* Top Row - Back button and Title */}
+            <div className="flex items-start justify-between mb-4">
+              <div className="flex items-start gap-3">
+                <button
+                  onClick={() => router.back()}
+                  className="mt-1 p-2 hover:bg-muted/60 rounded-lg transition-colors group"
+                >
+                  <ArrowLeft className="w-5 h-5 text-muted-foreground group-hover:text-foreground transition-colors" />
+                </button>
+                <div className="flex-1">
+                  <h1 className="text-2xl font-bold text-foreground mb-2">
+                    {report.title}
+                  </h1>
+                  <div className="flex items-center gap-3 flex-wrap">
+                    <span className={`px-3 py-1 text-xs font-medium rounded-full border ${getMeetingTypeBadge(report.type).color}`}>
+                      {getMeetingTypeBadge(report.type).label}
+                    </span>
+                    <span className="text-sm text-muted-foreground flex items-center gap-1">
+                      <Clock className="w-3 h-3" />
+                      {formatDuration(report.duration)}
+                    </span>
+                    <span className="text-sm text-muted-foreground">
+                      {formatDate(report.startedAt)}
+                    </span>
+                  </div>
+                  <div className="mt-2 text-sm text-muted-foreground">
+                    <span className="font-medium">Participants:</span> {report.participants.me} & {report.participants.them}
+                  </div>
+                </div>
+              </div>
+              
+              {/* Action Buttons and Effectiveness */}
+              <div className="flex flex-col items-end gap-3">
+                <div className="flex items-center gap-2">
+                  <ThemeToggle className="h-8 w-8" />
+                  <div className="w-px h-6 bg-border" />
+                  <Button onClick={handleShare} variant="outline" size="sm" className="h-8">
+                    <Share className="w-3 h-3 mr-1.5" />
+                    Share
+                  </Button>
+                  <Button onClick={handleExport} variant="outline" size="sm" className="h-8">
+                    <Download className="w-3 h-3 mr-1.5" />
+                    Export
+                  </Button>
+                  {report.transcriptAvailable && (
+                    <Button onClick={() => setActiveTab('transcript')} variant="outline" size="sm" className="h-8">
+                      <MessageSquare className="w-3 h-3 mr-1.5" />
+                      Transcript
+                    </Button>
+                  )}
+                </div>
+                <div className="flex items-center gap-2 text-sm">
+                  <span className="text-muted-foreground">Effectiveness:</span>
+                  <span className={`font-bold ${getEffectivenessColor(report.summary.effectiveness.overall)}`}>
+                    {report.summary.effectiveness.overall}%
                   </span>
-                  <span>{report.participants.me} & {report.participants.them}</span>
-                  <span>{formatDate(report.startedAt)}</span>
                 </div>
               </div>
             </div>
             
-            {/* Action Buttons */}
-            <div className="flex items-center gap-3">
-              <Button onClick={handleShare} variant="outline" size="sm">
-                <Share className="w-4 h-4 mr-2" />
-                Share
-              </Button>
-              <Button onClick={handleExport} variant="outline" size="sm">
-                <Download className="w-4 h-4 mr-2" />
-                Export
-              </Button>
-              {report.transcriptAvailable && (
-                <Button onClick={() => setActiveTab('transcript')} variant="outline" size="sm">
-                  <MessageSquare className="w-4 h-4 mr-2" />
-                  Transcript
-                </Button>
-              )}
-            </div>
-          </div>
-
-
-          {/* Success Banner */}
-          <div className="mb-8 animate-fade-in">
-            <div className="bg-gradient-to-r from-primary/10 to-accent/10 border border-primary/20 rounded-lg backdrop-blur-sm">
-              <div className="p-6">
-                <div className="flex items-center justify-between mb-4">
-                  <div className="flex items-center gap-3">
-                    <div className="w-12 h-12 bg-gradient-to-br from-primary to-accent rounded-full flex items-center justify-center">
-                      <CheckCircle className="w-6 h-6 text-white" />
-                    </div>
-                    <div>
-                      <h2 className="text-xl font-bold text-foreground">
-                        Meeting Completed Successfully!
-                      </h2>
-                      <p className="text-sm text-muted-foreground">
-                        {formatDate(report.endedAt)}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <div className="text-2xl font-bold text-primary">
-                      {report.summary.effectiveness.overall}%
-                    </div>
-                    <div className="text-sm text-muted-foreground">Overall Effectiveness</div>
-                  </div>
-                </div>
-              </div>
-            </div>
+            {/* Divider */}
+            <div className="h-px bg-border" />
           </div>
 
           {/* Tabbed Report Component */}
@@ -524,6 +585,7 @@ export default function MeetingReportPage() {
             setActiveTab={setActiveTab}
             handleManualFinalize={handleManualFinalize}
             finalizing={finalizing}
+            finalizationProgress={finalizationProgress}
           />
 
           {/* Quick Actions */}
@@ -541,6 +603,16 @@ export default function MeetingReportPage() {
               </Button>
             </div>
           </div>
+
+          {/* Share Modal */}
+          {report && (
+            <ShareReportModal
+              isOpen={shareModalOpen}
+              onClose={() => setShareModalOpen(false)}
+              reportId={report.id}
+              reportTitle={report.title}
+            />
+          )}
         </div>
       </div>
     </div>

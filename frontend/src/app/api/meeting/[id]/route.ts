@@ -30,6 +30,8 @@ export async function GET(
     // Await params
     const { id } = await params;
 
+    // Note: We don't need to filter by user_id explicitly because RLS will handle it
+    // The RLS policy checks that organization_id matches user's current_organization_id
     const { data: session, error } = await supabase
       .from('sessions')
       .select(`
@@ -38,10 +40,24 @@ export async function GET(
         session_context (text_context, context_metadata)
       `)
       .eq('id', id)
-      .eq('user_id', user.id)
       .single();
 
-    if (error || !session) {
+    if (error) {
+      console.error('Database query error:', {
+        error: error.message,
+        code: error.code,
+        details: error.details,
+        hint: error.hint,
+        sessionId: id,
+        userId: user.id
+      });
+      return NextResponse.json(
+        { error: 'Database query failed', details: error.message },
+        { status: 500 }
+      );
+    }
+
+    if (!session) {
       return NextResponse.json(
         { error: 'Meeting not found' },
         { status: 404 }
@@ -72,9 +88,16 @@ export async function GET(
       }
     });
   } catch (error) {
-    console.error('Get meeting error:', error);
+    console.error('Get meeting error:', {
+      error: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined,
+      type: typeof error
+    });
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { 
+        error: 'Internal server error',
+        details: error instanceof Error ? error.message : 'Unknown error occurred'
+      },
       { status: 500 }
     );
   }

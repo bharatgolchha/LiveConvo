@@ -6,7 +6,8 @@ import type {
   FinalizationData, 
   SummaryInsight,
   SummaryActionItem,
-  SummaryDecision 
+  SummaryDecision,
+  QuotableQuote 
 } from '@/types/api';
 import { getAIModelForAction, AIAction } from '@/lib/aiModelConfig';
 import { getCurrentDateContext } from '@/lib/utils';
@@ -17,6 +18,17 @@ import {
   type MeetingContext,
   type SummaryPromptConfig 
 } from '@/lib/prompts/summaryPrompts';
+import { generateEnhancedSummaryPromptV2 } from '@/lib/prompts/enhancedSummaryPrompts';
+import { 
+  generateExecutiveSummaryPrompt,
+  generateParticipantAnalysisPrompt,
+  generateDecisionsAndActionsPrompt,
+  generateInsightsAndMetricsPrompt,
+  generateEffectivenessScorePrompt,
+  generateRiskAssessmentPrompt,
+  generateFollowUpContentPrompt,
+  combineModularResults
+} from '@/lib/prompts/modularSummaryPrompts';
 
 const openrouterApiKey = process.env.OPENROUTER_API_KEY;
 
@@ -35,427 +47,66 @@ export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  // Check if client wants SSE progress updates
+  const wantsSSE = request.headers.get('accept')?.includes('text/event-stream');
+  
+  if (wantsSSE) {
+    // Parse body first before streaming
+    const { id: sessionId } = await params;
+    const body = await request.json();
+    
+    // Return SSE response with progress updates
+    const encoder = new TextEncoder();
+    const stream = new ReadableStream({
+      async start(controller) {
+        try {
+          // Send progress update helper
+          const sendProgress = (step: string, progress: number, total: number = 8) => {
+            const message = `data: ${JSON.stringify({ step, progress, total })}\n\n`;
+            controller.enqueue(encoder.encode(message));
+          };
+          
+          sendProgress('Initializing report generation...', 0);
+          
+          // Continue with the rest of the logic, sending progress updates
+          await processFinalization({
+            sessionId,
+            body,
+            request,
+            sendProgress,
+            controller,
+            encoder
+          });
+        } catch (error) {
+          const errorMessage = `data: ${JSON.stringify({ error: true, message: error instanceof Error ? error.message : 'Unknown error' })}\n\n`;
+          controller.enqueue(encoder.encode(errorMessage));
+        } finally {
+          controller.close();
+        }
+      }
+    });
+    
+    return new Response(stream, {
+      headers: {
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache',
+        'Connection': 'keep-alive',
+      },
+    });
+  }
+  
+  // Regular POST request without SSE
   try {
     const { id: sessionId } = await params;
     const body = await request.json();
-    const { textContext, conversationType, conversationTitle, uploadedFiles, selectedPreviousConversations, personalContext, participantMe, participantThem, regenerate } = body;
-
-    console.log('📝 Finalize request received:', {
+    
+    const result = await processFinalization({
       sessionId,
-      conversationType,
-      conversationTitle,
-      hasTextContext: !!textContext,
-      hasParticipants: !!participantMe && !!participantThem,
-      regenerate: !!regenerate
-    });
-
-    if (!openrouterApiKey) {
-      console.error('❌ CRITICAL: OpenRouter API key not configured');
-      console.error('❌ Environment check:', {
-        NODE_ENV: process.env.NODE_ENV,
-        hasOpenRouterKey: !!process.env.OPENROUTER_API_KEY,
-        hasSupabaseUrl: !!process.env.NEXT_PUBLIC_SUPABASE_URL,
-        hasSupabaseAnon: !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
-        hasSupabaseService: !!process.env.SUPABASE_SERVICE_ROLE_KEY
-      });
-      return NextResponse.json(
-        { error: 'OpenRouter API key not configured. Please set OPENROUTER_API_KEY in your environment variables.' },
-        { status: 500 }
-      );
-    }
-
-    // Get current user from Supabase auth using the access token
-    const authHeader = request.headers.get('authorization');
-    const token = authHeader?.split(' ')[1];
-    
-    if (!token) {
-      return NextResponse.json(
-        { error: 'Unauthorized', message: 'Missing authentication token' },
-        { status: 401 }
-      );
-    }
-
-    // Create authenticated client with user token for RLS
-    const authenticatedSupabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      {
-        global: {
-          headers: {
-            Authorization: `Bearer ${token}`
-          }
-        }
-      }
-    );
-
-    const { data: { user }, error: authError } = await authenticatedSupabase.auth.getUser(token);
-    
-    if (authError || !user) {
-      console.error('❌ Authentication error:', authError);
-      return NextResponse.json(
-        { error: 'Unauthorized', message: 'Please sign in to finalize session' },
-        { status: 401 }
-      );
-    }
-
-    console.log('✅ User authenticated:', { userId: user.id, email: user.email });
-
-    // Verify session belongs to user and get organization_id - using authenticated client
-    const { data: sessionData, error: sessionError } = await authenticatedSupabase
-      .from('sessions')
-      .select('id, user_id, organization_id, finalized_at')
-      .eq('id', sessionId)
-      .single(); // Remove user_id filter since RLS will handle it
-
-    if (sessionError || !sessionData) {
-      console.error('❌ Session query error:', sessionError);
-      return NextResponse.json(
-        { error: 'Not found', message: 'Session not found or access denied' },
-        { status: 404 }
-      );
-    }
-
-    // Check if session is already finalized
-    if (sessionData.finalized_at && !regenerate) {
-      console.log('⚠️ Session already finalized:', {
-        sessionId,
-        finalizedAt: sessionData.finalized_at
-      });
-      
-      // Check if there's already a summary
-      const { data: existingSummary } = await authenticatedSupabase
-        .from('summaries')
-        .select('*')
-        .eq('session_id', sessionId)
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .single();
-        
-      if (existingSummary) {
-        console.log('✅ Returning existing summary');
-        return NextResponse.json({
-          sessionId,
-          summary: {
-            tldr: existingSummary.tldr,
-            key_points: existingSummary.key_decisions || [],
-            action_items: existingSummary.action_items || [],
-            outcomes: existingSummary.key_decisions || [],
-            next_steps: existingSummary.follow_up_questions || [],
-            insights: [],
-            missed_opportunities: [],
-            successful_moments: [],
-            conversation_dynamics: {},
-            effectiveness_metrics: {},
-            agenda_coverage: {},
-            coaching_recommendations: []
-          },
-          finalization: null,
-          transcript: existingSummary.full_transcript || '',
-          conversationType,
-          conversationTitle,
-          finalizedAt: sessionData.finalized_at,
-          warning: 'Session was already finalized. Returning existing summary.'
-        });
-      }
-    }
-
-    // If regenerating, delete the existing summary first
-    if (regenerate && sessionData.finalized_at) {
-      console.log('🔄 Regenerating summary for already finalized session');
-      const { error: deleteError } = await authenticatedSupabase
-        .from('summaries')
-        .delete()
-        .eq('session_id', sessionId);
-      
-      if (deleteError) {
-        console.error('⚠️ Failed to delete existing summary:', deleteError);
-        // Continue anyway - we'll update the existing record if needed
-      } else {
-        console.log('✅ Deleted existing summary for regeneration');
-      }
-    }
-
-    // Fetch transcript data from database - using authenticated client
-    const { data: transcriptLines, error: transcriptError } = await authenticatedSupabase
-      .from('transcripts')
-      .select('*')
-      .eq('session_id', sessionId)
-      .order('start_time_seconds', { ascending: true });
-
-    if (transcriptError) {
-      console.error('❌ Database error fetching transcript:', transcriptError);
-      return NextResponse.json(
-        { error: 'Database error', message: transcriptError.message },
-        { status: 500 }
-      );
-    }
-
-    // Convert transcript lines to text format - speaker names are already in the database
-    const transcriptText = transcriptLines && transcriptLines.length > 0 
-      ? transcriptLines.map(line => {
-          // The database already stores the actual speaker names (e.g., "Bharat Golchha", "Mudit Golchha")
-          return `${line.speaker}: ${line.content}`;
-        }).join('\n')
-      : '';
-
-    if (!transcriptText || transcriptText.trim().length === 0) {
-      console.warn('⚠️ No transcript available for session:', {
-        sessionId,
-        transcriptLinesCount: transcriptLines?.length || 0,
-        transcriptError
-      });
-      
-      // Return a minimal summary instead of failing completely
-      const minimalSummary = {
-        tldr: 'No transcript data available for this session.',
-        key_points: [],
-        action_items: [],
-        outcomes: [],
-        next_steps: [],
-        insights: [],
-        missed_opportunities: [],
-        successful_moments: [],
-        conversation_dynamics: {},
-        effectiveness_metrics: {},
-        coaching_recommendations: []
-      };
-      
-      // Still save a minimal summary record
-      const summaryInsertData = {
-        session_id: sessionId,
-        user_id: user.id,
-        organization_id: sessionData.organization_id,
-        title: conversationTitle || 'Conversation Summary',
-        tldr: minimalSummary.tldr,
-        key_decisions: [],
-        action_items: [],
-        follow_up_questions: [],
-        conversation_highlights: [],
-        full_transcript: '',
-        structured_notes: JSON.stringify({}),
-        generation_status: 'failed',
-        model_used: 'none'
-      };
-      
-      await authenticatedSupabase
-        .from('summaries')
-        .insert(summaryInsertData);
-      
-      // Update session status
-      await authenticatedSupabase
-        .from('sessions')
-        .update({ 
-          status: 'completed',
-          finalized_at: new Date().toISOString()
-        })
-        .eq('id', sessionId);
-      
-      return NextResponse.json({
-        sessionId,
-        summary: minimalSummary,
-        finalization: null,
-        transcript: '',
-        conversationType,
-        conversationTitle,
-        finalizedAt: new Date().toISOString(),
-        warning: 'No transcript data available'
-      });
-    }
-
-    console.log('🔍 Processing transcript:', {
-      sessionId,
-      transcriptLines: transcriptLines?.length || 0,
-      transcriptLength: transcriptText.length,
-      conversationType,
-      conversationTitle
-    });
-
-    // Calculate session statistics from transcript data
-    const totalWords = transcriptLines?.reduce((total, line) => {
-      return total + (line.content?.split(' ').length || 0);
-    }, 0) || 0;
-
-    const sessionDuration = transcriptLines?.length > 0 
-      ? Math.max(...transcriptLines.map(line => line.end_time_seconds || line.start_time_seconds || 0))
-      : 0;
-
-    // Calculate speaking time by participant
-    const speakingStats = transcriptLines?.reduce((stats, line) => {
-      const speaker = line.speaker;
-      const duration = (line.end_time_seconds || line.start_time_seconds) - line.start_time_seconds || 0;
-      
-      if (!stats[speaker]) {
-        stats[speaker] = { duration: 0, words: 0 };
-      }
-      
-      stats[speaker].duration += duration;
-      stats[speaker].words += (line.content?.split(' ').length || 0);
-      
-      return stats;
-    }, {} as Record<string, { duration: number; words: number }>) || {};
-
-    // Generate summary and finalization with full context
-    const fullContext = buildFullContext(textContext, personalContext, uploadedFiles, selectedPreviousConversations);
-    
-    // Log context being passed to AI
-    console.log('📋 Full context being passed to AI:', {
-      hasTextContext: !!textContext,
-      textContextLength: textContext?.length || 0,
-      textContextPreview: textContext ? textContext.substring(0, 200) + '...' : 'None',
-      hasPersonalContext: !!personalContext,
-      uploadedFilesCount: uploadedFiles?.length || 0,
-      previousConversationsCount: selectedPreviousConversations?.length || 0,
-      fullContextLength: fullContext.length
+      body,
+      request
     });
     
-    // Create meeting context for enhanced prompts
-    // Map conversation types to our expected types
-    const normalizedType = (() => {
-      const lowerType = conversationType?.toLowerCase() || '';
-      if (lowerType.includes('sales') || lowerType.includes('demo')) return 'sales';
-      if (lowerType.includes('interview') || lowerType.includes('hiring')) return 'interview';
-      if (lowerType.includes('support') || lowerType.includes('help')) return 'support';
-      if (lowerType.includes('meeting') || lowerType.includes('sync')) return 'meeting';
-      return 'general';
-    })();
-
-    const meetingContext: MeetingContext = {
-      type: normalizedType,
-      agenda: textContext,
-      context: personalContext,
-      previousMeetings: selectedPreviousConversations,
-      participantCount: Object.keys(speakingStats).length || 2,
-      duration: sessionDuration
-    };
-
-    const promptConfig: SummaryPromptConfig = {
-      includeEmailDraft: true,
-      includeRiskAssessment: normalizedType === 'sales' || normalizedType === 'meeting',
-      includeEffectivenessScore: true,
-      includeNextMeetingTemplate: normalizedType === 'meeting' || normalizedType === 'sales'
-    };
-    
-    const summary = await generateFinalSummary(transcriptText, meetingContext, promptConfig, participantMe, participantThem);
-    const finalData = await generateFinalizationData(transcriptText, summary, meetingContext, participantMe, participantThem);
-
-    console.log('🤖 AI Summary generated:', {
-      hasTldr: !!summary.tldr,
-      hasKeyPoints: !!summary.key_points,
-      hasOutcomes: !!summary.outcomes,
-      hasActionItems: !!summary.action_items,
-      hasNextSteps: !!summary.next_steps
-    });
-
-    // Save final summary to database with proper field mapping
-    const summaryInsertData = {
-      session_id: sessionId,
-      user_id: user.id,
-      organization_id: sessionData.organization_id,
-      title: conversationTitle || 'Conversation Summary',
-      tldr: summary.tldr || 'Summary not available',
-      key_decisions: summary.outcomes || summary.key_points || [], // Map to correct field name
-      action_items: summary.action_items || [],
-      follow_up_questions: summary.next_steps || [], // Map next_steps to follow_up_questions
-      conversation_highlights: [
-        ...summary.key_points || [],
-        ...(summary.insights?.map((i: SummaryInsight) => i.observation) || []),
-        ...(summary.successful_moments || [])
-      ], // Combine all highlights
-      full_transcript: transcriptText,
-      structured_notes: JSON.stringify({
-        insights: summary.insights || [],
-        missed_opportunities: summary.missed_opportunities || [],
-        successful_moments: summary.successful_moments || [],
-        conversation_dynamics: summary.conversation_dynamics || {},
-        effectiveness_metrics: summary.effectiveness_metrics || {},
-        agenda_coverage: summary.agenda_coverage || {},
-        coaching_recommendations: summary.coaching_recommendations || [],
-        performance_analysis: finalData?.performance_analysis || {},
-        conversation_patterns: finalData?.conversation_patterns || {},
-        key_techniques_used: finalData?.key_techniques_used || [],
-        follow_up_strategy: finalData?.follow_up_strategy || {},
-        success_indicators: finalData?.success_indicators || [],
-        risk_factors: finalData?.risk_factors || [],
-        // Add the new enhanced fields
-        email_draft: summary.email_draft || null,
-        risk_assessment: summary.risk_assessment || null,
-        effectiveness_score: summary.effectiveness_score || null,
-        next_meeting_template: summary.next_meeting_template || null,
-        templates: finalData?.templates || null
-      }), // Store enhanced data as structured notes
-      generation_status: 'completed',
-      model_used: await getAIModelForAction(AIAction.SUMMARY)
-    };
-
-    console.log('💾 Attempting to save summary to database:', {
-      session_id: summaryInsertData.session_id,
-      user_id: summaryInsertData.user_id,
-      organization_id: summaryInsertData.organization_id,
-      title: summaryInsertData.title,
-      tldr_length: summaryInsertData.tldr?.length || 0,
-      key_decisions_count: Array.isArray(summaryInsertData.key_decisions) ? summaryInsertData.key_decisions.length : 0,
-      action_items_count: Array.isArray(summaryInsertData.action_items) ? summaryInsertData.action_items.length : 0
-    });
-
-    const { data: summaryData, error: summaryError } = await authenticatedSupabase
-      .from('summaries')
-      .insert(summaryInsertData)
-      .select()
-      .single();
-
-    if (summaryError) {
-      console.error('❌ Database error saving summary:', summaryError);
-      console.error('❌ Full summary insert data:', summaryInsertData);
-      // Continue even if summary save fails but log the error details
-    } else {
-      console.log('✅ Summary successfully saved to database with ID:', summaryData?.id);
-    }
-
-    console.log('📊 Calculated session statistics:', {
-      transcriptLinesCount: transcriptLines?.length || 0
-    });
-
-    // Update session status and statistics - using authenticated client
-    const { error: sessionUpdateError } = await authenticatedSupabase
-      .from('sessions')
-      .update({ 
-        status: 'completed',
-        finalized_at: new Date().toISOString(),
-        total_words_spoken: totalWords,
-        recording_duration_seconds: Math.round(sessionDuration)
-      })
-      .eq('id', sessionId);
-
-    if (sessionUpdateError) {
-      console.error('❌ Failed to update session status:', sessionUpdateError);
-    } else {
-      console.log('✅ Session status and statistics updated');
-    }
-
-    // If summary save failed but session update succeeded, still return a partial success
-    if (summaryError && !sessionUpdateError) {
-      console.warn('⚠️ Session finalized but summary save failed');
-      return NextResponse.json({
-        sessionId,
-        summary,
-        finalization: finalData,
-        transcript: transcriptText,
-        conversationType,
-        conversationTitle,
-        finalizedAt: new Date().toISOString(),
-        warning: 'Session finalized but summary storage failed. Data may be incomplete.'
-      });
-    }
-
-    return NextResponse.json({
-      sessionId,
-      summary,
-      finalization: finalData,
-      transcript: transcriptText,
-      conversationType,
-      conversationTitle,
-      finalizedAt: new Date().toISOString()
-    });
+    return NextResponse.json(result);
 
   } catch (error) {
     console.error('💥 Session finalization error:', error);
@@ -483,6 +134,277 @@ export async function POST(
       { status: 500 }
     );
   }
+}
+
+// Helper function to process finalization with progress updates
+async function processFinalization({
+  sessionId,
+  body,
+  request,
+  sendProgress,
+  controller,
+  encoder
+}: {
+  sessionId: string;
+  body: any;
+  request: NextRequest;
+  sendProgress?: (step: string, progress: number, total?: number) => void;
+  controller?: ReadableStreamDefaultController;
+  encoder?: TextEncoder;
+}) {
+  const { textContext, conversationType, conversationTitle, uploadedFiles, selectedPreviousConversations, personalContext, participantMe, participantThem, regenerate } = body;
+
+  console.log('📝 Finalize request received:', {
+    sessionId,
+    conversationType,
+    conversationTitle,
+    hasTextContext: !!textContext,
+    hasParticipants: !!participantMe && !!participantThem,
+    regenerate: !!regenerate
+  });
+
+  if (!openrouterApiKey) {
+    console.error('❌ CRITICAL: OpenRouter API key not configured');
+    throw new Error('OpenRouter API key not configured');
+  }
+
+  // Get current user from Supabase auth using the access token
+  const authHeader = request.headers.get('authorization');
+  const token = authHeader?.split(' ')[1];
+  
+  if (!token) {
+    throw new Error('Unauthorized: Missing authentication token');
+  }
+
+  // Create authenticated client
+  const authenticatedSupabase = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      global: {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      }
+    }
+  );
+
+  // Get user
+  const { data: { user }, error: userError } = await authenticatedSupabase.auth.getUser();
+  if (!user || userError) {
+    throw new Error('Unauthorized: Invalid user');
+  }
+
+  sendProgress?.('Fetching session data...', 1);
+
+  // Fetch session data
+  const { data: sessionData, error: sessionError } = await authenticatedSupabase
+    .from('sessions')
+    .select('*')
+    .eq('id', sessionId)
+    .eq('user_id', user.id)
+    .single();
+
+  if (sessionError || !sessionData) {
+    throw new Error('Session not found');
+  }
+
+  // Check if session is already finalized
+  if (sessionData.finalized_at && !regenerate) {
+    const { data: existingSummary } = await authenticatedSupabase
+      .from('summaries')
+      .select('*')
+      .eq('session_id', sessionId)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .single();
+      
+    if (existingSummary) {
+      return {
+        sessionId,
+        summary: {
+          tldr: existingSummary.tldr,
+          key_points: existingSummary.key_decisions || [],
+          action_items: existingSummary.action_items || [],
+          outcomes: existingSummary.key_decisions || [],
+          next_steps: existingSummary.follow_up_questions || [],
+        },
+        finalization: null,
+        transcript: existingSummary.full_transcript || '',
+        conversationType,
+        conversationTitle,
+        finalizedAt: sessionData.finalized_at,
+        warning: 'Session was already finalized. Returning existing summary.'
+      };
+    }
+  }
+
+  sendProgress?.('Loading transcript data...', 2);
+
+  // Get transcript data
+  const { data: transcriptLines, error: transcriptError } = await authenticatedSupabase
+    .from('transcripts')
+    .select('*')
+    .eq('session_id', sessionId)
+    .order('sequence_number', { ascending: true });
+
+  // Convert transcript lines to text format
+  const transcriptText = transcriptLines && transcriptLines.length > 0 
+    ? transcriptLines.map(line => {
+        return `${line.speaker}: ${line.content}`;
+      }).join('\n')
+    : '';
+
+  if (!transcriptText || transcriptText.trim().length === 0) {
+    console.warn('⚠️ No transcript available');
+    throw new Error('No transcript data available');
+  }
+
+  // Calculate session statistics
+  const totalWords = transcriptLines?.reduce((total, line) => {
+    return total + (line.content?.split(' ').length || 0);
+  }, 0) || 0;
+
+  const sessionDuration = transcriptLines && transcriptLines.length > 0 
+    ? Math.max(...transcriptLines.map(line => line.end_time_seconds || line.start_time_seconds || 0))
+    : 0;
+
+  // Create meeting context
+  const normalizedType = (() => {
+    const lowerType = conversationType?.toLowerCase() || '';
+    if (lowerType.includes('sales') || lowerType.includes('demo')) return 'sales';
+    if (lowerType.includes('interview') || lowerType.includes('hiring')) return 'interview';
+    if (lowerType.includes('support') || lowerType.includes('help')) return 'support';
+    if (lowerType.includes('meeting') || lowerType.includes('sync')) return 'meeting';
+    return 'general';
+  })();
+
+  const meetingContext: MeetingContext = {
+    type: normalizedType,
+    agenda: textContext,
+    context: personalContext,
+    previousMeetings: selectedPreviousConversations,
+    participantCount: 2,
+    duration: sessionDuration
+  };
+
+  const promptConfig: SummaryPromptConfig = {
+    includeEmailDraft: true,
+    includeRiskAssessment: normalizedType === 'sales' || normalizedType === 'meeting',
+    includeEffectivenessScore: true,
+    includeNextMeetingTemplate: normalizedType === 'meeting' || normalizedType === 'sales'
+  };
+  
+  // Generate summary with progress updates
+  const summary = await generateFinalSummary(transcriptText, meetingContext, promptConfig, participantMe, participantThem, sendProgress);
+  
+  sendProgress?.('Generating coaching insights...', 8);
+  const finalData = await generateFinalizationData(transcriptText, summary, meetingContext, participantMe, participantThem);
+
+  sendProgress?.('Saving report to database...', 8);
+
+  // Save to database
+  const summaryInsertData = {
+    session_id: sessionId,
+    user_id: user.id,
+    organization_id: sessionData.organization_id,
+    title: conversationTitle || 'Conversation Summary',
+    tldr: summary.tldr || 'Summary not available',
+    key_decisions: summary.outcomes || summary.key_points || [],
+    action_items: summary.action_items || [],
+    follow_up_questions: summary.next_steps || [],
+    conversation_highlights: [
+      ...summary.key_points || [],
+      ...(summary.insights?.map((i: any) => {
+        if (typeof i === 'string') return i;
+        return i.observation || JSON.stringify(i);
+      }) || []),
+      ...(summary.quotable_quotes?.map((q: QuotableQuote) => `"${q.quote}" - ${q.speaker}`) || [])
+    ],
+    full_transcript: transcriptText,
+    structured_notes: JSON.stringify({
+      insights: summary.insights || [],
+      missed_opportunities: summary.missed_opportunities || [],
+      successful_moments: summary.successful_moments || [],
+      conversation_dynamics: summary.conversation_dynamics || {},
+      effectiveness_metrics: summary.effectiveness_metrics || {},
+      agenda_coverage: summary.agenda_coverage || {},
+      coaching_recommendations: summary.coaching_recommendations || [],
+      participants: summary.participants || [],
+      conversation_flow: summary.conversation_flow || {},
+      important_numbers: summary.important_numbers || [],
+      quotable_quotes: summary.quotable_quotes || [],
+      metadata: summary.metadata || {},
+      performance_analysis: finalData?.performance_analysis || {},
+      conversation_patterns: finalData?.conversation_patterns || {},
+      key_techniques_used: finalData?.key_techniques_used || [],
+      follow_up_strategy: finalData?.follow_up_strategy || {},
+      success_indicators: finalData?.success_indicators || [],
+      risk_factors: finalData?.risk_factors || [],
+      email_draft: summary.email_draft,
+      risk_assessment: summary.risk_assessment,
+      effectiveness_score: summary.effectiveness_score,
+      next_meeting_template: summary.next_meeting_template,
+      templates: finalData?.templates
+    }),
+    generation_status: 'completed',
+    model_used: await getAIModelForAction(AIAction.SUMMARY)
+  };
+
+  // First check if a summary already exists
+  const { data: existingSummary } = await authenticatedSupabase
+    .from('summaries')
+    .select('id')
+    .eq('session_id', sessionId)
+    .single();
+
+  let summaryResult;
+  if (existingSummary) {
+    // Update existing summary
+    summaryResult = await authenticatedSupabase
+      .from('summaries')
+      .update(summaryInsertData)
+      .eq('id', existingSummary.id);
+  } else {
+    // Insert new summary
+    summaryResult = await authenticatedSupabase
+      .from('summaries')
+      .insert(summaryInsertData);
+  }
+
+  if (summaryResult.error) {
+    console.error('❌ Failed to save summary:', summaryResult.error);
+  }
+
+  // Update session status
+  await authenticatedSupabase
+    .from('sessions')
+    .update({ 
+      status: 'completed',
+      finalized_at: new Date().toISOString()
+    })
+    .eq('id', sessionId);
+
+  sendProgress?.('Report generation complete!', 8, 8);
+
+  // Return final result
+  const result = {
+    sessionId,
+    summary,
+    finalization: finalData,
+    transcript: transcriptText,
+    conversationType,
+    conversationTitle,
+    finalizedAt: new Date().toISOString()
+  };
+
+  if (controller && encoder) {
+    // Send final result for SSE
+    const finalMessage = `data: ${JSON.stringify({ complete: true, result })}\n\n`;
+    controller.enqueue(encoder.encode(finalMessage));
+  }
+
+  return result;
 }
 
 // Helper function to build full context
@@ -516,9 +438,25 @@ function buildFullContext(textContext?: string, personalContext?: string, upload
   return fullContext || 'No additional context provided.';
 }
 
-async function generateFinalSummary(transcript: string, context: MeetingContext, config: SummaryPromptConfig, participantMe?: string, participantThem?: string): Promise<EnhancedSummary> {
-  // Generate the enhanced prompt using our new system
-  const promptContent = generateEnhancedSummaryPrompt(transcript, context, config);
+async function generateFinalSummary(
+  transcript: string, 
+  context: MeetingContext, 
+  config: SummaryPromptConfig, 
+  participantMe?: string, 
+  participantThem?: string,
+  sendProgress?: (step: string, progress: number, total?: number) => void
+): Promise<EnhancedSummary> {
+  console.log('🔄 Starting modular summary generation...');
+  
+  // Use modular approach to avoid truncation
+  const useModularApproach = true;
+  
+  if (useModularApproach) {
+    return generateModularSummary(transcript, context, config, sendProgress);
+  }
+  
+  // Fallback to original approach
+  const promptContent = generateEnhancedSummaryPromptV2(transcript, context, config);
 
   const model = await getAIModelForAction(AIAction.SUMMARY);
   console.log('🤖 Using AI model for summary:', model);
@@ -530,19 +468,23 @@ async function generateFinalSummary(transcript: string, context: MeetingContext,
     model,
     messages: [
       {
+        role: 'system',
+        content: 'You are an expert at analyzing conversations and creating detailed summaries. Always return valid JSON without any markdown formatting.'
+      },
+      {
         role: 'user',
         content: promptContent
       }
     ],
     temperature: 0.3,
-    max_tokens: 8000
+    max_tokens: 6000
   };
   
   // Add response_format only for OpenAI models that support it
   if (model.includes('openai/')) {
     requestBody.response_format = { type: 'json_object' };
   }
-  
+
   const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
     method: 'POST',
     headers: {
@@ -558,23 +500,16 @@ async function generateFinalSummary(transcript: string, context: MeetingContext,
     const errorText = await response.text();
     console.error('❌ OpenRouter API error:', response.status, response.statusText);
     console.error('❌ OpenRouter error details:', errorText);
-    console.error('❌ Request details:', {
-      model,
-      hasApiKey: !!openrouterApiKey,
-      apiKeyLength: openrouterApiKey?.length,
-      promptLength: promptContent.length
-    });
     throw new Error(`OpenRouter API error: ${response.status} - ${errorText}`);
   }
 
   const data = await response.json();
-  console.log('🤖 OpenRouter response received:', {
+  console.log('🤖 AI response received:', {
     hasChoices: !!data.choices,
     choicesLength: data.choices?.length,
     messageContent: data.choices?.[0]?.message?.content?.substring(0, 200) + '...'
   });
 
-  let summary;
   try {
     let rawContent = data.choices[0].message.content;
     console.log('📄 Raw AI response (first 500 chars):', rawContent?.substring(0, 500));
@@ -603,23 +538,23 @@ async function generateFinalSummary(transcript: string, context: MeetingContext,
       }
     }
     
-    summary = JSON.parse(rawContent);
-    console.log('✅ Successfully parsed AI summary JSON');
+    const result = JSON.parse(rawContent);
+    console.log('✅ Successfully parsed AI response JSON');
+    return result;
   } catch (parseError) {
-    console.error('❌ Failed to parse AI summary JSON:', parseError);
-    console.error('🔍 Raw content length:', data.choices[0].message.content?.length);
-    console.error('🔍 Raw content last 200 chars:', data.choices[0].message.content?.slice(-200));
+    console.error('❌ Failed to parse AI response JSON:', parseError);
+    console.error('🔍 Raw content that failed to parse:', data.choices[0].message.content);
     
     // Return a fallback summary structure
-    summary = {
+    return {
       tldr: 'Summary generation encountered a formatting issue. The conversation was analyzed but the detailed breakdown is not available.',
-      key_points: ['Conversation analysis completed with technical limitations'],
-      decisions_made: [],
+      key_points: ['Conversation completed', 'Analysis in progress'],
       action_items: [],
+      outcomes: [],
+      next_steps: [],
       insights: [],
       missed_opportunities: [],
       successful_moments: [],
-      follow_up_questions: [],
       conversation_dynamics: {
         rapport_level: 'neutral',
         engagement_quality: 'medium',
@@ -628,71 +563,40 @@ async function generateFinalSummary(transcript: string, context: MeetingContext,
         tone: 'mixed'
       },
       effectiveness_metrics: {
-        objective_achievement: 70,
-        communication_clarity: 70,
-        participant_satisfaction: 70,
-        overall_success: 70,
-        agenda_alignment: 70
+        objective_achievement: 0,
+        communication_clarity: 0,
+        participant_satisfaction: 0,
+        overall_success: 0
       },
       agenda_coverage: {
         items_covered: [],
         items_missed: [],
         unexpected_topics: []
       },
-      coaching_recommendations: ['Technical issue prevented detailed analysis']
+      coaching_recommendations: []
     };
   }
-  
-  // Process email draft if included
-  let emailDraft = null;
-  if (config.includeEmailDraft && summary.followUpEmail) {
-    emailDraft = summary.followUpEmail;
-  }
-  
-  // Map the new structure to the expected database fields
-  return {
-    tldr: summary.executiveSummary?.oneLineSummary || summary.tldr,
-    key_points: summary.discussion?.mainTopics?.map((t: { summary: string }) => t.summary) || summary.key_points || [],
-    action_items: summary.actionItems?.map((item: any) => 
-      `${item.task} (${item.owner}) - ${item.deadline} [${item.priority}]`
-    ) || [],
-    outcomes: summary.discussion?.keyDecisions?.map((d: any) => d.decision) || [],
-    next_steps: summary.actionItems?.map((item: any) => item.task) || [],
-    insights: summary.analysis?.momentum?.positive || [],
-    missed_opportunities: summary.analysis?.momentum?.concerns || [],
-    successful_moments: summary.analysis?.relationships?.strongAlignment || [],
-    conversation_dynamics: {
-      rapport_level: 'good',
-      engagement_quality: summary.effectivenessScore?.breakdown?.participation > 80 ? 'high' : 'medium',
-      dominant_speaker: 'balanced',
-      pace: 'moderate',
-      tone: 'formal'
-    },
-    effectiveness_metrics: summary.effectivenessScore?.breakdown || {},
-    agenda_coverage: summary.nextMeeting ? {
-      items_covered: [],
-      items_missed: [],
-      unexpected_topics: []
-    } : undefined,
-    coaching_recommendations: summary.coaching?.improvements || [],
-    email_draft: emailDraft,
-    risk_assessment: summary.riskAssessment,
-    effectiveness_score: summary.effectivenessScore,
-    next_meeting_template: summary.nextMeeting
-  };
 }
 
-async function generateFinalizationData(transcript: string, summaryData: any, context: MeetingContext, participantMe?: string, participantThem?: string): Promise<FinalizationData> {
-  // Generate the coaching prompt using our new system
-  const promptContent = generateCoachingPrompt(transcript, summaryData, context);
+async function generateFinalizationData(transcript: string, summary: EnhancedSummary, context: MeetingContext, participantMe?: string, participantThem?: string): Promise<FinalizationData | null> {
+  const dateContext = getCurrentDateContext();
+  const participants = participantMe && participantThem 
+    ? `Participants: ${participantMe} (me) and ${participantThem} (them)\n`
+    : '';
+    
+  // Updated prompt with coaching analysis focus
+  const promptContent = generateCoachingPrompt(transcript, summary, context);
 
   const model2 = await getAIModelForAction(AIAction.SUMMARY);
-  console.log('🤖 Using AI model for finalization:', model2);
+  console.log('🤖 Using AI model for finalization/coaching:', model2);
   
-  // Only use response_format for OpenAI models
   const requestBody2: any = {
     model: model2,
     messages: [
+      {
+        role: 'system',
+        content: 'You are an expert conversation coach. Analyze the conversation to provide actionable coaching feedback and improvements.'
+      },
       {
         role: 'user',
         content: promptContent
@@ -851,4 +755,186 @@ function getConversationTypeGuidelines(conversationType?: string): string {
 
   return guidelines[conversationType as keyof typeof guidelines] || 
          'Focus on key discussions, decisions, action items, and outcomes.';
-} 
+}
+
+// Modular summary generation functions
+async function generateModularSummary(
+  transcript: string, 
+  context: MeetingContext, 
+  config: SummaryPromptConfig,
+  sendProgress?: (step: string, progress: number, total?: number) => void
+): Promise<EnhancedSummary> {
+  const model = await getAIModelForAction(AIAction.SUMMARY);
+  const results: any = {};
+  
+  try {
+    // Step 1: Executive Summary (lightweight)
+    console.log('📝 Generating executive summary...');
+    sendProgress?.('Generating executive summary...', 1);
+    const execPrompt = generateExecutiveSummaryPrompt(transcript, context);
+    const execResponse = await callOpenRouter(execPrompt, model, 2000);
+    results.executive = parseAIResponse(execResponse, 'executive summary');
+    
+    // Step 2: Participant Analysis
+    console.log('👥 Analyzing participants...');
+    sendProgress?.('Analyzing participants and contributions...', 2);
+    const participantPrompt = generateParticipantAnalysisPrompt(transcript, context);
+    const participantResponse = await callOpenRouter(participantPrompt, model, 2000);
+    results.participants = parseAIResponse(participantResponse, 'participants');
+    
+    // Step 3: Decisions and Actions
+    console.log('📋 Extracting decisions and actions...');
+    sendProgress?.('Extracting key decisions and action items...', 3);
+    const decisionsPrompt = generateDecisionsAndActionsPrompt(transcript, context);
+    const decisionsResponse = await callOpenRouter(decisionsPrompt, model, 3000);
+    results.decisions = parseAIResponse(decisionsResponse, 'decisions');
+    
+    // If decisions parsing failed, provide defaults
+    if (!results.decisions || Object.keys(results.decisions).length === 0) {
+      results.decisions = {
+        keyDecisions: [],
+        actionItems: [],
+        followUpQuestions: []
+      };
+    }
+    
+    // Step 4: Insights and Metrics
+    console.log('💡 Generating insights...');
+    sendProgress?.('Generating insights and identifying key metrics...', 4);
+    const insightsPrompt = generateInsightsAndMetricsPrompt(transcript, context);
+    const insightsResponse = await callOpenRouter(insightsPrompt, model, 3000);
+    results.insights = parseAIResponse(insightsResponse, 'insights');
+    
+    // Step 5: Effectiveness Score
+    console.log('📊 Calculating effectiveness...');
+    sendProgress?.('Calculating effectiveness and performance metrics...', 5);
+    const keyDecisions = results.decisions?.keyDecisions?.length || 0;
+    const actionItems = results.decisions?.actionItems?.length || 0;
+    const effectivenessPrompt = generateEffectivenessScorePrompt(transcript, context, keyDecisions, actionItems);
+    const effectivenessResponse = await callOpenRouter(effectivenessPrompt, model, 2000);
+    results.effectiveness = parseAIResponse(effectivenessResponse, 'effectiveness');
+    
+    // Step 6: Risk Assessment (if applicable)
+    if (config.includeRiskAssessment && (context.type === 'sales' || context.type === 'meeting')) {
+      console.log('⚠️ Assessing risks...');
+      sendProgress?.('Assessing risks and opportunities...', 6);
+      const riskPrompt = generateRiskAssessmentPrompt(transcript, context);
+      if (riskPrompt) {
+        const riskResponse = await callOpenRouter(riskPrompt, model, 2000);
+        results.risks = parseAIResponse(riskResponse, 'risks');
+      }
+    }
+    
+    // Step 7: Follow-up Content
+    if (config.includeEmailDraft || config.includeNextMeetingTemplate) {
+      console.log('📧 Generating follow-up content...');
+      sendProgress?.('Creating follow-up email draft and next steps...', 7);
+      const followUpPrompt = generateFollowUpContentPrompt(
+        transcript, 
+        context,
+        results.decisions?.keyDecisions || [],
+        results.decisions?.actionItems || []
+      );
+      const followUpResponse = await callOpenRouter(followUpPrompt, model, 2000);
+      results.followUp = parseAIResponse(followUpResponse, 'follow-up');
+    }
+    
+    // Combine all results
+    console.log('🔗 Combining modular results...');
+    sendProgress?.('Finalizing report...', 7);
+    return combineModularResults(results);
+    
+  } catch (error) {
+    console.error('❌ Error in modular summary generation:', error);
+    // Return a minimal summary on error
+    return {
+      tldr: 'Summary generation encountered an error. Please try again.',
+      key_points: ['Error occurred during processing'],
+      action_items: [],
+      outcomes: [],
+      next_steps: [],
+      insights: [],
+      missed_opportunities: [],
+      successful_moments: [],
+      conversation_dynamics: {
+        rapport_level: 'neutral',
+        engagement_quality: 'medium',
+        dominant_speaker: 'balanced',
+        pace: 'moderate',
+        tone: 'mixed'
+      },
+      effectiveness_metrics: {
+        objective_achievement: 0,
+        communication_clarity: 0,
+        participant_satisfaction: 0,
+        overall_success: 0
+      },
+      coaching_recommendations: []
+    };
+  }
+}
+
+async function callOpenRouter(prompt: string, model: string, maxTokens: number = 3000): Promise<any> {
+  const requestBody: any = {
+    model,
+    messages: [
+      {
+        role: 'user',
+        content: prompt
+      }
+    ],
+    temperature: 0.3,
+    max_tokens: maxTokens
+  };
+  
+  // Add response_format only for OpenAI models that support it
+  if (model.includes('openai/')) {
+    requestBody.response_format = { type: 'json_object' };
+  }
+  
+  const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${openrouterApiKey}`,
+      'Content-Type': 'application/json',
+      'HTTP-Referer': 'https://liveconvo.app',
+      'X-Title': 'liveprompt.ai Session Summary',
+    },
+    body: JSON.stringify(requestBody)
+  });
+  
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error('❌ OpenRouter API error:', response.status, errorText);
+    throw new Error(`OpenRouter API error: ${response.status}`);
+  }
+  
+  const data = await response.json();
+  return data.choices[0].message.content;
+}
+
+function parseAIResponse(content: string, section: string): Record<string, any> {
+  try {
+    // Strip markdown code blocks if present
+    let cleanContent = content;
+    if (content.includes('```')) {
+      cleanContent = content.replace(/```(?:json)?\s*\n?/g, '').replace(/```\s*$/g, '');
+    }
+    cleanContent = cleanContent.trim();
+    
+    // Check if the response is not JSON (AI sometimes returns plain text for errors)
+    if (!cleanContent.startsWith('{') && !cleanContent.startsWith('[')) {
+      console.warn(`⚠️ Non-JSON response for ${section}:`, cleanContent.substring(0, 200));
+      // Return empty object for sections that couldn't be parsed
+      return {};
+    }
+    
+    const parsed = JSON.parse(cleanContent);
+    console.log(`✅ Successfully parsed ${section} response`);
+    return parsed;
+  } catch (error) {
+    console.error(`❌ Failed to parse ${section} response:`, error);
+    console.error('Raw content:', content.substring(0, 500));
+    return {};
+  }
+}

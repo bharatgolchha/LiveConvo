@@ -262,6 +262,7 @@ export interface EffectivenessMetrics {
 }
 
 export interface AgendaCoverage {
+  completionRate?: string;
   items_covered: string[];
   items_missed: string[];
   unexpected_topics: string[];
@@ -296,8 +297,17 @@ export interface EffectivenessScore {
     participation: number;
     decisions: number;
     clarity: number;
+    efficiency?: number;
+    engagement?: number;
   };
-  improvements: string[];
+  improvements: string[] | Array<{
+    area: string;
+    current: string;
+    better: string;
+    how: string;
+  }>;
+  strengths?: string[];
+  benchmarkComparison?: string;
 }
 
 export interface NextMeetingTemplate {
@@ -307,12 +317,90 @@ export interface NextMeetingTemplate {
   successCriteria: string;
 }
 
+export interface Participant {
+  name: string;
+  role?: string;
+  speakingPercentage?: number;
+  keyContributions?: string[];
+  commitments?: Array<{
+    commitment: string;
+    deadline?: string;
+    quote?: string;
+  }>;
+  concerns?: Array<{
+    concern: string;
+    quote?: string;
+  }>;
+  expertise?: string[];
+  engagementLevel?: 'high' | 'medium' | 'low';
+  influenceScore?: number;
+}
+
+export interface ConversationPhase {
+  timestamp: string;
+  phase: string;
+  keyMoments: string[];
+  energy: 'high' | 'medium' | 'low';
+}
+
+export interface TopicProgression {
+  topic: string;
+  initiatedBy: string;
+  duration: string;
+  depth: 'surface' | 'moderate' | 'deep';
+  resolution: 'fully resolved' | 'partially resolved' | 'unresolved';
+}
+
+export interface TurningPoint {
+  moment: string;
+  speaker: string;
+  impact: string;
+  quote?: string;
+}
+
+export interface ConversationFlow {
+  timeline?: ConversationPhase[];
+  topicProgression?: TopicProgression[];
+  turningPoints?: TurningPoint[];
+}
+
+export interface ImportantNumber {
+  metric: string;
+  value: string;
+  speaker: string;
+  context: string;
+  comparison?: string;
+}
+
+export interface QuotableQuote {
+  quote: string;
+  speaker: string;
+  context: string;
+  impact?: string;
+}
+
 export interface EnhancedSummary {
   tldr: string;
   key_points: string[];
   decisions_made?: SummaryDecision[];
-  action_items: SummaryActionItem[] | string[];
-  insights?: SummaryInsight[];
+  action_items: SummaryActionItem[] | string[] | Array<{
+    description?: string;
+    task?: string;
+    owner?: string;
+    deadline?: string;
+    priority?: string;
+    dependencies?: string[];
+    successCriteria?: string;
+    businessImpact?: string;
+  }>;
+  insights?: SummaryInsight[] | Array<{
+    observation: string;
+    evidence?: string[];
+    implications?: string;
+    recommendation?: string;
+    owner?: string;
+    priority?: 'high' | 'medium' | 'low';
+  }>;
   missed_opportunities?: string[];
   successful_moments?: string[];
   follow_up_questions?: string[];
@@ -320,12 +408,39 @@ export interface EnhancedSummary {
   effectiveness_metrics?: EffectivenessMetrics;
   agenda_coverage?: AgendaCoverage;
   coaching_recommendations?: string[];
-  outcomes?: string[];
+  outcomes?: string[] | Array<{
+    decision: string;
+    decisionMaker?: string;
+    rationale?: string;
+    implementation?: {
+      owner?: string;
+      deadline?: string;
+      resources?: string;
+      successCriteria?: string;
+    };
+  }>;
   next_steps?: string[];
   email_draft?: EmailDraft;
   risk_assessment?: RiskAssessment;
   effectiveness_score?: EffectivenessScore;
   next_meeting_template?: NextMeetingTemplate;
+  participants?: Participant[];
+  conversation_flow?: ConversationFlow;
+  important_numbers?: ImportantNumber[];
+  quotable_quotes?: QuotableQuote[];
+  metadata?: {
+    totalSpeakers?: number;
+    totalDecisions?: string;
+    totalActionItems?: string;
+    completionRate?: string;
+    followUpRequired?: boolean;
+    escalationNeeded?: boolean;
+    sentiment?: 'positive' | 'negative' | 'neutral' | 'mixed';
+  };
+  keyOutcome?: string;
+  criticalInsight?: string;
+  immediateAction?: string;
+  follow_up_strategy?: FollowUpStrategy;
 }
 
 export interface PerformanceAnalysis {
