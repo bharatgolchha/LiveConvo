@@ -13,6 +13,7 @@ import { RealtimeSummaryTab } from './RealtimeSummaryTab';
 import { SmartNotesTab } from './SmartNotesTab';
 import { PreviousMeetingsTab } from './PreviousMeetingsTab';
 import { RecordingTab } from './RecordingTab';
+import { MultipleRecordingsTab } from './MultipleRecordingsTab';
 import { TabContent } from './TabContent';
 
 const tabs = [
@@ -128,7 +129,7 @@ export function ConversationTabs() {
               }}
             />
           )}
-          {activeTab === 'recording' && <RecordingTab />}
+          {activeTab === 'recording' && <MultipleRecordingsTab />}
         </TabContent>
       </div>
     </div>

@@ -83,8 +83,8 @@ export async function GET(
         
         // Initialize Recall client
         const recallClient = new RecallAIClient({
-          apiKey: process.env.RECALL_API_KEY!,
-          region: (process.env.RECALL_REGION as any) || 'us-west-2',
+          apiKey: process.env.RECALL_AI_API_KEY!,
+          region: (process.env.RECALL_AI_REGION as any) || 'us-west-2',
         });
         
         // Get bot with recordings

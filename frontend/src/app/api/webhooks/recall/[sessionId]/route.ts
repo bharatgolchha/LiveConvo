@@ -550,8 +550,8 @@ async function fetchAndStoreRecordingUrl(
     
     // Initialize Recall client
     const recallClient = new RecallAIClient({
-      apiKey: process.env.RECALL_API_KEY!,
-      region: (process.env.RECALL_REGION as any) || 'us-west-2',
+      apiKey: process.env.RECALL_AI_API_KEY!,
+      region: (process.env.RECALL_AI_REGION as any) || 'us-west-2',
     });
     
     // Get bot with recordings
@@ -562,32 +562,69 @@ async function fetchAndStoreRecordingUrl(
       return;
     }
     
-    // Get the first recording (usually there's only one per bot)
-    const recording = bot.recordings[0];
-    const videoUrl = recallClient.extractVideoUrl(recording);
-    
-    if (!videoUrl) {
-      console.log(`⚠️ No video URL available for recording ${recording.id}`);
-      return;
+    // Process all recordings (usually one per bot)
+    for (const recording of bot.recordings) {
+      const videoUrl = recallClient.extractVideoUrl(recording);
+      
+      if (!videoUrl) {
+        console.log(`⚠️ No video URL available for recording ${recording.id}`);
+        continue;
+      }
+      
+      // Store in bot_recordings table
+      console.log(`📼 Storing recording URL for bot ${botId}:`, {
+        urlLength: videoUrl.length,
+        hasQueryParams: videoUrl.includes('?'),
+        urlPreview: videoUrl.substring(0, 100) + '...'
+      });
+      
+      const { error: recordingError } = await supabase
+        .from('bot_recordings')
+        .upsert({
+          session_id: sessionId,
+          bot_id: botId,
+          recording_id: recording.id,
+          recording_url: videoUrl,
+          recording_status: recording.status.code,
+          recording_expires_at: recording.expires_at,
+          duration_seconds: recording.started_at && recording.completed_at
+            ? Math.floor((new Date(recording.completed_at).getTime() - new Date(recording.started_at).getTime()) / 1000)
+            : null,
+          bot_name: bot.metadata?.meetingTitle || 'LivePrompt Recording',
+          updated_at: new Date().toISOString()
+        }, {
+          onConflict: 'session_id,bot_id,recording_id'
+        });
+        
+      if (recordingError) {
+        console.error(`❌ Failed to store recording in bot_recordings:`, recordingError);
+      } else {
+        console.log(`✅ Recording stored in bot_recordings table for bot ${botId}`);
+      }
     }
     
-    // Update session with recording information
-    const { error: updateError } = await supabase
-      .from('sessions')
-      .update({
-        recall_recording_id: recording.id,
-        recall_recording_url: videoUrl,
-        recall_recording_status: recording.status.code,
-        recall_recording_expires_at: recording.expires_at,
-        updated_at: new Date().toISOString()
-      })
-      .eq('id', sessionId);
-      
-    if (updateError) {
-      console.error(`❌ Failed to update session with recording URL:`, updateError);
-    } else {
-      console.log(`✅ Recording URL stored for session ${sessionId}`);
-      console.log(`🔗 Video URL: ${videoUrl.substring(0, 100)}...`);
+    // Also update the main session table with the first recording (for backward compatibility)
+    const firstRecording = bot.recordings[0];
+    const firstVideoUrl = recallClient.extractVideoUrl(firstRecording);
+    
+    if (firstVideoUrl) {
+      const { error: updateError } = await supabase
+        .from('sessions')
+        .update({
+          recall_recording_id: firstRecording.id,
+          recall_recording_url: firstVideoUrl,
+          recall_recording_status: firstRecording.status.code,
+          recall_recording_expires_at: firstRecording.expires_at,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', sessionId);
+        
+      if (updateError) {
+        console.error(`❌ Failed to update session with recording URL:`, updateError);
+      } else {
+        console.log(`✅ Recording URL stored for session ${sessionId}`);
+        console.log(`🔗 Video URL: ${firstVideoUrl.substring(0, 100)}...`);
+      }
     }
   } catch (error) {
     console.error(`❌ Error fetching recording URL for bot ${botId}:`, error);

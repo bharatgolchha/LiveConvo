@@ -265,6 +265,14 @@ export class RecallAIClient {
 
   extractVideoUrl(recording: RecallRecording): string | null {
     const videoMixed = recording.media_shortcuts?.video_mixed;
+    console.log('🎬 Extracting video URL from recording:', {
+      hasVideoMixed: !!videoMixed,
+      status: videoMixed?.status?.code,
+      hasData: !!videoMixed?.data,
+      hasDownloadUrl: !!videoMixed?.data?.download_url,
+      downloadUrl: videoMixed?.data?.download_url
+    });
+    
     if (videoMixed?.status?.code === 'done' && videoMixed?.data?.download_url) {
       return videoMixed.data.download_url;
     }
