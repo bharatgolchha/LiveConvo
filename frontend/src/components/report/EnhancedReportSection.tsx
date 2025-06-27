@@ -116,7 +116,7 @@ export function EnhancedReportSection({
               </div>
             </div>
 
-            {emailDraft.bulletPoints && emailDraft.bulletPoints.length > 0 && (
+            {emailDraft.bulletPoints && Array.isArray(emailDraft.bulletPoints) && emailDraft.bulletPoints.length > 0 && (
               <div>
                 <div className="text-sm font-medium text-muted-foreground mb-2">Key Points</div>
                 <div className="space-y-2">
@@ -154,7 +154,7 @@ export function EnhancedReportSection({
             <h3 className="text-lg font-semibold text-foreground">Risk Assessment</h3>
           </div>
 
-          {riskAssessment.immediate.length > 0 && (
+          {riskAssessment.immediate && Array.isArray(riskAssessment.immediate) && riskAssessment.immediate.length > 0 && (
             <div className="mb-6">
               <h4 className="text-sm font-medium text-muted-foreground mb-3">Immediate Risks</h4>
               <div className="space-y-3">
@@ -183,7 +183,7 @@ export function EnhancedReportSection({
             </div>
           )}
 
-          {riskAssessment.monitoring.length > 0 && (
+          {riskAssessment.monitoring && Array.isArray(riskAssessment.monitoring) && riskAssessment.monitoring.length > 0 && (
             <div>
               <h4 className="text-sm font-medium text-muted-foreground mb-3">Monitoring Items</h4>
               <div className="space-y-2">
@@ -292,14 +292,19 @@ export function EnhancedReportSection({
             </div>
           </div>
 
-          {effectivenessScore.improvements.length > 0 && (
+          {effectivenessScore.improvements && Array.isArray(effectivenessScore.improvements) && effectivenessScore.improvements.length > 0 && (
             <div>
               <h4 className="text-sm font-medium text-muted-foreground mb-2">Improvement Suggestions</h4>
               <div className="space-y-2">
                 {effectivenessScore.improvements.map((improvement, index) => (
                   <div key={index} className="flex items-start gap-2">
                     <Zap className="w-4 h-4 text-accent-foreground mt-0.5" />
-                    <p className="text-sm text-foreground">{improvement}</p>
+                    <p className="text-sm text-foreground">
+                      {typeof improvement === 'string' 
+                        ? improvement 
+                        : `${improvement.area}: ${improvement.better || improvement.how}`
+                      }
+                    </p>
                   </div>
                 ))}
               </div>
@@ -322,7 +327,7 @@ export function EnhancedReportSection({
             <div>
               <h4 className="text-sm font-medium text-muted-foreground mb-2">Suggested Agenda</h4>
               <div className="space-y-2">
-                {nextMeetingTemplate.suggestedAgenda.map((item, index) => (
+                {nextMeetingTemplate.suggestedAgenda && Array.isArray(nextMeetingTemplate.suggestedAgenda) && nextMeetingTemplate.suggestedAgenda.map((item, index) => (
                   <div key={index} className="flex items-start gap-2 p-2 bg-primary/5 rounded-lg">
                     <span className="text-primary font-bold">{index + 1}.</span>
                     <p className="text-sm text-foreground">{item}</p>
@@ -334,7 +339,7 @@ export function EnhancedReportSection({
             <div>
               <h4 className="text-sm font-medium text-muted-foreground mb-2">Required Attendees</h4>
               <div className="flex flex-wrap gap-2">
-                {nextMeetingTemplate.requiredAttendees.map((attendee, index) => (
+                {nextMeetingTemplate.requiredAttendees && Array.isArray(nextMeetingTemplate.requiredAttendees) && nextMeetingTemplate.requiredAttendees.map((attendee, index) => (
                   <span key={index} className="px-3 py-1 bg-muted text-muted-foreground rounded-full text-sm">
                     <Users className="w-3 h-3 inline mr-1" />
                     {attendee}
@@ -346,7 +351,7 @@ export function EnhancedReportSection({
             <div>
               <h4 className="text-sm font-medium text-muted-foreground mb-2">Pre-work Required</h4>
               <div className="space-y-2">
-                {nextMeetingTemplate.prework.map((task, index) => (
+                {nextMeetingTemplate.prework && Array.isArray(nextMeetingTemplate.prework) && nextMeetingTemplate.prework.map((task, index) => (
                   <div key={index} className="flex items-start gap-2">
                     <CheckCircle className="w-4 h-4 text-accent-foreground mt-0.5" />
                     <p className="text-sm text-foreground">{task}</p>
@@ -355,11 +360,13 @@ export function EnhancedReportSection({
               </div>
             </div>
 
-            <div className="p-3 bg-accent/10 rounded-lg border border-accent/20">
-              <p className="text-sm text-foreground">
-                <span className="font-medium">Success Criteria:</span> {nextMeetingTemplate.successCriteria}
-              </p>
-            </div>
+            {nextMeetingTemplate.successCriteria && (
+              <div className="p-3 bg-accent/10 rounded-lg border border-accent/20">
+                <p className="text-sm text-foreground">
+                  <span className="font-medium">Success Criteria:</span> {nextMeetingTemplate.successCriteria}
+                </p>
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -397,7 +404,7 @@ export function EnhancedReportSection({
               </div>
             )}
 
-            {templates.transitionPhrases && templates.transitionPhrases.length > 0 && (
+            {templates.transitionPhrases && Array.isArray(templates.transitionPhrases) && templates.transitionPhrases.length > 0 && (
               <div>
                 <h4 className="text-sm font-medium text-muted-foreground mb-2">Transition Phrases</h4>
                 <div className="space-y-2">

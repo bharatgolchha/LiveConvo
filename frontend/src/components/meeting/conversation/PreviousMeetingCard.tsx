@@ -43,6 +43,19 @@ function parseActionItemString(itemString: string): ActionItem {
   };
 }
 
+// Helper to extract decision text from either string or object format
+function getDecisionText(decision: string | any): string {
+  if (typeof decision === 'string') {
+    return decision;
+  }
+  // Handle object format with decision property
+  if (decision && typeof decision === 'object' && 'decision' in decision) {
+    return decision.decision;
+  }
+  // Fallback to stringifying if unknown format
+  return JSON.stringify(decision);
+}
+
 // Format due date for display
 function formatDueDate(dueDate: string): string {
   // Handle relative dates like "Next Friday", "Next month", "Within 24 hours"
@@ -85,7 +98,7 @@ export function PreviousMeetingCard({
     setIsAsking(true);
     try {
       const context = hasRichSummary 
-        ? `Previous meeting: ${conversation.session_title}\n\nTLDR: ${summary.tldr}\n\nKey Decisions: ${summary.key_decisions?.join(', ')}\n\nAction Items: ${summary.action_items?.map(item => typeof item === 'string' ? parseActionItemString(item).task : item.task).join(', ')}`
+        ? `Previous meeting: ${conversation.session_title}\n\nTLDR: ${summary.tldr}\n\nKey Decisions: ${summary.key_decisions?.map(getDecisionText).join(', ')}\n\nAction Items: ${summary.action_items?.map(item => typeof item === 'string' ? parseActionItemString(item).task : item.task).join(', ')}`
         : `Previous meeting: ${conversation.session_title}\n\nSummary: ${basicSummary?.tldr || 'No summary available'}`;
       
       await onAskQuestion(conversation.linked_session_id, context);
@@ -242,7 +255,7 @@ export function PreviousMeetingCard({
                     {summary.key_decisions.map((decision, index) => (
                       <li key={index} className="text-sm text-muted-foreground flex items-start gap-2">
                         <span className="w-1.5 h-1.5 bg-blue-500 rounded-full mt-2 flex-shrink-0" />
-                        {decision}
+                        {getDecisionText(decision)}
                       </li>
                     ))}
                   </ul>

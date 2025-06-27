@@ -78,10 +78,15 @@ export function usePreviousMeetings(sessionId: string) {
                 const summaryData = await summaryResponse.json();
                 if (summaryData.summary) {
                   summary = summaryData.summary;
+                  console.log('✅ [usePreviousMeetings] Successfully fetched summary for session:', session.id);
                 }
+              } else if (summaryResponse.status === 404) {
+                console.log('ℹ️ [usePreviousMeetings] No summary found for session:', session.id);
+              } else {
+                console.error(`❌ [usePreviousMeetings] Failed to fetch summary for ${session.id}:`, summaryResponse.status, await summaryResponse.text());
               }
             } catch (summaryError) {
-              console.warn(`Failed to fetch summary for ${session.id}:`, summaryError);
+              console.error(`❌ [usePreviousMeetings] Error fetching summary for ${session.id}:`, summaryError);
             }
 
             // Fallback to basic summary from session cache

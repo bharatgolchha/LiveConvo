@@ -146,31 +146,33 @@ export function LiveTranscriptTab() {
           </div>
         </div>
 
-        {/* Connection Status Indicator */}
-        <div className="px-4 pb-2 flex items-center justify-between">
-          <div className="flex items-center gap-2 text-xs">
-            <div className={`w-2 h-2 rounded-full ${
-              connectionStatus === 'connected' || connectionStatus === 'sse' ? 'bg-green-500' : 
-              connectionStatus === 'polling' ? 'bg-yellow-500 animate-pulse' : 
-              'bg-red-500'
-            }`} />
-            <span className="text-muted-foreground">
-              {connectionStatus === 'connected' ? 'Live' : 
-               connectionStatus === 'sse' ? 'Live (SSE)' :
-               connectionStatus === 'polling' ? 'Polling' : 
-               'Disconnected'}
-            </span>
+        {/* Connection Status Indicator - Hidden from users */}
+        {false && (
+          <div className="px-4 pb-2 flex items-center justify-between">
+            <div className="flex items-center gap-2 text-xs">
+              <div className={`w-2 h-2 rounded-full ${
+                connectionStatus === 'connected' || connectionStatus === 'sse' ? 'bg-green-500' : 
+                connectionStatus === 'polling' ? 'bg-yellow-500 animate-pulse' : 
+                'bg-red-500'
+              }`} />
+              <span className="text-muted-foreground">
+                {connectionStatus === 'connected' ? 'Live' : 
+                 connectionStatus === 'sse' ? 'Live (SSE)' :
+                 connectionStatus === 'polling' ? 'Polling' : 
+                 'Disconnected'}
+              </span>
+            </div>
+            {transcript.length > 0 && (
+              <button
+                onClick={handleRefresh}
+                disabled={isRefreshing}
+                className="p-1.5 hover:bg-muted rounded-lg transition-colors disabled:opacity-50"
+              >
+                <ArrowPathIcon className={`w-4 h-4 text-muted-foreground ${isRefreshing ? 'animate-spin' : ''}`} />
+              </button>
+            )}
           </div>
-          {transcript.length > 0 && (
-            <button
-              onClick={handleRefresh}
-              disabled={isRefreshing}
-              className="p-1.5 hover:bg-muted rounded-lg transition-colors disabled:opacity-50"
-            >
-              <ArrowPathIcon className={`w-4 h-4 text-muted-foreground ${isRefreshing ? 'animate-spin' : ''}`} />
-            </button>
-          )}
-        </div>
+        )}
 
         {/* Stats and Controls Bar */}
         {transcriptStats && (
