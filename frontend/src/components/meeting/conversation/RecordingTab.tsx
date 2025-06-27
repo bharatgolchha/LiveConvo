@@ -1,11 +1,15 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useMeetingContext } from '@/lib/meeting/context/MeetingContext';
 import { RecordingPlayer } from '@/components/recordings/RecordingPlayer';
 import { RecordingStatus } from '@/components/recordings/RecordingStatus';
-import { PlayCircleIcon, ArrowDownTrayIcon } from '@heroicons/react/24/outline';
+import { PlayCircleIcon, ArrowDownTrayIcon, ArrowPathIcon } from '@heroicons/react/24/outline';
+import { useAuth } from '@/contexts/AuthContext';
 
 export function RecordingTab() {
   const { meeting } = useMeetingContext();
+  const { session } = useAuth();
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [refreshError, setRefreshError] = useState<string | null>(null);
 
   if (!meeting) {
     return (
@@ -76,6 +80,39 @@ export function RecordingTab() {
     );
   }
 
+  const handleRefreshRecording = async () => {
+    if (!session?.access_token || !meeting.id) return;
+    
+    setIsRefreshing(true);
+    setRefreshError(null);
+    
+    try {
+      const response = await fetch(`/api/sessions/${meeting.id}/recording?refresh=true`, {
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to refresh recording');
+      }
+      
+      const data = await response.json();
+      
+      // Reload the page to refresh the meeting data
+      if (data.recording?.url) {
+        window.location.reload();
+      } else {
+        setRefreshError('No recording found yet. Please try again in a few seconds.');
+      }
+    } catch (error) {
+      console.error('Error refreshing recording:', error);
+      setRefreshError('Failed to refresh recording. Please try again.');
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
+
   if (!hasRecording) {
     return (
       <div className="flex flex-col items-center justify-center h-full space-y-4">
@@ -89,6 +126,21 @@ export function RecordingTab() {
             <p className="text-sm text-muted-foreground mt-1">
               Meeting is currently in progress
             </p>
+          )}
+          {meeting.status === 'completed' && meeting.botId && (
+            <>
+              <button
+                onClick={handleRefreshRecording}
+                disabled={isRefreshing}
+                className="mt-4 inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-primary-foreground bg-primary hover:bg-primary/90 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <ArrowPathIcon className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+                {isRefreshing ? 'Checking...' : 'Check for Recording'}
+              </button>
+              {refreshError && (
+                <p className="text-sm text-destructive mt-2">{refreshError}</p>
+              )}
+            </>
           )}
         </div>
       </div>

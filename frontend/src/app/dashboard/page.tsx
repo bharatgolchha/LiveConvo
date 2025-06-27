@@ -39,6 +39,7 @@ import { ConversationListDate } from '@/components/ui/ConversationDateIndicator'
 import { LoadingModal } from '@/components/ui/LoadingModal';
 import type { ConversationConfig } from '@/types/app';
 import { ConversationThread } from '@/components/dashboard/ConversationThread';
+import { Pagination } from '@/components/ui/Pagination';
 import dynamic from 'next/dynamic';
 
 // Dynamically load smaller components to reduce initial bundle size
@@ -90,13 +91,18 @@ const DashboardPage: React.FC = () => {
   const [isNavigating, setIsNavigating] = useState(false);
   const [navigationSessionTitle, setNavigationSessionTitle] = useState('');
   const [isNewSession, setIsNewSession] = useState(false);
-  const [groupByThread, setGroupByThread] = useState(true);
+  const [groupByThread, setGroupByThread] = useState(false); // Changed to false for default list view
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage] = useState(20); // Number of items per page
 
   // Get sessions and stats from hooks
   const { 
     sessions, 
     loading: sessionsLoading, 
     error: sessionsError,
+    totalCount,
+    hasMore,
+    pagination,
     fetchSessions,
     updateSession,
     deleteSession,
@@ -159,62 +165,63 @@ const DashboardPage: React.FC = () => {
     }
   }, [sessionsError]);
 
-  // Filter sessions or threads based on search query and active path
+  // For paginated data, we use the current sessions directly since filtering is done server-side
   const filtered = useMemo(() => {
     if (isGrouped) {
-      // Filter threads and standalone sessions
+      // For grouped view, we still need to filter locally since threading is client-side
       const filteredThreads = threads.filter(thread => {
         const latestSession = thread.sessions[thread.sessions.length - 1];
-        // Filter by archive status
-        if (activePath === 'archive' && latestSession.status !== 'archived') return false;
-        if (activePath === 'conversations' && latestSession.status === 'archived') return false;
-        
-        // Filter by search query
-        if (!searchQuery) return true;
-        return thread.sessions.some(session => 
-          session.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          session.conversation_type?.toLowerCase().includes(searchQuery.toLowerCase())
-        );
+        // Server-side filtering handles status and search, so we just return the threads
+        return true;
       });
       
       const filteredStandalone = standaloneSessions.filter(session => {
-        // Filter by archive status
-        if (activePath === 'archive' && session.status !== 'archived') return false;
-        if (activePath === 'conversations' && session.status === 'archived') return false;
-        
-        // Filter by search query
-        if (!searchQuery) return true;
-        return session.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-               session.conversation_type?.toLowerCase().includes(searchQuery.toLowerCase());
+        // Server-side filtering handles status and search, so we just return the sessions
+        return true;
       });
       
       return { threads: filteredThreads, standalone: filteredStandalone };
     } else {
-      // Regular session filtering
-      const filteredSessions = enhancedSessions.filter(session => {
-        // Filter by archive status
-        if (activePath === 'archive' && session.status !== 'archived') return false;
-        if (activePath === 'conversations' && session.status === 'archived') return false;
-        
-        // Filter by search query
-        if (!searchQuery) return true;
-        return session.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-               session.conversation_type?.toLowerCase().includes(searchQuery.toLowerCase());
-      });
-      
-      return { sessions: filteredSessions };
+      // For list view, use original sessions directly (server-side filtered) to avoid duplicates
+      return { sessions: sessions };
     }
-  }, [isGrouped, threads, standaloneSessions, enhancedSessions, activePath, searchQuery]);
+  }, [isGrouped, threads, standaloneSessions, sessions]);
   
-  const totalFilteredCount = useMemo(() => {
-    return isGrouped 
-      ? (filtered.threads?.length || 0) + (filtered.standalone?.length || 0)
-      : (filtered.sessions?.length || 0);
-  }, [filtered, isGrouped]);
+  // Use totalCount from API response for pagination
+  // Always use the API's totalCount for accurate pagination
+  const totalFilteredCount = totalCount || sessions.length;
 
   const handleSearch = (query: string) => {
     setSearchQuery(query);
+    setCurrentPage(1); // Reset to first page when searching
   };
+
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+    const offset = (page - 1) * itemsPerPage;
+    fetchSessions({ 
+      ...getCurrentFilters(), 
+      limit: itemsPerPage, 
+      offset 
+    });
+  };
+
+  const getCurrentFilters = () => ({
+    status: activePath === 'archive' ? 'archived' : undefined,
+    search: searchQuery || undefined,
+  });
+
+  // Update session fetching when filters change (but not pagination)
+  React.useEffect(() => {
+    if (user && authSession) {
+      setCurrentPage(1); // Reset to first page when filters change
+      fetchSessions({ 
+        ...getCurrentFilters(), 
+        limit: itemsPerPage, 
+        offset: 0 
+      });
+    }
+  }, [activePath, searchQuery, fetchSessions]); // Only depend on actual filter changes
 
   const handleNewConversation = () => {
     // Regular conversations are deprecated, redirect to meeting
@@ -454,7 +461,7 @@ const DashboardPage: React.FC = () => {
     window.location.reload();
   };
 
-  const activeSessions = enhancedSessions.filter(s => s.status === 'active');
+  const activeSessions = sessions.filter(s => s.status === 'active');
   const hasAnySessions = sessions.length > 0;
 
   const handleCreateFollowUp = async (originalSession: Session) => {
@@ -708,7 +715,7 @@ const DashboardPage: React.FC = () => {
                             </span>
                             <span className="flex items-center gap-2">
                               <div className="w-2 h-2 rounded-full bg-app-primary"></div>
-                              Completed ({enhancedSessions.filter(s => s.status === 'completed').length})
+                              Completed ({sessions.filter(s => s.status === 'completed').length})
                             </span>
                           </div>
                         )}
@@ -770,6 +777,18 @@ const DashboardPage: React.FC = () => {
                         ))
                       )}
                     </div>
+
+                    {/* Pagination */}
+                    {totalFilteredCount > itemsPerPage && (
+                      <Pagination
+                        currentPage={currentPage}
+                        totalItems={totalFilteredCount}
+                        itemsPerPage={itemsPerPage}
+                        onPageChange={handlePageChange}
+                        disabled={sessionsLoading}
+                        className="sticky bottom-0 bg-card"
+                      />
+                    )}
                   </motion.div>
                 ) : (
                   <motion.div

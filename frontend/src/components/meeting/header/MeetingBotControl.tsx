@@ -41,6 +41,7 @@ export function MeetingBotControl() {
     if (recallStatus) {
       setBotStatus(recallStatus);
     }
+    // Don't clear status here - let other logic handle status clearing
   }, [recallStatus, setBotStatus]);
 
   const handleStartBot = async () => {
@@ -53,6 +54,12 @@ export function MeetingBotControl() {
     
     setIsStarting(true);
     setError(null);
+    
+    // Set initial status to prevent flickering
+    setBotStatus({
+      status: 'joining',
+      participantCount: 0
+    });
 
     try {
       const headers: HeadersInit = { 'Content-Type': 'application/json' };
@@ -92,12 +99,6 @@ export function MeetingBotControl() {
           botId: bot.id
         };
         setMeeting(updatedMeeting);
-        
-        // Update bot status after meeting is updated
-        setBotStatus({
-          status: 'joining',
-          participantCount: 0
-        });
       }
       
       // Manually refetch the meeting data from the database
@@ -250,8 +251,21 @@ export function MeetingBotControl() {
   };
 
   const getStatusDisplay = () => {
-    // If we have a botId but no status yet, show loading state
-    if (meeting?.botId && !botStatus) {
+    // During the starting process, always show the joining state
+    if (isStarting && !botStatus) {
+      return {
+        showStartButton: false,
+        statusElement: (
+          <div className="flex items-center gap-2 px-3 py-1.5 bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800/30 rounded-lg">
+            <Loader2 className="w-4 h-4 animate-spin text-blue-600 dark:text-blue-400" />
+            <span className="text-sm font-medium text-blue-700 dark:text-blue-400">Starting...</span>
+          </div>
+        )
+      };
+    }
+    
+    // If we have a botId but no status yet, show loading state (but this should be rare now)
+    if (meeting?.botId && !botStatus && !isStarting) {
       return {
         showStartButton: false,
         statusElement: (

@@ -37,8 +37,11 @@ export function useRecallBotStatus(sessionId: string, botId: string | undefined)
         setStatus(data);
         setError(null);
       } else if (data.message === 'No bot associated with this session') {
-        // No bot yet, clear status
-        setStatus(null);
+        // No bot yet - but don't clear status if we already have one
+        // This prevents flickering during the transition period when bot is being created
+        if (!status) {
+          setStatus(null);
+        }
         setError(null);
       }
     } catch (err) {

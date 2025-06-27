@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/Button';
 // We'll use native input range since Slider component is not available
 // We'll use native components since some UI components are not available
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface RecordingPlayerProps {
   recordingUrl: string | null;
@@ -24,6 +25,7 @@ export function RecordingPlayer({
   onTimeUpdate
 }: RecordingPlayerProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
+  const { session } = useAuth();
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
@@ -33,9 +35,19 @@ export function RecordingPlayer({
   const [error, setError] = useState<string | null>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
 
+  // Debug logging
+  useEffect(() => {
+    console.log('RecordingPlayer props:', {
+      recordingUrl,
+      recordingStatus,
+      sessionId,
+      hasVideoRef: !!videoRef.current
+    });
+  }, [recordingUrl, recordingStatus, sessionId]);
+
   useEffect(() => {
     const video = videoRef.current;
-    if (!video) return;
+    if (!video || !recordingUrl) return;
 
     const handleLoadedMetadata = () => {
       setDuration(video.duration);
@@ -47,8 +59,40 @@ export function RecordingPlayer({
       onTimeUpdate?.(video.currentTime);
     };
 
-    const handleError = () => {
-      setError('Failed to load recording. The recording may have expired or is unavailable.');
+    const handleError = (e: Event) => {
+      const video = e.target as HTMLVideoElement;
+      console.error('Video error:', video.error?.message || 'Unknown video error', {
+        errorCode: video.error?.code,
+        errorMessage: video.error?.message,
+        src: video.src,
+        networkState: video.networkState,
+        readyState: video.readyState,
+        currentSrc: video.currentSrc
+      });
+      
+      let errorMessage = 'Failed to load recording.';
+      if (video.error) {
+        switch (video.error.code) {
+          case video.error.MEDIA_ERR_ABORTED:
+            errorMessage = 'Video playback was aborted.';
+            break;
+          case video.error.MEDIA_ERR_NETWORK:
+            errorMessage = 'Network error while loading the recording.';
+            break;
+          case video.error.MEDIA_ERR_DECODE:
+            errorMessage = 'Error decoding the recording.';
+            break;
+          case video.error.MEDIA_ERR_SRC_NOT_SUPPORTED:
+            errorMessage = 'Recording format is not supported or URL is invalid.';
+            break;
+        }
+      }
+      
+      if (recordingUrl?.includes('example.com')) {
+        errorMessage = 'This is a placeholder URL. Click the refresh button to fetch the real recording.';
+      }
+      
+      setError(errorMessage);
       setIsLoading(false);
     };
 
@@ -67,7 +111,7 @@ export function RecordingPlayer({
       video.removeEventListener('error', handleError);
       video.removeEventListener('ended', handleEnded);
     };
-  }, [onTimeUpdate]);
+  }, [onTimeUpdate, recordingUrl]);
 
   const togglePlayPause = () => {
     const video = videoRef.current;
@@ -190,19 +234,22 @@ export function RecordingPlayer({
 
   return (
     <Card className="overflow-hidden" id={`recording-player-${sessionId}`}>
-      <div className="relative bg-black">
+      <div className="relative bg-background">
         {isLoading && (
           <div className="absolute inset-0 flex items-center justify-center bg-black/50 z-10">
             <Loader2 className="h-8 w-8 animate-spin text-white" />
           </div>
         )}
         
-        <video
-          ref={videoRef}
-          src={recordingUrl}
-          className="w-full aspect-video"
-          preload="metadata"
-        />
+        {recordingUrl && (
+          <video
+            ref={videoRef}
+            src={recordingUrl}
+            className="w-full aspect-video"
+            preload="metadata"
+            crossOrigin="anonymous"
+          />
+        )}
       </div>
       
       <div className="p-4 space-y-4">

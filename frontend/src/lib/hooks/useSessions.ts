@@ -137,12 +137,9 @@ export function useSessions(): SessionsHookReturn {
       
       if (user) setSessionExpiredMessage(null);
       
-      // If this is pagination (offset > 0), append to existing sessions
-      if (filters.offset && filters.offset > 0) {
-        setSessions(prev => [...prev, ...data.sessions]);
-      } else {
-        setSessions(data.sessions);
-      }
+      // Always replace sessions when using pagination
+      // The dashboard uses page-based navigation, not infinite scroll
+      setSessions(data.sessions);
       
       setTotalCount(data.total_count);
       setHasMore(data.has_more);
@@ -317,10 +314,10 @@ export function useSessions(): SessionsHookReturn {
     await fetchSessions(currentFilters);
   }, [fetchSessions, currentFilters]);
 
-  // Initial fetch on mount with higher limit to show more sessions
+  // Initial fetch on mount with pagination-friendly limit
   useEffect(() => {
     if (user && session && !authLoading) {
-      fetchSessions({ ...currentFilters, limit: 100 }); // Increase default limit to 100
+      fetchSessions({ ...currentFilters, limit: 20, offset: 0 }); // Use pagination-friendly limit
     } else if (!user && !authLoading) {
       setSessions([]);
       setLoading(false);
