@@ -293,12 +293,12 @@ export class RecallAIClient {
         return { 
           deepgram_streaming: {
             model: 'nova-3',
-            smart_format: true,
-            punctuate: true,
-            profanity_filter: false,
-            diarize: true,
-            utterances: true,
-            interim_results: true
+            smart_format: 'true',
+            punctuate: 'true',
+            profanity_filter: 'false',
+            diarize: 'true',
+            utterances: 'true',
+            interim_results: 'true'
           }
         };
       case 'speechmatics':
@@ -309,12 +309,12 @@ export class RecallAIClient {
         return { 
           deepgram_streaming: {
             model: 'nova-3',
-            smart_format: true,
-            punctuate: true,
-            profanity_filter: false,
-            diarize: true,
-            utterances: true,
-            interim_results: true
+            smart_format: 'true',
+            punctuate: 'true',
+            profanity_filter: 'false',
+            diarize: 'true',
+            utterances: 'true',
+            interim_results: 'true'
           }
         };
     }

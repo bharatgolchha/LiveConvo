@@ -18,11 +18,13 @@ export class RecallSessionManager {
       apiKeyFirstChars: apiKey?.substring(0, 8) + '...',
       region,
       webhookUrl,
-      appUrl
+      appUrl,
+      envKeys: Object.keys(process.env).filter(k => k.includes('RECALL')).sort()
     });
     
     if (!apiKey) {
       console.error('❌ RECALL_AI_API_KEY is not set in environment variables!');
+      throw new Error('RECALL_AI_API_KEY environment variable is required');
     }
     
     this.recallClient = new RecallAIClient({
