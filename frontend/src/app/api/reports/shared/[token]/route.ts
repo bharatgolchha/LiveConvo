@@ -134,16 +134,25 @@ export async function GET(
         insights: sharedTabs.includes('insights') ? structuredNotes.insights || [] : [],
         conversationHighlights: sharedTabs.includes('overview') ? summary?.conversation_highlights || [] : [],
         followUpQuestions: sharedTabs.includes('followup') ? summary?.follow_up_questions || [] : [],
+        participants: sharedTabs.includes('overview') ? structuredNotes.participants : null,
+        keyOutcome: sharedTabs.includes('overview') ? structuredNotes.key_outcome : null,
+        criticalInsight: sharedTabs.includes('overview') ? structuredNotes.critical_insight : null,
+        immediateAction: sharedTabs.includes('followup') ? structuredNotes.immediate_action : null,
         
         // Analytics tab data
         effectivenessScore: sharedTabs.includes('analytics') ? structuredNotes.effectiveness_score : null,
-        important_numbers: sharedTabs.includes('analytics') ? structuredNotes.important_numbers : null,
+        important_numbers: sharedTabs.includes('insights') ? structuredNotes.important_numbers : null,
         quotable_quotes: sharedTabs.includes('insights') ? structuredNotes.quotable_quotes : null,
+        metadata: sharedTabs.includes('analytics') ? structuredNotes.metadata : null,
+        conversation_flow: sharedTabs.includes('analytics') ? structuredNotes.conversation_flow : null,
+        coaching_recommendations: sharedTabs.includes('analytics') ? structuredNotes.coaching_recommendations : null,
         
         // Follow-up tab data
         emailDraft: sharedTabs.includes('followup') ? structuredNotes.email_draft : null,
         nextMeetingTemplate: sharedTabs.includes('followup') ? structuredNotes.next_meeting_template : null,
         templates: sharedTabs.includes('followup') ? structuredNotes.templates : null,
+        riskAssessment: sharedTabs.includes('followup') ? structuredNotes.risk_assessment : null,
+        follow_up_strategy: sharedTabs.includes('followup') ? structuredNotes.follow_up_strategy : null,
       }
     };
 
