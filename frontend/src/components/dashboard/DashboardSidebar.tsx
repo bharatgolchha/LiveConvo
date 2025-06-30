@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   MicrophoneIcon,
   ArchiveBoxIcon,
@@ -27,9 +27,12 @@ interface DashboardSidebarProps {
 }
 
 const DashboardSidebar: React.FC<DashboardSidebarProps> = ({ usageStats, activePath, onNavigate, currentUser, sessions }) => {
-  // Calculate counts
-  const archivedCount = sessions.filter((s) => s.status === 'archived').length;
-  const activeCount = sessions.filter((s) => s.status !== 'archived').length;
+  // Calculate counts with memoization to prevent recalculation on every render
+  const { archivedCount, activeCount } = useMemo(() => {
+    const archived = sessions.filter((s) => s.status === 'archived').length;
+    const active = sessions.filter((s) => s.status !== 'archived').length;
+    return { archivedCount: archived, activeCount: active };
+  }, [sessions]);
 
   // Format minutes to a human-friendly string
   const formatMinutes = (minutes: number): string => {
@@ -133,4 +136,4 @@ const DashboardSidebar: React.FC<DashboardSidebarProps> = ({ usageStats, activeP
   );
 };
 
-export default DashboardSidebar; 
+export default React.memo(DashboardSidebar); 

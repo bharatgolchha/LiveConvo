@@ -27,11 +27,12 @@ import { useTheme } from '@/contexts/ThemeContext';
 import ProtectedRoute from '@/components/auth/ProtectedRoute';
 import { OnboardingModal } from '@/components/auth/OnboardingModal';
 import { useAuth } from '@/contexts/AuthContext';
-import { useSessions, type Session } from '@/lib/hooks/useSessions';
+import { useDashboardDataWithFallback } from '@/lib/hooks/useDashboardDataWithFallback';
 import { useSessionThreads } from '@/lib/hooks/useSessionThreads';
-import { useUserStats, defaultStats } from '@/lib/hooks/useUserStats';
 import { useSessionData } from '@/lib/hooks/useSessionData';
-import { useSubscription } from '@/lib/hooks/useSubscription';
+import { useDebounce } from '@/lib/utils/debounce';
+import type { Session } from '@/lib/hooks/useSessions';
+import { defaultStats } from '@/lib/hooks/useUserStats';
 import { DeleteConfirmationModal } from '@/components/ui/DeleteConfirmationModal';
 import { PricingModal } from '@/components/ui/PricingModal';
 import { SettingsPanel } from '@/components/settings/SettingsPanel';
@@ -93,6 +94,7 @@ const DashboardPage: React.FC = () => {
   const [showNewMeetingModal, setShowNewMeetingModal] = useState(false);
   const [showOnboardingModal, setShowOnboardingModal] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const debouncedSearchQuery = useDebounce(searchQuery, 300);
   const [selectedSessions, setSelectedSessions] = useState<Set<string>>(new Set());
   const [isPricingModalOpen, setIsPricingModalOpen] = useState(false);
   const [isNavigating, setIsNavigating] = useState(false);
@@ -102,25 +104,26 @@ const DashboardPage: React.FC = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(20); // Number of items per page
 
-  // Get sessions and stats from hooks
+  // Get all dashboard data from unified hook
   const { 
-    sessions, 
-    loading: sessionsLoading, 
-    error: sessionsError,
-    totalCount,
-    hasMore,
-    pagination,
-    fetchSessions,
+    data: dashboardData,
+    loading: dataLoading,
+    error: dataError,
+    fetchDashboardData,
     updateSession,
     deleteSession,
-    createSession 
-  } = useSessions();
+    refreshData
+  } = useDashboardDataWithFallback();
   
-  const { 
-    stats: userStats, 
-    loading: statsLoading,
-    error: statsError 
-  } = useUserStats();
+  // Extract data from dashboard response
+  const sessions = dashboardData?.sessions || [];
+  const totalCount = dashboardData?.totalCount || 0;
+  const hasMore = dashboardData?.hasMore || false;
+  const pagination = dashboardData?.pagination || null;
+  const userStats = dashboardData?.stats || null;
+  const subscription = dashboardData?.subscription || null;
+  const sessionsLoading = dataLoading;
+  const sessionsError = dataError;
 
   // Get session data management hooks
   const { 
@@ -130,13 +133,12 @@ const DashboardPage: React.FC = () => {
     contextLoading 
   } = useSessionData();
 
-  // Get subscription data
-  const {
-    subscription,
-    loading: subscriptionLoading,
-    error: subscriptionError,
-    planType
-  } = useSubscription();
+  // Extract subscription data
+  const planType: 'free' | 'pro' | 'team' = subscription?.plan.name === 'pro' 
+    ? 'pro' 
+    : subscription?.plan.name === 'team' 
+    ? 'team' 
+    : 'free';
 
   // Get thread grouping for sessions
   const { enhancedSessions, threads, standaloneSessions, isGrouped } = useSessionThreads(sessions, groupByThread);
@@ -217,7 +219,7 @@ const DashboardPage: React.FC = () => {
   const handlePageChange = (page: number) => {
     setCurrentPage(page);
     const offset = (page - 1) * itemsPerPage;
-    fetchSessions({ 
+    fetchDashboardData({ 
       ...getCurrentFilters(), 
       limit: itemsPerPage, 
       offset 
@@ -226,20 +228,20 @@ const DashboardPage: React.FC = () => {
 
   const getCurrentFilters = () => ({
     status: activePath === 'archive' ? 'archived' : undefined,
-    search: searchQuery || undefined,
+    search: debouncedSearchQuery || undefined,
   });
 
-  // Update session fetching when filters change (but not pagination)
+  // Update data fetching when filters change (but not pagination)
   React.useEffect(() => {
     if (user && authSession) {
       setCurrentPage(1); // Reset to first page when filters change
-      fetchSessions({ 
+      fetchDashboardData({ 
         ...getCurrentFilters(), 
         limit: itemsPerPage, 
         offset: 0 
       });
     }
-  }, [activePath, searchQuery, fetchSessions]); // Only depend on actual filter changes
+  }, [activePath, debouncedSearchQuery, user, authSession, fetchDashboardData]); // Only depend on actual filter changes and debounced search
 
   const handleNewConversation = () => {
     // Regular conversations are deprecated, redirect to meeting
@@ -254,6 +256,30 @@ const DashboardPage: React.FC = () => {
     // Regular conversations are deprecated - redirect to meeting creation
     console.warn('Regular conversations are deprecated. Please use meetings.');
     setShowNewMeetingModal(true);
+  };
+  
+  // Helper function to create session via API
+  const createSession = async (data: any) => {
+    const headers: HeadersInit = { 'Content-Type': 'application/json' };
+    if (authSession?.access_token) {
+      headers['Authorization'] = `Bearer ${authSession.access_token}`;
+    }
+
+    const response = await fetch('/api/sessions', {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(data),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.error || errorData.message || 'Failed to create session');
+    }
+
+    const { session } = await response.json();
+    // Refresh dashboard data to include new session
+    await refreshData();
+    return session;
   };
 
   const handleStartMeeting = async (data: any) => {
@@ -647,7 +673,7 @@ const DashboardPage: React.FC = () => {
             {activePath === 'settings' ? (
               <SettingsPanel 
                 onSessionsDeleted={() => {
-                  fetchSessions(); // Refresh sessions after deletion
+                  refreshData(); // Refresh dashboard data after deletion
                   setActivePath('conversations'); // Return to conversations view
                 }}
               />

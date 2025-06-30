@@ -12,24 +12,30 @@ import { format, isToday, isTomorrow, isThisWeek } from 'date-fns';
 interface CalendarEventListProps {
   className?: string;
   compact?: boolean;
+  events?: UpcomingMeeting[];
 }
 
 export const CalendarEventList: React.FC<CalendarEventListProps> = ({ 
   className = '',
-  compact = false 
+  compact = false,
+  events 
 }) => {
   const { session } = useAuth();
-  const [meetings, setMeetings] = useState<UpcomingMeeting[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [meetings, setMeetings] = useState<UpcomingMeeting[]>(events || []);
+  const [loading, setLoading] = useState(!events);
   const [filter, setFilter] = useState<'today' | 'week' | 'all'>('today');
 
   const calendarEnabled = process.env.NEXT_PUBLIC_CALENDAR_ENABLED === 'true';
 
   useEffect(() => {
-    if (session?.access_token && calendarEnabled) {
+    // Use provided events if available
+    if (events) {
+      setMeetings(events);
+      setLoading(false);
+    } else if (session?.access_token && calendarEnabled) {
       loadMeetings();
     }
-  }, [session, filter, calendarEnabled]);
+  }, [session, filter, calendarEnabled, events]);
 
   const loadMeetings = async () => {
     try {

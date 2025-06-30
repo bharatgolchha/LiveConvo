@@ -169,6 +169,11 @@ export async function GET(request: NextRequest) {
         total_count: totalCount,
         has_more: hasMore
       }
+    }, {
+      headers: {
+        // Cache for 30 seconds at the edge, allow stale for 2 minutes while revalidating
+        'Cache-Control': 'public, s-maxage=30, stale-while-revalidate=120',
+      },
     });
 
   } catch (error) {
