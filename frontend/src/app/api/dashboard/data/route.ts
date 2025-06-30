@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabase, createServerSupabaseClient, createAuthenticatedSupabaseClient } from '@/lib/supabase';
+import { createServerSupabaseClient, createAuthenticatedSupabaseClient } from '@/lib/supabase';
+import { supabase } from '@/lib/supabase';
 
 /**
  * GET /api/dashboard/data - Unified endpoint for dashboard data
@@ -13,14 +14,18 @@ import { supabase, createServerSupabaseClient, createAuthenticatedSupabaseClient
  * - conversation_type: Filter by conversation type
  */
 export async function GET(request: NextRequest) {
+  console.log('📊 Dashboard API called');
+  
   try {
     const { searchParams } = new URL(request.url);
     
     // Get current user from Supabase auth using the access token
     const authHeader = request.headers.get('authorization');
+    console.log('🔑 Auth header:', authHeader ? 'Present' : 'Missing');
     const token = authHeader?.split(' ')[1];
     
     if (!token) {
+      console.log('❌ No access token provided');
       return NextResponse.json(
         { error: 'Unauthorized', message: 'No access token provided' },
         { status: 401 }
@@ -88,7 +93,7 @@ export async function GET(request: NextRequest) {
       console.error('Error fetching subscription:', subscriptionResult.reason);
     }
 
-    return NextResponse.json({
+    const response = {
       sessions: sessions.sessions,
       total_count: sessions.total_count,
       has_more: sessions.has_more,
@@ -101,7 +106,17 @@ export async function GET(request: NextRequest) {
         full_name: userData.full_name,
         organization_id: userData.current_organization_id
       }
-    }, {
+    };
+
+    console.log('Dashboard API response:', {
+      sessionsCount: response.sessions?.length || 0,
+      totalCount: response.total_count,
+      hasMore: response.has_more,
+      userId: user.id,
+      orgId: userData.current_organization_id
+    });
+
+    return NextResponse.json(response, {
       headers: {
         // Cache for 30 seconds at the edge, allow stale for 2 minutes while revalidating
         'Cache-Control': 'public, s-maxage=30, stale-while-revalidate=120',
@@ -177,8 +192,15 @@ async function fetchSessions(
   const { data: sessions, count, error } = await query;
 
   if (error) {
+    console.error('Error fetching sessions:', error);
     throw error;
   }
+
+  console.log('Sessions query result:', { 
+    sessionsCount: sessions?.length || 0, 
+    totalCount: count,
+    organizationId 
+  });
 
   // Calculate additional fields for each session
   const enhancedSessions = sessions?.map(session => ({

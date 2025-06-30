@@ -65,7 +65,11 @@ export async function POST(request: NextRequest) {
         auto_record_enabled,
         join_buffer_minutes,
         excluded_keywords,
-        users!inner(id, email, current_organization_id)
+        users:user_id(
+          id,
+          email,
+          current_organization_id
+        )
       `)
       .eq('auto_join_enabled', true);
 
@@ -92,7 +96,7 @@ export async function POST(request: NextRequest) {
 
     for (const prefs of eligibleUsers) {
       try {
-        const user = prefs.users;
+        const user = Array.isArray(prefs.users) ? prefs.users[0] : prefs.users;
         const userBufferMinutes = prefs.join_buffer_minutes || bufferMinutes;
         const userCheckTime = new Date(now.getTime() + userBufferMinutes * 60 * 1000);
 
@@ -336,9 +340,9 @@ export async function POST(request: NextRequest) {
           }
         }
       } catch (userError: any) {
-        console.error(`Error processing user ${user.id}:`, userError);
+        console.error(`Error processing user ${prefs.user_id}:`, userError);
         results.errors.push({
-          user_id: user.id,
+          user_id: prefs.user_id,
           error: 'Failed to process user',
           details: userError.message
         });

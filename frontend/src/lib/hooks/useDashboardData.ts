@@ -6,8 +6,8 @@ import type { SubscriptionData } from './useSubscription';
 
 export interface DashboardData {
   sessions: Session[];
-  totalCount: number;
-  hasMore: boolean;
+  total_count: number;
+  has_more: boolean;
   pagination: {
     limit: number;
     offset: number;
@@ -56,18 +56,20 @@ export function useDashboardData(): DashboardDataHookReturn {
   const [error, setError] = useState<string | null>(null);
   const [currentFilters, setCurrentFilters] = useState<DashboardFilters>({});
   const abortControllerRef = useRef<AbortController | null>(null);
+  const hasFetchedRef = useRef(false);
 
   /**
    * Fetch all dashboard data in a single request
    */
   const fetchDashboardData = useCallback(async (filters: DashboardFilters = {}) => {
-    if (!user || authLoading || !session) {
+    if (!user || authLoading || !session?.access_token) {
+      console.log('Dashboard: Skipping fetch - missing requirements', {
+        hasUser: !!user,
+        authLoading,
+        hasSession: !!session,
+        hasToken: !!session?.access_token
+      });
       return;
-    }
-
-    // Cancel any in-flight requests
-    if (abortControllerRef.current) {
-      abortControllerRef.current.abort();
     }
 
     // Create request key for deduplication
@@ -108,15 +110,25 @@ export function useDashboardData(): DashboardDataHookReturn {
       if (session?.access_token) {
         headers['Authorization'] = `Bearer ${session.access_token}`;
       }
+      
+      console.log('🚀 Fetching dashboard data', {
+        hasSession: !!session,
+        hasToken: !!session?.access_token,
+        params: params.toString()
+      });
 
       // Create the request promise
       const requestPromise = fetch(`/api/dashboard/data?${params.toString()}`, {
         method: 'GET',
-        headers,
-        signal: abortController.signal
+        headers
+        // Temporarily remove abort signal to debug
       }).then(async (response) => {
+        console.log('Dashboard API response status:', response.status);
+        
         if (!response.ok) {
-          const errorData = await response.json();
+          const errorData = await response.json().catch(() => ({ message: 'Failed to parse error response' }));
+          console.error('Dashboard API error:', response.status, errorData);
+          
           if (response.status === 401 && user) {
             setSessionExpiredMessage(errorData.message || 'Your session has expired. Please sign in again.');
           }
@@ -125,9 +137,21 @@ export function useDashboardData(): DashboardDataHookReturn {
             console.warn('Dashboard data endpoint not found, falling back to individual endpoints');
             throw new Error('Dashboard data endpoint not available');
           }
+          if (response.status === 500) {
+            console.error('Server error in dashboard API:', errorData);
+            throw new Error(errorData.message || 'Server error fetching dashboard data');
+          }
           throw new Error(errorData.message || 'Failed to fetch dashboard data');
         }
-        return response.json();
+        const data = await response.json();
+        console.log('Dashboard data received from API:', { 
+          sessionsCount: data.sessions?.length || 0,
+          totalCount: data.total_count,
+          hasStats: !!data.stats,
+          hasSubscription: !!data.subscription,
+          fullData: data
+        });
+        return data;
       });
 
       // Store the pending request
@@ -138,6 +162,11 @@ export function useDashboardData(): DashboardDataHookReturn {
         
         if (user) setSessionExpiredMessage(null);
         
+        console.log('Setting dashboard data:', {
+          sessions: result.sessions?.length || 0,
+          totalCount: result.total_count,
+          result
+        });
         setData(result);
         setError(null);
       } finally {
@@ -147,7 +176,9 @@ export function useDashboardData(): DashboardDataHookReturn {
 
     } catch (err: any) {
       // Don't set error if request was aborted
-      if (err.name !== 'AbortError') {
+      if (err.name === 'AbortError') {
+        console.log('Dashboard request was aborted');
+      } else {
         const errorMessage = err instanceof Error ? err.message : 'Failed to fetch dashboard data';
         setError(errorMessage);
         console.error('Dashboard data fetch error:', err);
@@ -218,7 +249,7 @@ export function useDashboardData(): DashboardDataHookReturn {
       return {
         ...prev,
         sessions: prev.sessions.filter(s => s.id !== id),
-        totalCount: prev.totalCount - 1
+        total_count: prev.total_count - 1
       };
     });
 
@@ -261,14 +292,18 @@ export function useDashboardData(): DashboardDataHookReturn {
 
   // Initial fetch on mount with pagination-friendly limit
   useEffect(() => {
-    if (user && session && !authLoading) {
-      fetchDashboardData({ ...currentFilters, limit: 20, offset: 0 });
+    if (user && session && !authLoading && !hasFetchedRef.current) {
+      console.log('Dashboard: Initial data fetch triggered');
+      hasFetchedRef.current = true;
+      fetchDashboardData({ limit: 20, offset: 0 });
     } else if (!user && !authLoading) {
+      console.log('Dashboard: No user, clearing data');
       setData(null);
       setLoading(false);
       setError(null);
+      hasFetchedRef.current = false;
     }
-  }, [user, session, authLoading]); // Remove fetchDashboardData from deps to prevent loops
+  }, [user?.id, authLoading, session?.access_token, fetchDashboardData]); // Add all dependencies
 
   // Cleanup abort controller on unmount
   useEffect(() => {

@@ -27,6 +27,8 @@ export async function GET(request: NextRequest) {
       days = 1;
     } else if (filter === 'week') {
       days = 7;
+    } else if (filter === 'all') {
+      days = 30; // Show 30 days ahead for 'all' filter
     }
 
     // Call the stored function to get upcoming meetings
@@ -164,11 +166,13 @@ export async function POST(request: NextRequest) {
       next: recallEvents.next,
       previous: recallEvents.previous,
       resultsCount: recallEvents.results?.length || 0,
-      firstEvent: recallEvents.results?.[0],
-      firstEventRaw: recallEvents.results?.[0]?.raw ? 
-        (typeof recallEvents.results[0].raw === 'string' ? 
-          'Raw is string, length: ' + recallEvents.results[0].raw.length : 
-          'Raw is object') : 'No raw field'
+      events: recallEvents.results?.map((event: any) => ({
+        id: event.id,
+        title: event.raw?.summary || event.raw?.title || 'Unknown',
+        start_time: event.start_time,
+        platform_id: event.platform_id,
+        is_deleted: event.is_deleted || false
+      }))
     });
 
     // Update last_synced_at
@@ -177,16 +181,32 @@ export async function POST(request: NextRequest) {
       .update({ last_synced_at: new Date().toISOString() })
       .eq('id', connectionId);
 
+    // Get existing events before deletion for comparison
+    const { data: existingEvents } = await supabase
+      .from('calendar_events')
+      .select('id, title, external_event_id')
+      .eq('calendar_connection_id', connectionId);
+    
+    console.log('Existing events before sync:', existingEvents?.map(e => ({ title: e.title, id: e.external_event_id })));
+
+    // Always clear existing events for this connection first
+    // This ensures deleted events are removed
+    const { error: deleteError, count: deletedCount } = await supabase
+      .from('calendar_events')
+      .delete()
+      .eq('calendar_connection_id', connectionId);
+    
+    console.log('Deleted events count:', deletedCount);
+
     // Process and store events in calendar_events table
     if (recallEvents.results && recallEvents.results.length > 0) {
-      // Clear existing events for this connection
-      await supabase
-        .from('calendar_events')
-        .delete()
-        .eq('calendar_connection_id', connectionId);
-
+      // Filter out deleted events - Recall.ai marks deleted events with is_deleted flag
+      const activeEvents = recallEvents.results.filter((event: any) => !event.is_deleted);
+      
+      console.log(`Filtered events: ${recallEvents.results.length} total, ${activeEvents.length} active (${recallEvents.results.length - activeEvents.length} deleted)`);
+      
       // Insert new events
-      const eventsToInsert = recallEvents.results.map((event: any) => {
+      const eventsToInsert = activeEvents.map((event: any) => {
         // Parse the raw field to get the actual event details
         let title = 'Untitled Event';
         let description = null;
@@ -237,13 +257,20 @@ export async function POST(request: NextRequest) {
         };
       });
 
-      const { error: insertError } = await supabase
-        .from('calendar_events')
-        .insert(eventsToInsert);
+      // Only insert if there are active events
+      if (eventsToInsert.length > 0) {
+        const { error: insertError } = await supabase
+          .from('calendar_events')
+          .insert(eventsToInsert);
 
-      if (insertError) {
-        console.error('Failed to insert calendar events:', insertError);
+        if (insertError) {
+          console.error('Failed to insert calendar events:', insertError);
+        }
+      } else {
+        console.log('No active events to insert after filtering deleted ones');
       }
+    } else {
+      console.log('No events returned from Recall.ai');
     }
 
     return NextResponse.json({ 

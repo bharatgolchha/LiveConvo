@@ -41,12 +41,12 @@ import { LoadingModal } from '@/components/ui/LoadingModal';
 import type { ConversationConfig } from '@/types/app';
 import { ConversationThread } from '@/components/dashboard/ConversationThread';
 import { Pagination } from '@/components/ui/Pagination';
-import { CalendarEventList } from '@/components/calendar/CalendarEventList';
 import dynamic from 'next/dynamic';
 
 // Dynamically load smaller components to reduce initial bundle size
 const DashboardHeader = dynamic(() => import('@/components/dashboard/DashboardHeader'));
 const DashboardSidebar = dynamic(() => import('@/components/dashboard/DashboardSidebar'));
+const UpcomingMeetingsSidebar = dynamic(() => import('@/components/dashboard/UpcomingMeetingsSidebar').then(mod => ({ default: mod.UpcomingMeetingsSidebar })));
 
 // Newly extracted components (loaded lazily to reduce initial JS)
 const ConversationInboxItem = dynamic(() => import('@/components/dashboard/ConversationInboxItem'));
@@ -84,6 +84,7 @@ const DashboardPage: React.FC = () => {
   const { theme } = useTheme();
   const router = useRouter();
   const searchParams = useSearchParams();
+  const [showMobileMeetings, setShowMobileMeetings] = useState(false);
   
   // Read 'tab' query parameter to set initial active path
   const tabParam = searchParams.get('tab');
@@ -117,13 +118,25 @@ const DashboardPage: React.FC = () => {
   
   // Extract data from dashboard response
   const sessions = dashboardData?.sessions || [];
-  const totalCount = dashboardData?.totalCount || 0;
-  const hasMore = dashboardData?.hasMore || false;
+  const totalCount = dashboardData?.total_count || 0;
+  const hasMore = dashboardData?.has_more || false;
   const pagination = dashboardData?.pagination || null;
   const userStats = dashboardData?.stats || null;
   const subscription = dashboardData?.subscription || null;
   const sessionsLoading = dataLoading;
   const sessionsError = dataError;
+
+  // Debug logging
+  React.useEffect(() => {
+    if (dashboardData) {
+      console.log('Dashboard data received:', {
+        sessionsCount: sessions.length,
+        totalCount,
+        hasMore,
+        dashboardData
+      });
+    }
+  }, [dashboardData, sessions.length, totalCount, hasMore]);
 
   // Get session data management hooks
   const { 
@@ -177,14 +190,16 @@ const DashboardPage: React.FC = () => {
     }
   }, [subscription, planType]);
 
-  // Check if user needs onboarding
+  // Check if user needs onboarding (only once)
   useEffect(() => {
+    if (!sessionsError || showOnboardingModal) return;
+    
     console.log('🔍 Dashboard - checking onboarding:', { sessionsError, user: !!user });
-    if (sessionsError && (sessionsError.includes('Setup required') || sessionsError.includes('Please complete onboarding first'))) {
+    if (sessionsError.includes('Setup required') || sessionsError.includes('Please complete onboarding first')) {
       console.log('🚀 Dashboard - showing onboarding modal');
       setShowOnboardingModal(true);
     }
-  }, [sessionsError]);
+  }, [sessionsError, showOnboardingModal]);
 
   // For paginated data, we use the current sessions directly since filtering is done server-side
   const filtered = useMemo(() => {
@@ -241,7 +256,7 @@ const DashboardPage: React.FC = () => {
         offset: 0 
       });
     }
-  }, [activePath, debouncedSearchQuery, user, authSession, fetchDashboardData]); // Only depend on actual filter changes and debounced search
+  }, [activePath, debouncedSearchQuery]); // Only depend on actual filter changes
 
   const handleNewConversation = () => {
     // Regular conversations are deprecated, redirect to meeting
@@ -508,6 +523,15 @@ const DashboardPage: React.FC = () => {
   const activeSessions = sessions.filter(s => s.status === 'active');
   const hasAnySessions = sessions.length > 0;
 
+  // Additional debug logging
+  console.log('Dashboard render check:', {
+    hasAnySessions,
+    sessionsLength: sessions.length,
+    dashboardData: !!dashboardData,
+    sessionsLoading,
+    sessionsError
+  });
+
   const handleCreateFollowUp = async (originalSession: Session) => {
     try {
       setIsNavigating(true);
@@ -631,8 +655,9 @@ const DashboardPage: React.FC = () => {
           sessions={sessions}
         />
         
-        <main className="flex-1 overflow-auto flex flex-col">
-          <div className="p-6 flex flex-col flex-1">
+        <main className="flex-1 overflow-auto flex">
+          {/* Main content area */}
+          <div className="flex-1 p-6 flex flex-col">
             {/* Hero Section */}
             {hasAnySessions && activePath !== 'settings' && (
               <motion.div 
@@ -657,17 +682,6 @@ const DashboardPage: React.FC = () => {
               </motion.div>
             )}
 
-            {/* Calendar Events */}
-            {hasAnySessions && activePath === 'conversations' && (
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.1 }}
-                className="mb-6"
-              >
-                <CalendarEventList compact />
-              </motion.div>
-            )}
 
             {/* Main Content */}
             {activePath === 'settings' ? (
@@ -869,7 +883,15 @@ const DashboardPage: React.FC = () => {
               </div>
             )}
           </div>
+          
+          {/* Upcoming Meetings Sidebar - Desktop */}
+          <UpcomingMeetingsSidebar className="hidden lg:flex" />
         </main>
+      </div>
+
+      {/* Mobile Meetings Sidebar */}
+      <div className="lg:hidden">
+        <UpcomingMeetingsSidebar isMobile />
       </div>
 
       {/* New Conversation Modal */}
