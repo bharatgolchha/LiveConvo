@@ -5,7 +5,7 @@ import { useAuth } from '@/contexts/AuthContext';
 export interface Session {
   id: string;
   title: string;
-  status: 'active' | 'completed' | 'draft' | 'archived';
+  status: 'active' | 'completed' | 'draft' | 'archived' | 'created';
   conversation_type: string;
   created_at: string;
   updated_at: string;
@@ -30,6 +30,8 @@ export interface Session {
   transcript_speakers?: string[];
   meeting_url?: string;
   meeting_platform?: 'zoom' | 'google_meet' | 'teams';
+  recall_bot_id?: string;
+  recall_bot_status?: 'created' | 'joining' | 'in_call' | 'recording' | 'waiting' | 'permission_denied' | 'completed' | 'failed' | 'timeout' | 'cancelled';
 }
 
 export interface SessionsResponse {

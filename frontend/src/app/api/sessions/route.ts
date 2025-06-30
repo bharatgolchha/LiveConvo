@@ -89,7 +89,11 @@ export async function GET(request: NextRequest) {
         recording_started_at,
         recording_ended_at,
         participant_me,
-        participant_them
+        participant_them,
+        recall_bot_id,
+        recall_bot_status,
+        meeting_url,
+        meeting_platform
       `,
         { count: 'exact' }
       )

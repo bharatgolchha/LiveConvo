@@ -9,13 +9,15 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useUserStats } from '@/lib/hooks/useUserStats';
 import { SubscriptionManager } from './SubscriptionManager';
 import { BotUsageDisplay } from '@/components/meeting/settings/BotUsageDisplay';
+import { CalendarSettings } from '@/components/calendar/CalendarSettings';
 import { 
   UserIcon, 
   PaintBrushIcon, 
   ChartBarIcon, 
   ShieldCheckIcon,
   DocumentTextIcon,
-  CreditCardIcon
+  CreditCardIcon,
+  CalendarIcon
 } from '@heroicons/react/24/outline';
 
 interface SettingsPanelProps {
@@ -190,7 +192,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ onSessionsDeleted 
       </div>
 
       <Tabs defaultValue="subscription" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-6">
+        <TabsList className="grid w-full grid-cols-7">
           <TabsTrigger value="subscription" className="flex items-center gap-2">
             <CreditCardIcon className="w-4 h-4" />
             <span className="hidden sm:inline">Billing</span>
@@ -202,6 +204,10 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ onSessionsDeleted 
           <TabsTrigger value="account" className="flex items-center gap-2">
             <UserIcon className="w-4 h-4" />
             <span className="hidden sm:inline">Account</span>
+          </TabsTrigger>
+          <TabsTrigger value="calendar" className="flex items-center gap-2">
+            <CalendarIcon className="w-4 h-4" />
+            <span className="hidden sm:inline">Calendar</span>
           </TabsTrigger>
           <TabsTrigger value="appearance" className="flex items-center gap-2">
             <PaintBrushIcon className="w-4 h-4" />
@@ -302,6 +308,11 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ onSessionsDeleted 
               </div>
             </div>
           </Card>
+        </TabsContent>
+
+        {/* Calendar Tab */}
+        <TabsContent value="calendar" className="space-y-4">
+          <CalendarSettings />
         </TabsContent>
 
         {/* Appearance Tab */}

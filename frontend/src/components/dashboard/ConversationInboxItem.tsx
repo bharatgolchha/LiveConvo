@@ -12,6 +12,10 @@ import {
   VideoCameraIcon,
   UserGroupIcon,
   DocumentTextIcon,
+  CogIcon,
+  CheckCircleIcon,
+  XCircleIcon,
+  ExclamationTriangleIcon,
 } from '@heroicons/react/24/outline';
 import { motion } from 'framer-motion';
 import { formatDistanceToNow } from 'date-fns';
@@ -129,6 +133,14 @@ const ConversationInboxItem: React.FC<Props> = ({
           label: 'Draft',
           pulse: false,
         };
+      case 'created':
+        return {
+          color: 'bg-accent',
+          textColor: 'text-accent-foreground',
+          bgColor: 'bg-accent/10',
+          label: 'Ready',
+          pulse: false,
+        };
       default:
         return {
           color: 'bg-muted-foreground',
@@ -137,6 +149,98 @@ const ConversationInboxItem: React.FC<Props> = ({
           label: 'Unknown',
           pulse: false,
         };
+    }
+  };
+
+  const getBotStatusConfig = (botStatus?: Session['recall_bot_status']) => {
+    if (!botStatus) return null;
+    
+    switch (botStatus) {
+      case 'created':
+        return {
+          icon: CogIcon,
+          label: 'Bot created',
+          bgColor: 'bg-gray-500/10',
+          textColor: 'text-gray-600 dark:text-gray-400',
+          iconColor: 'text-gray-500',
+        };
+      case 'joining':
+        return {
+          icon: CogIcon,
+          label: 'Bot joining...',
+          bgColor: 'bg-blue-500/10',
+          textColor: 'text-blue-600 dark:text-blue-400',
+          iconColor: 'text-blue-500',
+          animate: true,
+        };
+      case 'in_call':
+        return {
+          icon: VideoCameraIcon,
+          label: 'Bot in call',
+          bgColor: 'bg-green-500/10',
+          textColor: 'text-green-600 dark:text-green-400',
+          iconColor: 'text-green-500',
+        };
+      case 'recording':
+        return {
+          icon: VideoCameraIcon,
+          label: 'Recording',
+          bgColor: 'bg-red-500/10',
+          textColor: 'text-red-600 dark:text-red-400',
+          iconColor: 'text-red-500',
+          animate: true,
+        };
+      case 'waiting':
+        return {
+          icon: ClockIcon,
+          label: 'In waiting room',
+          bgColor: 'bg-yellow-500/10',
+          textColor: 'text-yellow-600 dark:text-yellow-400',
+          iconColor: 'text-yellow-500',
+          animate: true,
+        };
+      case 'permission_denied':
+        return {
+          icon: XCircleIcon,
+          label: 'Permission denied',
+          bgColor: 'bg-red-500/10',
+          textColor: 'text-red-600 dark:text-red-400',
+          iconColor: 'text-red-500',
+        };
+      case 'completed':
+        return {
+          icon: CheckCircleIcon,
+          label: 'Bot completed',
+          bgColor: 'bg-gray-500/10',
+          textColor: 'text-gray-600 dark:text-gray-400',
+          iconColor: 'text-gray-500',
+        };
+      case 'failed':
+        return {
+          icon: XCircleIcon,
+          label: 'Bot failed',
+          bgColor: 'bg-red-500/10',
+          textColor: 'text-red-600 dark:text-red-400',
+          iconColor: 'text-red-500',
+        };
+      case 'timeout':
+        return {
+          icon: ExclamationTriangleIcon,
+          label: 'Bot timeout',
+          bgColor: 'bg-orange-500/10',
+          textColor: 'text-orange-600 dark:text-orange-400',
+          iconColor: 'text-orange-500',
+        };
+      case 'cancelled':
+        return {
+          icon: XCircleIcon,
+          label: 'Cancelled',
+          bgColor: 'bg-gray-500/10',
+          textColor: 'text-gray-600 dark:text-gray-400',
+          iconColor: 'text-gray-500',
+        };
+      default:
+        return null;
     }
   };
 
@@ -213,6 +317,7 @@ const ConversationInboxItem: React.FC<Props> = ({
   };
 
   const statusConfig = getStatusConfig(session.status);
+  const botStatusConfig = getBotStatusConfig(session.recall_bot_status);
   const participants = getParticipants;
   const maxDisplayParticipants = 4;
   const displayParticipants = participants.slice(0, maxDisplayParticipants);
@@ -261,6 +366,13 @@ const ConversationInboxItem: React.FC<Props> = ({
             {/* Meeting platform icon if it has meeting_url */}
             {session.meeting_url && (
               <VideoCameraIcon className="w-4 h-4 text-primary flex-shrink-0" />
+            )}
+            
+            {/* Bot indicator icon */}
+            {session.recall_bot_id && (
+              <div className="flex items-center" title={`Bot ${session.recall_bot_status || 'active'}`}>
+                <span className="text-base">🤖</span>
+              </div>
             )}
             
             <h3 className="text-sm font-medium text-foreground truncate flex-1">
@@ -353,6 +465,14 @@ const ConversationInboxItem: React.FC<Props> = ({
           <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium ${statusConfig.bgColor} ${statusConfig.textColor}`}>
             {statusConfig.label}
           </span>
+
+          {/* Bot Status Badge */}
+          {botStatusConfig && session.recall_bot_id && (
+            <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs font-medium ${botStatusConfig.bgColor} ${botStatusConfig.textColor}`}>
+              <botStatusConfig.icon className={`w-3 h-3 ${botStatusConfig.iconColor} ${botStatusConfig.animate ? 'animate-spin' : ''}`} />
+              {botStatusConfig.label}
+            </span>
+          )}
 
           {/* Duration */}
           {session.recording_duration_seconds ? (
@@ -493,6 +613,19 @@ const ConversationInboxItem: React.FC<Props> = ({
             >
               <PlayCircleIcon className="w-3 h-3 mr-0.5" />
               Continue
+            </button>
+          )}
+
+          {session.status === 'created' && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onResume(session.id);
+              }}
+              className="inline-flex items-center px-2 py-1 text-xs font-medium text-accent-foreground bg-accent/20 hover:bg-accent/30 rounded transition-colors duration-150"
+            >
+              <ArrowTopRightOnSquareIcon className="w-3 h-3 mr-0.5" />
+              Open
             </button>
           )}
 
