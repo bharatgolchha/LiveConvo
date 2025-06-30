@@ -155,4 +155,4 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({ user, onSearch, onNav
   );
 };
 
-export default DashboardHeader; 
+export default React.memo(DashboardHeader); 
