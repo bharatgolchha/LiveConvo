@@ -39,7 +39,8 @@ PRODUCTION_SUPABASE_URL=https://juuysuamfoteblrqqdnu.supabase.co
 ### Database Environments
 - **Development**: `ucvfgfbjcrxbzppwjpuu` (VoiceConvo Dev)
 - **Production**: `juuysuamfoteblrqqdnu` (livePrompt Live)
-
+## API DOCS
+Please use Context7 via supabase MCP for referencing any API DOCS... Super important
 
 ## Tech Stack
 

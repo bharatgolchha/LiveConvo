@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   MagnifyingGlassIcon, 
@@ -40,6 +40,7 @@ import { LoadingModal } from '@/components/ui/LoadingModal';
 import type { ConversationConfig } from '@/types/app';
 import { ConversationThread } from '@/components/dashboard/ConversationThread';
 import { Pagination } from '@/components/ui/Pagination';
+import { CalendarEventList } from '@/components/calendar/CalendarEventList';
 import dynamic from 'next/dynamic';
 
 // Dynamically load smaller components to reduce initial bundle size
@@ -81,7 +82,13 @@ const DashboardPage: React.FC = () => {
   const { user } = useAuth();
   const { theme } = useTheme();
   const router = useRouter();
-  const [activePath, setActivePath] = useState('conversations');
+  const searchParams = useSearchParams();
+  
+  // Read 'tab' query parameter to set initial active path
+  const tabParam = searchParams.get('tab');
+  const initialActivePath = tabParam || 'conversations';
+  
+  const [activePath, setActivePath] = useState(initialActivePath);
   const [showNewConversationModal, setShowNewConversationModal] = useState(false);
   const [showNewMeetingModal, setShowNewMeetingModal] = useState(false);
   const [showOnboardingModal, setShowOnboardingModal] = useState(false);
@@ -144,6 +151,18 @@ const DashboardPage: React.FC = () => {
     plan: planType
   };
 
+  // Update URL when activePath changes
+  useEffect(() => {
+    const newSearchParams = new URLSearchParams(searchParams.toString());
+    if (activePath && activePath !== 'conversations') {
+      newSearchParams.set('tab', activePath);
+    } else {
+      newSearchParams.delete('tab');
+    }
+    const newUrl = `${window.location.pathname}${newSearchParams.toString() ? '?' + newSearchParams.toString() : ''}`;
+    window.history.replaceState({}, '', newUrl);
+  }, [activePath, searchParams]);
+
   // Debug subscription status
   useEffect(() => {
     if (subscription) {
@@ -169,13 +188,12 @@ const DashboardPage: React.FC = () => {
   const filtered = useMemo(() => {
     if (isGrouped) {
       // For grouped view, we still need to filter locally since threading is client-side
-      const filteredThreads = threads.filter(thread => {
-        const latestSession = thread.sessions[thread.sessions.length - 1];
+      const filteredThreads = threads.filter(() => {
         // Server-side filtering handles status and search, so we just return the threads
         return true;
       });
       
-      const filteredStandalone = standaloneSessions.filter(session => {
+      const filteredStandalone = standaloneSessions.filter(() => {
         // Server-side filtering handles status and search, so we just return the sessions
         return true;
       });
@@ -232,7 +250,7 @@ const DashboardPage: React.FC = () => {
     setShowNewMeetingModal(true);
   };
 
-  const handleStartConversation = async (config: ConversationConfig) => {
+  const handleStartConversation = async (_config: ConversationConfig) => {
     // Regular conversations are deprecated - redirect to meeting creation
     console.warn('Regular conversations are deprecated. Please use meetings.');
     setShowNewMeetingModal(true);
@@ -283,7 +301,7 @@ const DashboardPage: React.FC = () => {
       setIsNewSession(false);
       
       // Check if this is a meeting session
-      const isVideoConference = !!(session as any).meeting_url || !!(session as any).meeting_platform;
+      // const isVideoConference = !!(session as any).meeting_url || !!(session as any).meeting_platform;
       
       // All conversations now use the meeting interface
       window.location.href = `/meeting/${sessionId}`;
@@ -610,6 +628,18 @@ const DashboardPage: React.FC = () => {
                     onNewMeeting={handleNewMeeting}
                   />
                 </div>
+              </motion.div>
+            )}
+
+            {/* Calendar Events */}
+            {hasAnySessions && activePath === 'conversations' && (
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.1 }}
+                className="mb-6"
+              >
+                <CalendarEventList compact />
               </motion.div>
             )}
 
