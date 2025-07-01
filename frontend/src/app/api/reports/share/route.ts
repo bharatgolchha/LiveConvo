@@ -120,7 +120,11 @@ export async function POST(request: NextRequest) {
     }
 
     // Generate share URL
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || request.headers.get('origin') || 'http://localhost:3000';
+    // Check if we're in production based on Supabase URL
+    const isProduction = process.env.NEXT_PUBLIC_SUPABASE_URL === 'https://juuysuamfoteblrqqdnu.supabase.co';
+    const baseUrl = isProduction 
+      ? 'https://liveprompt.ai'
+      : (process.env.NEXT_PUBLIC_APP_URL || request.headers.get('origin') || 'http://localhost:3000');
     const shareUrl = `${baseUrl}/shared/report/${shareToken}`;
 
     return NextResponse.json({
