@@ -19,37 +19,50 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Get the user's organization from their subscription
-    const { data: subscriptionData, error: subscriptionError } = await supabase
-      .from('subscriptions')
-      .select('organization_id')
-      .eq('user_id', user.id)
+    // First check the user's current_organization_id from users table
+    const { data: userData, error: userError } = await supabase
+      .from('users')
+      .select('current_organization_id')
+      .eq('id', user.id)
       .single();
 
-    console.log('🔍 Subscription data query result:', { subscriptionData, subscriptionError, userId: user.id });
+    console.log('🔍 User data query result:', { userData, userError, userId: user.id });
 
-    if (subscriptionData?.organization_id) {
-      console.log('✅ Found organization in subscription:', subscriptionData.organization_id);
+    if (userData?.current_organization_id) {
+      console.log('✅ Found organization in user profile:', userData.current_organization_id);
       return NextResponse.json({
-        organization_id: subscriptionData.organization_id
+        organization_id: userData.current_organization_id
       });
     }
 
-    // Fallback to user_organizations table
-    const { data: userOrg, error: orgError } = await supabase
-      .from('user_organizations')
-      .select('organization_id')
+    // Fallback: Check organization_members for active memberships
+    const { data: membershipData, error: membershipError } = await supabase
+      .from('organization_members')
+      .select('organization_id, role')
       .eq('user_id', user.id)
-      .single();
+      .eq('status', 'active')
+      .order('role', { ascending: true }); // Owner role comes first
 
-    if (userOrg?.organization_id) {
+    console.log('🔍 Membership data query result:', { membershipData, membershipError });
+
+    if (membershipData && membershipData.length > 0) {
+      // Prefer owner role, otherwise take the first active membership
+      const primaryOrg = membershipData.find(m => m.role === 'owner') || membershipData[0];
+      console.log('✅ Found organization in memberships:', primaryOrg.organization_id);
+      
+      // Update the user's current_organization_id for future queries
+      await supabase
+        .from('users')
+        .update({ current_organization_id: primaryOrg.organization_id })
+        .eq('id', user.id);
+      
       return NextResponse.json({
-        organization_id: userOrg.organization_id
+        organization_id: primaryOrg.organization_id
       });
     }
 
-    // No organization found in either table
-    console.log('No organization found for user:', user.id);
+    // No organization found
+    console.log('❌ No organization found for user:', user.id);
     return NextResponse.json({ error: 'No organization found' }, { status: 404 });
 
   } catch (error) {

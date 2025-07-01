@@ -24,31 +24,41 @@ export async function GET(req: NextRequest) {
     const startDate = searchParams.get('start_date');
     const endDate = searchParams.get('end_date');
     const userId = searchParams.get('user_id') || user.id;
+    const showAllTime = searchParams.get('all_time') === 'true';
 
     const serviceClient = createServerSupabaseClient();
 
     if (!organizationId) {
-      // Get the user's organization from their subscription
-      const { data: subscriptionData } = await serviceClient
-        .from('subscriptions')
-        .select('organization_id')
-        .eq('user_id', user.id)
+      // First check the user's current_organization_id from users table
+      const { data: userData } = await serviceClient
+        .from('users')
+        .select('current_organization_id')
+        .eq('id', user.id)
         .single();
       
-      if (subscriptionData?.organization_id) {
-        organizationId = subscriptionData.organization_id;
-        console.log('📍 Found organization ID from subscription:', organizationId);
+      if (userData?.current_organization_id) {
+        organizationId = userData.current_organization_id;
+        console.log('📍 Found organization ID from user profile:', organizationId);
       } else {
-        // Fallback to user_organizations table
-        const { data: userOrg } = await serviceClient
-          .from('user_organizations')
-          .select('organization_id')
+        // Fallback to organization_members for active memberships
+        const { data: membershipData } = await serviceClient
+          .from('organization_members')
+          .select('organization_id, role')
           .eq('user_id', user.id)
-          .single();
-        
-        if (userOrg?.organization_id) {
-          organizationId = userOrg.organization_id;
-          console.log('📍 Found organization ID from user_organizations:', organizationId);
+          .eq('status', 'active')
+          .order('role', { ascending: true }); // Owner role comes first
+
+        if (membershipData && membershipData.length > 0) {
+          // Prefer owner role, otherwise take the first active membership
+          const primaryOrg = membershipData.find(m => m.role === 'owner') || membershipData[0];
+          organizationId = primaryOrg.organization_id;
+          console.log('📍 Found organization ID from memberships:', organizationId);
+          
+          // Update the user's current_organization_id for future queries
+          await serviceClient
+            .from('users')
+            .update({ current_organization_id: organizationId })
+            .eq('id', user.id);
         } else {
           console.log('⚠️ No organization found for user, returning empty bot usage data');
           // Return empty data instead of error - user has no organization yet
@@ -84,7 +94,7 @@ export async function GET(req: NextRequest) {
     console.log('🔍 Querying bot usage with:', { organizationId, userId, monthStart: monthStart.toISOString(), monthEnd: monthEnd.toISOString() });
 
     // Get bot usage statistics
-    const { data: botUsageData, error: botUsageError } = await serviceClient
+    let query = serviceClient
       .from('bot_usage_tracking')
       .select(`
         id,
@@ -102,9 +112,22 @@ export async function GET(req: NextRequest) {
       `)
       .eq('user_id', userId)
       .eq('organization_id', organizationId)
-      .gte('created_at', monthStart.toISOString())
-      .lte('created_at', monthEnd.toISOString())
       .order('created_at', { ascending: false });
+
+    // Only apply date filters if dates are provided or if not showing all time
+    if (!showAllTime && (startDate || endDate || (!startDate && !endDate))) {
+      query = query
+        .gte('created_at', monthStart.toISOString())
+        .lte('created_at', monthEnd.toISOString());
+      console.log('📅 Filtering bot usage by date range:', { 
+        monthStart: monthStart.toISOString(), 
+        monthEnd: monthEnd.toISOString() 
+      });
+    } else if (showAllTime) {
+      console.log('📅 Showing all-time bot usage data');
+    }
+
+    const { data: botUsageData, error: botUsageError } = await query;
 
     console.log('🔍 Bot usage query result:', { 
       recordCount: botUsageData?.length || 0,

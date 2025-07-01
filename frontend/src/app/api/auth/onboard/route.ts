@@ -19,7 +19,7 @@ import { supabase, createServerSupabaseClient } from '@/lib/supabase';
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { organization_name, timezone = 'UTC' } = body;
+    const { organization_name, timezone = 'UTC', use_case, acquisition_source } = body;
 
     // Get current user from Supabase auth
     const authHeader = request.headers.get('authorization');
@@ -44,7 +44,7 @@ export async function POST(request: NextRequest) {
     // Check if user exists in users table
     const { data: existingUserData } = await serviceClient
       .from('users')
-      .select('has_completed_onboarding, current_organization_id, full_name')
+      .select('has_completed_onboarding, current_organization_id, full_name, timezone, use_case, acquisition_source')
       .eq('id', user.id)
       .single();
 
@@ -81,6 +81,60 @@ export async function POST(request: NextRequest) {
 
     // Use the userProfile object for the rest of the onboarding flow
 
+    // ALWAYS check if user already has an organization membership first
+    // This prevents creating duplicate organizations
+    const { data: existingMemberships } = await serviceClient
+      .from('organization_members')
+      .select('organization_id, role, status')
+      .eq('user_id', user.id)
+      .eq('status', 'active');
+
+    if (existingMemberships && existingMemberships.length > 0) {
+      // User already has active organization memberships
+      // Update user to mark onboarding as complete with their existing organization
+      const primaryOrg = existingMemberships.find(m => m.role === 'owner') || existingMemberships[0];
+      
+      const { data: updatedUser, error: userUpdateError } = await serviceClient
+        .from('users')
+        .update({
+          has_completed_onboarding: true,
+          has_completed_organization_setup: true,
+          current_organization_id: userProfile?.current_organization_id || primaryOrg.organization_id,
+          timezone: timezone || userProfile?.timezone || 'UTC',
+          use_case: use_case || userProfile?.use_case || null,
+          acquisition_source: acquisition_source || userProfile?.acquisition_source || null,
+          onboarding_completed_at: new Date().toISOString()
+        })
+        .eq('id', user.id)
+        .select()
+        .single();
+
+      if (userUpdateError) {
+        console.error('User update error:', userUpdateError);
+        return NextResponse.json(
+          { error: 'Database error', message: 'Failed to update user' },
+          { status: 500 }
+        );
+      }
+
+      // Get organization details
+      const { data: organization } = await serviceClient
+        .from('organizations')
+        .select('*')
+        .eq('id', primaryOrg.organization_id)
+        .single();
+
+      return NextResponse.json({
+        message: 'Onboarding completed with existing organization',
+        user: updatedUser,
+        organization,
+        membership: primaryOrg,
+        subscription: null // Existing org should already have subscription
+      }, { status: 200 });
+    }
+
+    // If user has already completed onboarding and has no active memberships,
+    // something went wrong - prevent creating duplicate org
     if (userProfile?.has_completed_onboarding) {
       return NextResponse.json(
         { error: 'Already onboarded', message: 'User has already completed onboarding' },
@@ -246,7 +300,10 @@ export async function POST(request: NextRequest) {
         has_completed_onboarding: true,
         has_completed_organization_setup: true,
         current_organization_id: organization.id,
-        timezone: timezone
+        timezone: timezone,
+        use_case: use_case || null,
+        acquisition_source: acquisition_source || null,
+        onboarding_completed_at: new Date().toISOString()
       })
       .eq('id', user.id)
       .select()
