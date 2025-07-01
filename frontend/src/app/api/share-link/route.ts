@@ -78,7 +78,11 @@ export async function POST(request: NextRequest) {
       // If table doesn't exist, return a simplified share link
       console.error('Share link creation error:', createError);
       // For now, we'll create a simple encoded link
-      const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || request.headers.get('origin') || '';
+      // Check if we're in production based on Supabase URL
+      const isProduction = process.env.NEXT_PUBLIC_SUPABASE_URL === 'https://juuysuamfoteblrqqdnu.supabase.co';
+      const baseUrl = isProduction 
+        ? 'https://liveprompt.ai'
+        : (process.env.NEXT_PUBLIC_APP_URL || request.headers.get('origin') || '');
       const encodedId = Buffer.from(sessionId).toString('base64').replace(/=/g, '');
       return NextResponse.json({
         shareLink: `${baseUrl}/shared/summary/${encodedId}`,
@@ -87,7 +91,11 @@ export async function POST(request: NextRequest) {
     }
 
     // Generate the full share URL
-    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || request.headers.get('origin') || '';
+    // Check if we're in production based on Supabase URL
+    const isProduction = process.env.NEXT_PUBLIC_SUPABASE_URL === 'https://juuysuamfoteblrqqdnu.supabase.co';
+    const baseUrl = isProduction 
+      ? 'https://liveprompt.ai'
+      : (process.env.NEXT_PUBLIC_APP_URL || request.headers.get('origin') || '');
     const shareUrl = `${baseUrl}/shared/summary/${shareToken}`;
 
     return NextResponse.json({
