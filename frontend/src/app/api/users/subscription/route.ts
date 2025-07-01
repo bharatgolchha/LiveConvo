@@ -70,28 +70,55 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    // Get current month usage
-    const currentMonth = new Date();
-    const firstDayOfMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1);
+    // Get user's organization ID
+    const { data: userData, error: userError } = await supabase
+      .from('users')
+      .select('current_organization_id')
+      .eq('id', user.id)
+      .single();
+      
+    if (userError || !userData?.current_organization_id) {
+      throw new Error('Organization not found');
+    }
+
+    // Use billing period if available, otherwise default to calendar month
+    const now = new Date();
+    let periodStart: Date;
+    let periodEnd: Date;
     
-    // Get audio usage (from usage_tracking table)
-    const { data: usageData } = await supabase
-      .from('usage_tracking')
-      .select('seconds_recorded')
+    if (subscriptionData?.current_period_start) {
+      periodStart = new Date(subscriptionData.current_period_start);
+      periodEnd = new Date(subscriptionData.current_period_end);
+      console.log('📅 Using billing period:', { 
+        start: periodStart.toISOString(), 
+        end: periodEnd.toISOString() 
+      });
+    } else {
+      // Fallback to calendar month
+      periodStart = new Date(now.getFullYear(), now.getMonth(), 1);
+      periodEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+      console.log('📅 Using calendar month (no subscription found)');
+    }
+    
+    // Get bot minutes data for current billing period - this is THE usage metric
+    const { data: botMinutesData } = await supabase
+      .from('bot_usage_tracking')
+      .select('billable_minutes')
       .eq('user_id', user.id)
-      .gte('created_at', firstDayOfMonth.toISOString())
-      .order('created_at', { ascending: false });
+      .eq('organization_id', userData.current_organization_id)
+      .gte('created_at', periodStart.toISOString())
+      .lt('created_at', periodEnd.toISOString());
 
-    const totalAudioSeconds = usageData?.reduce((sum: number, record: any) => sum + (record.seconds_recorded || 0), 0) || 0;
-    const totalAudioMinutes = totalAudioSeconds / 60;
-    const totalAudioHours = Math.round((totalAudioMinutes / 60) * 100) / 100; // Round to 2 decimal places
+    const totalBotMinutes = botMinutesData?.reduce((sum: number, record: any) => sum + (record.billable_minutes || 0), 0) || 0;
+    const totalAudioHours = Math.round((totalBotMinutes / 60) * 100) / 100; // Round to 2 decimal places
 
-    // Get session count for current month
+    // Get session count for billing period by organization
     const { count: sessionCount } = await supabase
       .from('sessions')
       .select('id', { count: 'exact' })
-      .eq('user_id', user.id)
-      .gte('created_at', firstDayOfMonth.toISOString());
+      .eq('organization_id', userData.current_organization_id)
+      .gte('created_at', periodStart.toISOString())
+      .lt('created_at', periodEnd.toISOString());
 
     // Determine billing interval from period dates
     let billingInterval = 'month';

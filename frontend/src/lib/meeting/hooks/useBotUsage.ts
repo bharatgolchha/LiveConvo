@@ -38,7 +38,7 @@ export interface BotUsageData {
   error: string | null;
 }
 
-export function useBotUsage(organizationId?: string) {
+export function useBotUsage(organizationId?: string, showAllTime: boolean = false) {
   const [data, setData] = useState<BotUsageData>({
     sessions: [],
     stats: {
@@ -83,6 +83,12 @@ export function useBotUsage(organizationId?: string) {
         console.log('✅ Using organization ID:', organizationId);
       } else {
         console.log('⚠️ No organization ID provided, API will auto-detect');
+      }
+      
+      // Add parameter to show all-time data
+      if (showAllTime) {
+        params.append('all_time', 'true');
+        console.log('📅 Requesting all-time bot usage data');
       }
 
       const url = `/api/usage/bot-minutes?${params}`;
@@ -172,7 +178,7 @@ export function useBotUsage(organizationId?: string) {
 
   useEffect(() => {
     fetchBotUsage();
-  }, [session?.access_token, organizationId]);
+  }, [session?.access_token, organizationId, showAllTime]);
 
   const refetch = () => {
     fetchBotUsage();

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Bot, 
@@ -54,7 +54,19 @@ export function BotUsageDisplay({ organizationId, className }: BotUsageDisplayPr
   
   console.log('🤖 BotUsageDisplay received organizationId:', organizationId);
   
-  const { sessions, stats, loading, error, refetch } = useBotUsage(organizationId);
+  const { sessions, stats, loading, error, refetch } = useBotUsage(organizationId, true); // Show all-time data in settings
+
+  // Debug log the sessions data
+  useEffect(() => {
+    console.log('🤖 BotUsageDisplay data:', {
+      organizationId,
+      sessionsCount: sessions.length,
+      stats,
+      loading,
+      error,
+      sessions: sessions.slice(0, 3) // Show first 3 sessions for debugging
+    });
+  }, [sessions, stats, loading, error, organizationId]);
 
   const toggleSession = (sessionId: string) => {
     const newExpanded = new Set(expandedSessions);

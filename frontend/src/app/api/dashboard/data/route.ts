@@ -236,29 +236,92 @@ async function fetchUserStats(
   userId: string,
   organizationId: string
 ) {
-  // Get current billing period
+  // Get user's subscription to determine billing period
+  const { data: userSubscription } = await serviceClient
+    .from('subscriptions')
+    .select('current_period_start, current_period_end')
+    .eq('user_id', userId)
+    .eq('status', 'active')
+    .single();
+
+  // Use billing period if available, otherwise default to calendar month
   const now = new Date();
-  const periodStart = new Date(now.getFullYear(), now.getMonth(), 1);
-  const periodKey = now.toISOString().slice(0, 7);
-
-  // Get usage limits
-  const { data: limits, error: limitsError } = await serviceClient
-    .rpc('check_usage_limit', {
-      p_user_id: userId,
-      p_organization_id: organizationId
+  let periodStart: Date;
+  let periodEnd: Date;
+  
+  if (userSubscription?.current_period_start) {
+    periodStart = new Date(userSubscription.current_period_start);
+    periodEnd = new Date(userSubscription.current_period_end);
+    console.log('📅 Using billing period:', { 
+      start: periodStart.toISOString(), 
+      end: periodEnd.toISOString() 
     });
+  } else {
+    // Fallback to calendar month
+    periodStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    periodEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+    console.log('📅 Using calendar month (no subscription found)');
+  }
+  
+  const periodKey = periodStart.toISOString().slice(0, 7);
 
-  if (limitsError) {
-    console.error('Error checking usage limits:', limitsError);
+  // First try to get data from user_stats table which has the actual usage
+  const { data: userStatsData, error: userStatsError } = await serviceClient
+    .from('user_stats')
+    .select('current_month_minutes_used, monthly_minutes_limit, usage_percentage')
+    .eq('id', userId)
+    .single();
+
+  if (userStatsError) {
+    console.error('Error fetching user stats:', userStatsError);
   }
 
-  const limitData = limits?.[0] || {
-    can_record: true,
-    minutes_used: 0,
-    minutes_limit: 60,
-    minutes_remaining: 60,
-    percentage_used: 0
+  // Get bot minutes data for current billing period - this is THE usage metric
+  const { data: botMinutesData } = await serviceClient
+    .from('bot_usage_tracking')
+    .select('billable_minutes')
+    .eq('user_id', userId)
+    .eq('organization_id', organizationId)
+    .gte('created_at', periodStart.toISOString())
+    .lt('created_at', periodEnd.toISOString());
+
+  const currentPeriodBotMinutes = botMinutesData?.reduce((sum, record) => sum + (record.billable_minutes || 0), 0) || 0;
+  
+  console.log('📊 Current billing period bot usage:', { 
+    botMinutes: currentPeriodBotMinutes,
+    periodStart: periodStart.toISOString(),
+    periodEnd: periodEnd.toISOString()
+  });
+
+  // Get the plan's bot minutes limit
+  const { data: planData } = await serviceClient
+    .from('plans')
+    .select('monthly_bot_minutes_limit')
+    .eq('id', (await serviceClient
+      .from('subscriptions')
+      .select('plan_id')
+      .eq('user_id', userId)
+      .eq('status', 'active')
+      .single()).data?.plan_id)
+    .single();
+
+  const botMinutesLimit = planData?.monthly_bot_minutes_limit || 60;
+
+  // Bot minutes ARE the total usage - no need to add anything else
+  const totalMinutesUsed = currentPeriodBotMinutes;
+  const minutesLimit = botMinutesLimit || userStatsData?.monthly_minutes_limit || 6000;
+  
+  let limitData = {
+    can_record: totalMinutesUsed < minutesLimit,
+    minutes_used: totalMinutesUsed,
+    minutes_limit: minutesLimit,
+    minutes_remaining: Math.max(0, minutesLimit - totalMinutesUsed),
+    percentage_used: Math.round((totalMinutesUsed / minutesLimit) * 100),
+    bot_minutes_used: currentPeriodBotMinutes,
+    bot_minutes_limit: botMinutesLimit
   };
+  
+  console.log('📊 Calculated usage data:', limitData);
 
   // Get session statistics
   const { data: sessionStats } = await serviceClient
@@ -306,7 +369,10 @@ async function fetchUserStats(
     totalAudioHours: 0,
     sessionsLast7Days,
     sessionsLast30Days,
-    currentMonth: periodKey
+    currentMonth: periodKey,
+    // Add bot minutes data
+    monthlyBotMinutesUsed: limitData.bot_minutes_used || 0,
+    monthlyBotMinutesLimit: limitData.bot_minutes_limit || botMinutesLimit
   };
 }
 

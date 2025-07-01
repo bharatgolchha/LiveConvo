@@ -277,7 +277,7 @@ export const SubscriptionManager: React.FC = () => {
 
         {/* Usage Summary */}
         <div className="mb-6">
-          <h3 className="text-lg font-medium text-foreground mb-3">Usage This Month</h3>
+          <h3 className="text-lg font-medium text-foreground mb-3">Usage This Billing Period</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="p-4 border border-border rounded-lg">
               <div className="flex justify-between items-center mb-2">

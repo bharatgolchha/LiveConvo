@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   MicrophoneIcon,
   ArchiveBoxIcon,
@@ -16,6 +16,9 @@ export interface UsageStats {
   minutesRemaining?: number;
   totalSessions: number;
   completedSessions: number;
+  monthlyBotMinutesUsed?: number;
+  monthlyBotMinutesLimit?: number;
+  session_minutes_used?: number;
 }
 
 interface DashboardSidebarProps {
@@ -27,6 +30,16 @@ interface DashboardSidebarProps {
 }
 
 const DashboardSidebar: React.FC<DashboardSidebarProps> = ({ usageStats, activePath, onNavigate, currentUser, sessions }) => {
+  // Debug: Log the usageStats to see what's being passed
+  React.useEffect(() => {
+    console.log('📊 DashboardSidebar usageStats:', {
+      monthlyMinutesUsed: usageStats.monthlyMinutesUsed,
+      monthlyMinutesLimit: usageStats.monthlyMinutesLimit,
+      minutesRemaining: usageStats.minutesRemaining,
+      fullStats: usageStats
+    });
+  }, [usageStats]);
+
   // Calculate counts with memoization to prevent recalculation on every render
   const { archivedCount, activeCount } = useMemo(() => {
     const archived = sessions.filter((s) => s.status === 'archived').length;
@@ -85,11 +98,11 @@ const DashboardSidebar: React.FC<DashboardSidebarProps> = ({ usageStats, activeP
 
       {/* Bottom section with usage stats and upgrade button */}
       <div className="mt-auto">
-        {/* Usage Stats */}
+        {/* Usage Stats - Now includes bot minutes */}
         <div className="px-4 py-3 border-t border-border">
           <div className="space-y-2">
             <div className="flex items-center justify-between text-sm">
-              <span className="text-muted-foreground">Minutes Used</span>
+              <span className="text-muted-foreground">Usage</span>
               <span className="font-medium">
                 {isUnlimited ? 'Unlimited' : `${formatMinutes(usageStats.monthlyMinutesUsed || 0)} / ${formatMinutes(usageStats.monthlyMinutesLimit || 0)}`}
               </span>

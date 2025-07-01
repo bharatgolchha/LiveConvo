@@ -25,7 +25,6 @@ import { Button } from '@/components/ui/Button';
 import { ThemeToggle } from '@/components/ui/ThemeToggle';
 import { useTheme } from '@/contexts/ThemeContext';
 import ProtectedRoute from '@/components/auth/ProtectedRoute';
-import { OnboardingModal } from '@/components/auth/OnboardingModal';
 import { useAuth } from '@/contexts/AuthContext';
 import { useDashboardDataWithFallback } from '@/lib/hooks/useDashboardDataWithFallback';
 import { useSessionThreads } from '@/lib/hooks/useSessionThreads';
@@ -93,7 +92,6 @@ const DashboardPage: React.FC = () => {
   const [activePath, setActivePath] = useState(initialActivePath);
   const [showNewConversationModal, setShowNewConversationModal] = useState(false);
   const [showNewMeetingModal, setShowNewMeetingModal] = useState(false);
-  const [showOnboardingModal, setShowOnboardingModal] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const debouncedSearchQuery = useDebounce(searchQuery, 300);
   const [selectedSessions, setSelectedSessions] = useState<Set<string>>(new Set());
@@ -125,6 +123,18 @@ const DashboardPage: React.FC = () => {
   const subscription = dashboardData?.subscription || null;
   const sessionsLoading = dataLoading;
   const sessionsError = dataError;
+
+  // Debug: Log userStats to check minutes data
+  React.useEffect(() => {
+    if (userStats) {
+      console.log('📊 Dashboard userStats:', {
+        monthlyMinutesUsed: userStats.monthlyMinutesUsed,
+        monthlyMinutesLimit: userStats.monthlyMinutesLimit,
+        minutesRemaining: userStats.minutesRemaining,
+        fullStats: userStats
+      });
+    }
+  }, [userStats]);
 
   // Debug logging
   React.useEffect(() => {
@@ -192,14 +202,14 @@ const DashboardPage: React.FC = () => {
 
   // Check if user needs onboarding (only once)
   useEffect(() => {
-    if (!sessionsError || showOnboardingModal) return;
+    if (!sessionsError) return;
     
     console.log('🔍 Dashboard - checking onboarding:', { sessionsError, user: !!user });
     if (sessionsError.includes('Setup required') || sessionsError.includes('Please complete onboarding first')) {
-      console.log('🚀 Dashboard - showing onboarding modal');
-      setShowOnboardingModal(true);
+      console.log('🚀 Dashboard - redirecting to onboarding page');
+      router.push('/onboarding?redirect=' + encodeURIComponent(window.location.pathname));
     }
-  }, [sessionsError, showOnboardingModal]);
+  }, [sessionsError, router]);
 
   // For paginated data, we use the current sessions directly since filtering is done server-side
   const filtered = useMemo(() => {
@@ -514,11 +524,6 @@ const DashboardPage: React.FC = () => {
     });
   };
 
-  const handleOnboardingComplete = () => {
-    setShowOnboardingModal(false);
-    // Refresh the page to reload data with the new organization
-    window.location.reload();
-  };
 
   const activeSessions = sessions.filter(s => s.status === 'active');
   const hasAnySessions = sessions.length > 0;
@@ -909,12 +914,6 @@ const DashboardPage: React.FC = () => {
         onStart={handleStartMeeting}
       />
 
-      {/* Onboarding Modal */}
-      <OnboardingModal
-        isOpen={showOnboardingModal}
-        onClose={() => setShowOnboardingModal(false)}
-        onComplete={handleOnboardingComplete}
-      />
 
       {/* Pricing Modal */}
       <PricingModal

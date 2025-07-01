@@ -24,10 +24,22 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Google OAuth not configured' }, { status: 500 });
     }
 
+    // Get the redirect URL from the request
+    let redirectUrl = request.nextUrl.searchParams.get('redirect') || '/dashboard';
+    
+    // Check if we're in the onboarding flow
+    const referer = request.headers.get('referer');
+    if (referer && referer.includes('/onboarding')) {
+      // Preserve the onboarding URL with calendar_connected flag
+      const onboardingUrl = new URL(referer);
+      onboardingUrl.searchParams.set('calendar_connected', 'true');
+      redirectUrl = onboardingUrl.pathname + onboardingUrl.search;
+    }
+    
     // Create state parameter with user info
     const state: CalendarOAuthState = {
       user_id: user.id,
-      redirect_url: request.nextUrl.searchParams.get('redirect') || '/dashboard',
+      redirect_url: redirectUrl,
       provider: 'google_calendar',
       timestamp: Date.now()
     };

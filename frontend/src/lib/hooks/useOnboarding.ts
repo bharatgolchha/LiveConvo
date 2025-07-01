@@ -4,6 +4,8 @@ import { useAuth } from '@/contexts/AuthContext';
 interface OnboardingData {
   organization_name?: string;
   timezone?: string;
+  use_case?: string;
+  acquisition_source?: string;
 }
 
 interface OnboardingResponse {
@@ -74,6 +76,8 @@ export function useOnboarding(): UseOnboardingReturn {
         body: JSON.stringify({
           organization_name: data.organization_name,
           timezone: data.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone,
+          use_case: data.use_case,
+          acquisition_source: data.acquisition_source,
         }),
       });
 

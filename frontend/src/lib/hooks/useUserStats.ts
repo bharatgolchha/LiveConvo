@@ -22,6 +22,8 @@ export interface UserStats {
     audioSeconds: number;
     sessionCount: number;
   };
+  monthlyBotMinutesUsed?: number;
+  monthlyBotMinutesLimit?: number;
 }
 
 export interface UserStatsHookReturn {
@@ -127,4 +129,6 @@ export const defaultStats: UserStats = {
   sessionsLast7Days: 0,
   sessionsLast30Days: 0,
   usagePercentage: 0,
+  monthlyBotMinutesUsed: 0,
+  monthlyBotMinutesLimit: 60,
 }; 
