@@ -24,6 +24,16 @@ interface BotStatusWebhookEvent {
   };
 }
 
+interface CalendarSyncWebhookEvent {
+  event: 'calendar.sync_events';
+  data: {
+    calendar_id: string;
+    last_updated_ts: string;
+  };
+}
+
+type WebhookEvent = BotStatusWebhookEvent | CalendarSyncWebhookEvent;
+
 /**
  * Global webhook handler for bot status events from Recall.ai
  * This handles status events for ALL bots, not just specific sessions
@@ -99,32 +109,161 @@ export async function POST(request: NextRequest) {
       console.warn('⚠️ Webhook secret configured but no signature received');
     }
     
-    const event: BotStatusWebhookEvent = JSON.parse(body);
+    const event: WebhookEvent = JSON.parse(body);
     
+    // Handle calendar sync events
+    if (event.event === 'calendar.sync_events') {
+      console.log('📅 Calendar sync event received:', {
+        calendarId: event.data.calendar_id,
+        lastUpdated: event.data.last_updated_ts
+      });
+      
+      const supabase = createServerSupabaseClient();
+      
+      // Get calendar connection by recall_calendar_id
+      const { data: connection, error: connectionError } = await supabase
+        .from('calendar_connections')
+        .select('*')
+        .eq('recall_calendar_id', event.data.calendar_id)
+        .single();
+
+      if (connectionError || !connection) {
+        console.error('Calendar connection not found:', event.data.calendar_id);
+        return NextResponse.json({ received: true, error: 'Connection not found' });
+      }
+
+      // Log webhook event
+      await supabase
+        .from('calendar_webhooks')
+        .insert({
+          calendar_connection_id: connection.id,
+          event_type: 'calendar.sync_events',
+          payload: event,
+          processed_at: new Date().toISOString()
+        });
+
+      // Fetch events from Recall.ai
+      const recallApiKey = process.env.RECALL_AI_API_KEY;
+      const recallRegion = process.env.RECALL_AI_REGION || 'us-west-2';
+      
+      if (!recallApiKey) {
+        console.error('Recall.ai API key not configured');
+        return NextResponse.json({ error: 'Recall.ai not configured' }, { status: 500 });
+      }
+
+      try {
+        console.log('Fetching calendar events from Recall.ai...');
+        const recallResponse = await fetch(
+          `https://${recallRegion}.recall.ai/api/v2/calendar-events/?calendar_id=${connection.recall_calendar_id}`,
+          {
+            headers: {
+              'Authorization': `Token ${recallApiKey}`
+            }
+          }
+        );
+
+        if (!recallResponse.ok) {
+          console.error('Failed to fetch events from Recall.ai:', recallResponse.status);
+          return NextResponse.json({ error: 'Failed to fetch events' }, { status: 500 });
+        }
+
+        const recallEvents = await recallResponse.json();
+        console.log(`Fetched ${recallEvents.results?.length || 0} events from Recall.ai`);
+
+        // Clear existing events and insert new ones
+        await supabase
+          .from('calendar_events')
+          .delete()
+          .eq('calendar_connection_id', connection.id);
+
+        if (recallEvents.results && recallEvents.results.length > 0) {
+          const activeEvents = recallEvents.results.filter((e: any) => !e.is_deleted);
+          
+          // Filter out events older than 60 days
+          const sixtyDaysAgo = new Date();
+          sixtyDaysAgo.setDate(sixtyDaysAgo.getDate() - 60);
+          
+          const validEvents = activeEvents.filter((event: any) => {
+            const eventDate = new Date(event.start_time);
+            if (eventDate < sixtyDaysAgo) {
+              console.warn(`Filtering out stale event in webhook: ${event.raw?.summary || event.raw?.title || 'Untitled'} from ${event.start_time}`);
+              return false;
+            }
+            return true;
+          });
+          
+          console.log(`Webhook: Filtered ${activeEvents.length} active events to ${validEvents.length} valid events`);
+          
+          const eventsToInsert = validEvents.map((event: any) => ({
+            calendar_connection_id: connection.id,
+            external_event_id: event.id,
+            title: event.raw?.summary || event.raw?.title || 'Untitled Event',
+            description: event.raw?.description || null,
+            start_time: event.start_time,
+            end_time: event.end_time,
+            meeting_url: event.meeting_url,
+            attendees: event.raw?.attendees || [],
+            location: event.raw?.location || null,
+            organizer_email: event.raw?.organizer?.email || connection.email,
+            is_organizer: event.raw?.organizer?.email === connection.email,
+            raw_data: event
+          }));
+
+          if (eventsToInsert.length > 0) {
+            await supabase
+              .from('calendar_events')
+              .insert(eventsToInsert);
+          }
+        }
+
+        // Update last sync time
+        await supabase
+          .from('calendar_connections')
+          .update({ last_synced_at: new Date().toISOString() })
+          .eq('id', connection.id);
+
+        console.log('✅ Calendar sync completed successfully');
+        return NextResponse.json({ 
+          success: true, 
+          type: 'calendar_sync',
+          events_synced: recallEvents.results?.length || 0
+        });
+        
+      } catch (syncError) {
+        console.error('Calendar sync error:', syncError);
+        return NextResponse.json({ 
+          error: 'Sync failed', 
+          details: syncError instanceof Error ? syncError.message : 'Unknown error' 
+        }, { status: 500 });
+      }
+    }
+    
+    // Handle bot status events
+    const botEvent = event as BotStatusWebhookEvent;
     console.log('🎯 Bot status event:', {
-      type: event.event,
-      botId: event.data.bot.id,
-      code: event.data.data.code,
-      subCode: event.data.data.sub_code,
-      timestamp: event.data.data.updated_at,
-      metadata: event.data.bot.metadata
+      type: botEvent.event,
+      botId: botEvent.data.bot.id,
+      code: botEvent.data.data.code,
+      subCode: botEvent.data.data.sub_code,
+      timestamp: botEvent.data.data.updated_at,
+      metadata: botEvent.data.bot.metadata
     });
     
     const supabase = createServerSupabaseClient();
     
     // Extract bot and session info
-    const botId = event.data.bot.id;
-    let sessionId = event.data.bot.metadata?.session_id;
-    const statusCode = event.data.data.code;
-    const timestamp = event.data.data.updated_at || new Date().toISOString();
+    const botId = botEvent.data.bot.id;
+    let sessionId = botEvent.data.bot.metadata?.session_id;
+    const statusCode = botEvent.data.data.code;
+    const timestamp = botEvent.data.data.updated_at || new Date().toISOString();
     
     // Log webhook event for debugging
     await supabase.from('webhook_logs').insert({
       webhook_type: 'bot_status',
-      event_type: event.event,
+      event_type: botEvent.event,
       bot_id: botId,
       session_id: sessionId,
-      payload: event,
+      payload: botEvent,
       processed: false,
       created_at: new Date().toISOString()
     });
@@ -156,7 +295,7 @@ export async function POST(request: NextRequest) {
     }
     
     // Process based on status
-    switch (event.event) {
+    switch (botEvent.event) {
       case 'bot.joining_call':
         await handleBotJoining(botId, sessionId, timestamp, session, supabase);
         break;
@@ -175,7 +314,7 @@ export async function POST(request: NextRequest) {
         break;
         
       case 'bot.recording_permission_denied':
-        await handlePermissionDenied(botId, sessionId, timestamp, event.data.data.sub_code, supabase);
+        await handlePermissionDenied(botId, sessionId, timestamp, botEvent.data.data.sub_code, supabase);
         break;
         
       case 'bot.call_ended':
@@ -184,20 +323,20 @@ export async function POST(request: NextRequest) {
         break;
         
       case 'bot.fatal':
-        await handleBotFailed(botId, sessionId, timestamp, event.data.data.sub_code, session, supabase);
+        await handleBotFailed(botId, sessionId, timestamp, botEvent.data.data.sub_code, session, supabase);
         break;
     }
     
     // Broadcast event to connected clients via SSE
     if (sessionId && session) {
       await WebhookEventProcessor.processBotStatusEvent({
-        type: event.event,
+        type: botEvent.event,
         botId,
         sessionId,
         userId: session.user_id,
         organizationId: session.organization_id,
         status: statusCode,
-        data: event.data.data,
+        data: botEvent.data.data,
         timestamp
       });
     }
@@ -208,7 +347,7 @@ export async function POST(request: NextRequest) {
       .update({ processed: true, processing_time_ms: Date.now() - startTime })
       .match({ 
         webhook_type: 'bot_status',
-        event_type: event.event,
+        event_type: botEvent.event,
         bot_id: botId,
         processed: false
       })
@@ -221,7 +360,7 @@ export async function POST(request: NextRequest) {
       success: true, 
       botId,
       sessionId,
-      event: event.event,
+      event: botEvent.event,
       processingTime: Date.now() - startTime
     });
     

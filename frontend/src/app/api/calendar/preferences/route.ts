@@ -88,12 +88,13 @@ export async function PUT(request: NextRequest) {
     const validUpdates: Partial<CalendarPreferences> = {};
     for (const field of allowedFields) {
       if (field in updates) {
-        validUpdates[field] = updates[field];
+        (validUpdates as any)[field] = updates[field];
       }
     }
 
     // Validate numeric fields
     if ('join_buffer_minutes' in validUpdates && 
+        validUpdates.join_buffer_minutes !== undefined &&
         (validUpdates.join_buffer_minutes < 0 || validUpdates.join_buffer_minutes > 30)) {
       return NextResponse.json(
         { error: 'Join buffer must be between 0 and 30 minutes' },
@@ -102,6 +103,7 @@ export async function PUT(request: NextRequest) {
     }
 
     if ('notification_minutes' in validUpdates && 
+        validUpdates.notification_minutes !== undefined &&
         (validUpdates.notification_minutes < 1 || validUpdates.notification_minutes > 60)) {
       return NextResponse.json(
         { error: 'Notification time must be between 1 and 60 minutes' },

@@ -114,20 +114,21 @@ export async function GET(request: NextRequest) {
 
     const ongoingMeetings: OngoingMeetingStatus[] = (meetings || [])
       .filter(meeting => {
-        const hasActiveSession = meeting.sessions?.recording_started_at || meeting.auto_sessions?.recording_started_at;
+        const hasActiveSession = meeting.sessions?.[0]?.recording_started_at || meeting.auto_sessions?.[0]?.recording_started_at;
         const hasBotDeployed = meeting.bot_scheduled || meeting.auto_session_created;
         const isInTimeRange = includeEnded || new Date(meeting.end_time) > now;
         
         return isInTimeRange && (hasActiveSession || hasBotDeployed);
       })
       .map(meeting => {
-        const session = meeting.auto_sessions || meeting.sessions;
+        const session = meeting.auto_sessions?.[0] || meeting.sessions?.[0];
         const botId = meeting.bot_id || session?.recall_bot_id;
         const isActive = session?.recording_started_at && !session?.recording_ended_at;
         
-        let botStatus: OngoingMeetingStatus['bot']['status'] = 'deployed';
+        type BotStatus = 'deployed' | 'joining' | 'in_call' | 'failed' | 'ended';
+        let botStatus: BotStatus = 'deployed';
         if (meeting.auto_bot_status) {
-          botStatus = meeting.auto_bot_status as OngoingMeetingStatus['bot']['status'];
+          botStatus = meeting.auto_bot_status as BotStatus;
         } else if (session?.recall_bot_status === 'in_call' || session?.recall_bot_status === 'in_meeting') {
           botStatus = 'in_call';
         } else if (isActive) {
@@ -173,8 +174,8 @@ export async function GET(request: NextRequest) {
     if (botStatuses) {
       ongoingMeetings.forEach(meeting => {
         if (meeting.bot?.id) {
-          const botStatus = botStatuses.find(b => b.bot_id === meeting.bot.id);
-          if (botStatus) {
+          const botStatus = botStatuses.find(b => b.bot_id === meeting.bot!.id);
+          if (botStatus && meeting.bot) {
             if (botStatus.status === 'in_call' || botStatus.status === 'in_meeting') {
               meeting.bot.status = 'in_call';
               meeting.bot.joined_at = botStatus.joined_at;

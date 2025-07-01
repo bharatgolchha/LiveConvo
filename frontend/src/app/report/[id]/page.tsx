@@ -29,6 +29,7 @@ import { TabbedReport } from '@/components/report/TabbedReport';
 import { ReportGenerationProgress } from '@/components/report/ReportGenerationProgress';
 import { ThemeToggle } from '@/components/ui/ThemeToggle';
 import { ShareReportModal } from '@/components/report/ShareReportModal';
+import { CollaborationPanel } from '@/components/collaboration/CollaborationPanel';
 import type {
   EmailDraft,
   RiskAssessment,
@@ -611,6 +612,15 @@ export default function MeetingReportPage() {
               onClose={() => setShareModalOpen(false)}
               reportId={report.id}
               reportTitle={report.title}
+            />
+          )}
+
+          {/* Collaboration Panel */}
+          {report && (
+            <CollaborationPanel
+              sessionId={report.id}
+              currentSection={activeTab}
+              isSharedView={false}
             />
           )}
         </div>

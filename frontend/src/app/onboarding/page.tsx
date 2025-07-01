@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '@/contexts/AuthContext';
@@ -21,7 +21,7 @@ interface OnboardingData {
   auto_record_enabled: boolean;
 }
 
-export default function OnboardingPage() {
+function OnboardingContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { user, session } = useAuth();
@@ -85,6 +85,8 @@ export default function OnboardingPage() {
   };
 
   const handleComplete = async () => {
+    if (!user) return;
+    
     try {
       // Check if user has already completed onboarding
       const { data: userData, error: checkError } = await supabase
@@ -229,5 +231,20 @@ export default function OnboardingPage() {
         </motion.div>
       </AnimatePresence>
     </OnboardingLayout>
+  );
+}
+
+export default function OnboardingPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-8 h-8 border-2 border-app-primary border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-muted-foreground">Loading...</p>
+        </div>
+      </div>
+    }>
+      <OnboardingContent />
+    </Suspense>
   );
 }

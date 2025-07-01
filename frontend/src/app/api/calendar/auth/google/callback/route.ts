@@ -141,6 +141,17 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    // First, deactivate any existing connections for this email to prevent duplicates
+    const { error: deactivateError } = await supabase
+      .from('calendar_connections')
+      .update({ is_active: false })
+      .eq('email', userInfo.email)
+      .eq('user_id', oauthState.user_id);
+    
+    if (deactivateError) {
+      console.warn('Failed to deactivate old connections:', deactivateError);
+    }
+    
     // Insert calendar connection
     const { error: insertError } = await supabase
       .from('calendar_connections')

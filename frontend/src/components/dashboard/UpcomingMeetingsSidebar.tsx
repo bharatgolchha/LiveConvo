@@ -472,7 +472,7 @@ const MeetingCard: React.FC<{ meeting: UpcomingMeeting }> = ({ meeting }) => {
   const endTime = new Date(meeting.end_time);
   const duration = differenceInMinutes(endTime, startTime);
   const isNow = new Date() >= startTime && new Date() <= endTime;
-  const platformLogo = getMeetingPlatformLogo(meeting.meeting_url);
+  const platformLogo = getMeetingPlatformLogo(meeting.meeting_url || null);
 
   return (
     <motion.div
@@ -514,7 +514,7 @@ const MeetingCard: React.FC<{ meeting: UpcomingMeeting }> = ({ meeting }) => {
         {meeting.meeting_url && (
           <Button
             size="sm"
-            variant={isNow ? 'default' : 'outline'}
+            variant={isNow ? 'primary' : 'outline'}
             onClick={() => window.open(meeting.meeting_url, '_blank')}
             className="shrink-0"
           >

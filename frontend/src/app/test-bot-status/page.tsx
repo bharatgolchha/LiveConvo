@@ -212,7 +212,7 @@ export default function TestBotStatus() {
                       key={status}
                       onClick={() => updateBotStatus(session.id, status)}
                       size="sm"
-                      variant={session.recall_bot_status === status ? 'default' : 'outline'}
+                      variant={session.recall_bot_status === status ? 'primary' : 'outline'}
                       className="text-xs"
                     >
                       Set: {status}

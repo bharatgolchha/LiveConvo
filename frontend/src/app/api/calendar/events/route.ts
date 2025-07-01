@@ -109,21 +109,36 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'No authorization token' }, { status: 401 });
     }
 
-    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+    const { connectionId } = await request.json();
     
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    // Check if this is a service role request (from cron job)
+    const isServiceRole = token === process.env.SUPABASE_SERVICE_ROLE_KEY;
+    
+    let userId: string | null = null;
+    
+    if (!isServiceRole) {
+      // Regular user authentication
+      const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+      
+      if (authError || !user) {
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      }
+      
+      userId = user.id;
     }
 
-    const { connectionId } = await request.json();
-
     // Get the calendar connection
-    const { data: connection, error: connectionError } = await supabase
+    let connectionQuery = supabase
       .from('calendar_connections')
       .select('*')
-      .eq('id', connectionId)
-      .eq('user_id', user.id)
-      .single();
+      .eq('id', connectionId);
+    
+    // Only filter by user_id if not service role
+    if (!isServiceRole && userId) {
+      connectionQuery = connectionQuery.eq('user_id', userId);
+    }
+    
+    const { data: connection, error: connectionError } = await connectionQuery.single();
 
     if (connectionError || !connection) {
       return NextResponse.json({ error: 'Connection not found' }, { status: 404 });
@@ -205,8 +220,23 @@ export async function POST(request: NextRequest) {
       
       console.log(`Filtered events: ${recallEvents.results.length} total, ${activeEvents.length} active (${recallEvents.results.length - activeEvents.length} deleted)`);
       
+      // Additional filter: Remove events older than 60 days to prevent stale data issues
+      const sixtyDaysAgo = new Date();
+      sixtyDaysAgo.setDate(sixtyDaysAgo.getDate() - 60);
+      
+      const validEvents = activeEvents.filter((event: any) => {
+        const eventDate = new Date(event.start_time);
+        if (eventDate < sixtyDaysAgo) {
+          console.warn(`Filtering out stale event: ${event.raw?.summary || event.raw?.title || 'Untitled'} from ${event.start_time}`);
+          return false;
+        }
+        return true;
+      });
+      
+      console.log(`After date filtering: ${validEvents.length} valid events (filtered ${activeEvents.length - validEvents.length} stale events)`);
+      
       // Insert new events
-      const eventsToInsert = activeEvents.map((event: any) => {
+      const eventsToInsert = validEvents.map((event: any) => {
         // Parse the raw field to get the actual event details
         let title = 'Untitled Event';
         let description = null;

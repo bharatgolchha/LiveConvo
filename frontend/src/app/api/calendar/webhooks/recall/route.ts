@@ -3,11 +3,13 @@ import { createServerSupabaseClient } from '@/lib/supabase';
 import crypto from 'crypto';
 
 interface RecallWebhookEvent {
-  id: string;
-  type: string;
-  created: string;
+  id?: string;
+  type?: string;
+  event?: string;
+  created?: string;
   data: {
     calendar_id?: string;
+    last_updated_ts?: string;
     event?: {
       id: string;
       title: string;
@@ -82,18 +84,21 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ received: true });
       }
 
+      // Determine event type (support both 'type' and 'event' fields)
+      const eventType = event.type || event.event;
+
       // Log webhook event
       await supabase
         .from('calendar_webhooks')
         .insert({
           calendar_connection_id: connection.id,
-          event_type: event.type,
+          event_type: eventType,
           payload: event,
           processed_at: new Date().toISOString()
         });
 
       // Handle different event types
-      switch (event.type) {
+      switch (eventType) {
         case 'calendar.event.created':
         case 'calendar.event.updated':
           if (event.data.event) {
@@ -138,8 +143,42 @@ export async function POST(request: NextRequest) {
             .eq('id', connection.id);
           break;
 
+        case 'calendar.sync_events':
+          // Handle calendar sync event
+          console.log('Calendar sync event received:', {
+            calendarId: event.data.calendar_id,
+            lastUpdated: event.data.last_updated_ts
+          });
+
+          // Trigger a sync of calendar events
+          const syncResponse = await fetch(`${request.nextUrl.origin}/api/calendar/events`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              // Use service role key for internal API calls
+              'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`
+            },
+            body: JSON.stringify({ 
+              connectionId: connection.id,
+              lastUpdated: event.data.last_updated_ts 
+            })
+          });
+
+          if (!syncResponse.ok) {
+            console.error('Failed to sync calendar events:', await syncResponse.text());
+          } else {
+            console.log('Calendar sync triggered successfully');
+          }
+
+          // Update last sync time
+          await supabase
+            .from('calendar_connections')
+            .update({ last_synced_at: new Date().toISOString() })
+            .eq('id', connection.id);
+          break;
+
         default:
-          console.log('Unhandled webhook event type:', event.type);
+          console.log('Unhandled webhook event type:', eventType);
       }
     }
 

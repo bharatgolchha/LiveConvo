@@ -638,14 +638,14 @@ const DashboardPage: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="h-screen bg-background flex flex-col">
       <DashboardHeader 
         user={currentUser} 
         onSearch={handleSearch}
         onNavigateToSettings={() => setActivePath('settings')}
       />
       
-      <div className="flex h-[calc(100vh-80px)]">
+      <div className="flex flex-1 overflow-hidden">
         <DashboardSidebar 
           usageStats={userStats || defaultStats}
           activePath={activePath}
@@ -660,9 +660,9 @@ const DashboardPage: React.FC = () => {
           sessions={sessions}
         />
         
-        <main className="flex-1 overflow-auto flex">
+        <main className="flex-1 overflow-hidden flex">
           {/* Main content area */}
-          <div className="flex-1 p-6 flex flex-col">
+          <div className="flex-1 p-6 flex flex-col overflow-auto">
             {/* Hero Section */}
             {hasAnySessions && activePath !== 'settings' && (
               <motion.div 
@@ -798,7 +798,7 @@ const DashboardPage: React.FC = () => {
                     </div>
 
                     {/* Meeting List */}
-                    <div className="flex-1 overflow-y-auto overflow-x-visible p-4 space-y-3">
+                    <div className="flex-1 p-4 space-y-3">
                       {isGrouped ? (
                         <>
                           {/* Render Threads */}
@@ -894,10 +894,6 @@ const DashboardPage: React.FC = () => {
         </main>
       </div>
 
-      {/* Mobile Meetings Sidebar */}
-      <div className="lg:hidden">
-        <UpcomingMeetingsSidebar isMobile />
-      </div>
 
       {/* New Conversation Modal */}
       <NewConversationModal
