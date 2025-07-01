@@ -19,31 +19,44 @@ export async function GET(request: NextRequest) {
     // Check for calendar health issues
     const issues = [];
     
-    // 1. Check for duplicate active connections
+    // 1. Get active calendar connections
     const { data: connections } = await supabase
       .from('calendar_connections')
-      .select('email, COUNT(*)')
+      .select('id, email')
       .eq('is_active', true)
       .eq('user_id', user.id);
+    
+    // Check for duplicate active connections
+    if (connections && connections.length > 1) {
+      issues.push({
+        type: 'duplicate_connections',
+        severity: 'warning',
+        message: `Found ${connections.length} active calendar connections`,
+        details: connections.map(c => ({ email: c.email }))
+      });
+    }
     
     // 2. Check for stale events (older than 60 days)
     const sixtyDaysAgo = new Date();
     sixtyDaysAgo.setDate(sixtyDaysAgo.getDate() - 60);
     
-    const { data: staleEvents, count: staleCount } = await supabase
-      .from('calendar_events')
-      .select('id, title, start_time', { count: 'exact' })
-      .eq('calendar_connection_id', connections?.[0]?.id)
-      .lt('start_time', sixtyDaysAgo.toISOString())
-      .limit(5);
-    
-    if (staleCount && staleCount > 0) {
-      issues.push({
-        type: 'stale_events',
-        severity: 'warning',
-        message: `Found ${staleCount} events older than 60 days`,
-        details: staleEvents
-      });
+    // Only check for stale events if we have a connection
+    if (connections && connections.length > 0) {
+      const { data: staleEvents, count: staleCount } = await supabase
+        .from('calendar_events')
+        .select('id, title, start_time', { count: 'exact' })
+        .eq('calendar_connection_id', connections[0].id)
+        .lt('start_time', sixtyDaysAgo.toISOString())
+        .limit(5);
+      
+      if (staleCount && staleCount > 0) {
+        issues.push({
+          type: 'stale_events',
+          severity: 'warning',
+          message: `Found ${staleCount} events older than 60 days`,
+          details: staleEvents
+        });
+      }
     }
     
     // 3. Check for events with wrong year (e.g., 2024 instead of 2025)
