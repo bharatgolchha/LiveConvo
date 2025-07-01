@@ -3,7 +3,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Bell, CheckCircle, AlertCircle, Info } from 'lucide-react';
-import { createClientSupabaseClient } from '@/lib/supabase';
+import { supabase } from '@/lib/supabase';
 
 interface Notification {
   id: string;
@@ -76,8 +76,6 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
   }, []);
 
   useEffect(() => {
-    const supabase = createClientSupabaseClient();
-    
     const fetchNotifications = async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;

@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Button } from '@/components/ui/button';
+import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/badge';
 import { format, differenceInMinutes } from 'date-fns';
 import { 
@@ -223,6 +223,19 @@ interface MeetingCardProps {
 }
 
 function MeetingCard({ meeting, onStopBot, isStopping, isActive, isRecent }: MeetingCardProps) {
+  const getBotStatusBadge = (status: string) => {
+    const config: Record<string, { label: string; variant: 'secondary' | 'outline' | 'default' | 'destructive' }> = {
+      'deployed': { label: 'Deployed', variant: 'secondary' },
+      'joining': { label: 'Joining', variant: 'outline' },
+      'in_call': { label: 'In Call', variant: 'default' },
+      'failed': { label: 'Failed', variant: 'destructive' },
+      'ended': { label: 'Ended', variant: 'secondary' }
+    };
+    
+    const { label, variant } = config[status] || { label: status, variant: 'outline' };
+    return <Badge variant={variant} className="text-xs">{label}</Badge>;
+  };
+
   const getMeetingDuration = () => {
     const now = new Date();
     const start = new Date(meeting.meeting.start_time);
@@ -281,12 +294,10 @@ function MeetingCard({ meeting, onStopBot, isStopping, isActive, isRecent }: Mee
             <Button
               variant="outline"
               size="sm"
-              asChild
+              onClick={() => window.open(`/dashboard/session/${meeting.session!.id}`, '_blank')}
             >
-              <a href={`/dashboard/session/${meeting.session.id}`}>
-                <ExternalLink className="h-4 w-4 mr-1" />
-                View
-              </a>
+              <ExternalLink className="h-4 w-4 mr-1" />
+              View
             </Button>
           )}
           

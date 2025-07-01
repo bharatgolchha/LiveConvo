@@ -72,7 +72,7 @@ const DashboardSidebar: React.FC<DashboardSidebarProps> = ({ usageStats, activeP
   const [isPricingOpen, setIsPricingOpen] = useState(false);
 
   return (
-    <aside className="w-64 bg-card border-r border-border flex flex-col h-full">
+    <aside className="w-64 bg-card border-r border-border flex flex-col">
       {/* Navigation */}
       <nav className="flex-1 px-4 py-6 space-y-2">
         {navItems.map((item) => (

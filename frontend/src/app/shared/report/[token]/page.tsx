@@ -14,6 +14,7 @@ import {
 import { SharedTabbedReport } from '@/components/report/SharedTabbedReport';
 import { ThemeToggle } from '@/components/ui/ThemeToggle';
 import { Button } from '@/components/ui/Button';
+import { CollaborationPanel } from '@/components/collaboration/CollaborationPanel';
 
 interface SharedReportData {
   report: any;
@@ -222,6 +223,15 @@ export default function SharedReportPage() {
             setActiveTab={setActiveTab}
             allowedTabs={report.allowedTabs || []}
           />
+
+          {/* Collaboration Panel for shared view */}
+          {report && (
+            <CollaborationPanel
+              sessionId={report.id}
+              currentSection={activeTab}
+              isSharedView={true}
+            />
+          )}
         </div>
       </div>
     </div>

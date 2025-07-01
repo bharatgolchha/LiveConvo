@@ -59,6 +59,9 @@ export const createAuthenticatedSupabaseClient = (token: string) => {
       headers: {
         Authorization: `Bearer ${token}`
       }
+    },
+    db: {
+      schema: 'public'
     }
   })
 }
