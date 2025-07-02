@@ -29,7 +29,7 @@ interface CalendarPreference {
   };
 }
 
-export async function POST(request: NextRequest) {
+async function handleAutoJoin(request: NextRequest) {
   try {
     // Vercel Cron authentication
     const authHeader = request.headers.get('authorization');
@@ -37,7 +37,7 @@ export async function POST(request: NextRequest) {
     const autoJoinSecret = process.env.AUTO_JOIN_WORKER_SECRET;
     
     // Check if it's from Vercel Cron or manual trigger with secret
-    const isVercelCron = authHeader === `Bearer ${cronSecret}`;
+    const isVercelCron = authHeader === `Bearer ${cronSecret}` || request.headers.get('x-vercel-cron') === '1';
     const isManualTrigger = authHeader === `Bearer ${autoJoinSecret}`;
     
     if (!isVercelCron && !isManualTrigger) {
@@ -362,4 +362,12 @@ export async function POST(request: NextRequest) {
       details: error.message 
     }, { status: 500 });
   }
+}
+
+export async function GET(request: NextRequest) {
+  return handleAutoJoin(request);
+}
+
+export async function POST(request: NextRequest) {
+  return handleAutoJoin(request);
 }
