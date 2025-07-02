@@ -538,6 +538,50 @@ async function createUsageTrackingEntries(
 }
 
 /**
+ * Handle recording.done webhook event
+ */
+async function handleRecordingDone(
+  sessionId: string,
+  botId: string,
+  eventData: any,
+  supabase: any
+): Promise<void> {
+  try {
+    console.log('🎬 Recording.done webhook received:', {
+      sessionId,
+      botId,
+      recordingId: eventData?.recording?.id,
+      status: eventData?.data?.code
+    });
+    
+    // Extract recording ID from the event
+    const recordingId = eventData?.recording?.id;
+    if (!recordingId) {
+      console.error('❌ No recording ID in recording.done event');
+      return;
+    }
+    
+    // Fetch the recording details immediately
+    await fetchAndStoreRecordingUrl(botId, sessionId, supabase);
+    
+    // Broadcast update to connected clients
+    broadcastTranscript(sessionId, {
+      type: 'recording_update',
+      data: {
+        botId,
+        recordingId,
+        status: 'done',
+        timestamp: new Date().toISOString()
+      }
+    });
+    
+    console.log('✅ Recording.done processed successfully');
+  } catch (error) {
+    console.error('❌ Error handling recording.done:', error);
+  }
+}
+
+/**
  * Fetch and store recording URL from Recall.ai
  */
 async function fetchAndStoreRecordingUrl(
@@ -760,6 +804,11 @@ export async function POST(
       case 'bot.done':
       case 'bot.fatal':
         await trackBotUsage(sessionId, botId, event.event, event.data, supabase);
+        processed = true;
+        break;
+        
+      case 'recording.done':
+        await handleRecordingDone(sessionId, botId, event.data, supabase);
         processed = true;
         break;
         
