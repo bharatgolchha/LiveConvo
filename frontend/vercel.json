@@ -22,25 +22,25 @@
     }
   ],
   "functions": {
-    "src/app/api/cron/monitor-bots/route.ts": {
+    "app/api/cron/monitor-bots/route.ts": {
       "maxDuration": 60
     },
-    "src/app/api/cron/sync-bot-status/route.ts": {
+    "app/api/cron/sync-bot-status/route.ts": {
       "maxDuration": 300
     },
-    "src/app/api/webhooks/recall/[sessionId]/route.ts": {
+    "app/api/webhooks/recall/[sessionId]/route.ts": {
       "maxDuration": 30
     },
-    "src/app/api/webhooks/recall/status/route.ts": {
+    "app/api/webhooks/recall/status/route.ts": {
       "maxDuration": 30
     },
-    "src/app/api/cron/process-webhook-retries/route.ts": {
+    "app/api/cron/process-webhook-retries/route.ts": {
       "maxDuration": 60
     },
-    "src/app/api/calendar/auto-join/worker/route.ts": {
+    "app/api/calendar/auto-join/worker/route.ts": {
       "maxDuration": 60
     },
-    "src/app/api/cron/sync-calendars/route.ts": {
+    "app/api/cron/sync-calendars/route.ts": {
       "maxDuration": 60
     }
   }
