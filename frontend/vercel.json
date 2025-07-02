@@ -1,4 +1,8 @@
 {
+  "buildCommand": "npm ci --include=dev && npm run build",
+  "outputDirectory": ".next",
+  "framework": "nextjs",
+  "regions": ["iad1"],
   "crons": [
     {
       "path": "/api/cron/monitor-bots",
@@ -19,6 +23,32 @@
     {
       "path": "/api/cron/sync-calendars",
       "schedule": "*/5 * * * *"
+    }
+  ],
+  "redirects": [
+    {
+      "source": "/app/(.*)",
+      "destination": "/app/$1",
+      "permanent": false
+    }
+  ],
+  "headers": [
+    {
+      "source": "/api/(.*)",
+      "headers": [
+        {
+          "key": "Access-Control-Allow-Origin",
+          "value": "*"
+        },
+        {
+          "key": "Access-Control-Allow-Methods",
+          "value": "GET, POST, PUT, DELETE, OPTIONS"
+        },
+        {
+          "key": "Access-Control-Allow-Headers",
+          "value": "Content-Type, Authorization"
+        }
+      ]
     }
   ]
 }
