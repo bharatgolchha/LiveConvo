@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useMeetingContext } from '@/lib/meeting/context/MeetingContext';
 import { RecordingPlayer } from '@/components/recordings/RecordingPlayer';
 // import { RecordingStatus } from '@/components/recordings/RecordingStatus';
@@ -27,13 +27,17 @@ export function MultipleRecordingsTab() {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedRecording, setSelectedRecording] = useState<Recording | null>(null);
+  const [pollInterval, setPollInterval] = useState<number | null>(null);
+  const stopPollingRef = useRef(false);
   
   console.log('Current state:', {
     meetingId: meeting?.id,
     recordingsCount: recordings.length,
     loading,
     error,
-    selectedRecording: selectedRecording?.id
+    selectedRecording: selectedRecording?.id,
+    pollInterval,
+    stopPolling: stopPollingRef.current
   });
 
   const fetchRecordings = useCallback(async (refresh = false) => {
@@ -69,13 +73,25 @@ export function MultipleRecordingsTab() {
       console.log('Recordings data:', data);
       console.log('Number of recordings:', data.recordings?.length || 0);
       console.log('First recording:', data.recordings?.[0]);
-      setRecordings(data.recordings || []);
+      
+      const newRecordings = data.recordings || [];
+      setRecordings(newRecordings);
+      
+      // Check if we found recordings with URLs and should stop polling
+      const hasRecordingsWithUrls = newRecordings.some((r: Recording) => r.recording_url);
+      if (hasRecordingsWithUrls && pollInterval) {
+        console.log('🎉 Found recordings with URLs, stopping polling');
+        stopPollingRef.current = true;
+      }
       
       // Auto-select the first recording with a URL
-      if (!selectedRecording && data.recordings?.length > 0) {
-        const firstWithUrl = data.recordings.find((r: Recording) => r.recording_url);
-        setSelectedRecording(firstWithUrl || data.recordings[0]);
-      }
+      setSelectedRecording(prev => {
+        if (!prev && newRecordings.length > 0) {
+          const firstWithUrl = newRecordings.find((r: Recording) => r.recording_url);
+          return firstWithUrl || newRecordings[0];
+        }
+        return prev;
+      });
       
       // If recordings exist but none have valid URLs, and we haven't refreshed yet, trigger a refresh
       const hasExpiredRecordings = data.recordings?.some((r: Recording) => {
@@ -102,8 +118,67 @@ export function MultipleRecordingsTab() {
     console.log('MultipleRecordingsTab - Meeting:', meeting);
     if (meeting?.id) {
       fetchRecordings();
+      
+      // Only start polling if:
+      // 1. Meeting has a bot ID (recall_bot_id or botId)
+      // 2. Meeting is active OR recently completed (within 10 minutes)
+      // 3. We haven't found any recordings with URLs yet
+      const botId = (meeting as any).recall_bot_id || meeting.botId;
+      const hasBot = !!botId;
+      
+      // Use updatedAt or updated_at field
+      const updatedAt = meeting.updatedAt || (meeting as any).updated_at;
+      const isActiveOrRecent = meeting.status === 'active' || 
+        (meeting.status === 'completed' && updatedAt && 
+         new Date(updatedAt).getTime() > Date.now() - 10 * 60 * 1000);
+      
+      if (hasBot && isActiveOrRecent) {
+        console.log('🔄 Starting polling for recordings (has bot)', { 
+          botId: botId,
+          status: meeting.status 
+        });
+        
+        // Reset the stop polling flag when starting a new polling session
+        stopPollingRef.current = false;
+        
+        let pollCount = 0;
+        const maxPolls = 60; // Stop after 10 minutes (60 * 10 seconds)
+        
+        const interval = setInterval(async () => {
+          pollCount++;
+          
+          // Stop polling if we've exceeded max polls or found recordings
+          if (pollCount >= maxPolls || stopPollingRef.current) {
+            console.log('🛑 Stopping polling', { 
+              reason: stopPollingRef.current ? 'recordings found' : 'max polls reached',
+              pollCount, 
+              maxPolls 
+            });
+            clearInterval(interval);
+            setPollInterval(null);
+            return;
+          }
+          
+          console.log('⏰ Polling for recording updates', { pollCount, maxPolls });
+          await fetchRecordings(true);
+        }, 10000); // Poll every 10 seconds
+        
+        setPollInterval(interval as any);
+        
+        return () => {
+          console.log('🛑 Cleaning up polling interval');
+          clearInterval(interval);
+        };
+      } else {
+        console.log('❌ Not starting polling', { 
+          hasBot, 
+          isActiveOrRecent,
+          botId: botId,
+          status: meeting.status
+        });
+      }
     }
-  }, [meeting?.id, fetchRecordings]);
+  }, [meeting?.id, meeting?.status, (meeting as any)?.recall_bot_id, meeting?.botId, (meeting as any)?.updated_at, meeting?.updatedAt]);
 
   const handleRefresh = async () => {
     console.log('🔄 Manual refresh triggered');
@@ -167,9 +242,15 @@ export function MultipleRecordingsTab() {
         <div className="text-center">
           <h3 className="text-lg font-semibold text-foreground">No Recordings Available</h3>
           <p className="text-muted-foreground mt-2">
-            No recordings found for this meeting
+            {!((meeting as any).recall_bot_id || meeting.botId)
+              ? 'No recording bot was added to this meeting'
+              : meeting.status === 'active' 
+              ? 'Recordings will appear here once the meeting ends'
+              : meeting.status === 'completed' && pollInterval
+              ? 'Checking for recordings...'
+              : 'No recordings found for this meeting'}
           </p>
-          {meeting.status === 'completed' && (
+          {meeting.status === 'completed' && !pollInterval && ((meeting as any).recall_bot_id || meeting.botId) && (
             <button
               onClick={handleRefresh}
               disabled={refreshing}
@@ -178,6 +259,12 @@ export function MultipleRecordingsTab() {
               <ArrowPathIcon className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
               {refreshing ? 'Checking...' : 'Check for Recordings'}
             </button>
+          )}
+          {pollInterval && (
+            <p className="text-xs text-muted-foreground mt-4">
+              <span className="inline-block w-2 h-2 bg-green-500 rounded-full animate-pulse mr-2"></span>
+              Auto-refreshing every 10 seconds
+            </p>
           )}
         </div>
       </div>
@@ -200,6 +287,12 @@ export function MultipleRecordingsTab() {
               <ArrowPathIcon className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
             </button>
           </div>
+          {pollInterval && (
+            <p className="text-xs text-muted-foreground mt-2 flex items-center gap-1">
+              <span className="inline-block w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse"></span>
+              Auto-refreshing
+            </p>
+          )}
         </div>
         
         <div className="overflow-y-auto h-[calc(100%-4rem)]">
@@ -216,7 +309,9 @@ export function MultipleRecordingsTab() {
                   recording.recording_status === 'done' && recording.recording_url
                     ? 'bg-green-500/10 text-green-500'
                     : recording.recording_status === 'processing'
-                    ? 'bg-yellow-500/10 text-yellow-500'
+                    ? 'bg-yellow-500/10 text-yellow-500 animate-pulse'
+                    : recording.recording_status === 'failed'
+                    ? 'bg-red-500/10 text-red-500'
                     : 'bg-muted text-muted-foreground'
                 }`}>
                   <VideoCameraIcon className="w-4 h-4" />
@@ -232,14 +327,23 @@ export function MultipleRecordingsTab() {
                   <p className="text-xs text-muted-foreground">
                     {recording.duration_seconds ? formatDuration(recording.duration_seconds) : 'Duration unknown'}
                   </p>
-                  <div className="mt-2">
+                  <div className="mt-2 flex items-center gap-2">
                     <span className={`text-xs px-2 py-1 rounded ${
-                      recording.recording_status === 'done' ? 'bg-green-500/10 text-green-500' :
-                      recording.recording_status === 'processing' ? 'bg-yellow-500/10 text-yellow-500' :
+                      recording.recording_status === 'done' && recording.recording_url ? 'bg-green-500/10 text-green-500' :
+                      recording.recording_status === 'done' && !recording.recording_url ? 'bg-yellow-500/10 text-yellow-500' :
+                      recording.recording_status === 'processing' ? 'bg-yellow-500/10 text-yellow-500 animate-pulse' :
+                      recording.recording_status === 'failed' ? 'bg-red-500/10 text-red-500' :
                       'bg-muted text-muted-foreground'
                     }`}>
-                      {recording.recording_status || 'Unknown'}
+                      {recording.recording_status === 'done' && !recording.recording_url 
+                        ? 'Fetching URL...' 
+                        : recording.recording_status || 'Unknown'}
                     </span>
+                    {!recording.recording_url && recording.recording_status !== 'failed' && (
+                      <span className="text-xs text-muted-foreground">
+                        {recording.recording_status === 'processing' ? 'Processing video...' : 'Waiting for video...'}
+                      </span>
+                    )}
                   </div>
                 </div>
               </div>
@@ -263,12 +367,19 @@ export function MultipleRecordingsTab() {
                   </p>
                 </div>
                 <div className="flex items-center gap-3">
-                  <span className={`text-sm px-3 py-1 rounded ${
-                    selectedRecording.recording_status === 'done' ? 'bg-green-500/10 text-green-500' :
+                  <span className={`text-sm px-3 py-1 rounded flex items-center gap-2 ${
+                    selectedRecording.recording_status === 'done' && selectedRecording.recording_url ? 'bg-green-500/10 text-green-500' :
+                    selectedRecording.recording_status === 'done' && !selectedRecording.recording_url ? 'bg-yellow-500/10 text-yellow-500' :
                     selectedRecording.recording_status === 'processing' ? 'bg-yellow-500/10 text-yellow-500' :
+                    selectedRecording.recording_status === 'failed' ? 'bg-red-500/10 text-red-500' :
                     'bg-muted text-muted-foreground'
                   }`}>
-                    {selectedRecording.recording_status || 'Unknown'}
+                    {selectedRecording.recording_status === 'processing' && (
+                      <div className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                    )}
+                    {selectedRecording.recording_status === 'done' && !selectedRecording.recording_url 
+                      ? 'Fetching URL...' 
+                      : selectedRecording.recording_status || 'Unknown'}
                   </span>
                   {selectedRecording.recording_url && (
                     <a

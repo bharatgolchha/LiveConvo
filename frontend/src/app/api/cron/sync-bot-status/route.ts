@@ -109,6 +109,57 @@ export async function GET(request: NextRequest) {
             })
             .eq('id', bot.session_id);
 
+          // Fetch and store recording URL if bot is done
+          try {
+            if (recallBot.recordings && recallBot.recordings.length > 0) {
+              for (const recording of recallBot.recordings) {
+                const videoUrl = recallClient.extractVideoUrl(recording);
+                
+                if (videoUrl) {
+                  // Store in bot_recordings table
+                  await supabase
+                    .from('bot_recordings')
+                    .upsert({
+                      session_id: bot.session_id,
+                      bot_id: bot.bot_id,
+                      recording_id: recording.id,
+                      recording_url: videoUrl,
+                      recording_status: recording.status.code,
+                      recording_expires_at: recording.expires_at,
+                      duration_seconds: recording.started_at && recording.completed_at
+                        ? Math.floor((new Date(recording.completed_at).getTime() - new Date(recording.started_at).getTime()) / 1000)
+                        : null,
+                      bot_name: recallBot.metadata?.meetingTitle || 'LivePrompt Recording',
+                      updated_at: new Date().toISOString()
+                    }, {
+                      onConflict: 'session_id,bot_id,recording_id'
+                    });
+                    
+                  console.log(`✅ Recording stored for bot ${bot.bot_id}`);
+                }
+              }
+              
+              // Also update the main session table with the first recording
+              const firstRecording = recallBot.recordings[0];
+              const firstVideoUrl = recallClient.extractVideoUrl(firstRecording);
+              
+              if (firstVideoUrl) {
+                await supabase
+                  .from('sessions')
+                  .update({
+                    recall_recording_id: firstRecording.id,
+                    recall_recording_url: firstVideoUrl,
+                    recall_recording_status: firstRecording.status.code,
+                    recall_recording_expires_at: firstRecording.expires_at,
+                    updated_at: new Date().toISOString()
+                  })
+                  .eq('id', bot.session_id);
+              }
+            }
+          } catch (recordingError) {
+            console.error(`❌ Failed to fetch/store recording for bot ${bot.bot_id}:`, recordingError);
+          }
+
           updatedCount++;
           results.push({
             botId: bot.bot_id,
