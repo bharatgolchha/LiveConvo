@@ -1,6 +1,6 @@
 {
-  "buildCommand": "cd frontend && npm ci --include=dev && npm run build",
-  "outputDirectory": "frontend/.next",
+  "buildCommand": "npm ci --include=dev && npm run build",
+  "outputDirectory": ".next",
   "framework": "nextjs",
   "regions": ["iad1"],
   "redirects": [
