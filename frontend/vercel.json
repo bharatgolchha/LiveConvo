@@ -20,28 +20,5 @@
       "path": "/api/cron/sync-calendars",
       "schedule": "*/5 * * * *"
     }
-  ],
-  "functions": {
-    "api/cron/monitor-bots/route.ts": {
-      "maxDuration": 60
-    },
-    "api/cron/sync-bot-status/route.ts": {
-      "maxDuration": 300
-    },
-    "api/webhooks/recall/[sessionId]/route.ts": {
-      "maxDuration": 30
-    },
-    "api/webhooks/recall/status/route.ts": {
-      "maxDuration": 30
-    },
-    "api/cron/process-webhook-retries/route.ts": {
-      "maxDuration": 60
-    },
-    "api/calendar/auto-join/worker/route.ts": {
-      "maxDuration": 60
-    },
-    "api/cron/sync-calendars/route.ts": {
-      "maxDuration": 60
-    }
-  }
+  ]
 }
