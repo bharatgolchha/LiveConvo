@@ -34,6 +34,11 @@ export function RecordingPlayer({
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  
+  // Use proxy for S3 URLs to handle CORS issues
+  const videoUrl = recordingUrl && recordingUrl.includes('amazonaws.com') 
+    ? `/api/proxy/recording?url=${encodeURIComponent(recordingUrl)}`
+    : recordingUrl;
 
   // Debug logging
   useEffect(() => {
@@ -41,17 +46,58 @@ export function RecordingPlayer({
       recordingUrl,
       recordingStatus,
       sessionId,
-      hasVideoRef: !!videoRef.current
+      hasVideoRef: !!videoRef.current,
+      urlLength: recordingUrl?.length,
+      urlPreview: recordingUrl?.substring(0, 100) + '...'
     });
+    
+    // Reset loading/error state when URL changes
+    if (recordingUrl) {
+      setError(null);
+      setIsLoading(true);
+      
+      // Test if URL is accessible by trying to fetch headers
+      fetch(recordingUrl, { method: 'HEAD' })
+        .then(response => {
+          console.log('URL test response:', {
+            status: response.status,
+            statusText: response.statusText,
+            headers: {
+              contentType: response.headers.get('content-type'),
+              contentLength: response.headers.get('content-length'),
+              cors: response.headers.get('access-control-allow-origin')
+            }
+          });
+        })
+        .catch(error => {
+          console.error('URL test failed:', error);
+        });
+    }
   }, [recordingUrl, recordingStatus, sessionId]);
 
   useEffect(() => {
     const video = videoRef.current;
-    if (!video || !recordingUrl) return;
+    if (!video || !videoUrl) return;
 
     const handleLoadedMetadata = () => {
+      console.log('Video metadata loaded:', {
+        duration: video.duration,
+        videoWidth: video.videoWidth,
+        videoHeight: video.videoHeight,
+        readyState: video.readyState
+      });
       setDuration(video.duration);
       setIsLoading(false);
+    };
+    
+    const handleCanPlay = () => {
+      console.log('Video can play', {
+        currentSrc: video.currentSrc,
+        duration: video.duration,
+        networkState: video.networkState,
+        readyState: video.readyState
+      });
+      setError(null);
     };
 
     const handleTimeUpdate = () => {
@@ -67,7 +113,9 @@ export function RecordingPlayer({
         src: video.src,
         networkState: video.networkState,
         readyState: video.readyState,
-        currentSrc: video.currentSrc
+        currentSrc: video.currentSrc,
+        recordingUrl: recordingUrl,
+        canPlayType: video.canPlayType('video/mp4')
       });
       
       let errorMessage = 'Failed to load recording.';
@@ -84,6 +132,16 @@ export function RecordingPlayer({
             break;
           case video.error.MEDIA_ERR_SRC_NOT_SUPPORTED:
             errorMessage = 'Recording format is not supported or URL is invalid.';
+            // Check if this might be a CORS issue or S3 URL issue
+            if (recordingUrl?.includes('amazonaws.com')) {
+              errorMessage = 'Unable to load recording. The video URL may have expired or there may be access restrictions. Please try refreshing the recording.';
+              console.error('S3 URL error - possible causes:', {
+                expired: 'URL signature may have expired',
+                cors: 'CORS policy blocking access',
+                format: 'Video format not supported by browser',
+                url: recordingUrl?.substring(0, 50) + '...'
+              });
+            }
             break;
         }
       }
@@ -101,17 +159,19 @@ export function RecordingPlayer({
     };
 
     video.addEventListener('loadedmetadata', handleLoadedMetadata);
+    video.addEventListener('canplay', handleCanPlay);
     video.addEventListener('timeupdate', handleTimeUpdate);
     video.addEventListener('error', handleError);
     video.addEventListener('ended', handleEnded);
 
     return () => {
       video.removeEventListener('loadedmetadata', handleLoadedMetadata);
+      video.removeEventListener('canplay', handleCanPlay);
       video.removeEventListener('timeupdate', handleTimeUpdate);
       video.removeEventListener('error', handleError);
       video.removeEventListener('ended', handleEnded);
     };
-  }, [onTimeUpdate, recordingUrl]);
+  }, [videoUrl, onTimeUpdate]);
 
   const togglePlayPause = () => {
     const video = videoRef.current;
@@ -188,6 +248,7 @@ export function RecordingPlayer({
     if (!recordingUrl) return;
     
     const link = document.createElement('a');
+    // Use original URL for download, not proxied
     link.href = recordingUrl;
     link.download = `recording-${sessionId}.mp4`;
     document.body.appendChild(link);
@@ -195,7 +256,8 @@ export function RecordingPlayer({
     document.body.removeChild(link);
   };
 
-  const isExpired = recordingExpiresAt && new Date(recordingExpiresAt) < new Date();
+  // We no longer check for expiration since we're always fetching fresh URLs
+  const isExpired = false;
 
   if (recordingStatus === 'processing') {
     return (
@@ -241,13 +303,15 @@ export function RecordingPlayer({
           </div>
         )}
         
-        {recordingUrl && (
+        {videoUrl && (
           <video
             ref={videoRef}
-            src={recordingUrl}
+            src={videoUrl}
             className="w-full aspect-video"
             preload="metadata"
-            crossOrigin="anonymous"
+            playsInline
+            controls={false}
+            muted={isMuted}
           />
         )}
       </div>

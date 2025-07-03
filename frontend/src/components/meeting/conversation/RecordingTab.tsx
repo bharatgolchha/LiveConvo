@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useMeetingContext } from '@/lib/meeting/context/MeetingContext';
 import { RecordingPlayer } from '@/components/recordings/RecordingPlayer';
 import { RecordingStatus } from '@/components/recordings/RecordingStatus';
@@ -10,6 +10,17 @@ export function RecordingTab() {
   const { session } = useAuth();
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [refreshError, setRefreshError] = useState<string | null>(null);
+
+  // Automatically fetch fresh recording URL when component mounts
+  useEffect(() => {
+    if (!meeting || !meeting.botId || !session?.access_token) return;
+    
+    // Only fetch if we have a bot ID and the meeting is completed
+    if (meeting.status === 'completed' && meeting.botId) {
+      console.log('🔄 RecordingTab mounted - fetching fresh recording URL');
+      handleRefreshRecording();
+    }
+  }, [meeting?.id, meeting?.botId, meeting?.status]); // Only re-run if meeting ID, bot ID, or status changes
 
   if (!meeting) {
     return (
@@ -188,14 +199,40 @@ export function RecordingTab() {
               expiresAt={meeting.recallRecordingExpiresAt}
             />
             {hasRecording && (
-              <a
-                href={meeting.recallRecordingUrl}
-                download
-                className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-primary-foreground bg-primary hover:bg-primary/90 rounded-lg transition-colors"
+              <button
+                onClick={async () => {
+                  // Fetch fresh URL before downloading
+                  setIsRefreshing(true);
+                  try {
+                    const response = await fetch(`/api/sessions/${meeting.id}/recording`, {
+                      headers: {
+                        'Authorization': `Bearer ${session?.access_token}`
+                      }
+                    });
+                    
+                    if (response.ok) {
+                      const data = await response.json();
+                      if (data.recording?.url) {
+                        const link = document.createElement('a');
+                        link.href = data.recording.url;
+                        link.download = `recording-${meeting.id}.mp4`;
+                        document.body.appendChild(link);
+                        link.click();
+                        document.body.removeChild(link);
+                      }
+                    }
+                  } catch (error) {
+                    console.error('Download error:', error);
+                  } finally {
+                    setIsRefreshing(false);
+                  }
+                }}
+                disabled={isRefreshing}
+                className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-primary-foreground bg-primary hover:bg-primary/90 rounded-lg transition-colors disabled:opacity-50"
               >
                 <ArrowDownTrayIcon className="w-4 h-4" />
-                Download
-              </a>
+                {isRefreshing ? 'Loading...' : 'Download'}
+              </button>
             )}
           </div>
         </div>

@@ -26,6 +26,8 @@ export function MultipleRecordingsTab() {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedRecording, setSelectedRecording] = useState<Recording | null>(null);
+  const [freshRecordingUrl, setFreshRecordingUrl] = useState<string | null>(null);
+  const [isFetchingFreshUrl, setIsFetchingFreshUrl] = useState(false);
   
   console.log('Current state:', {
     meetingId: meeting?.id,
@@ -44,7 +46,8 @@ export function MultipleRecordingsTab() {
     setError(null);
     
     try {
-      const url = `/api/sessions/${meeting.id}/recordings${refresh ? '?refresh=true' : ''}`;
+      // Always fetch recordings - the API will automatically get fresh URLs
+      const url = `/api/sessions/${meeting.id}/recordings`;
       console.log('Fetching recordings from:', url);
       console.log('Meeting ID:', meeting.id);
       console.log('Has access token:', !!session.access_token);
@@ -81,19 +84,6 @@ export function MultipleRecordingsTab() {
         }
         return prev;
       });
-      
-      // If recordings exist but none have valid URLs, and we haven't refreshed yet, trigger a refresh
-      const hasExpiredRecordings = data.recordings?.some((r: Recording) => {
-        if (!r.recording_expires_at) return false;
-        return new Date(r.recording_expires_at) < new Date();
-      });
-      
-      const hasNoUrls = data.recordings?.length > 0 && !data.recordings.some((r: Recording) => r.recording_url);
-      
-      if (!refresh && (hasNoUrls || hasExpiredRecordings)) {
-        console.log('🔄 Expired or missing URLs found, triggering refresh...');
-        setTimeout(() => fetchRecordings(true), 1000);
-      }
     } catch (error) {
       console.error('Error fetching recordings:', error);
       setError('Failed to load recordings');
@@ -103,12 +93,49 @@ export function MultipleRecordingsTab() {
     }
   }, [session?.access_token, meeting?.id]);
 
+  // Fetch fresh recording URL when component mounts
+  const fetchFreshRecordingUrl = useCallback(async () => {
+    if (!session?.access_token || !meeting?.id || !((meeting as any).recall_bot_id || meeting?.botId)) return;
+    
+    setIsFetchingFreshUrl(true);
+    try {
+      console.log('🔄 Fetching fresh recording URL...');
+      const response = await fetch(`/api/sessions/${meeting.id}/recording`, {
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`
+        }
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        if (data.recording?.url) {
+          console.log('✅ Fresh recording URL fetched');
+          setFreshRecordingUrl(data.recording.url);
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching fresh recording URL:', error);
+    } finally {
+      setIsFetchingFreshUrl(false);
+    }
+  }, [session?.access_token, meeting?.id, meeting?.botId]);
+
   useEffect(() => {
     console.log('MultipleRecordingsTab - Meeting:', meeting);
     if (meeting?.id) {
       fetchRecordings();
     }
   }, [meeting?.id, fetchRecordings]);
+
+  // Check if we have a recording URL in the meeting data
+  const hasRecallRecording = meeting?.recallRecordingUrl || (meeting as any)?.recall_recording_url;
+
+  // Fetch fresh URL when hasRecallRecording becomes available
+  useEffect(() => {
+    if (hasRecallRecording && meeting?.status === 'completed') {
+      fetchFreshRecordingUrl();
+    }
+  }, [hasRecallRecording, meeting?.status, fetchFreshRecordingUrl]);
 
   const handleRefresh = async () => {
     console.log('🔄 Manual refresh triggered');
@@ -194,12 +221,11 @@ export function MultipleRecordingsTab() {
       </div>
     );
   }
-
-  // Check if we have a recording URL in the meeting data
-  const hasRecallRecording = meeting.recallRecordingUrl || (meeting as any).recall_recording_url;
   
-  if (hasRecallRecording) {
+  if (hasRecallRecording || freshRecordingUrl) {
     // If we have a Recall recording URL, show it directly
+    const recordingUrl = freshRecordingUrl || hasRecallRecording;
+    
     return (
       <div className="flex flex-col h-full">
         <div className="p-6 border-b border-border">
@@ -211,15 +237,35 @@ export function MultipleRecordingsTab() {
               </p>
             </div>
             <div className="flex items-center gap-3">
-              {hasRecallRecording && (
-                <a
-                  href={hasRecallRecording}
-                  download
-                  className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-primary-foreground bg-primary hover:bg-primary/90 rounded-lg transition-colors"
+              <button
+                onClick={fetchFreshRecordingUrl}
+                disabled={isFetchingFreshUrl}
+                className="p-2 hover:bg-muted rounded-lg transition-colors disabled:opacity-50"
+                title="Refresh recording URL"
+              >
+                <ArrowPathIcon className={`w-4 h-4 ${isFetchingFreshUrl ? 'animate-spin' : ''}`} />
+              </button>
+              {recordingUrl && (
+                <button
+                  onClick={async () => {
+                    // Fetch fresh URL before downloading
+                    if (!isFetchingFreshUrl) {
+                      await fetchFreshRecordingUrl();
+                    }
+                    const urlToDownload = freshRecordingUrl || recordingUrl;
+                    const link = document.createElement('a');
+                    link.href = urlToDownload;
+                    link.download = `recording-${meeting.id}.mp4`;
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                  }}
+                  disabled={isFetchingFreshUrl}
+                  className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-primary-foreground bg-primary hover:bg-primary/90 rounded-lg transition-colors disabled:opacity-50"
                 >
                   <ArrowDownTrayIcon className="w-4 h-4" />
-                  Download
-                </a>
+                  {isFetchingFreshUrl ? 'Loading...' : 'Download'}
+                </button>
               )}
             </div>
           </div>
@@ -227,7 +273,7 @@ export function MultipleRecordingsTab() {
 
         <div className="flex-1 overflow-hidden bg-background">
           <RecordingPlayer
-            recordingUrl={hasRecallRecording}
+            recordingUrl={recordingUrl}
             recordingStatus={meeting.recallRecordingStatus || (meeting as any).recall_recording_status || 'done'}
             recordingExpiresAt={meeting.recallRecordingExpiresAt || (meeting as any).recall_recording_expires_at}
             sessionId={meeting.id}
@@ -370,14 +416,22 @@ export function MultipleRecordingsTab() {
                       : selectedRecording.recording_status || 'Unknown'}
                   </span>
                   {selectedRecording.recording_url && (
-                    <a
-                      href={selectedRecording.recording_url}
-                      download
+                    <button
+                      onClick={async () => {
+                        // For recordings in the list, just use their URL directly
+                        // since they should be from the API with fresh URLs
+                        const link = document.createElement('a');
+                        link.href = selectedRecording.recording_url!;
+                        link.download = `recording-${selectedRecording.id}.mp4`;
+                        document.body.appendChild(link);
+                        link.click();
+                        document.body.removeChild(link);
+                      }}
                       className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-primary-foreground bg-primary hover:bg-primary/90 rounded-lg transition-colors"
                     >
                       <ArrowDownTrayIcon className="w-4 h-4" />
                       Download
-                    </a>
+                    </button>
                   )}
                 </div>
               </div>
