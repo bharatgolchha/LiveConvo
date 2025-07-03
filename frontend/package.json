@@ -10,7 +10,9 @@
     "test": "jest",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
-    "postbuild": "next-sitemap"
+    "postbuild": "next-sitemap",
+    "check-bot": "tsx scripts/check-recall-bot.ts",
+    "stop-bot": "tsx scripts/stop-recall-bot.ts"
   },
   "dependencies": {
     "@deepgram/sdk": "^4.2.0",

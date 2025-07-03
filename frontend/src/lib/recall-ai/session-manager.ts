@@ -257,14 +257,42 @@ export class RecallSessionManager {
   async stopRecallBot(sessionId: string) {
     const supabase = createServerSupabaseClient();
     
-    const { data: session } = await supabase
+    console.log(`🛑 Attempting to stop bot for session: ${sessionId}`);
+    
+    const { data: session, error: sessionError } = await supabase
       .from('sessions')
-      .select('recall_bot_id')
+      .select('recall_bot_id, recall_bot_status')
       .eq('id', sessionId)
       .single();
 
-    if (session?.recall_bot_id) {
+    if (sessionError) {
+      console.error('❌ Failed to get session for bot stop:', sessionError);
+      throw new Error(`Failed to get session: ${sessionError.message}`);
+    }
+
+    if (!session?.recall_bot_id) {
+      console.warn(`⚠️ No bot ID found for session ${sessionId}`);
+      return;
+    }
+
+    console.log(`🤖 Found bot ${session.recall_bot_id} with status: ${session.recall_bot_status}`);
+
+    try {
       await this.recallClient.stopBot(session.recall_bot_id);
+      
+      // Update bot status in database
+      await supabase
+        .from('sessions')
+        .update({
+          recall_bot_status: 'completed',
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', sessionId);
+        
+      console.log(`✅ Bot ${session.recall_bot_id} stopped successfully`);
+    } catch (error) {
+      console.error(`❌ Failed to stop bot ${session.recall_bot_id}:`, error);
+      throw error;
     }
   }
 

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAuthenticatedSupabaseClient } from '@/lib/supabase';
 import { RecallSessionManager } from '@/lib/recall-ai/session-manager';
+import { BotUsageTracker } from '@/lib/services/bot-usage-tracker';
 
 export async function POST(
   req: NextRequest,
@@ -56,17 +57,34 @@ export async function POST(
     // Stop the bot
     try {
       const sessionManager = new RecallSessionManager();
+      const botUsageTracker = new BotUsageTracker();
       
       await sessionManager.stopRecallBot(id);
 
       // Update session status
+      const now = new Date().toISOString();
       await supabase
         .from('sessions')
         .update({ 
           status: 'completed',
-          recording_ended_at: new Date().toISOString()
+          recording_ended_at: now,
+          recall_bot_status: 'completed'
         })
         .eq('id', id);
+
+      // Update bot usage tracking
+      if (session.recall_bot_id) {
+        try {
+          await botUsageTracker.processBotStatusChange(
+            session.recall_bot_id,
+            'done',
+            now
+          );
+        } catch (trackingError) {
+          console.error('Failed to update bot usage tracking:', trackingError);
+          // Continue even if tracking update fails
+        }
+      }
 
       return NextResponse.json({ success: true });
     } catch (botError) {
