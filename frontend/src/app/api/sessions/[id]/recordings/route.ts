@@ -54,31 +54,18 @@ export async function GET(
       );
     }
 
-    // Check if we should refresh recordings without URLs
-    const shouldRefresh = request.nextUrl.searchParams.get('refresh') === 'true';
-    
-    if (shouldRefresh && recordings) {
+    // Always fetch fresh URLs from Recall.ai for recordings that have bot IDs
+    if (recordings && recordings.length > 0) {
       const recallClient = new RecallAIClient({
         apiKey: process.env.RECALL_AI_API_KEY!,
         region: (process.env.RECALL_AI_REGION as any) || 'us-west-2',
       });
 
-      // Update recordings that don't have URLs, have placeholder URLs, or are expired
+      // Fetch fresh URLs for all recordings with bot IDs
       for (const recording of recordings) {
-        const isExpired = recording.recording_expires_at && 
-                         new Date(recording.recording_expires_at) < new Date();
-        
-        const needsRefresh = !recording.recording_url || 
-                           recording.recording_url.includes('example.com') ||
-                           recording.recording_url.includes('placeholder') ||
-                           isExpired;
-        
-        if (needsRefresh && recording.bot_id) {
+        if (recording.bot_id) {
           try {
-            console.log('🔄 Refreshing recording for bot:', recording.bot_id, {
-              reason: isExpired ? 'expired' : 'no URL',
-              expiresAt: recording.recording_expires_at
-            });
+            console.log('🔄 Fetching fresh recording URL for bot:', recording.bot_id);
             
             const bot = await recallClient.getBotWithRecordings(recording.bot_id);
             
@@ -97,11 +84,9 @@ export async function GET(
                 });
                 
                 if (videoUrl) {
-                  // Update our stored recording ID to match Recall AI's
+                  // Only update status and metadata, NOT the URL (per user's request)
                   const updateData: any = {
-                    recording_url: videoUrl,
                     recording_status: botRecording.status?.code || 'done',
-                    recording_expires_at: botRecording.expires_at,
                     recording_id: botRecording.id, // Update to match Recall AI's ID
                     updated_at: new Date().toISOString()
                   };
@@ -112,13 +97,14 @@ export async function GET(
                        new Date(botRecording.started_at).getTime()) / 1000
                     );
                   }
-                  // Update the recording with the URL
+                  
+                  // Update the recording metadata (but NOT the URL)
                   await authClient
                     .from('bot_recordings')
                     .update(updateData)
                     .eq('id', recording.id);
                     
-                  // Update local object
+                  // Update local object with fresh URL for this response only
                   recording.recording_url = videoUrl;
                   recording.recording_status = botRecording.status?.code || 'done';
                   recording.recording_expires_at = botRecording.expires_at;

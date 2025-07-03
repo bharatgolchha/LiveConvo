@@ -77,10 +77,9 @@ export async function GET(
       );
     }
 
-    // Check if we should refresh the recording info
-    const shouldRefresh = request.nextUrl.searchParams.get('refresh') === 'true';
-    
-    if (shouldRefresh && session.recall_bot_id && !session.recall_recording_url) {
+    // Always fetch fresh recording URLs from Recall.ai if we have a bot ID
+    // This ensures we never use expired URLs from the database
+    if (session.recall_bot_id) {
       try {
         console.log('🔄 Refreshing recording info for bot:', session.recall_bot_id);
         
@@ -98,12 +97,12 @@ export async function GET(
           const videoUrl = recallClient.extractVideoUrl(recording);
           
           if (videoUrl) {
-            // Update session with recording information
+            // Update session with recording information (excluding the URL)
+            // We don't save the URL to DB as per user's request
             const { error: updateError } = await authClient
               .from('sessions')
               .update({
                 recall_recording_id: recording.id,
-                recall_recording_url: videoUrl,
                 recall_recording_status: recording.status.code,
                 recall_recording_expires_at: recording.expires_at,
                 updated_at: new Date().toISOString()
@@ -111,9 +110,9 @@ export async function GET(
               .eq('id', sessionId);
               
             if (!updateError) {
-              // Update local session object with new data
+              // Update local session object with fresh data
               session.recall_recording_id = recording.id;
-              session.recall_recording_url = videoUrl;
+              session.recall_recording_url = videoUrl; // Use fresh URL from Recall.ai
               session.recall_recording_status = recording.status.code;
               session.recall_recording_expires_at = recording.expires_at;
             }

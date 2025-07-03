@@ -5,7 +5,7 @@ import { broadcastTranscript } from '@/lib/recall-ai/transcript-broadcaster';
 import { RecallAIClient } from '@/lib/recall-ai/client';
 
 interface RecallWebhookEvent {
-  event: 'transcript.data' | 'transcript.partial_data' | 'participant_events.join' | 'participant_events.leave' | 'participant_events.update' | 'participant_events.speech_on' | 'participant_events.speech_off' | 'participant_events.webcam_on' | 'participant_events.webcam_off' | 'participant_events.screenshare_on' | 'participant_events.screenshare_off' | 'participant_events.chat_message' | 'bot.joining_call' | 'bot.in_waiting_room' | 'bot.in_call_not_recording' | 'bot.recording_permission_allowed' | 'bot.in_call_recording' | 'bot.recording_permission_denied' | 'bot.call_ended' | 'bot.done' | 'bot.fatal' | 'recording.done';
+  event: 'transcript.data' | 'transcript.partial_data' | 'participant_events.join' | 'participant_events.leave' | 'participant_events.update' | 'participant_events.speech_on' | 'participant_events.speech_off' | 'participant_events.webcam_on' | 'participant_events.webcam_off' | 'participant_events.screenshare_on' | 'participant_events.screenshare_off' | 'participant_events.chat_message';
   data: any;
 }
 
@@ -83,44 +83,11 @@ interface TranscriptData {
   };
 }
 
-// Note: Failsafe orphan detection moved to cron job (/api/cron/sync-bot-status) for better performance
+// Note: Bot status tracking is now handled by polling the Recall.ai API
+// See: /api/sessions/[id]/bot-status and /api/cron/sync-bot-status
 
-/**
- * Track bot usage based on Recall.ai webhook events
- */
-async function trackBotUsage(
-  sessionId: string,
-  botId: string,
-  eventType: string,
-  eventData: any,
-  supabase: any
-): Promise<void> {
-  try {
-    console.log(`🤖 Tracking bot usage: ${botId} - ${eventType}`);
-
-    // Get session details for user/org info
-    const { data: session, error: sessionError } = await supabase
-      .from('sessions')
-      .select('user_id, organization_id')
-      .eq('id', sessionId)
-      .single();
-
-    if (sessionError || !session) {
-      console.error('❌ Failed to get session for bot usage tracking:', sessionError);
-      return;
-    }
-
-    // Handle all bot status events by extracting the status code from the event name
-    const statusCode = eventType.replace('bot.', ''); // e.g., 'bot.in_call_recording' -> 'in_call_recording'
-    await handleBotStatusChange(sessionId, botId, { ...eventData, status: statusCode }, session, supabase);
-  } catch (error) {
-    console.error('❌ Error tracking bot usage:', error);
-  }
-}
-
-/**
- * Handle bot status changes for usage tracking
- */
+// Bot status handling functions are no longer needed as we poll the API instead
+/*
 async function handleBotStatusChange(
   sessionId: string,
   botId: string,
@@ -229,8 +196,9 @@ async function handleBotStatusChange(
     // Don't throw - allow webhook to succeed even if some updates fail
   }
 }
+*/
 
-// Note: Recording completion is now handled through bot status events (bot.done, bot.call_ended)
+// Note: Recording completion is now handled through polling the bot status API
 
 /**
  * Ensure bot usage tracking record exists
@@ -724,22 +692,6 @@ export async function POST(
     // Store webhook event
     const supabase = createServerSupabaseClient();
     
-    // For bot status events, ensure we have the bot ID
-    if (event.event.startsWith('bot.') && botId === '00000000-0000-0000-0000-000000000000') {
-      console.error('⚠️ Bot status event without bot ID, checking session for bot ID');
-      // Try to get bot ID from session
-      const { data: session } = await supabase
-        .from('sessions')
-        .select('recall_bot_id')
-        .eq('id', sessionId)
-        .single();
-      
-      if (session?.recall_bot_id) {
-        botId = session.recall_bot_id;
-        console.log('🔍 Found bot ID from session:', botId);
-      }
-    }
-    
     console.log('🤖 Bot ID:', botId);
     
     // Store webhook event - handle UUID validation
@@ -793,24 +745,6 @@ export async function POST(
         processed = true;
         break;
 
-      // Bot status events - CRITICAL for bot usage tracking
-      case 'bot.joining_call':
-      case 'bot.in_waiting_room':
-      case 'bot.in_call_not_recording':
-      case 'bot.recording_permission_allowed':
-      case 'bot.in_call_recording':
-      case 'bot.recording_permission_denied':
-      case 'bot.call_ended':
-      case 'bot.done':
-      case 'bot.fatal':
-        await trackBotUsage(sessionId, botId, event.event, event.data, supabase);
-        processed = true;
-        break;
-        
-      case 'recording.done':
-        await handleRecordingDone(sessionId, botId, event.data, supabase);
-        processed = true;
-        break;
         
       default:
         console.log('⚠️ Unhandled webhook event type:', event.event);
