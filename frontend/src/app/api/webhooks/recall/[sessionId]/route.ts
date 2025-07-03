@@ -5,7 +5,7 @@ import { broadcastTranscript } from '@/lib/recall-ai/transcript-broadcaster';
 import { RecallAIClient } from '@/lib/recall-ai/client';
 
 interface RecallWebhookEvent {
-  event: 'transcript.data' | 'transcript.partial_data' | 'participant_events.join' | 'participant_events.leave' | 'participant_events.update' | 'participant_events.speech_on' | 'participant_events.speech_off' | 'participant_events.webcam_on' | 'participant_events.webcam_off' | 'participant_events.screenshare_on' | 'participant_events.screenshare_off' | 'participant_events.chat_message' | 'bot.joining_call' | 'bot.in_waiting_room' | 'bot.in_call_not_recording' | 'bot.recording_permission_allowed' | 'bot.in_call_recording' | 'bot.recording_permission_denied' | 'bot.call_ended' | 'bot.done' | 'bot.fatal';
+  event: 'transcript.data' | 'transcript.partial_data' | 'participant_events.join' | 'participant_events.leave' | 'participant_events.update' | 'participant_events.speech_on' | 'participant_events.speech_off' | 'participant_events.webcam_on' | 'participant_events.webcam_off' | 'participant_events.screenshare_on' | 'participant_events.screenshare_off' | 'participant_events.chat_message' | 'bot.joining_call' | 'bot.in_waiting_room' | 'bot.in_call_not_recording' | 'bot.recording_permission_allowed' | 'bot.in_call_recording' | 'bot.recording_permission_denied' | 'bot.call_ended' | 'bot.done' | 'bot.fatal' | 'recording.done';
   data: any;
 }
 
