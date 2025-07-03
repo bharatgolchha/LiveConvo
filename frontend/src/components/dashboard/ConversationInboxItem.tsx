@@ -376,20 +376,7 @@ const ConversationInboxItem: React.FC<Props> = ({
             )}
             
             <h3 className="text-sm font-medium text-foreground truncate flex-1">
-              {/* Defensive fix: Clean title to remove any trailing numbers that might be linkedConversationsCount */}
-              {(() => {
-                const title = session.title?.toString() || '';
-                const count = session.linkedConversationsCount || 0;
-                // Remove trailing count if it matches linkedConversationsCount
-                if (count > 0 && title.endsWith(count.toString())) {
-                  return title.slice(0, -count.toString().length);
-                }
-                // Also handle case where 0 is appended for sessions with no links
-                if (count === 0 && title.endsWith('0')) {
-                  return title.slice(0, -1);
-                }
-                return title;
-              })()}
+              {session.title || 'Untitled Session'}
             </h3>
           </div>
           
@@ -568,6 +555,7 @@ const ConversationInboxItem: React.FC<Props> = ({
 
           {session.status === 'completed' && (
             <>
+              {/* Show Report button if session is completed and may have content */}
               <button
                 onClick={(e) => {
                   e.stopPropagation();

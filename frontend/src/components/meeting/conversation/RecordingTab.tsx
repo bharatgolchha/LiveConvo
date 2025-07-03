@@ -6,7 +6,7 @@ import { PlayCircleIcon, ArrowDownTrayIcon, ArrowPathIcon } from '@heroicons/rea
 import { useAuth } from '@/contexts/AuthContext';
 
 export function RecordingTab() {
-  const { meeting } = useMeetingContext();
+  const { meeting, setMeeting } = useMeetingContext();
   const { session } = useAuth();
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [refreshError, setRefreshError] = useState<string | null>(null);
@@ -83,6 +83,12 @@ export function RecordingTab() {
   const handleRefreshRecording = async () => {
     if (!session?.access_token || !meeting.id) return;
     
+    console.log('🔄 Refreshing recording...', {
+      meetingId: meeting.id,
+      hasToken: !!session.access_token,
+      tokenPreview: session.access_token.substring(0, 20) + '...'
+    });
+    
     setIsRefreshing(true);
     setRefreshError(null);
     
@@ -93,15 +99,33 @@ export function RecordingTab() {
         }
       });
       
+      console.log('📥 Response status:', response.status);
+      
       if (!response.ok) {
-        throw new Error('Failed to refresh recording');
+        const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+        console.error('❌ Refresh error:', errorData);
+        throw new Error(errorData.message || errorData.error || 'Failed to refresh recording');
       }
       
       const data = await response.json();
+      console.log('✅ Recording data received:', data);
       
-      // Reload the page to refresh the meeting data
+      // Update the meeting data in context if recording was found
       if (data.recording?.url) {
-        window.location.reload();
+        // Update the meeting object with the new recording data
+        const updatedMeeting = {
+          ...meeting,
+          recallRecordingId: data.recording.id,
+          recallRecordingUrl: data.recording.url,
+          recallRecordingStatus: data.recording.status,
+          recallRecordingExpiresAt: data.recording.expiresAt
+        };
+        
+        // Update the meeting in context
+        setMeeting(updatedMeeting);
+        
+        // Show success message
+        setRefreshError(null);
       } else {
         setRefreshError('No recording found yet. Please try again in a few seconds.');
       }

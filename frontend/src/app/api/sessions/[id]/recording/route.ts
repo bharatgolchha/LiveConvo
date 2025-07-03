@@ -11,12 +11,15 @@ export async function GET(
 ) {
   try {
     const { id: sessionId } = await params;
+    console.log('🔄 Recording refresh endpoint called for session:', sessionId);
 
     // Get current user from Supabase auth using the access token
     const authHeader = request.headers.get('authorization');
+    console.log('🔑 Auth header:', authHeader ? 'Present' : 'Missing');
     const token = authHeader?.split(' ')[1];
     
     if (!token) {
+      console.error('❌ No token found in auth header');
       return NextResponse.json(
         { error: 'Unauthorized', message: 'No access token provided' },
         { status: 401 }

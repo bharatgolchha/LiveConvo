@@ -1,7 +1,7 @@
 import { RecallAIClient } from '../src/lib/recall-ai/client';
 
 async function checkRecallBot() {
-  const botId = '43dc791e-9346-4935-9463-baed699ac9ce';
+  const botId = process.argv[2] || '762fe9bd-6163-4b18-b071-c5a5f243f855';
   
   console.log('🔍 Checking Recall.ai for bot:', botId);
   
