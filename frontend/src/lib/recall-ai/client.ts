@@ -206,10 +206,34 @@ export class RecallAIClient {
   }
 
   async stopBot(botId: string): Promise<void> {
-    await fetch(`${this.baseUrl}/bot/${botId}/leave_call`, {
+    console.log(`🛑 Attempting to stop bot: ${botId}`);
+    
+    const response = await fetch(`${this.baseUrl}/bot/${botId}/leave_call`, {
       method: 'POST',
       headers: this.headers,
     });
+
+    console.log(`📥 Stop bot response status: ${response.status}`);
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('❌ Failed to stop bot:', {
+        status: response.status,
+        statusText: response.statusText,
+        errorText,
+        botId
+      });
+      
+      // Check if it's a 404 - bot might already be gone
+      if (response.status === 404) {
+        console.warn('⚠️ Bot not found - it may have already left the call');
+        return; // Don't throw error for 404
+      }
+      
+      throw new Error(`Failed to stop bot: ${response.statusText} - ${errorText}`);
+    }
+
+    console.log('✅ Bot stop request sent successfully');
   }
 
   async getTranscript(recordingId: string): Promise<any> {

@@ -88,7 +88,8 @@ export async function POST(
 
     // Step 1: Stop the bot if it's active
     let botStopped = false;
-    if (session.recall_bot_id && (session.recall_bot_status === 'in_call' || session.recall_bot_status === 'joining')) {
+    const activeBotStatuses = ['in_call', 'joining', 'recording', 'in_call_recording', 'in_call_not_recording'];
+    if (session.recall_bot_id && activeBotStatuses.includes(session.recall_bot_status)) {
       try {
         console.log('🤖 Stopping bot:', session.recall_bot_id);
         
@@ -104,7 +105,13 @@ export async function POST(
           botStopped = true;
           console.log('✅ Bot stopped successfully');
         } else {
-          console.warn('⚠️ Failed to stop bot, continuing with meeting end');
+          const errorText = await stopBotResponse.text();
+          console.warn('⚠️ Failed to stop bot:', {
+            status: stopBotResponse.status,
+            statusText: stopBotResponse.statusText,
+            error: errorText
+          });
+          console.warn('Continuing with meeting end despite bot stop failure');
         }
       } catch (error) {
         console.warn('⚠️ Error stopping bot:', error);
