@@ -80,15 +80,15 @@ export async function POST(request: NextRequest) {
     // Validate request body
     const BodySchema = z.object({
       meetingType: z.string().optional().default('custom'),
-      meetingTitle: z.string().optional(),
-      context: z.string().optional(),
-      participantMe: z.string().optional(),
-      participantThem: z.string().optional(),
+      meetingTitle: z.string().optional().nullable(),
+      context: z.string().optional().nullable(),
+      participantMe: z.string().optional().nullable(),
+      participantThem: z.string().optional().nullable(),
       hasTranscript: z.boolean().optional().default(false),
       linkedConversations: z.array(z.object({
         id: z.string(),
         title: z.string()
-      })).optional()
+      })).optional().nullable()
     });
 
     const {
