@@ -31,6 +31,11 @@ import {
 } from '@/lib/prompts/modularSummaryPrompts';
 
 const openrouterApiKey = process.env.OPENROUTER_API_KEY;
+console.log('🔍 Environment check:', {
+  hasOpenRouterKey: !!openrouterApiKey,
+  keyLength: openrouterApiKey?.length,
+  nodeEnv: process.env.NODE_ENV
+});
 
 interface FinalSummaryRequest {
   conversationType?: string;
@@ -120,7 +125,9 @@ export async function POST(
     console.error('💥 Request details:', {
       sessionId: (await params).id,
       hasAuth: !!request.headers.get('authorization'),
-      errorName: error instanceof Error ? error.name : 'Unknown'
+      errorName: error instanceof Error ? error.name : 'Unknown',
+      hasOpenRouterKey: !!openrouterApiKey,
+      openRouterKeyPrefix: openrouterApiKey ? openrouterApiKey.substring(0, 10) + '...' : 'none'
     });
     
     // Return a more detailed error response
@@ -129,7 +136,10 @@ export async function POST(
         error: 'Failed to finalize session',
         details: error instanceof Error ? error.message : 'Unknown error',
         type: error instanceof Error ? error.constructor.name : 'UnknownError',
-        sessionId: (await params).id
+        sessionId: (await params).id,
+        hint: error instanceof Error && error.message.includes('OpenRouter') 
+          ? 'Check that OPENROUTER_API_KEY is properly configured in environment variables'
+          : undefined
       },
       { status: 500 }
     );
@@ -165,7 +175,7 @@ async function processFinalization({
 
   if (!openrouterApiKey) {
     console.error('❌ CRITICAL: OpenRouter API key not configured');
-    throw new Error('OpenRouter API key not configured');
+    throw new Error('OpenRouter API key not configured. Please set OPENROUTER_API_KEY environment variable.');
   }
 
   // Get current user from Supabase auth using the access token
@@ -174,6 +184,12 @@ async function processFinalization({
   
   if (!token) {
     throw new Error('Unauthorized: Missing authentication token');
+  }
+
+  // Verify Supabase config
+  if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
+    console.error('❌ CRITICAL: Supabase configuration missing');
+    throw new Error('Supabase configuration is incomplete. Check environment variables.');
   }
 
   // Create authenticated client
@@ -248,6 +264,13 @@ async function processFinalization({
     .eq('session_id', sessionId)
     .order('sequence_number', { ascending: true });
 
+  console.log('📝 Transcript data:', {
+    sessionId,
+    hasTranscripts: !!transcriptLines,
+    transcriptCount: transcriptLines?.length || 0,
+    transcriptError: transcriptError?.message
+  });
+
   // Convert transcript lines to text format
   const transcriptText = transcriptLines && transcriptLines.length > 0 
     ? transcriptLines.map(line => {
@@ -256,8 +279,8 @@ async function processFinalization({
     : '';
 
   if (!transcriptText || transcriptText.trim().length === 0) {
-    console.warn('⚠️ No transcript available');
-    throw new Error('No transcript data available');
+    console.warn('⚠️ No transcript available for session:', sessionId);
+    throw new Error('No transcript data available. Please ensure the conversation has been recorded and transcribed.');
   }
 
   // Calculate session statistics
@@ -485,6 +508,8 @@ async function generateFinalSummary(
     requestBody.response_format = { type: 'json_object' };
   }
 
+  console.log('🚀 Calling OpenRouter API with model:', model);
+  
   const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
     method: 'POST',
     headers: {
@@ -497,10 +522,32 @@ async function generateFinalSummary(
   });
 
   if (!response.ok) {
-    const errorText = await response.text();
-    console.error('❌ OpenRouter API error:', response.status, response.statusText);
-    console.error('❌ OpenRouter error details:', errorText);
-    throw new Error(`OpenRouter API error: ${response.status} - ${errorText}`);
+    let errorText = '';
+    let errorData: any = null;
+    try {
+      errorText = await response.text();
+      errorData = JSON.parse(errorText);
+    } catch (e) {
+      errorData = { message: errorText };
+    }
+    
+    console.error('❌ OpenRouter API error:', {
+      status: response.status,
+      statusText: response.statusText,
+      errorData,
+      errorText: errorText.substring(0, 500)
+    });
+    
+    // Check for common errors
+    if (response.status === 401) {
+      throw new Error('OpenRouter API authentication failed. Please check your API key.');
+    } else if (response.status === 429) {
+      throw new Error('OpenRouter API rate limit exceeded. Please try again later.');
+    } else if (response.status === 400 && errorData?.error?.message?.includes('credit')) {
+      throw new Error('OpenRouter API credits exhausted. Please add credits to your account.');
+    }
+    
+    throw new Error(`OpenRouter API error: ${response.status} - ${errorData?.error?.message || errorData?.message || response.statusText}`);
   }
 
   const data = await response.json();
@@ -623,10 +670,22 @@ async function generateFinalizationData(transcript: string, summary: EnhancedSum
   });
 
   if (!response.ok) {
-    const errorText = await response.text();
-    console.error('❌ OpenRouter API error (finalization):', response.status, response.statusText);
-    console.error('❌ OpenRouter finalization error details:', errorText);
-    throw new Error(`OpenRouter API error: ${response.status} - ${errorText}`);
+    let errorText = '';
+    let errorData: any = null;
+    try {
+      errorText = await response.text();
+      errorData = JSON.parse(errorText);
+    } catch (e) {
+      errorData = { message: errorText };
+    }
+    
+    console.error('❌ OpenRouter API error (finalization):', {
+      status: response.status,
+      statusText: response.statusText,
+      errorData
+    });
+    
+    throw new Error(`OpenRouter API error: ${response.status} - ${errorData?.error?.message || errorData?.message || response.statusText}`);
   }
 
   const data = await response.json();
@@ -904,9 +963,22 @@ async function callOpenRouter(prompt: string, model: string, maxTokens: number =
   });
   
   if (!response.ok) {
-    const errorText = await response.text();
-    console.error('❌ OpenRouter API error:', response.status, errorText);
-    throw new Error(`OpenRouter API error: ${response.status}`);
+    let errorText = '';
+    let errorData: any = null;
+    try {
+      errorText = await response.text();
+      errorData = JSON.parse(errorText);
+    } catch (e) {
+      errorData = { message: errorText };
+    }
+    
+    console.error('❌ OpenRouter API error (modular):', {
+      status: response.status,
+      errorData,
+      model
+    });
+    
+    throw new Error(`OpenRouter API error: ${response.status} - ${errorData?.error?.message || errorData?.message || response.statusText}`);
   }
   
   const data = await response.json();

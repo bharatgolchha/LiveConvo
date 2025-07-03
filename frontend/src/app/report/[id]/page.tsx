@@ -159,16 +159,21 @@ export default function MeetingReportPage() {
           console.log('🔄 Attempting to finalize session...');
           
           try {
+            // Prepare finalization data
+            const finalizationData = {
+              conversationType: sessionData.session.conversation_type || 'meeting',
+              conversationTitle: sessionData.session.title || 'Untitled Conversation',
+              participantMe: sessionData.session.participant_me || 'You',
+              participantThem: sessionData.session.participant_them || 'Participant'
+            };
+            
+            console.log('📤 Sending finalization request with data:', finalizationData);
+            
             // Attempt to finalize the session
             const finalizeResponse = await fetch(`/api/sessions/${meetingId}/finalize`, {
               method: 'POST',
               headers,
-              body: JSON.stringify({
-                conversationType: sessionData.session.conversation_type,
-                conversationTitle: sessionData.session.title,
-                participantMe: sessionData.session.participant_me,
-                participantThem: sessionData.session.participant_them
-              })
+              body: JSON.stringify(finalizationData)
             });
 
             if (finalizeResponse.ok) {
@@ -177,13 +182,35 @@ export default function MeetingReportPage() {
               window.location.reload();
               return;
             } else {
-              const errorData = await finalizeResponse.json();
-              console.error('❌ Failed to finalize session:', errorData);
+              let errorData;
+              try {
+                errorData = await finalizeResponse.json();
+              } catch (jsonError) {
+                errorData = await finalizeResponse.text();
+              }
+              console.error('❌ Failed to finalize session:', {
+                status: finalizeResponse.status,
+                statusText: finalizeResponse.statusText,
+                data: errorData
+              });
+              // Show user-friendly error message with hint if available
+              const errorMessage = errorData?.details || errorData?.error || finalizeResponse.statusText || 'Unknown error';
+              const hint = errorData?.hint ? ` (${errorData.hint})` : '';
+              setError(`Failed to generate summary: ${errorMessage}${hint}`);
             }
           } catch (finalizeError) {
             console.error('❌ Error finalizing session:', finalizeError);
+            setError(`Failed to finalize session: ${finalizeError instanceof Error ? finalizeError.message : 'Unknown error'}`);
           }
         }
+      }
+
+      // Check if session has no transcripts
+      const hasTranscripts = sessionData.session.transcripts && sessionData.session.transcripts.length > 0;
+      if (!hasTranscripts) {
+        console.warn('⚠️ No transcripts available for session:', meetingId);
+        setError('This conversation has no transcript data. Reports can only be generated for conversations that have been recorded and transcribed.');
+        return;
       }
 
       // Transform data into report format with failsafe defaults

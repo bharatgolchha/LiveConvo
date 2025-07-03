@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useMeetingContext } from '@/lib/meeting/context/MeetingContext';
 import { RecordingPlayer } from '@/components/recordings/RecordingPlayer';
-// import { RecordingStatus } from '@/components/recordings/RecordingStatus';
 import { PlayCircleIcon, ArrowDownTrayIcon, ArrowPathIcon, VideoCameraIcon } from '@heroicons/react/24/outline';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -27,8 +26,6 @@ export function MultipleRecordingsTab() {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedRecording, setSelectedRecording] = useState<Recording | null>(null);
-  const [pollInterval, setPollInterval] = useState<number | null>(null);
-  const stopPollingRef = useRef(false);
   
   console.log('Current state:', {
     meetingId: meeting?.id,
@@ -36,8 +33,7 @@ export function MultipleRecordingsTab() {
     loading,
     error,
     selectedRecording: selectedRecording?.id,
-    pollInterval,
-    stopPolling: stopPollingRef.current
+    hasRecallRecording: !!(meeting?.recallRecordingUrl || (meeting as any)?.recall_recording_url)
   });
 
   const fetchRecordings = useCallback(async (refresh = false) => {
@@ -77,13 +73,6 @@ export function MultipleRecordingsTab() {
       const newRecordings = data.recordings || [];
       setRecordings(newRecordings);
       
-      // Check if we found recordings with URLs and should stop polling
-      const hasRecordingsWithUrls = newRecordings.some((r: Recording) => r.recording_url);
-      if (hasRecordingsWithUrls && pollInterval) {
-        console.log('🎉 Found recordings with URLs, stopping polling');
-        stopPollingRef.current = true;
-      }
-      
       // Auto-select the first recording with a URL
       setSelectedRecording(prev => {
         if (!prev && newRecordings.length > 0) {
@@ -118,71 +107,42 @@ export function MultipleRecordingsTab() {
     console.log('MultipleRecordingsTab - Meeting:', meeting);
     if (meeting?.id) {
       fetchRecordings();
-      
-      // Only start polling if:
-      // 1. Meeting has a bot ID (recall_bot_id or botId)
-      // 2. Meeting is active OR recently completed (within 10 minutes)
-      // 3. We haven't found any recordings with URLs yet
-      const botId = (meeting as any).recall_bot_id || meeting.botId;
-      const hasBot = !!botId;
-      
-      // Use updatedAt or updated_at field
-      const updatedAt = meeting.updatedAt || (meeting as any).updated_at;
-      const isActiveOrRecent = meeting.status === 'active' || 
-        (meeting.status === 'completed' && updatedAt && 
-         new Date(updatedAt).getTime() > Date.now() - 10 * 60 * 1000);
-      
-      if (hasBot && isActiveOrRecent) {
-        console.log('🔄 Starting polling for recordings (has bot)', { 
-          botId: botId,
-          status: meeting.status 
-        });
-        
-        // Reset the stop polling flag when starting a new polling session
-        stopPollingRef.current = false;
-        
-        let pollCount = 0;
-        const maxPolls = 60; // Stop after 10 minutes (60 * 10 seconds)
-        
-        const interval = setInterval(async () => {
-          pollCount++;
-          
-          // Stop polling if we've exceeded max polls or found recordings
-          if (pollCount >= maxPolls || stopPollingRef.current) {
-            console.log('🛑 Stopping polling', { 
-              reason: stopPollingRef.current ? 'recordings found' : 'max polls reached',
-              pollCount, 
-              maxPolls 
-            });
-            clearInterval(interval);
-            setPollInterval(null);
-            return;
-          }
-          
-          console.log('⏰ Polling for recording updates', { pollCount, maxPolls });
-          await fetchRecordings(true);
-        }, 10000); // Poll every 10 seconds
-        
-        setPollInterval(interval as any);
-        
-        return () => {
-          console.log('🛑 Cleaning up polling interval');
-          clearInterval(interval);
-        };
-      } else {
-        console.log('❌ Not starting polling', { 
-          hasBot, 
-          isActiveOrRecent,
-          botId: botId,
-          status: meeting.status
-        });
-      }
     }
-  }, [meeting?.id, meeting?.status, (meeting as any)?.recall_bot_id, meeting?.botId, (meeting as any)?.updated_at, meeting?.updatedAt]);
+  }, [meeting?.id, fetchRecordings]);
 
   const handleRefresh = async () => {
     console.log('🔄 Manual refresh triggered');
     setRefreshing(true);
+    
+    // First try to fetch from Recall.ai and update the session
+    if (session?.access_token && meeting?.id) {
+      try {
+        console.log('📡 Fetching recording from Recall.ai...');
+        const response = await fetch(`/api/sessions/${meeting.id}/recording?refresh=true`, {
+          headers: {
+            'Authorization': `Bearer ${session.access_token}`
+          }
+        });
+        
+        if (response.ok) {
+          const data = await response.json();
+          console.log('✅ Recall.ai recording data:', data);
+          
+          // If we got a recording URL, reload the meeting data
+          if (data.recording?.url) {
+            console.log('🎉 Recording URL found, reloading page...');
+            window.location.reload();
+            return;
+          }
+        } else {
+          console.error('❌ Failed to fetch from Recall.ai:', response.status);
+        }
+      } catch (error) {
+        console.error('❌ Error fetching from Recall.ai:', error);
+      }
+    }
+    
+    // Then fetch any existing recordings
     await fetchRecordings(true);
   };
 
@@ -235,6 +195,48 @@ export function MultipleRecordingsTab() {
     );
   }
 
+  // Check if we have a recording URL in the meeting data
+  const hasRecallRecording = meeting.recallRecordingUrl || (meeting as any).recall_recording_url;
+  
+  if (hasRecallRecording) {
+    // If we have a Recall recording URL, show it directly
+    return (
+      <div className="flex flex-col h-full">
+        <div className="p-6 border-b border-border">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-xl font-semibold text-foreground">Meeting Recording</h2>
+              <p className="text-sm text-muted-foreground mt-1">
+                Full video recording from Recall.ai bot
+              </p>
+            </div>
+            <div className="flex items-center gap-3">
+              {hasRecallRecording && (
+                <a
+                  href={hasRecallRecording}
+                  download
+                  className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-primary-foreground bg-primary hover:bg-primary/90 rounded-lg transition-colors"
+                >
+                  <ArrowDownTrayIcon className="w-4 h-4" />
+                  Download
+                </a>
+              )}
+            </div>
+          </div>
+        </div>
+
+        <div className="flex-1 overflow-hidden bg-background">
+          <RecordingPlayer
+            recordingUrl={hasRecallRecording}
+            recordingStatus={meeting.recallRecordingStatus || (meeting as any).recall_recording_status || 'done'}
+            recordingExpiresAt={meeting.recallRecordingExpiresAt || (meeting as any).recall_recording_expires_at}
+            sessionId={meeting.id}
+          />
+        </div>
+      </div>
+    );
+  }
+
   if (recordings.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center h-full space-y-4">
@@ -246,11 +248,9 @@ export function MultipleRecordingsTab() {
               ? 'No recording bot was added to this meeting'
               : meeting.status === 'active' 
               ? 'Recordings will appear here once the meeting ends'
-              : meeting.status === 'completed' && pollInterval
-              ? 'Checking for recordings...'
               : 'No recordings found for this meeting'}
           </p>
-          {meeting.status === 'completed' && !pollInterval && ((meeting as any).recall_bot_id || meeting.botId) && (
+          {meeting.status === 'completed' && ((meeting as any).recall_bot_id || meeting.botId) && (
             <button
               onClick={handleRefresh}
               disabled={refreshing}
@@ -259,12 +259,6 @@ export function MultipleRecordingsTab() {
               <ArrowPathIcon className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
               {refreshing ? 'Checking...' : 'Check for Recordings'}
             </button>
-          )}
-          {pollInterval && (
-            <p className="text-xs text-muted-foreground mt-4">
-              <span className="inline-block w-2 h-2 bg-green-500 rounded-full animate-pulse mr-2"></span>
-              Auto-refreshing every 10 seconds
-            </p>
           )}
         </div>
       </div>
@@ -287,12 +281,6 @@ export function MultipleRecordingsTab() {
               <ArrowPathIcon className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
             </button>
           </div>
-          {pollInterval && (
-            <p className="text-xs text-muted-foreground mt-2 flex items-center gap-1">
-              <span className="inline-block w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse"></span>
-              Auto-refreshing
-            </p>
-          )}
         </div>
         
         <div className="overflow-y-auto h-[calc(100%-4rem)]">
