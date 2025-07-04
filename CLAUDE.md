@@ -28,7 +28,7 @@ Please use Supabase MCP for anything database related.
 }
 
 SUPABASE_URL=https://ucvfgfbjcrxbzppwjpuu.supabase.co
-PRODUCTION_SUPABASE_URL=https://juuysuamfoteblrqqdnu.supabase.co
+PRODUCTION_SUPABASE_URL=https://xkxjycccifwyxgtvflxz.supabase.co
 ### Core Technologies
 - **Frontend**: Next.js 15.3.2, TypeScript, Tailwind CSS, Radix UI
 - **Backend**: Next.js API routes, Supabase PostgreSQL
@@ -191,16 +191,16 @@ DEEPGRAM_API_KEY=
 - **Status**: Active development database
 
 ### Production Environment  
-- **Database**: livePrompt Live (West) (`juuysuamfoteblrqqdnu`)
-- **URL**: https://juuysuamfoteblrqqdnu.supabase.co
+- **Database**: livePrompt Live (West) (`xkxjycccifwyxgtvflxz`)
+- **URL**: https://xkxjycccifwyxgtvflxz.supabase.co
 - **Region**: us-west-1 (US West)
 - **Status**: Production-ready with full schema and edge functions
 
 ### Edge Functions (Production)
-- **Stripe Webhooks**: `https://juuysuamfoteblrqqdnu.supabase.co/functions/v1/stripe-webhooks`
-- **Create Checkout**: `https://juuysuamfoteblrqqdnu.supabase.co/functions/v1/create-checkout-session`
-- **Billing Portal**: `https://juuysuamfoteblrqqdnu.supabase.co/functions/v1/create-portal-session`
-- **Test Stripe Config**: `https://juuysuamfoteblrqqdnu.supabase.co/functions/v1/test-stripe-config`
+- **Stripe Webhooks**: `https://xkxjycccifwyxgtvflxz.supabase.co/functions/v1/stripe-webhooks`
+- **Create Checkout**: `https://xkxjycccifwyxgtvflxz.supabase.co/functions/v1/create-checkout-session`
+- **Billing Portal**: `https://xkxjycccifwyxgtvflxz.supabase.co/functions/v1/create-portal-session`
+- **Test Stripe Config**: `https://xkxjycccifwyxgtvflxz.supabase.co/functions/v1/test-stripe-config`
 
 ### Deployment Configuration
 - **Platform**: Vercel
@@ -212,7 +212,7 @@ DEEPGRAM_API_KEY=
 ### Production Environment Variables
 ```bash
 # Production Database
-NEXT_PUBLIC_SUPABASE_URL=https://juuysuamfoteblrqqdnu.supabase.co
+NEXT_PUBLIC_SUPABASE_URL=https://xkxjycccifwyxgtvflxz.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=[Get from Supabase Dashboard - production anon key]
 SUPABASE_SERVICE_ROLE_KEY=[Get from Supabase Dashboard]
 

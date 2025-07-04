@@ -80,6 +80,7 @@ export const SubscriptionManager: React.FC = () => {
 
       if (response.ok) {
         const data = await response.json();
+        console.log('📊 Subscription API response:', data);
         setSubscriptionData(data);
       }
     } catch (error) {
