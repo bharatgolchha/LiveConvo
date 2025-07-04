@@ -240,6 +240,16 @@ export async function POST(request: NextRequest) {
     
     // Handle bot status events
     const botEvent = event as BotStatusWebhookEvent;
+    
+    // Safely access nested properties with validation
+    if (!botEvent.data || !botEvent.data.bot || !botEvent.data.data) {
+      console.error('❌ Invalid webhook payload structure:', JSON.stringify(event));
+      return NextResponse.json({ 
+        error: 'Invalid webhook payload', 
+        received: true 
+      }, { status: 400 });
+    }
+    
     console.log('🎯 Bot status event:', {
       type: botEvent.event,
       botId: botEvent.data.bot.id,
@@ -251,8 +261,16 @@ export async function POST(request: NextRequest) {
     
     const supabase = createServerSupabaseClient();
     
-    // Extract bot and session info
+    // Extract bot and session info with safety checks
     const botId = botEvent.data.bot.id;
+    if (!botId) {
+      console.error('❌ Missing bot ID in webhook payload');
+      return NextResponse.json({ 
+        error: 'Missing bot ID', 
+        received: true 
+      }, { status: 400 });
+    }
+    
     let sessionId = botEvent.data.bot.metadata?.session_id;
     const statusCode = botEvent.data.data.code;
     const timestamp = botEvent.data.data.updated_at || new Date().toISOString();
