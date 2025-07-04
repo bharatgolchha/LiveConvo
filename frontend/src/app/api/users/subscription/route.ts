@@ -111,6 +111,14 @@ export async function GET(request: NextRequest) {
 
     const totalBotMinutes = botMinutesData?.reduce((sum: number, record: any) => sum + (record.billable_minutes || 0), 0) || 0;
     const totalAudioHours = Math.round((totalBotMinutes / 60) * 100) / 100; // Round to 2 decimal places
+    
+    console.log('📊 Usage calculation:', {
+      periodStart: periodStart.toISOString(),
+      periodEnd: periodEnd.toISOString(),
+      botRecords: botMinutesData?.length || 0,
+      totalBotMinutes,
+      totalAudioHours
+    });
 
     // Get session count for billing period by organization
     const { count: sessionCount } = await supabase
@@ -147,7 +155,7 @@ export async function GET(request: NextRequest) {
       },
       usage: {
         currentAudioHours: totalAudioHours,
-        limitAudioHours: subscriptionData.plan_audio_hours_limit,
+        limitAudioHours: subscriptionData.plan_bot_minutes_limit ? subscriptionData.plan_bot_minutes_limit / 60 : subscriptionData.plan_audio_hours_limit,
         currentSessions: sessionCount || 0,
         limitSessions: subscriptionData.max_sessions_per_month,
       }

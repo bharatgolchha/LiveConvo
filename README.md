@@ -210,18 +210,18 @@ LiveConvo is deployed with the following infrastructure:
 
 - **Platform**: Vercel
 - **Database**: Supabase PostgreSQL
-- **Production Database**: `juuysuamfoteblrqqdnu` (LiveConvo Production)
+- **Production Database**: `xkxjycccifwyxgtvflxz` (LiveConvo Production)
 - **Development Database**: `ucvfgfbjcrxbzppwjpuu` (VoiceConvo Dev)
 
 ### Environment URLs
 
 #### Production
-- **Database URL**: `https://juuysuamfoteblrqqdnu.supabase.co`
+- **Database URL**: `https://xkxjycccifwyxgtvflxz.supabase.co`
 - **Edge Functions**:
-  - Stripe Webhooks: `https://juuysuamfoteblrqqdnu.supabase.co/functions/v1/stripe-webhooks`
-  - Create Checkout: `https://juuysuamfoteblrqqdnu.supabase.co/functions/v1/create-checkout-session`
-  - Billing Portal: `https://juuysuamfoteblrqqdnu.supabase.co/functions/v1/create-portal-session`
-  - Test Stripe Config: `https://juuysuamfoteblrqqdnu.supabase.co/functions/v1/test-stripe-config`
+  - Stripe Webhooks: `https://xkxjycccifwyxgtvflxz.supabase.co/functions/v1/stripe-webhooks`
+  - Create Checkout: `https://xkxjycccifwyxgtvflxz.supabase.co/functions/v1/create-checkout-session`
+  - Billing Portal: `https://xkxjycccifwyxgtvflxz.supabase.co/functions/v1/create-portal-session`
+  - Test Stripe Config: `https://xkxjycccifwyxgtvflxz.supabase.co/functions/v1/test-stripe-config`
 
 #### Development
 - **Database URL**: `https://ucvfgfbjcrxbzppwjpuu.supabase.co`
@@ -246,7 +246,7 @@ For production deployment, configure these environment variables in Vercel:
 
 ```bash
 # Production Database
-NEXT_PUBLIC_SUPABASE_URL=https://juuysuamfoteblrqqdnu.supabase.co
+NEXT_PUBLIC_SUPABASE_URL=https://xkxjycccifwyxgtvflxz.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=[Your production anon key from Supabase Dashboard]
 SUPABASE_SERVICE_ROLE_KEY=[Get from Supabase Dashboard]
 
