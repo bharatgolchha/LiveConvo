@@ -40,6 +40,12 @@ export default function AuthCallbackPage() {
           }
         }
 
+        // Check if we have a valid session before checking onboarding
+        if (!session) {
+          router.replace('/auth/login?error=No valid session')
+          return
+        }
+
         // Check if user has completed onboarding
         const { data: userData, error: userError } = await supabase
           .from('users')
