@@ -97,10 +97,45 @@ export default function PrivacyPolicy() {
           </section>
 
           <section className="mb-8">
-            <h2 className="text-2xl font-semibold mb-4">3. How We Share Your Information</h2>
+            <h2 className="text-2xl font-semibold mb-4">3. Google API Services and Limited Use Disclosure</h2>
+            <div className="bg-green-50 dark:bg-green-900/20 p-6 rounded-lg mb-6">
+              <h3 className="text-xl font-semibold mb-3 text-green-800 dark:text-green-200">Google API Services User Data Policy</h3>
+              <p className="text-green-700 dark:text-green-300 font-medium">
+                liveprompt.ai's use and transfer to any other app of information received from Google APIs will adhere to 
+                <a href="https://developers.google.com/terms/api-services-user-data-policy" className="underline ml-1" target="_blank" rel="noopener noreferrer">
+                  Google API Services User Data Policy
+                </a>, including the Limited Use requirements.
+              </p>
+              
+              <div className="mt-4 space-y-3">
+                <p className="text-green-700 dark:text-green-300">
+                  <strong>How we use Google user data:</strong>
+                </p>
+                <ul className="list-disc ml-6 text-green-700 dark:text-green-300">
+                  <li>We access your Google Calendar events (read-only) to help you automatically join meetings</li>
+                  <li>We use your Google profile information (name and email) for account creation and authentication</li>
+                  <li>Calendar event data is processed by our AI models to provide contextual conversation guidance</li>
+                  <li>We store minimal calendar data (event titles, times, meeting links) to enable automatic meeting joining</li>
+                </ul>
+                
+                <p className="text-green-700 dark:text-green-300 mt-3">
+                  <strong>We do NOT:</strong>
+                </p>
+                <ul className="list-disc ml-6 text-green-700 dark:text-green-300">
+                  <li>Use Google user data for advertising or marketing purposes</li>
+                  <li>Share Google user data with third parties except as necessary to provide our core service functionality</li>
+                  <li>Use Google user data for any purpose other than providing and improving liveprompt.ai features</li>
+                  <li>Transfer Google user data to third parties without your explicit consent</li>
+                </ul>
+              </div>
+            </div>
+          </section>
+
+          <section className="mb-8">
+            <h2 className="text-2xl font-semibold mb-4">4. How We Share Your Information</h2>
             <p>We do not sell, trade, or rent your personal information. We may share your information in the following situations:</p>
             
-            <h3 className="text-xl font-semibold mb-2">3.1 Service Providers</h3>
+            <h3 className="text-xl font-semibold mb-2">4.1 Service Providers</h3>
             <p>We share information with third-party service providers that help us operate our Service:</p>
             <ul className="list-disc ml-6 mt-2">
               <li><strong>Deepgram</strong> - for speech-to-text transcription</li>
@@ -113,27 +148,27 @@ export default function PrivacyPolicy() {
               only for the purposes for which we disclose it to them.
             </p>
 
-            <h3 className="text-xl font-semibold mb-2 mt-4">3.2 Legal Requirements</h3>
+            <h3 className="text-xl font-semibold mb-2 mt-4">4.2 Legal Requirements</h3>
             <p>
               We may disclose your information if required to do so by law or in response to valid requests by public 
               authorities (e.g., a court or government agency).
             </p>
 
-            <h3 className="text-xl font-semibold mb-2 mt-4">3.3 Business Transfers</h3>
+            <h3 className="text-xl font-semibold mb-2 mt-4">4.3 Business Transfers</h3>
             <p>
               If we are involved in a merger, acquisition, or asset sale, your personal information may be transferred. 
               We will provide notice before your personal information is transferred and becomes subject to a different 
               privacy policy.
             </p>
 
-            <h3 className="text-xl font-semibold mb-2 mt-4">3.4 With Your Consent</h3>
+            <h3 className="text-xl font-semibold mb-2 mt-4">4.4 With Your Consent</h3>
             <p>
               We may share your information with your consent or at your direction.
             </p>
           </section>
 
           <section className="mb-8">
-            <h2 className="text-2xl font-semibold mb-4">4. Data Security</h2>
+            <h2 className="text-2xl font-semibold mb-4">5. Data Security</h2>
             <p>
               We implement appropriate technical and organizational security measures to protect your personal information 
               against accidental or unlawful destruction, loss, alteration, unauthorized disclosure, or access. These measures include:
@@ -152,7 +187,7 @@ export default function PrivacyPolicy() {
           </section>
 
           <section className="mb-8">
-            <h2 className="text-2xl font-semibold mb-4">5. Data Retention</h2>
+            <h2 className="text-2xl font-semibold mb-4">6. Data Retention</h2>
             <p>
               We retain your personal information for as long as necessary to provide you with our Service and as 
               necessary to comply with our legal obligations, resolve disputes, and enforce our policies. When we no 
@@ -169,31 +204,31 @@ export default function PrivacyPolicy() {
           </section>
 
           <section className="mb-8">
-            <h2 className="text-2xl font-semibold mb-4">6. Your Privacy Rights</h2>
+            <h2 className="text-2xl font-semibold mb-4">7. Your Privacy Rights</h2>
             
-            <h3 className="text-xl font-semibold mb-2">6.1 Access and Portability</h3>
+            <h3 className="text-xl font-semibold mb-2">7.1 Access and Portability</h3>
             <p>
               You have the right to access the personal information we hold about you and to receive a copy of your 
               personal data in a structured, commonly used, and machine-readable format.
             </p>
 
-            <h3 className="text-xl font-semibold mb-2 mt-4">6.2 Correction</h3>
+            <h3 className="text-xl font-semibold mb-2 mt-4">7.2 Correction</h3>
             <p>
               You have the right to request that we correct any inaccurate or incomplete personal information about you.
             </p>
 
-            <h3 className="text-xl font-semibold mb-2 mt-4">6.3 Deletion</h3>
+            <h3 className="text-xl font-semibold mb-2 mt-4">7.3 Deletion</h3>
             <p>
               You have the right to request that we delete your personal information, subject to certain exceptions 
               such as compliance with legal obligations.
             </p>
 
-            <h3 className="text-xl font-semibold mb-2 mt-4">6.4 Objection and Restriction</h3>
+            <h3 className="text-xl font-semibold mb-2 mt-4">7.4 Objection and Restriction</h3>
             <p>
               You have the right to object to or request that we restrict certain processing of your personal information.
             </p>
 
-            <h3 className="text-xl font-semibold mb-2 mt-4">6.5 Withdraw Consent</h3>
+            <h3 className="text-xl font-semibold mb-2 mt-4">7.5 Withdraw Consent</h3>
             <p>
               Where we rely on your consent to process your personal information, you have the right to withdraw that 
               consent at any time.
@@ -206,7 +241,7 @@ export default function PrivacyPolicy() {
           </section>
 
           <section className="mb-8">
-            <h2 className="text-2xl font-semibold mb-4">7. International Data Transfers</h2>
+            <h2 className="text-2xl font-semibold mb-4">8. International Data Transfers</h2>
             <p>
               Your information may be transferred to and maintained on servers located outside of your state, province, 
               country, or other governmental jurisdiction where data protection laws may differ from those in your 
@@ -219,7 +254,7 @@ export default function PrivacyPolicy() {
           </section>
 
           <section className="mb-8">
-            <h2 className="text-2xl font-semibold mb-4">8. Children's Privacy</h2>
+            <h2 className="text-2xl font-semibold mb-4">9. Children's Privacy</h2>
             <p>
               Our Service is not intended for use by children under the age of 13. We do not knowingly collect personal 
               information from children under 13. If we become aware that we have collected personal information from a 
@@ -228,10 +263,10 @@ export default function PrivacyPolicy() {
           </section>
 
           <section className="mb-8">
-            <h2 className="text-2xl font-semibold mb-4">9. California Privacy Rights (CCPA)</h2>
+            <h2 className="text-2xl font-semibold mb-4">10. California Privacy Rights (CCPA)</h2>
             <p>If you are a California resident, you have additional rights under the California Consumer Privacy Act (CCPA):</p>
             
-            <h3 className="text-xl font-semibold mb-2">9.1 Right to Know</h3>
+            <h3 className="text-xl font-semibold mb-2">10.1 Right to Know</h3>
             <p>You have the right to request that we disclose:</p>
             <ul className="list-disc ml-6 mt-2">
               <li>The categories of personal information we have collected about you</li>
@@ -241,27 +276,27 @@ export default function PrivacyPolicy() {
               <li>The specific pieces of personal information we have collected about you</li>
             </ul>
 
-            <h3 className="text-xl font-semibold mb-2 mt-4">9.2 Right to Delete</h3>
+            <h3 className="text-xl font-semibold mb-2 mt-4">10.2 Right to Delete</h3>
             <p>
               You have the right to request that we delete your personal information, subject to certain exceptions.
             </p>
 
-            <h3 className="text-xl font-semibold mb-2 mt-4">9.3 Right to Non-Discrimination</h3>
+            <h3 className="text-xl font-semibold mb-2 mt-4">10.3 Right to Non-Discrimination</h3>
             <p>
               We will not discriminate against you for exercising any of your CCPA rights.
             </p>
 
-            <h3 className="text-xl font-semibold mb-2 mt-4">9.4 Sale of Personal Information</h3>
+            <h3 className="text-xl font-semibold mb-2 mt-4">10.4 Sale of Personal Information</h3>
             <p className="font-semibold">
               We do not sell your personal information to third parties.
             </p>
           </section>
 
           <section className="mb-8">
-            <h2 className="text-2xl font-semibold mb-4">10. European Privacy Rights (GDPR)</h2>
+            <h2 className="text-2xl font-semibold mb-4">11. European Privacy Rights (GDPR)</h2>
             <p>If you are in the European Economic Area (EEA), you have additional rights under the General Data Protection Regulation (GDPR):</p>
             
-            <h3 className="text-xl font-semibold mb-2">10.1 Legal Basis for Processing</h3>
+            <h3 className="text-xl font-semibold mb-2">11.1 Legal Basis for Processing</h3>
             <p>We process your personal information based on the following legal grounds:</p>
             <ul className="list-disc ml-6 mt-2">
               <li><strong>Consent:</strong> You have given consent for processing</li>
@@ -270,13 +305,13 @@ export default function PrivacyPolicy() {
               <li><strong>Legitimate interests:</strong> Processing is necessary for our legitimate interests</li>
             </ul>
 
-            <h3 className="text-xl font-semibold mb-2 mt-4">10.2 Data Protection Officer</h3>
+            <h3 className="text-xl font-semibold mb-2 mt-4">11.2 Data Protection Officer</h3>
             <p>
               For questions about our privacy practices or to exercise your rights, you can contact our Data Protection 
               Officer at hello@liveprompt.ai.
             </p>
 
-            <h3 className="text-xl font-semibold mb-2 mt-4">10.3 Right to Lodge a Complaint</h3>
+            <h3 className="text-xl font-semibold mb-2 mt-4">11.3 Right to Lodge a Complaint</h3>
             <p>
               You have the right to lodge a complaint with your local supervisory authority if you believe we have 
               violated your privacy rights.
@@ -284,7 +319,7 @@ export default function PrivacyPolicy() {
           </section>
 
           <section className="mb-8">
-            <h2 className="text-2xl font-semibold mb-4">11. Third-Party Links</h2>
+            <h2 className="text-2xl font-semibold mb-4">12. Third-Party Links</h2>
             <p>
               Our Service may contain links to third-party websites or services that are not owned or controlled by us. 
               We have no control over and assume no responsibility for the content, privacy policies, or practices of 
@@ -294,7 +329,7 @@ export default function PrivacyPolicy() {
           </section>
 
           <section className="mb-8">
-            <h2 className="text-2xl font-semibold mb-4">12. Changes to This Privacy Policy</h2>
+            <h2 className="text-2xl font-semibold mb-4">13. Changes to This Privacy Policy</h2>
             <p>
               We may update our Privacy Policy from time to time. We will notify you of any changes by posting the new 
               Privacy Policy on this page and updating the "Last Updated" date. For material changes, we will provide 
@@ -307,7 +342,7 @@ export default function PrivacyPolicy() {
           </section>
 
           <section className="mb-12">
-            <h2 className="text-2xl font-semibold mb-4">13. Contact Information</h2>
+            <h2 className="text-2xl font-semibold mb-4">14. Contact Information</h2>
             <p>
               If you have any questions about this Privacy Policy or our privacy practices, please contact us at:
             </p>
