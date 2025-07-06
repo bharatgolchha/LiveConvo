@@ -46,6 +46,7 @@ import dynamic from 'next/dynamic';
 const DashboardHeader = dynamic(() => import('@/components/dashboard/DashboardHeader'));
 const DashboardSidebar = dynamic(() => import('@/components/dashboard/DashboardSidebar'));
 const UpcomingMeetingsSidebar = dynamic(() => import('@/components/dashboard/UpcomingMeetingsSidebar').then(mod => ({ default: mod.UpcomingMeetingsSidebar })));
+const CalendarConnectionBanner = dynamic(() => import('@/components/calendar/CalendarConnectionBanner').then(mod => ({ default: mod.CalendarConnectionBanner })));
 
 // Newly extracted components (loaded lazily to reduce initial JS)
 const ConversationInboxItem = dynamic(() => import('@/components/dashboard/ConversationInboxItem'));
@@ -687,6 +688,10 @@ const DashboardPage: React.FC = () => {
               </motion.div>
             )}
 
+            {/* Calendar Connection Banner */}
+            {activePath === 'conversations' && (
+              <CalendarConnectionBanner />
+            )}
 
             {/* Main Content */}
             {activePath === 'settings' ? (
