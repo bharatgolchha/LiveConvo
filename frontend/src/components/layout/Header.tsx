@@ -16,11 +16,11 @@ interface NavItem {
 }
 
 const primaryNavItems: NavItem[] = [
-  {
-    label: 'Solutions',
-    dropdown: true,
-    component: <UseCasesDropdown />
-  },
+  // {
+  //   label: 'Solutions',
+  //   dropdown: true,
+  //   component: <UseCasesDropdown />
+  // },
   {
     label: 'Pricing',
     href: '/pricing'

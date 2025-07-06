@@ -406,7 +406,7 @@ export function TabbedReport({ report, activeTab, setActiveTab, handleManualFina
                       {participant.commitments && participant.commitments.length > 0 && (
                         <div className="mt-3 pt-3 border-t border-border">
                           <p className="text-xs font-medium text-muted-foreground mb-1">Commitments:</p>
-                          <p className="text-sm text-accent-foreground">
+                          <p className="text-sm text-foreground">
                             {participant.commitments[0].commitment || participant.commitments[0]}
                           </p>
                         </div>

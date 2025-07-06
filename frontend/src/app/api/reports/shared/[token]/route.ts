@@ -52,7 +52,7 @@ export async function GET(
       })
       .eq('id', shareRecord.id);
 
-    // Get session data
+    // Get session data with transcripts for analytics
     const { data: session, error: sessionError } = await supabase
       .from('sessions')
       .select(`
@@ -63,6 +63,11 @@ export async function GET(
         created_at,
         participant_me,
         participant_them,
+        total_words_spoken,
+        transcripts (
+          speaker,
+          content
+        ),
         summaries (
           id,
           tldr,
@@ -104,16 +109,89 @@ export async function GET(
       }
     }
 
+    // Extract unique participants from transcripts
+    const uniqueSpeakers = new Set<string>();
+    
+    // Add session participants if they exist
+    if (session.participant_me && session.participant_me !== 'You') {
+      uniqueSpeakers.add(session.participant_me);
+    }
+    if (session.participant_them && session.participant_them !== 'Participant' && session.participant_them !== 'Participants') {
+      uniqueSpeakers.add(session.participant_them);
+    }
+    
+    // Add speakers from transcripts
+    session.transcripts?.forEach((t: any) => {
+      if (t.speaker && t.speaker.trim() !== '') {
+        uniqueSpeakers.add(t.speaker);
+      }
+    });
+
+    // Convert to array and create participant objects
+    const participantsList = Array.from(uniqueSpeakers)
+      .sort()
+      .map(name => ({
+        name,
+        initials: getInitials(name),
+        color: getColorForName(name)
+      }));
+
+    // Calculate word count and speaking time analytics
+    const wordCount = session.total_words_spoken || 
+                     (session.transcripts?.reduce((total: number, t: any) => 
+                       total + (t.content?.split(' ').length || 0), 0) || 0);
+
+    // Calculate speaking time from transcript data
+    const speakingTime = (() => {
+      if (!session.transcripts?.length) {
+        return { me: 50, them: 50 };
+      }
+      
+      const speakingStats = session.transcripts.reduce((stats: Record<string, number>, transcript: any) => {
+        const speaker = transcript.speaker;
+        const wordCount = transcript.content?.split(' ').length || 0;
+        
+        if (!stats[speaker]) {
+          stats[speaker] = 0;
+        }
+        stats[speaker] += wordCount;
+        return stats;
+      }, {});
+      
+      const totalWords = Object.values(speakingStats).reduce((sum: number, count) => sum + (count as number), 0);
+      const speakers = Object.keys(speakingStats);
+      
+      if (speakers.length === 2 && totalWords > 0) {
+        const speaker1 = speakers[0];
+        const speaker2 = speakers[1];
+        const speaker1Percentage = Math.round((speakingStats[speaker1] / totalWords) * 100);
+        const speaker2Percentage = 100 - speaker1Percentage;
+        
+        // Determine which speaker is "me" vs "them" based on session participant data
+        const participantMeName = session.participant_me || 'You';
+        const meIsFirstSpeaker = speaker1 === participantMeName;
+        return {
+          me: meIsFirstSpeaker ? speaker1Percentage : speaker2Percentage,
+          them: meIsFirstSpeaker ? speaker2Percentage : speaker1Percentage
+        };
+      }
+      
+      return { me: 50, them: 50 };
+    })();
+
     // Build filtered report data
     const filteredReport = {
       id: session.id,
       title: session.title,
       type: session.conversation_type,
       duration: session.recording_duration_seconds,
+      wordCount: wordCount,
+      speakingTime: speakingTime,
       participants: {
         me: session.participant_me || 'Participant 1',
         them: session.participant_them || 'Participant 2'
       },
+      participantsList: participantsList,
       createdAt: session.created_at,
       sharedBy: userData?.full_name || 'Anonymous',
       shareMessage: shareRecord.message,
@@ -168,4 +246,37 @@ export async function GET(
       { status: 500 }
     );
   }
+}
+
+function getInitials(name: string): string {
+  const words = name.trim().split(' ').filter(w => w.length > 0);
+  if (words.length === 0) return '??';
+  if (words.length === 1) {
+    return words[0].substring(0, 2).toUpperCase();
+  }
+  // Get first letter of first and last name
+  return (words[0][0] + words[words.length - 1][0]).toUpperCase();
+}
+
+function getColorForName(name: string): string {
+  // Generate a consistent color based on the name using theme colors
+  const colors = [
+    'bg-primary',
+    'bg-secondary',
+    'bg-accent',
+    'bg-blue-500',
+    'bg-green-500',
+    'bg-purple-500',
+    'bg-pink-500',
+    'bg-indigo-500',
+    'bg-teal-500',
+    'bg-orange-500'
+  ];
+  
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) {
+    hash = name.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  
+  return colors[Math.abs(hash) % colors.length];
 }

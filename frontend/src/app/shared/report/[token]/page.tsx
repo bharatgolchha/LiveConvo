@@ -16,8 +16,32 @@ import { ThemeToggle } from '@/components/ui/ThemeToggle';
 import { Button } from '@/components/ui/Button';
 import { CollaborationPanel } from '@/components/collaboration/CollaborationPanel';
 
+interface Participant {
+  name: string;
+  initials: string;
+  color: string;
+}
+
 interface SharedReportData {
-  report: any;
+  report: {
+    id: string;
+    title: string;
+    type: string;
+    duration: number;
+    wordCount?: number;
+    speakingTime?: { me: number; them: number };
+    participants: {
+      me: string;
+      them: string;
+    };
+    participantsList?: Participant[];
+    createdAt: string;
+    sharedBy: string;
+    shareMessage?: string;
+    expiresAt?: string;
+    allowedTabs: string[];
+    summary: any;
+  };
   isShared: boolean;
 }
 
@@ -194,10 +218,22 @@ export default function SharedReportPage() {
                     <Clock className="w-3 h-3" />
                     {formatDuration(report.duration)}
                   </span>
-                  <span className="flex items-center gap-1">
-                    <Users className="w-3 h-3" />
-                    {report.participants.me} & {report.participants.them}
-                  </span>
+                  {report.participantsList && report.participantsList.length > 0 ? (
+                    <div className="flex items-center gap-2">
+                      <Users className="w-3 h-3" />
+                      {report.participantsList.map((participant, index) => (
+                        <span key={index} className="flex items-center gap-1">
+                          {index > 0 && <span className="text-muted-foreground">&</span>}
+                          <span>{participant.name}</span>
+                        </span>
+                      ))}
+                    </div>
+                  ) : (
+                    <span className="flex items-center gap-1">
+                      <Users className="w-3 h-3" />
+                      {report.participants.me} & {report.participants.them}
+                    </span>
+                  )}
                   <span className="flex items-center gap-1">
                     <Calendar className="w-3 h-3" />
                     {formatDate(report.createdAt)}
@@ -214,8 +250,8 @@ export default function SharedReportPage() {
             report={{
               ...report,
               analytics: {
-                wordCount: 0,
-                speakingTime: { me: 50, them: 50 },
+                wordCount: report.wordCount || 0,
+                speakingTime: report.speakingTime || { me: 50, them: 50 },
                 sentiment: 'neutral'
               }
             }}

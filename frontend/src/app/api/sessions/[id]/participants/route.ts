@@ -6,10 +6,11 @@ export const dynamic = 'force-dynamic';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
-  const sessionId = params.id;
-  const authHeader = headers().get('authorization');
+  const { id: sessionId } = await params;
+  const headersList = await headers();
+  const authHeader = headersList.get('authorization');
 
   try {
     const token = authHeader?.replace('Bearer ', '');
