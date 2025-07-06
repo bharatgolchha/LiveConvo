@@ -343,14 +343,27 @@ export class RecallSessionManager {
       }
       
       // Prepare metadata with user and organization info
-      const metadata = {
-        userEmail: (existingSession as any)?.users?.email,
-        userName: (existingSession as any)?.users?.full_name,
-        organizationId: existingSession?.organization_id,
-        organizationName: (existingSession as any)?.organizations?.name,
-        meetingTitle: existingSession?.title,
-        platform: platform || undefined,
-      };
+      // Ensure all metadata values are strings as required by Recall.ai API
+      const metadata: Record<string, string> = {};
+      
+      if ((existingSession as any)?.users?.email) {
+        metadata.userEmail = String((existingSession as any).users.email);
+      }
+      if ((existingSession as any)?.users?.full_name) {
+        metadata.userName = String((existingSession as any).users.full_name);
+      }
+      if (existingSession?.organization_id) {
+        metadata.organizationId = String(existingSession.organization_id);
+      }
+      if ((existingSession as any)?.organizations?.name) {
+        metadata.organizationName = String((existingSession as any).organizations.name);
+      }
+      if (existingSession?.title) {
+        metadata.meetingTitle = String(existingSession.title);
+      }
+      if (platform) {
+        metadata.platform = String(platform);
+      }
       
       bot = await this.recallClient.createBot({
         meetingUrl: meetingUrl,

@@ -106,7 +106,7 @@ export class RecallAIClient {
       meeting_url: params.meetingUrl,
       bot_name: params.botName || 'LivePrompt Assistant',
       metadata: {
-        session_id: params.sessionId,
+        session_id: String(params.sessionId),
         source: 'liveprompt',
         ...(params.metadata || {}),
       },
