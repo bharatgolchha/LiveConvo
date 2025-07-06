@@ -40,8 +40,25 @@ export default function AuthCallbackPage() {
           }
         }
 
-        // User is approved, proceed to dashboard
-        router.replace('/dashboard')
+        // Check if user has completed onboarding
+        const { data: userData, error: userError } = await supabase
+          .from('users')
+          .select('has_completed_onboarding')
+          .eq('id', session.user.id)
+          .single()
+
+        if (userError) {
+          console.error('Error fetching user data:', userError)
+          router.replace('/dashboard')
+          return
+        }
+
+        // Redirect based on onboarding status
+        if (userData?.has_completed_onboarding) {
+          router.replace('/dashboard')
+        } else {
+          router.replace('/onboarding')
+        }
       } catch (error) {
         console.error('Callback error:', error)
         router.replace('/auth/login?error=Authentication failed')
