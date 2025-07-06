@@ -120,7 +120,9 @@ export async function POST(request: NextRequest) {
     }
 
     // Generate share URL
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || request.headers.get('origin') || 'http://localhost:3000';
+    const origin = request.headers.get('origin') || 'http://localhost:3000';
+    const isProduction = origin.includes('liveprompt.ai') || process.env.NODE_ENV === 'production';
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || (isProduction ? 'https://liveprompt.ai' : origin);
     const shareUrl = `${baseUrl}/shared/report/${shareToken}`;
 
     return NextResponse.json({
