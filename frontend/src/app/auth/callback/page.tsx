@@ -10,11 +10,6 @@ export default function AuthCallbackPage() {
   useEffect(() => {
     const handleAuth = async () => {
       try {
-        console.log('Auth callback page loaded')
-        console.log('Current URL:', window.location.href)
-        console.log('Hash:', window.location.hash)
-        console.log('Search params:', window.location.search)
-        
         // Small delay to ensure Supabase has processed the auth callback
         await new Promise(resolve => setTimeout(resolve, 1000))
         
@@ -22,8 +17,10 @@ export default function AuthCallbackPage() {
         const hashParams = new URLSearchParams(window.location.hash.substring(1))
         const searchParams = new URLSearchParams(window.location.search)
         
-        console.log('Hash params:', Object.fromEntries(hashParams))
-        console.log('Search params:', Object.fromEntries(searchParams))
+        // Clear sensitive data from URL immediately after reading
+        if (window.location.hash.includes('access_token')) {
+          window.history.replaceState(null, '', window.location.pathname)
+        }
         
         // Check for error in URL parameters
         const error_description = hashParams.get('error_description') || searchParams.get('error_description')
@@ -34,9 +31,7 @@ export default function AuthCallbackPage() {
         }
 
         // Get the current session
-        console.log('Getting session...')
         const { data: { session }, error } = await supabase.auth.getSession()
-        console.log('Session result:', { session: !!session, error })
         
         if (error) {
           console.error('Auth error:', error)

@@ -37,7 +37,7 @@ export default function LandingPage() {
     );
     
     if (isAuthCallback) {
-      console.log('Auth callback detected on home page, redirecting to callback handler');
+      // Redirect to callback handler without logging sensitive data
       router.replace(`/auth/callback${hash}`);
     }
   }, [router]);
