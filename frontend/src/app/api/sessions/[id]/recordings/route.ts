@@ -81,8 +81,8 @@ export async function GET(
                      new Date(botRecording.started_at).getTime()) / 1000
                   )
                 : null,
-              bot_name: bot.bot_name || 'LivePrompt Assistant',
-              created_at: botRecording.created_at || session.created_at
+              bot_name: 'LivePrompt Assistant',
+              created_at: botRecording.started_at || session.created_at
             };
           });
 
