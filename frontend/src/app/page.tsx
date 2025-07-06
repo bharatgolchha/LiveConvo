@@ -20,17 +20,11 @@ import {
 import SeoJsonLd from '@/components/SeoJsonLd';
 import { Header } from '@/components/layout/Header';
 import { Button } from '@/components/ui/Button';
+import { LandingAuthSection } from '@/components/landing/LandingAuthSection';
 
 export default function LandingPage() {
   const router = useRouter();
   const [expandedFaq, setExpandedFaq] = useState<number | null>(null);
-  const [formData, setFormData] = useState({
-    name: '',
-    email: '',
-    company: '',
-    useCase: 'sales'
-  });
-  const [isSubmitted, setIsSubmitted] = useState(false);
   const [showFloatingCTA, setShowFloatingCTA] = useState(false);
 
   // Show floating CTA after scrolling
@@ -42,33 +36,6 @@ export default function LandingPage() {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
-  const handleWaitlistSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    try {
-      const response = await fetch('/api/waitlist', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(formData),
-      });
-
-      const result = await response.json();
-
-      if (response.ok) {
-        setIsSubmitted(true);
-      } else {
-        const errorMessage = result.details 
-          ? `${result.error}\n\n${result.details}`
-          : result.error || 'Failed to join waitlist';
-        alert(errorMessage);
-      }
-    } catch (error) {
-      console.error('Error submitting waitlist:', error);
-      alert('Failed to join waitlist. Please try again.');
-    }
-  };
 
   const faqs = [
     {
@@ -106,7 +73,7 @@ export default function LandingPage() {
           <div className="absolute inset-0 bg-background/70" />
           <div className="max-w-4xl mx-auto text-center relative z-10">
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full mb-6 bg-app-success/10 border border-app-success/30">
-              <span className="text-sm font-medium text-app-success">Beta Access Available</span>
+              <span className="text-sm font-medium text-app-success">AI-Powered Conversations</span>
             </div>
             
             <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold mb-6 tracking-tight text-foreground">
@@ -120,24 +87,7 @@ export default function LandingPage() {
               Never miss a critical moment again.
             </p>
             
-            <div className="flex flex-col sm:flex-row gap-4 justify-center mb-12">
-              <Button
-                onClick={() => document.getElementById('waitlist')?.scrollIntoView({ behavior: 'smooth' })}
-                size="lg"
-                className="text-lg px-8 py-6 bg-app-success hover:bg-app-success-light transform hover:scale-105 transition-all duration-200"
-              >
-                Start Free - No Card Required
-                <ArrowRight className="ml-2 w-5 h-5" />
-              </Button>
-              <Button
-                onClick={() => router.push('/auth/login')}
-                variant="secondary"
-                size="lg"
-                className="text-lg px-8 py-6 bg-app-info hover:bg-app-info-light"
-              >
-                Watch 2-Min Demo
-              </Button>
-            </div>
+            <LandingAuthSection variant="hero" className="mb-12" />
 
             <div className="flex items-center justify-center gap-6 text-sm text-muted-foreground">
               <span className="flex items-center gap-2">
@@ -1022,8 +972,8 @@ export default function LandingPage() {
           </div>
         </section>
 
-        {/* Final CTA - Early Access Form */}
-        <section id="waitlist" className="py-20 px-4 sm:px-6 lg:px-8 bg-gradient-to-br from-app-success/20 via-background to-app-success/20">
+        {/* Final CTA - Sign Up Section */}
+        <section id="signup" className="py-20 px-4 sm:px-6 lg:px-8 bg-gradient-to-br from-app-success/20 via-background to-app-success/20">
           <div className="max-w-2xl mx-auto">
             <div className="text-center mb-12">
               <motion.div
@@ -1038,130 +988,10 @@ export default function LandingPage() {
                 <p className="text-xl mb-2 text-muted-foreground">
                   Join 500+ professionals already using AI to win more conversations
                 </p>
-                <p className="text-sm text-muted-foreground">
-                  ⏱️ Setup takes less than 2 minutes • No credit card required
-                </p>
               </motion.div>
             </div>
 
-            {!isSubmitted ? (
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                className="rounded-xl p-8 bg-card/80 border border-border"
-              >
-                <form onSubmit={handleWaitlistSubmit} className="space-y-6">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
-                      <label className="block text-sm font-medium mb-2 text-muted-foreground">
-                        Full Name
-                      </label>
-                      <input
-                        type="text"
-                        required
-                        value={formData.name}
-                        onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                        className="w-full px-4 py-3 rounded-lg bg-muted/50 border border-input text-foreground placeholder:text-muted-foreground transition-colors focus:outline-none focus:ring-2 focus:ring-app-primary focus:border-app-primary"
-                        placeholder="John Smith"
-                      />
-                    </div>
-                    
-                    <div>
-                      <label className="block text-sm font-medium mb-2 text-muted-foreground">
-                        Work Email
-                      </label>
-                      <input
-                        type="email"
-                        required
-                        value={formData.email}
-                        onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                        className="w-full px-4 py-3 rounded-lg bg-muted/50 border border-input text-foreground placeholder:text-muted-foreground transition-colors focus:outline-none focus:ring-2 focus:ring-app-primary focus:border-app-primary"
-                        placeholder="john@company.com"
-                      />
-                    </div>
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium mb-2 text-muted-foreground">
-                      Company
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      value={formData.company}
-                      onChange={(e) => setFormData({ ...formData, company: e.target.value })}
-                      className="w-full px-4 py-3 rounded-lg bg-muted/50 border border-input text-foreground placeholder:text-muted-foreground transition-colors focus:outline-none focus:ring-2 focus:ring-app-primary focus:border-app-primary"
-                      placeholder="Acme Inc."
-                    />
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium mb-2 text-muted-foreground">
-                      Primary Use Case
-                    </label>
-                    <select
-                      value={formData.useCase}
-                      onChange={(e) => setFormData({ ...formData, useCase: e.target.value })}
-                      className="w-full px-4 py-3 rounded-lg bg-muted/50 border border-input text-foreground transition-colors focus:outline-none focus:ring-2 focus:ring-app-primary focus:border-app-primary"
-                    >
-                      <option value="sales">Sales Calls</option>
-                      <option value="consulting">Client Consulting</option>
-                      <option value="hiring">Interviews & Hiring</option>
-                      <option value="support">Customer Support</option>
-                      <option value="other">Other</option>
-                    </select>
-                  </div>
-                  
-                  <Button
-                    type="submit"
-                    size="lg"
-                    className="w-full bg-gradient-to-r from-app-success to-app-success/80 hover:from-app-success-light hover:to-app-success transform hover:scale-[1.02] transition-all duration-200"
-                  >
-                    Get Started Free →
-                  </Button>
-                </form>
-                
-                <div className="mt-8 pt-8 border-t border-border">
-                  <div className="grid grid-cols-3 gap-4 text-center">
-                    <div>
-                      <p className="text-2xl font-bold text-app-success">35%</p>
-                      <p className="text-xs text-muted-foreground">Higher close rate</p>
-                    </div>
-                    <div>
-                      <p className="text-2xl font-bold text-app-info">&lt;2s</p>
-                      <p className="text-xs text-muted-foreground">Response time</p>
-                    </div>
-                    <div>
-                      <p className="text-2xl font-bold text-app-success">2hrs</p>
-                      <p className="text-xs text-muted-foreground">Saved per week</p>
-                    </div>
-                  </div>
-                </div>
-                
-                <p className="text-xs text-center mt-6 text-muted-foreground">
-                  By submitting, you agree to our Terms of Service and Privacy Policy
-                </p>
-              </motion.div>
-            ) : (
-              <motion.div
-                initial={{ opacity: 0, scale: 0.9 }}
-                animate={{ opacity: 1, scale: 1 }}
-                className="text-center rounded-xl p-12 bg-app-info/20 border border-app-info/30"
-              >
-                <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-6 bg-app-info">
-                  <Check className="w-8 h-8 text-white" />
-                </div>
-                <h3 className="text-2xl font-bold mb-4 text-foreground">You're on the list!</h3>
-                <p className="mb-6 text-muted-foreground">
-                  We'll review your application and send an invite to {formData.email} within 3-5 business days.
-                </p>
-                <div className="inline-flex items-center gap-2 text-sm text-app-info">
-                  <Mail className="w-4 h-4" />
-                  <span>Check your inbox for next steps</span>
-                </div>
-              </motion.div>
-            )}
+            <LandingAuthSection variant="cta" />
           </div>
         </section>
 
@@ -1216,10 +1046,11 @@ export default function LandingPage() {
         {showFloatingCTA && (
           <div className="fixed bottom-8 right-8 z-50 transition-all duration-300">
             <Button
-              onClick={() => document.getElementById('waitlist')?.scrollIntoView({ behavior: 'smooth' })}
+              onClick={() => router.push('/auth/signup')}
               className="px-6 py-3 rounded-full shadow-lg bg-app-success hover:bg-app-success-light"
             >
-              Request Access
+              Start Free
+              <ArrowRight className="ml-2 w-4 h-4" />
             </Button>
           </div>
         )}

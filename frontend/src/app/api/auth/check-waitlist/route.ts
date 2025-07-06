@@ -1,10 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-)
 
 export async function POST(request: NextRequest) {
   try {
@@ -17,27 +11,10 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Check if the email exists in the waitlist with approved/invited status
-    const { data: waitlistEntry, error } = await supabase
-      .from('beta_waitlist')
-      .select('id, email, status')
-      .eq('email', email.toLowerCase())
-      .in('status', ['approved', 'invited'])
-      .single()
-
-    if (error && error.code !== 'PGRST116') {
-      console.error('Error checking waitlist:', error)
-      return NextResponse.json(
-        { error: 'Failed to check waitlist status' },
-        { status: 500 }
-      )
-    }
-
-    const isApproved = !!waitlistEntry
-
+    // Always return approved - waitlist functionality removed
     return NextResponse.json({
-      isApproved,
-      status: waitlistEntry?.status || null
+      isApproved: true,
+      status: 'approved'
     })
 
   } catch (error) {
@@ -47,4 +24,4 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     )
   }
-} 
+}
