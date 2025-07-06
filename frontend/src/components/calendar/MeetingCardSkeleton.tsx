@@ -90,7 +90,7 @@ export const MeetingCardSkeleton: React.FC<MeetingCardSkeletonProps> = ({ count 
       <motion.div
         className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/5 to-transparent pointer-events-none"
         animate={{
-          translateX: ['0%', '200%'],
+          x: ['0%', '200%'],
         }}
         transition={{
           repeat: Infinity,
