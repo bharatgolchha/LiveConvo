@@ -17,6 +17,11 @@ import { format, isToday, isTomorrow, isThisWeek, differenceInMinutes } from 'da
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { CalendarEventCard } from '@/components/calendar/CalendarEventCard';
+import { CalendarEmptyState } from '@/components/calendar/CalendarEmptyState';
+import { MeetingCardSkeleton } from '@/components/calendar/MeetingCardSkeleton';
+import { CalendarSyncStatus, CalendarSyncProgress } from '@/components/calendar/CalendarSyncStatus';
+import { CalendarErrorHandler, CalendarError, parseCalendarError } from '@/components/calendar/CalendarErrorHandler';
+import { CalendarQuickActions } from '@/components/calendar/CalendarQuickActions';
 import { useAuth } from '@/contexts/AuthContext';
 import { UpcomingMeeting } from '@/types/calendar';
 
@@ -40,6 +45,13 @@ export const UpcomingMeetingsSidebar: React.FC<UpcomingMeetingsSidebarProps> = (
   const [lastRefreshTime, setLastRefreshTime] = useState<Date | null>(null);
   const [isSyncing, setIsSyncing] = useState(false);
   const [syncStatus, setSyncStatus] = useState<'idle' | 'syncing' | 'success' | 'error'>('idle');
+  const [hasCalendarConnection, setHasCalendarConnection] = useState<boolean | null>(null);
+  const [isConnectingCalendar, setIsConnectingCalendar] = useState(false);
+  const [syncProgress, setSyncProgress] = useState(0);
+  const [syncMessage, setSyncMessage] = useState('');
+  const [calendarError, setCalendarError] = useState<CalendarError | null>(null);
+  const [calendarConnection, setCalendarConnection] = useState<any>(null);
+  const [calendarPreferences, setCalendarPreferences] = useState<any>(null);
 
   const calendarEnabled = process.env.NEXT_PUBLIC_CALENDAR_ENABLED === 'true';
   const AUTO_REFRESH_INTERVAL = 5 * 60 * 1000; // 5 minutes
@@ -57,9 +69,10 @@ export const UpcomingMeetingsSidebar: React.FC<UpcomingMeetingsSidebarProps> = (
     localStorage.setItem('upcomingMeetingsSidebarOpen', isOpen.toString());
   }, [isOpen]);
 
-  // Load meetings
+  // Load meetings and check calendar connection
   useEffect(() => {
     if (session?.access_token && calendarEnabled && isOpen) {
+      checkCalendarConnection();
       loadMeetings();
     }
   }, [session, filter, calendarEnabled, isOpen]);
@@ -85,6 +98,125 @@ export const UpcomingMeetingsSidebar: React.FC<UpcomingMeetingsSidebarProps> = (
     }
   }, [isOpen]);
 
+  const checkCalendarConnection = async () => {
+    try {
+      const headers = {
+        'Authorization': `Bearer ${session?.access_token}`
+      };
+
+      const response = await fetch('/api/calendar/connections', { headers });
+      
+      if (response.ok) {
+        const data = await response.json();
+        const activeConnections = data.connections?.filter((c: any) => c.is_active) || [];
+        setHasCalendarConnection(activeConnections.length > 0);
+        if (activeConnections.length > 0) {
+          setCalendarConnection(activeConnections[0]);
+          // Load preferences
+          loadCalendarPreferences();
+        }
+      }
+    } catch (error) {
+      console.error('Failed to check calendar connection:', error);
+      setHasCalendarConnection(false);
+      const parsedError = parseCalendarError(error);
+      setCalendarError(parsedError);
+    }
+  };
+
+  const handleConnectCalendar = async () => {
+    try {
+      setIsConnectingCalendar(true);
+      
+      const headers = {
+        'Authorization': `Bearer ${session?.access_token}`
+      };
+      
+      const response = await fetch('/api/calendar/auth/google', { headers });
+      
+      if (response.ok) {
+        const data = await response.json();
+        if (data.auth_url) {
+          window.location.href = data.auth_url;
+        }
+      } else {
+        console.error('Failed to get calendar auth URL');
+        setIsConnectingCalendar(false);
+      }
+    } catch (error) {
+      console.error('Failed to connect calendar:', error);
+      setIsConnectingCalendar(false);
+    }
+  };
+
+  const loadCalendarPreferences = async () => {
+    try {
+      const headers = {
+        'Authorization': `Bearer ${session?.access_token}`
+      };
+
+      const response = await fetch('/api/calendar/preferences', { headers });
+      
+      if (response.ok) {
+        const data = await response.json();
+        setCalendarPreferences(data.preferences);
+      }
+    } catch (error) {
+      console.error('Failed to load calendar preferences:', error);
+    }
+  };
+
+  const handleDisconnectCalendar = async () => {
+    if (!calendarConnection) return;
+    
+    try {
+      const headers = {
+        'Authorization': `Bearer ${session?.access_token}`,
+        'Content-Type': 'application/json'
+      };
+
+      const response = await fetch('/api/calendar/connections', {
+        method: 'DELETE',
+        headers,
+        body: JSON.stringify({ connectionId: calendarConnection.id })
+      });
+      
+      if (response.ok) {
+        setHasCalendarConnection(false);
+        setCalendarConnection(null);
+        setMeetings([]);
+      }
+    } catch (error) {
+      console.error('Failed to disconnect calendar:', error);
+      const parsedError = parseCalendarError(error);
+      setCalendarError(parsedError);
+    }
+  };
+
+  const handleUpdatePreferences = async (prefs: any) => {
+    try {
+      const headers = {
+        'Authorization': `Bearer ${session?.access_token}`,
+        'Content-Type': 'application/json'
+      };
+
+      const response = await fetch('/api/calendar/preferences', {
+        method: 'PUT',
+        headers,
+        body: JSON.stringify(prefs)
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        setCalendarPreferences(data.preferences);
+      }
+    } catch (error) {
+      console.error('Failed to update preferences:', error);
+      const parsedError = parseCalendarError(error);
+      setCalendarError(parsedError);
+    }
+  };
+
   const loadMeetings = async () => {
     try {
       setLoading(true);
@@ -101,6 +233,8 @@ export const UpcomingMeetingsSidebar: React.FC<UpcomingMeetingsSidebarProps> = (
       }
     } catch (error) {
       console.error('Failed to load meetings:', error);
+      const parsedError = parseCalendarError(error);
+      setCalendarError(parsedError);
     } finally {
       setLoading(false);
     }
@@ -116,17 +250,25 @@ export const UpcomingMeetingsSidebar: React.FC<UpcomingMeetingsSidebarProps> = (
     try {
       setIsSyncing(true);
       setSyncStatus('syncing');
+      setSyncProgress(0);
+      setSyncMessage('Fetching calendar connections...');
       
       // First, get the calendar connection
       const headers = {
         'Authorization': `Bearer ${session?.access_token}`
       };
       
+      // Simulate progress
+      setSyncProgress(20);
+      
       // Get calendar connections
       const connectionsResponse = await fetch('/api/calendar/connections', { headers });
       if (!connectionsResponse.ok) {
         throw new Error('Failed to get calendar connections');
       }
+      
+      setSyncProgress(40);
+      setSyncMessage('Found calendar connection...');
       
       const { connections } = await connectionsResponse.json();
       if (!connections || connections.length === 0) {
@@ -143,6 +285,9 @@ export const UpcomingMeetingsSidebar: React.FC<UpcomingMeetingsSidebarProps> = (
         return;
       }
       
+      setSyncProgress(60);
+      setSyncMessage('Syncing with Google Calendar...');
+      
       // Use the refresh endpoint to force Recall.ai to sync with Google Calendar
       const refreshResponse = await fetch('/api/calendar/refresh', {
         method: 'POST',
@@ -152,6 +297,8 @@ export const UpcomingMeetingsSidebar: React.FC<UpcomingMeetingsSidebarProps> = (
         },
         body: JSON.stringify({ connectionId: activeConnection.id })
       });
+      
+      setSyncProgress(80);
       
       if (!refreshResponse.ok) {
         // Fallback to regular sync if refresh endpoint doesn't exist
@@ -169,17 +316,32 @@ export const UpcomingMeetingsSidebar: React.FC<UpcomingMeetingsSidebarProps> = (
         }
       }
       
+      setSyncProgress(100);
+      setSyncMessage('Loading updated events...');
       setSyncStatus('success');
       
       // Reload meetings after sync
       await loadMeetings();
       
       // Reset status after 3 seconds
-      setTimeout(() => setSyncStatus('idle'), 3000);
+      setTimeout(() => {
+        setSyncStatus('idle');
+        setSyncProgress(0);
+        setSyncMessage('');
+      }, 3000);
     } catch (error) {
       console.error('Failed to sync calendar:', error);
       setSyncStatus('error');
-      setTimeout(() => setSyncStatus('idle'), 3000);
+      setSyncMessage('Sync failed');
+      
+      const parsedError = parseCalendarError(error);
+      setCalendarError(parsedError);
+      
+      setTimeout(() => {
+        setSyncStatus('idle');
+        setSyncProgress(0);
+        setSyncMessage('');
+      }, 3000);
     } finally {
       setIsSyncing(false);
     }
@@ -270,24 +432,20 @@ export const UpcomingMeetingsSidebar: React.FC<UpcomingMeetingsSidebarProps> = (
                   <h2 className="text-lg font-semibold">Upcoming Meetings</h2>
                 </div>
                 <div className="flex items-center gap-1">
-                  <Button
-                    onClick={handleSyncCalendar}
-                    variant="ghost"
-                    size="sm"
-                    className={`p-1.5 ${
-                      syncStatus === 'success' ? 'text-green-500' : 
-                      syncStatus === 'error' ? 'text-red-500' : ''
-                    }`}
-                    disabled={isSyncing}
-                    title={
-                      isSyncing ? 'Syncing with Google Calendar...' : 
-                      syncStatus === 'success' ? 'Sync successful!' :
-                      syncStatus === 'error' ? 'Sync failed' :
-                      'Sync with Google Calendar'
-                    }
-                  >
-                    <CloudArrowDownIcon className={`w-4 h-4 ${isSyncing ? 'animate-pulse' : ''}`} />
-                  </Button>
+                  <CalendarSyncStatus
+                    status={syncStatus}
+                    onSync={handleSyncCalendar}
+                    isSyncing={isSyncing}
+                    lastSyncTime={lastRefreshTime}
+                  />
+                  {hasCalendarConnection && (
+                    <CalendarQuickActions
+                      connection={calendarConnection}
+                      preferences={calendarPreferences}
+                      onDisconnect={handleDisconnectCalendar}
+                      onUpdatePreferences={handleUpdatePreferences}
+                    />
+                  )}
                   <Button
                     onClick={handleRefresh}
                     variant="ghost"
@@ -345,6 +503,25 @@ export const UpcomingMeetingsSidebar: React.FC<UpcomingMeetingsSidebarProps> = (
               </div>
             </div>
 
+            {/* Sync Progress */}
+            <CalendarSyncProgress
+              isVisible={syncStatus === 'syncing'}
+              progress={syncProgress}
+              message={syncMessage}
+            />
+
+            {/* Error Display */}
+            {calendarError && hasCalendarConnection && (
+              <CalendarErrorHandler
+                error={calendarError}
+                onRetry={() => {
+                  setCalendarError(null);
+                  handleSyncCalendar();
+                }}
+                onDismiss={() => setCalendarError(null)}
+              />
+            )}
+
             {/* Next Meeting Highlight */}
             {nextMeeting && minutesUntilNext !== null && minutesUntilNext <= 15 && minutesUntilNext >= 0 && (
               <motion.div
@@ -366,14 +543,13 @@ export const UpcomingMeetingsSidebar: React.FC<UpcomingMeetingsSidebarProps> = (
 
             {/* Content */}
             <div className="flex-1 overflow-y-auto">
-              {loading ? (
-                <div className="p-4 space-y-3">
-                  {[1, 2, 3].map(i => (
-                    <div key={i} className="animate-pulse">
-                      <div className="h-20 bg-muted/50 rounded-lg"></div>
-                    </div>
-                  ))}
-                </div>
+              {hasCalendarConnection === false ? (
+                <CalendarEmptyState 
+                  onConnectCalendar={handleConnectCalendar}
+                  isConnecting={isConnectingCalendar}
+                />
+              ) : loading ? (
+                <MeetingCardSkeleton count={4} />
               ) : meetings.length === 0 ? (
                 <div className="flex flex-col items-center justify-center h-full p-8 text-center">
                   <CalendarIcon className="w-12 h-12 text-muted-foreground mb-3" />
@@ -416,30 +592,34 @@ export const UpcomingMeetingsSidebar: React.FC<UpcomingMeetingsSidebarProps> = (
 
             {/* Footer */}
             <div className="p-4 border-t border-border">
-              <div className="flex items-center justify-between text-xs text-muted-foreground">
-                <span>
-                  {meetings.length} meeting{meetings.length === 1 ? '' : 's'} scheduled
-                </span>
-                {lastRefreshTime && (
-                  <span title={format(lastRefreshTime, 'PPpp')}>
-                    Updated {format(lastRefreshTime, 'h:mm a')}
-                  </span>
-                )}
-              </div>
-              {filter === 'all' && (
-                <p className="text-xs text-muted-foreground mt-1">
-                  Showing next 30 days
-                </p>
-              )}
-              {syncStatus === 'syncing' && (
-                <p className="text-xs text-muted-foreground mt-1">
-                  Syncing with Google Calendar...
-                </p>
-              )}
-              {meetings.length === 0 && !loading && (
-                <p className="text-xs text-muted-foreground mt-1">
-                  Note: New events may take a few minutes to appear
-                </p>
+              {hasCalendarConnection !== false && (
+                <>
+                  <div className="flex items-center justify-between text-xs text-muted-foreground">
+                    <span>
+                      {meetings.length} meeting{meetings.length === 1 ? '' : 's'} scheduled
+                    </span>
+                    {lastRefreshTime && (
+                      <span title={format(lastRefreshTime, 'PPpp')}>
+                        Updated {format(lastRefreshTime, 'h:mm a')}
+                      </span>
+                    )}
+                  </div>
+                  {filter === 'all' && (
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Showing next 30 days
+                    </p>
+                  )}
+                  {syncStatus === 'syncing' && (
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Syncing with Google Calendar...
+                    </p>
+                  )}
+                  {meetings.length === 0 && !loading && hasCalendarConnection && (
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Note: New events may take a few minutes to appear
+                    </p>
+                  )}
+                </>
               )}
             </div>
           </motion.aside>
