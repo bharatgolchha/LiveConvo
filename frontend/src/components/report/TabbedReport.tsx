@@ -229,7 +229,7 @@ export function TabbedReport({ report, activeTab, setActiveTab, handleManualFina
           <div className="space-y-8">
             {/* Enhanced Quick Stats */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-              <div className="p-6 bg-card/70 backdrop-blur-sm border border-border/50 rounded-lg shadow-md">
+              <div className="p-6 bg-card border border-border rounded-lg shadow-sm">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center">
                     <Clock className="w-5 h-5 text-primary" />
@@ -243,7 +243,7 @@ export function TabbedReport({ report, activeTab, setActiveTab, handleManualFina
                 </div>
               </div>
 
-              <div className="p-6 bg-card/70 backdrop-blur-sm border border-border/50 rounded-lg shadow-md">
+              <div className="p-6 bg-card border border-border rounded-lg shadow-sm">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 bg-secondary/20 rounded-lg flex items-center justify-center">
                     <CheckCircle className="w-5 h-5 text-secondary" />
@@ -257,7 +257,7 @@ export function TabbedReport({ report, activeTab, setActiveTab, handleManualFina
                 </div>
               </div>
 
-              <div className="p-6 bg-card/70 backdrop-blur-sm border border-border/50 rounded-lg shadow-md">
+              <div className="p-6 bg-card border border-border rounded-lg shadow-sm">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 bg-accent/20 rounded-lg flex items-center justify-center">
                     <Target className="w-5 h-5 text-accent-foreground" />
@@ -271,7 +271,7 @@ export function TabbedReport({ report, activeTab, setActiveTab, handleManualFina
                 </div>
               </div>
 
-              <div className="p-6 bg-card/70 backdrop-blur-sm border border-border/50 rounded-lg shadow-md">
+              <div className="p-6 bg-card border border-border rounded-lg shadow-sm">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 bg-primary/15 rounded-lg flex items-center justify-center">
                     <TrendingUp className="w-5 h-5 text-primary" />
@@ -287,7 +287,7 @@ export function TabbedReport({ report, activeTab, setActiveTab, handleManualFina
             </div>
 
             {/* Executive Summary with Key Outcome */}
-            <div className="p-6 bg-card/70 backdrop-blur-sm border border-border/50 rounded-lg shadow-md">
+            <div className="p-6 bg-card border border-border rounded-lg shadow-sm">
               <div className="flex items-center gap-3 mb-4">
                 <div className="w-8 h-8 bg-primary/10 rounded-lg flex items-center justify-center">
                   <FileText className="w-4 h-4 text-primary" />
@@ -377,7 +377,7 @@ export function TabbedReport({ report, activeTab, setActiveTab, handleManualFina
 
             {/* Participant Contributions */}
             {report.summary.participants && report.summary.participants.length > 0 && (
-              <div className="p-6 bg-card/70 backdrop-blur-sm border border-border/50 rounded-lg shadow-md">
+              <div className="p-6 bg-card border border-border rounded-lg shadow-sm">
                 <div className="flex items-center gap-3 mb-4">
                   <div className="w-8 h-8 bg-secondary/20 rounded-lg flex items-center justify-center">
                     <Users className="w-4 h-4 text-secondary" />
@@ -419,7 +419,7 @@ export function TabbedReport({ report, activeTab, setActiveTab, handleManualFina
 
             {/* Conversation Highlights with Quotes */}
             {report.summary.conversationHighlights.length > 0 && (
-              <div className="p-6 bg-card/70 backdrop-blur-sm border border-border/50 rounded-lg shadow-md">
+              <div className="p-6 bg-card border border-border rounded-lg shadow-sm">
                 <div className="flex items-center gap-3 mb-4">
                   <div className="w-8 h-8 bg-secondary/20 rounded-lg flex items-center justify-center">
                     <Star className="w-4 h-4 text-secondary" />
@@ -441,7 +441,7 @@ export function TabbedReport({ report, activeTab, setActiveTab, handleManualFina
 
             {/* Improvement Suggestions (from coaching) */}
             {report.summary.effectivenessScore?.improvements && report.summary.effectivenessScore.improvements.length > 0 && (
-              <div className="p-6 bg-card/70 backdrop-blur-sm border border-border/50 rounded-lg shadow-md">
+              <div className="p-6 bg-card border border-border rounded-lg shadow-sm">
                 <div className="flex items-center gap-3 mb-4">
                   <div className="w-8 h-8 bg-accent/20 rounded-lg flex items-center justify-center">
                     <TrendingUp className="w-4 h-4 text-accent-foreground" />
@@ -450,7 +450,7 @@ export function TabbedReport({ report, activeTab, setActiveTab, handleManualFina
                 </div>
                 <div className="space-y-3">
                   {report.summary.effectivenessScore.improvements.map((improvement: string | { area: string; better?: string; how?: string }, index: number) => (
-                    <div key={index} className="p-3 bg-accent/5 rounded-lg border border-accent/20">
+                    <div key={index} className="p-3 bg-muted/50 dark:bg-muted/30 rounded-lg border border-border">
                       {typeof improvement === 'string' ? (
                         <p className="text-foreground">{improvement}</p>
                       ) : (
@@ -472,7 +472,7 @@ export function TabbedReport({ report, activeTab, setActiveTab, handleManualFina
           <div className="space-y-8">
             {/* Key Decisions with Details */}
             {report.summary.keyDecisions && report.summary.keyDecisions.length > 0 && (
-              <div className="p-6 bg-card/70 backdrop-blur-sm border border-border/50 rounded-lg shadow-md">
+              <div className="p-6 bg-card border border-border rounded-lg shadow-sm">
                 <div className="flex items-center gap-3 mb-4">
                   <div className="w-8 h-8 bg-primary/15 rounded-lg flex items-center justify-center">
                     <CheckCircle className="w-4 h-4 text-primary" />
@@ -524,7 +524,7 @@ export function TabbedReport({ report, activeTab, setActiveTab, handleManualFina
 
             {/* Strategic Insights - Full Width */}
             {report.summary.insights && report.summary.insights.length > 0 && (
-              <div className="p-6 bg-card/70 backdrop-blur-sm border border-border/50 rounded-lg shadow-md">
+              <div className="p-6 bg-card/90 backdrop-blur-sm border border-border rounded-lg shadow-md">
                 <div className="flex items-center gap-3 mb-4">
                   <div className="w-8 h-8 bg-accent/20 rounded-lg flex items-center justify-center">
                     <Lightbulb className="w-4 h-4 text-accent-foreground" />
@@ -538,7 +538,7 @@ export function TabbedReport({ report, activeTab, setActiveTab, handleManualFina
                       : insight;
                     
                     return (
-                      <div key={index} className="p-4 bg-accent/10 rounded-lg border border-accent/20 h-full flex flex-col">
+                      <div key={index} className="p-4 bg-card border border-border rounded-lg h-full flex flex-col">
                         <p className="text-foreground font-medium mb-2">
                           {insightObj.observation}
                         </p>
@@ -553,12 +553,12 @@ export function TabbedReport({ report, activeTab, setActiveTab, handleManualFina
                         )}
                         {insightObj.implications && (
                           <p className="text-sm text-muted-foreground mb-2">
-                            <span className="font-medium">Impact:</span> {insightObj.implications}
+                            <span className="font-medium text-foreground">Impact:</span> {insightObj.implications}
                           </p>
                         )}
                         {insightObj.recommendation && (
-                          <div className="mt-2 p-2 bg-accent/5 rounded">
-                            <p className="text-sm text-accent-foreground font-medium">
+                          <div className="mt-2 p-2 bg-primary/10 dark:bg-primary/5 rounded border border-primary/20">
+                            <p className="text-sm text-primary dark:text-primary font-medium">
                               → {insightObj.recommendation}
                             </p>
                             {insightObj.owner && (
@@ -579,7 +579,7 @@ export function TabbedReport({ report, activeTab, setActiveTab, handleManualFina
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
               {/* Important Numbers & Metrics */}
               {report.summary.important_numbers && report.summary.important_numbers.length > 0 && (
-                <div className="p-6 bg-card/70 backdrop-blur-sm border border-border/50 rounded-lg shadow-md">
+                <div className="p-6 bg-card/90 backdrop-blur-sm border border-border rounded-lg shadow-md">
                   <div className="flex items-center gap-3 mb-4">
                     <div className="w-8 h-8 bg-secondary/20 rounded-lg flex items-center justify-center">
                       <BarChart3 className="w-4 h-4 text-secondary" />
@@ -588,10 +588,10 @@ export function TabbedReport({ report, activeTab, setActiveTab, handleManualFina
                   </div>
                   <div className="space-y-3">
                     {report.summary.important_numbers.map((metric: any, index: number) => (
-                      <div key={index} className="p-3 bg-secondary/10 rounded-lg border border-secondary/20">
+                      <div key={index} className="p-3 bg-muted/50 dark:bg-muted/30 rounded-lg border border-border">
                         <div className="flex items-center justify-between mb-1">
-                          <span className="text-sm font-medium text-muted-foreground">{metric.metric}</span>
-                          <span className="text-lg font-bold text-foreground">{metric.value}</span>
+                          <span className="text-sm font-medium text-foreground">{metric.metric}</span>
+                          <span className="text-lg font-bold text-primary">{metric.value}</span>
                         </div>
                         <p className="text-sm text-muted-foreground">{metric.context}</p>
                         {metric.speaker && (
@@ -606,7 +606,7 @@ export function TabbedReport({ report, activeTab, setActiveTab, handleManualFina
 
             {/* Quotable Quotes */}
             {report.summary.quotable_quotes && report.summary.quotable_quotes.length > 0 && (
-              <div className="p-6 bg-card/70 backdrop-blur-sm border border-border/50 rounded-lg shadow-md">
+              <div className="p-6 bg-card/90 backdrop-blur-sm border border-border rounded-lg shadow-md">
                 <div className="flex items-center gap-3 mb-4">
                   <div className="w-8 h-8 bg-primary/15 rounded-lg flex items-center justify-center">
                     <MessageSquare className="w-4 h-4 text-primary" />
@@ -615,7 +615,7 @@ export function TabbedReport({ report, activeTab, setActiveTab, handleManualFina
                 </div>
                 <div className="space-y-4">
                   {report.summary.quotable_quotes.map((quote: any, index: number) => (
-                    <div key={index} className="p-4 bg-muted/30 rounded-lg border border-border">
+                    <div key={index} className="p-4 bg-muted/50 dark:bg-muted/30 rounded-lg border border-border">
                       <p className="text-foreground italic mb-2">"{quote.quote}"</p>
                       <div className="flex items-center justify-between">
                         <p className="text-sm text-muted-foreground">— {quote.speaker}</p>
@@ -624,7 +624,7 @@ export function TabbedReport({ report, activeTab, setActiveTab, handleManualFina
                         )}
                       </div>
                       {quote.impact && (
-                        <p className="text-sm text-accent-foreground mt-2">
+                        <p className="text-sm text-primary mt-2 font-medium">
                           Impact: {quote.impact}
                         </p>
                       )}
@@ -636,7 +636,7 @@ export function TabbedReport({ report, activeTab, setActiveTab, handleManualFina
 
             {/* Follow-up Questions */}
             {report.summary.followUpQuestions && report.summary.followUpQuestions.length > 0 && (
-              <div className="p-6 bg-card/70 backdrop-blur-sm border border-border/50 rounded-lg shadow-md">
+              <div className="p-6 bg-card/90 backdrop-blur-sm border border-border rounded-lg shadow-md">
                 <div className="flex items-center gap-3 mb-4">
                   <div className="w-8 h-8 bg-accent/20 rounded-lg flex items-center justify-center">
                     <MessageSquare className="w-4 h-4 text-accent-foreground" />
@@ -645,8 +645,8 @@ export function TabbedReport({ report, activeTab, setActiveTab, handleManualFina
                 </div>
                 <div className="space-y-2">
                   {report.summary.followUpQuestions.map((question: string | { question?: string; text?: string }, index: number) => (
-                    <div key={index} className="flex items-start gap-2 p-3 bg-accent/10 rounded-lg border border-accent/20">
-                      <span className="text-accent font-bold">?</span>
+                    <div key={index} className="flex items-start gap-2 p-3 bg-muted/50 dark:bg-muted/30 rounded-lg border border-border">
+                      <span className="text-accent-foreground font-bold">?</span>
                       <p className="text-foreground text-sm">
                         {typeof question === 'string' 
                           ? question 
@@ -665,7 +665,7 @@ export function TabbedReport({ report, activeTab, setActiveTab, handleManualFina
           <div className="space-y-6">
             {/* Filter Bar */}
             {report.summary.actionItems.length > 0 && (
-              <div className="p-4 bg-card/70 backdrop-blur-sm border border-border/50 rounded-lg shadow-sm">
+              <div className="p-4 bg-card border border-border rounded-lg shadow-sm">
                 <div className="flex items-center justify-between mb-3">
                   <h3 className="text-sm font-medium text-foreground flex items-center gap-2">
                     <Filter className="w-4 h-4" />
@@ -730,7 +730,7 @@ export function TabbedReport({ report, activeTab, setActiveTab, handleManualFina
             {filteredActionItems.length > 0 ? (
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                 {filteredActionItems.map((item: any, index: number) => (
-                  <div key={index} className="p-6 bg-card/70 backdrop-blur-sm border border-border/50 rounded-lg shadow-md">
+                  <div key={index} className="p-6 bg-card border border-border rounded-lg shadow-sm">
                     <div className="flex items-start gap-3">
                       <div className="w-8 h-8 bg-accent rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
                         <span className="text-accent-foreground text-sm font-bold">✓</span>
@@ -791,7 +791,7 @@ export function TabbedReport({ report, activeTab, setActiveTab, handleManualFina
           <div className="space-y-8">
             {/* Enhanced Meeting Effectiveness */}
             {report.summary.effectivenessScore && (
-              <div className="p-6 bg-card/70 backdrop-blur-sm border border-border/50 rounded-lg shadow-md">
+              <div className="p-6 bg-card border border-border rounded-lg shadow-sm">
                 <div className="flex items-center gap-3 mb-6">
                   <div className="w-8 h-8 bg-primary/15 rounded-lg flex items-center justify-center">
                     <Award className="w-4 h-4 text-primary" />
@@ -862,7 +862,7 @@ export function TabbedReport({ report, activeTab, setActiveTab, handleManualFina
             {/* Communication Analytics */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
               {/* Speaking Time Analysis */}
-              <div className="p-6 bg-card/70 backdrop-blur-sm border border-border/50 rounded-lg shadow-md">
+              <div className="p-6 bg-card border border-border rounded-lg shadow-sm">
                 <div className="flex items-center gap-3 mb-4">
                   <div className="w-8 h-8 bg-secondary/20 rounded-lg flex items-center justify-center">
                     <MessageSquare className="w-4 h-4 text-secondary" />
@@ -920,7 +920,7 @@ export function TabbedReport({ report, activeTab, setActiveTab, handleManualFina
               </div>
               
               {/* Meeting Stats */}
-              <div className="p-6 bg-card/70 backdrop-blur-sm border border-border/50 rounded-lg shadow-md">
+              <div className="p-6 bg-card border border-border rounded-lg shadow-sm">
                 <div className="flex items-center gap-3 mb-4">
                   <div className="w-8 h-8 bg-accent/20 rounded-lg flex items-center justify-center">
                     <BarChart3 className="w-4 h-4 text-accent-foreground" />
@@ -956,7 +956,7 @@ export function TabbedReport({ report, activeTab, setActiveTab, handleManualFina
             
             {/* Conversation Flow */}
             {report.summary.conversation_flow && report.summary.conversation_flow.timeline && (
-              <div className="p-6 bg-card/70 backdrop-blur-sm border border-border/50 rounded-lg shadow-md">
+              <div className="p-6 bg-card border border-border rounded-lg shadow-sm">
                 <div className="flex items-center gap-3 mb-4">
                   <div className="w-8 h-8 bg-primary/15 rounded-lg flex items-center justify-center">
                     <Clock className="w-4 h-4 text-primary" />
@@ -996,7 +996,7 @@ export function TabbedReport({ report, activeTab, setActiveTab, handleManualFina
 
             {/* Performance Recommendations (from coaching) */}
             {(report.summary.effectivenessScore?.improvements || report.summary.coaching_recommendations) && (
-              <div className="p-6 bg-card/70 backdrop-blur-sm border border-border/50 rounded-lg shadow-md">
+              <div className="p-6 bg-card border border-border rounded-lg shadow-sm">
                 <div className="flex items-center gap-3 mb-4">
                   <div className="w-8 h-8 bg-accent/20 rounded-lg flex items-center justify-center">
                     <TrendingUp className="w-4 h-4 text-accent-foreground" />
@@ -1007,15 +1007,15 @@ export function TabbedReport({ report, activeTab, setActiveTab, handleManualFina
                   {(report.summary.effectivenessScore?.improvements || report.summary.coaching_recommendations || []).map((rec: string | { area: string; better?: string; suggestion?: string; how?: string }, index: number) => {
                     const recObj = typeof rec === 'string' ? { area: 'General', better: rec } : rec;
                     return (
-                      <div key={index} className="p-4 bg-accent/5 rounded-lg border border-accent/20">
+                      <div key={index} className="p-4 bg-muted/50 dark:bg-muted/30 rounded-lg border border-border">
                         {recObj.area && (
                           <h4 className="font-medium text-foreground mb-2">{recObj.area}</h4>
                         )}
-                        <p className="text-sm text-muted-foreground mb-2">
+                        <p className="text-sm text-foreground mb-2">
                           {recObj.better || recObj.suggestion || (typeof rec === 'string' ? rec : JSON.stringify(rec))}
                         </p>
                         {recObj.how && (
-                          <p className="text-sm text-accent-foreground">
+                          <p className="text-sm text-primary">
                             <span className="font-medium">How:</span> {recObj.how}
                           </p>
                         )}
@@ -1067,7 +1067,7 @@ export function TabbedReport({ report, activeTab, setActiveTab, handleManualFina
             
             {/* Follow-up Strategy if available */}
             {report.summary.follow_up_strategy && (
-              <div className="p-6 bg-card/70 backdrop-blur-sm border border-border/50 rounded-lg shadow-md">
+              <div className="p-6 bg-card border border-border rounded-lg shadow-sm">
                 <div className="flex items-center gap-3 mb-4">
                   <div className="w-8 h-8 bg-secondary/20 rounded-lg flex items-center justify-center">
                     <Calendar className="w-4 h-4 text-secondary" />
@@ -1080,7 +1080,7 @@ export function TabbedReport({ report, activeTab, setActiveTab, handleManualFina
                       <h4 className="text-sm font-medium text-muted-foreground mb-2">Within 24 Hours</h4>
                       <div className="space-y-2">
                         {report.summary.follow_up_strategy.immediate_actions.map((action: string, index: number) => (
-                          <div key={index} className="flex items-start gap-2 p-2 bg-primary/5 rounded-lg">
+                          <div key={index} className="flex items-start gap-2 p-2 bg-muted/50 dark:bg-muted/30 rounded-lg border border-border">
                             <CheckCircle className="w-4 h-4 text-primary mt-0.5" />
                             <p className="text-sm text-foreground">{action}</p>
                           </div>
@@ -1093,7 +1093,7 @@ export function TabbedReport({ report, activeTab, setActiveTab, handleManualFina
                       <h4 className="text-sm font-medium text-muted-foreground mb-2">This Week</h4>
                       <div className="space-y-2">
                         {report.summary.follow_up_strategy.short_term.map((action: string, index: number) => (
-                          <div key={index} className="flex items-start gap-2 p-2 bg-accent/5 rounded-lg">
+                          <div key={index} className="flex items-start gap-2 p-2 bg-muted/50 dark:bg-muted/30 rounded-lg border border-border">
                             <Target className="w-4 h-4 text-accent-foreground mt-0.5" />
                             <p className="text-sm text-foreground">{action}</p>
                           </div>
@@ -1106,7 +1106,7 @@ export function TabbedReport({ report, activeTab, setActiveTab, handleManualFina
                       <h4 className="text-sm font-medium text-muted-foreground mb-2">This Month</h4>
                       <div className="space-y-2">
                         {report.summary.follow_up_strategy.long_term.map((action: string, index: number) => (
-                          <div key={index} className="flex items-start gap-2 p-2 bg-secondary/5 rounded-lg">
+                          <div key={index} className="flex items-start gap-2 p-2 bg-muted/50 dark:bg-muted/30 rounded-lg border border-border">
                             <TrendingUp className="w-4 h-4 text-secondary mt-0.5" />
                             <p className="text-sm text-foreground">{action}</p>
                           </div>

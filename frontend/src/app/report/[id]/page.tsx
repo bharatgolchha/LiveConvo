@@ -30,6 +30,7 @@ import { ReportGenerationProgress } from '@/components/report/ReportGenerationPr
 import { ThemeToggle } from '@/components/ui/ThemeToggle';
 import { ShareReportModal } from '@/components/report/ShareReportModal';
 import { CollaborationPanel } from '@/components/collaboration/CollaborationPanel';
+import { ParticipantsList } from '@/components/report/ParticipantsList';
 import type {
   EmailDraft,
   RiskAssessment,
@@ -485,7 +486,7 @@ export default function MeetingReportPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-background via-background to-primary/5 flex items-center justify-center">
+      <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center space-y-4">
           <div className="w-16 h-16 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto"></div>
           <p className="text-muted-foreground">Loading meeting report...</p>
@@ -496,7 +497,7 @@ export default function MeetingReportPage() {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-background via-background to-primary/5 flex items-center justify-center">
+      <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center space-y-4 max-w-md">
           <AlertTriangle className="w-16 h-16 text-destructive mx-auto" />
           <h2 className="text-xl font-semibold text-foreground">Error Loading Report</h2>
@@ -511,7 +512,7 @@ export default function MeetingReportPage() {
 
   if (!report) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-background via-background to-primary/5 flex items-center justify-center">
+      <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center space-y-4">
           <FileText className="w-16 h-16 text-muted-foreground mx-auto" />
           <h2 className="text-xl font-semibold text-foreground">No Report Available</h2>
@@ -526,18 +527,18 @@ export default function MeetingReportPage() {
 
   const getMeetingTypeBadge = (type: string) => {
     const typeMap: { [key: string]: { label: string; color: string } } = {
-      sales: { label: 'Sales', color: 'bg-blue-100 text-blue-700 border-blue-200' },
-      interview: { label: 'Interview', color: 'bg-purple-100 text-purple-700 border-purple-200' },
-      support: { label: 'Support', color: 'bg-green-100 text-green-700 border-green-200' },
-      meeting: { label: 'Meeting', color: 'bg-gray-100 text-gray-700 border-gray-200' },
-      general: { label: 'General', color: 'bg-gray-100 text-gray-700 border-gray-200' }
+      sales: { label: 'Sales', color: 'bg-primary/10 text-primary border-primary/20' },
+      interview: { label: 'Interview', color: 'bg-secondary/10 text-secondary border-secondary/20' },
+      support: { label: 'Support', color: 'bg-accent/10 text-accent-foreground border-accent/20' },
+      meeting: { label: 'Meeting', color: 'bg-muted text-muted-foreground border-border' },
+      general: { label: 'General', color: 'bg-muted text-muted-foreground border-border' }
     };
     const config = typeMap[type.toLowerCase()] || typeMap.general;
     return config;
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-background to-primary/5">
+    <div className="min-h-screen bg-background">
       <div className="container mx-auto px-4 py-6">
         <div className="max-w-6xl mx-auto">
           {/* Enhanced Header */}
@@ -547,7 +548,7 @@ export default function MeetingReportPage() {
               <div className="flex items-start gap-3">
                 <button
                   onClick={() => router.back()}
-                  className="mt-1 p-2 hover:bg-muted/60 rounded-lg transition-colors group"
+                  className="mt-1 p-2 hover:bg-muted rounded-lg transition-colors group"
                 >
                   <ArrowLeft className="w-5 h-5 text-muted-foreground group-hover:text-foreground transition-colors" />
                 </button>
@@ -567,8 +568,11 @@ export default function MeetingReportPage() {
                       {formatDate(report.startedAt)}
                     </span>
                   </div>
-                  <div className="mt-2 text-sm text-muted-foreground">
-                    <span className="font-medium">Participants:</span> {report.participants.me} & {report.participants.them}
+                  <div className="mt-3">
+                    <ParticipantsList 
+                      sessionId={meetingId} 
+                      fallbackParticipants={report.participants}
+                    />
                   </div>
                 </div>
               </div>
