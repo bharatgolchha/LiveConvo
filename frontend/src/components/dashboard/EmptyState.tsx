@@ -8,204 +8,22 @@ interface Props {
   onNewMeeting?: () => void;
 }
 
-// Elegant SVG illustration for empty state
+// Elegant logo illustration for empty state
 const ConversationIllustration: React.FC = () => (
-  <motion.svg
-    width="240"
-    height="240"
-    viewBox="0 0 240 240"
-    fill="none"
-    xmlns="http://www.w3.org/2000/svg"
+  <motion.div
     initial={{ opacity: 0, scale: 0.9 }}
     animate={{ opacity: 1, scale: 1 }}
     transition={{ duration: 0.8, ease: "easeOut" }}
     className="mx-auto mb-8"
   >
-    <defs>
-      {/* Main gradient for microphone - using app primary colors */}
-      <linearGradient id="micGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-        <stop offset="0%" stopColor="#0B3D2E" className="[stop-color:hsl(var(--app-primary))]" />
-        <stop offset="50%" stopColor="#125239" className="[stop-color:hsl(var(--app-primary-dark))]" />
-        <stop offset="100%" stopColor="#6BB297" className="[stop-color:hsl(var(--app-primary-light))]" />
-      </linearGradient>
-      
-      {/* Secondary gradient for accent elements - using app accent */}
-      <linearGradient id="accentGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-        <stop offset="0%" stopColor="#FFC773" className="[stop-color:hsl(var(--app-warning))]" />
-        <stop offset="100%" stopColor="#FFD999" className="[stop-color:hsl(var(--app-warning-light))]" />
-      </linearGradient>
-      
-      {/* Glow effect */}
-      <filter id="glow">
-        <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
-        <feMerge> 
-          <feMergeNode in="coloredBlur"/>
-          <feMergeNode in="SourceGraphic"/>
-        </feMerge>
-      </filter>
-      
-      {/* Subtle background gradient - using app primary */}
-      <radialGradient id="backgroundGlow" cx="50%" cy="50%" r="60%">
-        <stop offset="0%" stopColor="#0B3D2E" stopOpacity="0.08" className="[stop-color:hsl(var(--app-primary))]" />
-        <stop offset="100%" stopColor="#0B3D2E" stopOpacity="0.02" className="[stop-color:hsl(var(--app-primary))]" />
-      </radialGradient>
-    </defs>
-    
-    {/* Background glow */}
-    <circle cx="120" cy="120" r="100" fill="url(#backgroundGlow)" />
-    
-    {/* Floating AI particles */}
-    <motion.g
-      animate={{ 
-        rotate: 360,
-      }}
-      transition={{
-        duration: 20,
-        repeat: Infinity,
-        ease: "linear"
-      }}
-    >
-      {[...Array(8)].map((_, i) => (
-        <motion.circle
-          key={i}
-          cx={120 + Math.cos((i * Math.PI) / 4) * 60}
-          cy={120 + Math.sin((i * Math.PI) / 4) * 60}
-          r="2"
-          fill="url(#accentGradient)"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: [0.3, 0.8, 0.3] }}
-          transition={{
-            duration: 2,
-            repeat: Infinity,
-            delay: i * 0.2,
-            ease: "easeInOut"
-          }}
-        />
-      ))}
-    </motion.g>
-    
-    {/* Main microphone body */}
-    <motion.g
-      initial={{ scale: 0, opacity: 0 }}
-      animate={{ scale: 1, opacity: 1 }}
-      transition={{ delay: 0.3, duration: 0.6, type: "spring", stiffness: 200 }}
-    >
-      {/* Microphone capsule */}
-      <rect 
-        x="100" 
-        y="80" 
-        width="40" 
-        height="60" 
-        rx="20" 
-        fill="url(#micGradient)" 
-        filter="url(#glow)"
-      />
-      
-      {/* Microphone grille lines */}
-      {[...Array(5)].map((_, i) => (
-        <line
-          key={i}
-          x1="108"
-          y1={88 + i * 8}
-          x2="132"
-          y2={88 + i * 8}
-          stroke="rgba(255, 255, 255, 0.4)"
-          strokeWidth="1.5"
-          strokeLinecap="round"
-        />
-      ))}
-      
-      {/* Microphone stand */}
-      <rect x="115" y="140" width="10" height="30" rx="5" fill="url(#micGradient)" opacity="0.8" />
-      <rect x="105" y="165" width="30" height="8" rx="4" fill="url(#micGradient)" opacity="0.6" />
-    </motion.g>
-    
-    {/* Sound waves */}
-    <motion.g
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      transition={{ delay: 0.6 }}
-    >
-      {[...Array(3)].map((_, i) => (
-        <motion.path
-          key={i}
-          d={`M ${155 + i * 12} 110 Q ${170 + i * 12} 120 ${155 + i * 12} 130`}
-          stroke="url(#accentGradient)"
-          strokeWidth="2.5"
-          strokeLinecap="round"
-          fill="none"
-          initial={{ pathLength: 0, opacity: 0 }}
-          animate={{ 
-            pathLength: [0, 1, 0],
-            opacity: [0, 0.8, 0]
-          }}
-          transition={{
-            duration: 2,
-            repeat: Infinity,
-            delay: i * 0.3,
-            ease: "easeInOut"
-          }}
-        />
-      ))}
-      
-      {[...Array(3)].map((_, i) => (
-        <motion.path
-          key={`left-${i}`}
-          d={`M ${85 - i * 12} 110 Q ${70 - i * 12} 120 ${85 - i * 12} 130`}
-          stroke="url(#accentGradient)"
-          strokeWidth="2.5"
-          strokeLinecap="round"
-          fill="none"
-          initial={{ pathLength: 0, opacity: 0 }}
-          animate={{ 
-            pathLength: [0, 1, 0],
-            opacity: [0, 0.8, 0]
-          }}
-          transition={{
-            duration: 2,
-            repeat: Infinity,
-            delay: i * 0.3 + 0.5,
-            ease: "easeInOut"
-          }}
-        />
-      ))}
-    </motion.g>
-    
-    {/* AI sparkles */}
-    <motion.g
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      transition={{ delay: 0.8 }}
-    >
-      {[
-        { x: 80, y: 70, delay: 0 },
-        { x: 160, y: 85, delay: 0.5 },
-        { x: 75, y: 150, delay: 1 },
-        { x: 165, y: 155, delay: 1.5 }
-      ].map((sparkle, i) => (
-        <motion.g
-          key={i}
-          initial={{ scale: 0, rotate: 0 }}
-          animate={{ 
-            scale: [0, 1, 0],
-            rotate: [0, 180, 360]
-          }}
-          transition={{
-            duration: 3,
-            repeat: Infinity,
-            delay: sparkle.delay,
-            ease: "easeInOut"
-          }}
-        >
-          <path
-            d={`M ${sparkle.x} ${sparkle.y - 8} L ${sparkle.x + 2} ${sparkle.y - 2} L ${sparkle.x + 8} ${sparkle.y} L ${sparkle.x + 2} ${sparkle.y + 2} L ${sparkle.x} ${sparkle.y + 8} L ${sparkle.x - 2} ${sparkle.y + 2} L ${sparkle.x - 8} ${sparkle.y} L ${sparkle.x - 2} ${sparkle.y - 2} Z`}
-            fill="url(#accentGradient)"
-            opacity="0.7"
-          />
-        </motion.g>
-      ))}
-    </motion.g>
-  </motion.svg>
+    <img
+      src="https://ucvfgfbjcrxbzppwjpuu.supabase.co/storage/v1/object/public/images//LogoSquare%20LivePrompt.png"
+      alt="LivePrompt Logo"
+      width={240}
+      height={240}
+      className="rounded-2xl shadow-lg"
+    />
+  </motion.div>
 );
 
 // Learn More Modal Component

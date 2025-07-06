@@ -36,8 +36,9 @@ export function RecordingPlayer({
   const [isFullscreen, setIsFullscreen] = useState(false);
   
   // Use proxy for S3 URLs to handle CORS issues
+  // Use base64 encoding to avoid double-encoding issues with presigned URLs
   const videoUrl = recordingUrl && recordingUrl.includes('amazonaws.com') 
-    ? `/api/proxy/recording?url=${encodeURIComponent(recordingUrl)}`
+    ? `/api/proxy/recording?url=${btoa(recordingUrl)}`
     : recordingUrl;
 
   // Debug logging
@@ -55,23 +56,6 @@ export function RecordingPlayer({
     if (recordingUrl) {
       setError(null);
       setIsLoading(true);
-      
-      // Test if URL is accessible by trying to fetch headers
-      fetch(recordingUrl, { method: 'HEAD' })
-        .then(response => {
-          console.log('URL test response:', {
-            status: response.status,
-            statusText: response.statusText,
-            headers: {
-              contentType: response.headers.get('content-type'),
-              contentLength: response.headers.get('content-length'),
-              cors: response.headers.get('access-control-allow-origin')
-            }
-          });
-        })
-        .catch(error => {
-          console.error('URL test failed:', error);
-        });
     }
   }, [recordingUrl, recordingStatus, sessionId]);
 
@@ -134,13 +118,8 @@ export function RecordingPlayer({
             errorMessage = 'Recording format is not supported or URL is invalid.';
             // Check if this might be a CORS issue or S3 URL issue
             if (recordingUrl?.includes('amazonaws.com')) {
-              errorMessage = 'Unable to load recording. The video URL may have expired or there may be access restrictions. Please try refreshing the recording.';
-              console.error('S3 URL error - possible causes:', {
-                expired: 'URL signature may have expired',
-                cors: 'CORS policy blocking access',
-                format: 'Video format not supported by browser',
-                url: recordingUrl?.substring(0, 50) + '...'
-              });
+              errorMessage = 'The recording URL has expired. Please click the refresh button above to get a new URL.';
+              console.error('S3 URL error - The presigned URL has likely expired.');
             }
             break;
         }
@@ -244,16 +223,40 @@ export function RecordingPlayer({
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
-  const handleDownload = () => {
+  const handleDownload = async () => {
     if (!recordingUrl) return;
     
-    const link = document.createElement('a');
-    // Use original URL for download, not proxied
-    link.href = recordingUrl;
-    link.download = `recording-${sessionId}.mp4`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    try {
+      // Use proxy URL for download to avoid CORS issues
+      // Use base64 encoding to avoid double-encoding issues
+      const downloadUrl = recordingUrl.includes('amazonaws.com') 
+        ? `/api/proxy/recording?url=${btoa(recordingUrl)}`
+        : recordingUrl;
+      
+      // Fetch the video through the proxy
+      const response = await fetch(downloadUrl);
+      if (!response.ok) throw new Error('Failed to download recording');
+      
+      // Convert to blob
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      
+      // Create download link
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `recording-${sessionId}.mp4`;
+      document.body.appendChild(link);
+      link.click();
+      
+      // Cleanup
+      setTimeout(() => {
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+      }, 100);
+    } catch (error) {
+      console.error('Download failed:', error);
+      setError('Failed to download recording. Please try again.');
+    }
   };
 
   // We no longer check for expiration since we're always fetching fresh URLs
@@ -272,10 +275,15 @@ export function RecordingPlayer({
 
   if (recordingStatus === 'failed' || error) {
     return (
-      <Alert variant="destructive">
+      <Alert variant={error?.includes('expired') ? 'default' : 'destructive'}>
         <AlertCircle className="h-4 w-4" />
         <AlertDescription>
           {error || 'Recording failed to process. Please try recording again.'}
+          {error?.includes('expired') && (
+            <div className="mt-2 text-sm">
+              Click the refresh button (↻) above to get a new URL.
+            </div>
+          )}
         </AlertDescription>
       </Alert>
     );
