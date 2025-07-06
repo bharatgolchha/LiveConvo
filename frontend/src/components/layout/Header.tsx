@@ -186,19 +186,6 @@ export function Header() {
               >
                 Sign In
               </button>
-              <button
-                onClick={() => {
-                  const waitlistElement = document.getElementById('waitlist')
-                  if (waitlistElement) {
-                    waitlistElement.scrollIntoView({ behavior: 'smooth' })
-                  } else {
-                    router.push('/auth/signup')
-                  }
-                }}
-                className="px-5 py-2 rounded-lg font-medium text-sm transition-all bg-app-success hover:bg-app-success-light hover:shadow-lg text-white"
-              >
-                Get Early Access
-              </button>
           </div>
 
           {/* Mobile Menu Button */}
@@ -265,20 +252,6 @@ export function Header() {
                   className="w-full px-4 py-3 rounded-lg text-sm font-medium transition-colors text-muted-foreground hover:text-foreground hover:bg-muted"
                 >
                   Sign In
-                </button>
-                <button
-                  onClick={() => {
-                    setIsMobileMenuOpen(false)
-                    const waitlistElement = document.getElementById('waitlist')
-                    if (waitlistElement) {
-                      waitlistElement.scrollIntoView({ behavior: 'smooth' })
-                    } else {
-                      router.push('/auth/signup')
-                    }
-                  }}
-                  className="w-full px-4 py-3 rounded-lg font-medium text-sm transition-colors bg-app-success hover:bg-app-success-light text-white"
-                >
-                  Get Early Access
                 </button>
               </div>
             </div>
