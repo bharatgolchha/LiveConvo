@@ -273,6 +273,7 @@ export function MultipleRecordingsTab() {
 
         <div className="flex-1 overflow-hidden bg-background">
           <RecordingPlayer
+            key={recordingUrl} // Force re-mount when URL changes
             recordingUrl={recordingUrl}
             recordingStatus={meeting.recallRecordingStatus || (meeting as any).recall_recording_status || 'done'}
             recordingExpiresAt={meeting.recallRecordingExpiresAt || (meeting as any).recall_recording_expires_at}
