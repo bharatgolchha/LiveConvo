@@ -324,7 +324,7 @@ export class RecallSessionManager {
       console.log(`📱 Detected platform: ${platform}`);
       
       // Check if session already has a bot
-      const { data: existingSession } = await supabase
+      const { data: existingSession, error: sessionError } = await supabase
         .from('sessions')
         .select(`
           recall_bot_id,
@@ -336,6 +336,21 @@ export class RecallSessionManager {
         `)
         .eq('id', sessionId)
         .single();
+        
+      if (sessionError) {
+        console.error('Error fetching session with joins:', sessionError);
+        // Fallback to basic session query
+        const { data: basicSession } = await supabase
+          .from('sessions')
+          .select('*')
+          .eq('id', sessionId)
+          .single();
+          
+        if (basicSession?.recall_bot_id) {
+          console.log(`♻️ Session ${sessionId} already has bot ${basicSession.recall_bot_id}`);
+          return basicSession.recall_bot_id;
+        }
+      }
       
       if (existingSession?.recall_bot_id) {
         console.log(`♻️ Session ${sessionId} already has bot ${existingSession.recall_bot_id}`);
@@ -346,24 +361,42 @@ export class RecallSessionManager {
       // Ensure all metadata values are strings as required by Recall.ai API
       const metadata: Record<string, string> = {};
       
-      if ((existingSession as any)?.users?.email) {
-        metadata.userEmail = String((existingSession as any).users.email);
-      }
-      if ((existingSession as any)?.users?.full_name) {
-        metadata.userName = String((existingSession as any).users.full_name);
-      }
-      if (existingSession?.organization_id) {
-        metadata.organizationId = String(existingSession.organization_id);
-      }
-      if ((existingSession as any)?.organizations?.name) {
-        metadata.organizationName = String((existingSession as any).organizations.name);
-      }
+      // Only add fields that are definitely present and string-convertible
       if (existingSession?.title) {
         metadata.meetingTitle = String(existingSession.title);
       }
       if (platform) {
         metadata.platform = String(platform);
       }
+      
+      // Try to add user/org info if available
+      try {
+        if ((existingSession as any)?.users?.email) {
+          metadata.userEmail = String((existingSession as any).users.email);
+        }
+        if ((existingSession as any)?.users?.full_name) {
+          metadata.userName = String((existingSession as any).users.full_name);
+        }
+        if (existingSession?.organization_id) {
+          metadata.organizationId = String(existingSession.organization_id);
+        }
+        if ((existingSession as any)?.organizations?.name) {
+          metadata.organizationName = String((existingSession as any).organizations.name);
+        }
+      } catch (e) {
+        console.warn('Error adding user/org metadata:', e);
+      }
+      
+      // Log metadata before sending
+      console.log('📊 Session data:', {
+        email: (existingSession as any)?.users?.email,
+        fullName: (existingSession as any)?.users?.full_name,
+        organizationId: existingSession?.organization_id,
+        organizationName: (existingSession as any)?.organizations?.name,
+        title: existingSession?.title,
+        platform
+      });
+      console.log('📊 Final metadata object:', metadata);
       
       bot = await this.recallClient.createBot({
         meetingUrl: meetingUrl,

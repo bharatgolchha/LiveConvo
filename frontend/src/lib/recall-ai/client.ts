@@ -102,14 +102,25 @@ export class RecallAIClient {
     console.log('🔑 API Key present:', !!this.config.apiKey);
     console.log('🔗 Webhook URL:', `${this.config.webhookUrl}/${params.sessionId}`);
     
+    // Ensure ALL metadata values are strings
+    const baseMetadata: Record<string, string> = {
+      session_id: String(params.sessionId),
+      source: 'liveprompt',
+    };
+    
+    // Add additional metadata, ensuring all values are strings
+    if (params.metadata) {
+      for (const [key, value] of Object.entries(params.metadata)) {
+        if (value !== null && value !== undefined) {
+          baseMetadata[key] = String(value);
+        }
+      }
+    }
+    
     const requestBody = {
       meeting_url: params.meetingUrl,
       bot_name: params.botName || 'LivePrompt Assistant',
-      metadata: {
-        session_id: String(params.sessionId),
-        source: 'liveprompt',
-        ...(params.metadata || {}),
-      },
+      metadata: baseMetadata,
       recording_config: {
         transcript: {
           provider: this.getTranscriptionProvider(params.transcriptionProvider),
@@ -149,6 +160,13 @@ export class RecallAIClient {
       },
     };
     
+    // Debug metadata to ensure all values are strings
+    console.log('📤 Metadata being sent:', requestBody.metadata);
+    console.log('📤 Metadata types:', Object.entries(requestBody.metadata).map(([key, value]) => ({
+      key,
+      value,
+      type: typeof value
+    })));
     console.log('📤 Sending request to Recall API:', JSON.stringify(requestBody, null, 2));
     
     const response = await fetch(`${this.baseUrl}/bot`, {
