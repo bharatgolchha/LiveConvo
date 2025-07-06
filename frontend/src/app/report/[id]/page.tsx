@@ -11,7 +11,6 @@ import {
   AlertTriangle,
   Calendar,
   TrendingUp,
-  Download,
   Share,
   Copy,
   ExternalLink,
@@ -31,6 +30,7 @@ import { ThemeToggle } from '@/components/ui/ThemeToggle';
 import { ShareReportModal } from '@/components/report/ShareReportModal';
 import { CollaborationPanel } from '@/components/collaboration/CollaborationPanel';
 import { ParticipantsList } from '@/components/report/ParticipantsList';
+import { ReportExportMenu } from '@/components/report/ReportExportMenu';
 import type {
   EmailDraft,
   RiskAssessment,
@@ -408,10 +408,7 @@ export default function MeetingReportPage() {
     setShareModalOpen(true);
   };
 
-  const handleExport = () => {
-    // TODO: Implement export functionality
-    alert('Export feature coming soon!');
-  };
+  // Export handled by ReportExportMenu component
 
   const handleManualFinalize = async () => {
     if (!report || finalizing) return;
@@ -607,10 +604,7 @@ export default function MeetingReportPage() {
                     <Share className="w-3 h-3 mr-1.5" />
                     Share
                   </Button>
-                  <Button onClick={handleExport} variant="outline" size="sm" className="h-8">
-                    <Download className="w-3 h-3 mr-1.5" />
-                    Export
-                  </Button>
+                  <ReportExportMenu report={report} />
                   {report.transcriptAvailable && (
                     <Button onClick={() => setActiveTab('transcript')} variant="outline" size="sm" className="h-8">
                       <MessageSquare className="w-3 h-3 mr-1.5" />

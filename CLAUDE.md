@@ -355,6 +355,10 @@ This is useful for development and testing without external services.
 - Fixed transcript duplication issue
 - Improved summary display scrolling
 - Added checklist recommendations feature
+- Integrated personal context into AI advisor system prompt
+  - Personal context from dashboard settings is now automatically included in AI guidance
+  - Added visual indicator in chat when personal context is active
+  - AI advisor now provides personalized recommendations based on user's role and preferences
 
 ### Known Issues
 - WebRTC may require HTTPS in production
