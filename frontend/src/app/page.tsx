@@ -27,6 +27,21 @@ export default function LandingPage() {
   const [expandedFaq, setExpandedFaq] = useState<number | null>(null);
   const [showFloatingCTA, setShowFloatingCTA] = useState(false);
 
+  // Check if this is an auth callback
+  React.useEffect(() => {
+    const hash = window.location.hash;
+    const isAuthCallback = hash && (
+      hash.includes('access_token') || 
+      hash.includes('error') ||
+      hash.includes('type=recovery')
+    );
+    
+    if (isAuthCallback) {
+      console.log('Auth callback detected on home page, redirecting to callback handler');
+      router.replace(`/auth/callback${hash}`);
+    }
+  }, [router]);
+
   // Show floating CTA after scrolling
   React.useEffect(() => {
     const handleScroll = () => {
