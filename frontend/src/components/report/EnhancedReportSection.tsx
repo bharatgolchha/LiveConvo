@@ -71,7 +71,7 @@ export function EnhancedReportSection({
     <div className="space-y-8">
       {/* Email Draft Section */}
       {emailDraft && (
-        <div className="p-6 bg-card/70 backdrop-blur-sm border border-border/50 rounded-lg shadow-md">
+        <div className="p-6 bg-card border border-border rounded-lg shadow-sm">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-3">
               <div className="w-8 h-8 bg-primary/15 rounded-lg flex items-center justify-center">
@@ -146,7 +146,7 @@ export function EnhancedReportSection({
 
       {/* Risk Assessment */}
       {riskAssessment && (
-        <div className="p-6 bg-card/70 backdrop-blur-sm border border-border/50 rounded-lg shadow-md">
+        <div className="p-6 bg-card border border-border rounded-lg shadow-sm">
           <div className="flex items-center gap-3 mb-4">
             <div className="w-8 h-8 bg-destructive/10 rounded-lg flex items-center justify-center">
               <AlertTriangle className="w-4 h-4 text-destructive" />
@@ -159,7 +159,7 @@ export function EnhancedReportSection({
               <h4 className="text-sm font-medium text-muted-foreground mb-3">Immediate Risks</h4>
               <div className="space-y-3">
                 {riskAssessment.immediate.map((risk, index) => (
-                  <div key={index} className="p-4 bg-muted/30 rounded-lg border border-border">
+                  <div key={index} className="p-4 bg-muted/50 dark:bg-muted/30 rounded-lg border border-border">
                     <div className="flex items-start justify-between mb-2">
                       <p className="text-foreground font-medium">{risk.risk}</p>
                       <div className="flex gap-2">
@@ -188,7 +188,7 @@ export function EnhancedReportSection({
               <h4 className="text-sm font-medium text-muted-foreground mb-3">Monitoring Items</h4>
               <div className="space-y-2">
                 {riskAssessment.monitoring.map((item, index) => (
-                  <div key={index} className="flex items-center justify-between p-3 bg-accent/5 rounded-lg border border-accent/20">
+                  <div key={index} className="flex items-center justify-between p-3 bg-muted/50 dark:bg-muted/30 rounded-lg border border-border">
                     <div>
                       <p className="text-foreground text-sm">{item.indicator}</p>
                       <p className="text-xs text-muted-foreground">Threshold: {item.threshold}</p>
@@ -207,7 +207,7 @@ export function EnhancedReportSection({
 
       {/* Effectiveness Score Details */}
       {effectivenessScore && (
-        <div className="p-6 bg-card/70 backdrop-blur-sm border border-border/50 rounded-lg shadow-md">
+        <div className="p-6 bg-card border border-border rounded-lg shadow-sm">
           <div className="flex items-center gap-3 mb-4">
             <div className="w-8 h-8 bg-primary/15 rounded-lg flex items-center justify-center">
               <Award className="w-4 h-4 text-primary" />
@@ -315,7 +315,7 @@ export function EnhancedReportSection({
 
       {/* Next Meeting Template */}
       {nextMeetingTemplate && (
-        <div className="p-6 bg-card/70 backdrop-blur-sm border border-border/50 rounded-lg shadow-md">
+        <div className="p-6 bg-card border border-border rounded-lg shadow-sm">
           <div className="flex items-center gap-3 mb-4">
             <div className="w-8 h-8 bg-secondary/20 rounded-lg flex items-center justify-center">
               <Calendar className="w-4 h-4 text-secondary" />
@@ -373,7 +373,7 @@ export function EnhancedReportSection({
 
       {/* Conversation Templates */}
       {templates && (
-        <div className="p-6 bg-card/70 backdrop-blur-sm border border-border/50 rounded-lg shadow-md">
+        <div className="p-6 bg-card border border-border rounded-lg shadow-sm">
           <div className="flex items-center gap-3 mb-4">
             <div className="w-8 h-8 bg-primary/15 rounded-lg flex items-center justify-center">
               <MessageSquare className="w-4 h-4 text-primary" />
