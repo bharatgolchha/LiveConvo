@@ -22,10 +22,6 @@ const primaryNavItems: NavItem[] = [
     component: <UseCasesDropdown />
   },
   {
-    label: 'Features',
-    href: '/features'
-  },
-  {
     label: 'Pricing',
     href: '/pricing'
   }
