@@ -92,14 +92,13 @@ export default function LandingPage() {
             </div>
             
             <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold mb-6 tracking-tight text-foreground">
-              AI That Whispers
+              Turn Every Conversation
               <br />
-              <span className="text-app-success">Winning Moves</span> During Live Calls
+              <span className="text-app-success">into Conversion</span>
             </h1>
             
             <p className="text-xl mb-8 max-w-2xl mx-auto text-muted-foreground">
-              Get real-time suggestions, objection handling, and next questions in <span className="font-semibold text-foreground">&lt;2 seconds</span>. 
-              Never miss a critical moment again.
+              Live AI coaching delivers winning responses, compelling stories, and perfect questions in <span className="font-semibold text-foreground">&lt;2 seconds</span>—helping you close deals with confidence.
             </p>
             
             <LandingAuthSection variant="hero" className="mb-12" />

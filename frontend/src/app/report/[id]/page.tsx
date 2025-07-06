@@ -37,7 +37,8 @@ import type {
   EffectivenessScore,
   NextMeetingTemplate,
   ConversationTemplates,
-  SummaryDecision
+  SummaryDecision,
+  Participant
 } from '@/types/api';
 
 // Types
@@ -70,11 +71,21 @@ interface MeetingReport {
       evidence?: string;
       recommendation?: string;
     }>;
+    participants?: Participant[];
     effectiveness: {
       overall: number;
       communication: number;
       goalAchievement: number;
     };
+    keyOutcome?: any;
+    criticalInsight?: any;
+    immediateAction?: any;
+    important_numbers?: any[];
+    quotable_quotes?: any[];
+    metadata?: any;
+    conversation_flow?: any;
+    coaching_recommendations?: any[];
+    follow_up_strategy?: any;
     emailDraft?: EmailDraft;
     riskAssessment?: RiskAssessment;
     effectivenessScore?: EffectivenessScore;
@@ -317,7 +328,17 @@ export default function MeetingReportPage() {
           followUpQuestions: summaryData?.follow_up_questions || [],
           conversationHighlights: summaryData?.conversation_highlights || [],
           insights: parsedStructuredNotes.insights || [],
+          participants: parsedStructuredNotes.participants || [],
           effectiveness: effectiveness,
+          keyOutcome: parsedStructuredNotes.key_outcome,
+          criticalInsight: parsedStructuredNotes.critical_insight,
+          immediateAction: parsedStructuredNotes.immediate_action,
+          important_numbers: parsedStructuredNotes.important_numbers || [],
+          quotable_quotes: parsedStructuredNotes.quotable_quotes || [],
+          metadata: parsedStructuredNotes.metadata,
+          conversation_flow: parsedStructuredNotes.conversation_flow,
+          coaching_recommendations: parsedStructuredNotes.coaching_recommendations || [],
+          follow_up_strategy: parsedStructuredNotes.follow_up_strategy,
           emailDraft: parsedStructuredNotes.email_draft,
           riskAssessment: parsedStructuredNotes.risk_assessment,
           effectivenessScore: parsedStructuredNotes.effectiveness_score,
