@@ -3,7 +3,7 @@ import { useMeetingContext } from '../context/MeetingContext';
 import { supabase } from '@/lib/supabase';
 
 export function useChatGuidance() {
-  const { meeting, addChatMessage, transcript } = useMeetingContext();
+  const { meeting, addChatMessage, transcript, personalContext } = useMeetingContext();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
 
@@ -32,6 +32,7 @@ export function useChatGuidance() {
           message,
           conversationType: meeting.type,
           context: meeting.context,
+          personalContext: personalContext || undefined,
           recentTranscript: transcript.slice(-20).map(t => ({
             speaker: t.speaker,
             text: t.text
@@ -66,7 +67,7 @@ export function useChatGuidance() {
     } finally {
       setLoading(false);
     }
-  }, [meeting, transcript, addChatMessage]);
+  }, [meeting, transcript, addChatMessage, personalContext]);
 
   return { sendMessage, loading, error };
 }

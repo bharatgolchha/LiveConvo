@@ -44,6 +44,10 @@ interface MeetingContextValue {
   // Linked conversations
   linkedConversations: { id: string; title: string }[];
   setLinkedConversations: (convs: { id: string; title: string }[]) => void;
+  
+  // Personal context
+  personalContext: string | null;
+  setPersonalContext: (context: string | null) => void;
 }
 
 const MeetingContext = createContext<MeetingContextValue | undefined>(undefined);
@@ -82,6 +86,9 @@ export function MeetingProvider({ children }: MeetingProviderProps) {
   
   // Linked conversations
   const [linkedConversations, setLinkedConversations] = useState<{ id: string; title: string }[]>([]);
+  
+  // Personal context
+  const [personalContext, setPersonalContext] = useState<string | null>(null);
   
   // UI State
   const [activeTab, setActiveTab] = useState<'transcript' | 'summary' | 'notes' | 'previous' | 'recording'>('transcript');
@@ -168,7 +175,9 @@ export function MeetingProvider({ children }: MeetingProviderProps) {
     activeTab,
     setActiveTab,
     linkedConversations,
-    setLinkedConversations
+    setLinkedConversations,
+    personalContext,
+    setPersonalContext
   };
 
   return (

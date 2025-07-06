@@ -372,11 +372,43 @@ export async function POST(request: NextRequest) {
       enhancedTextContextLength: enhancedTextContext.length
     });
 
+    // Fetch personal context from database if not provided
+    let finalPersonalContext = personalContext;
+    if (!personalContext && sessionId) {
+      const authHeader = request.headers.get('authorization');
+      const token = authHeader?.split(' ')[1];
+      
+      if (token) {
+        try {
+          const supabase = createAuthenticatedSupabaseClient(token);
+          const { data: { user }, error: userError } = await supabase.auth.getUser();
+          
+          if (!userError && user) {
+            const { data: userData, error: fetchError } = await supabase
+              .from('users')
+              .select('personal_context')
+              .eq('id', user.id)
+              .single();
+            
+            if (!fetchError && userData?.personal_context) {
+              finalPersonalContext = userData.personal_context;
+              console.log('✅ Fetched personal context from database:', {
+                length: userData.personal_context.length,
+                preview: userData.personal_context.substring(0, 100) + '...'
+              });
+            }
+          }
+        } catch (e) {
+          console.error('❌ Error fetching personal context from database:', e);
+        }
+      }
+    }
+
     // Debug logging for personal context
     console.log('🔍 Chat API Debug:', {
-      hasPersonalContext: !!personalContext,
-      personalContextLength: personalContext?.length || 0,
-      personalContextPreview: personalContext ? personalContext.substring(0, 100) + '...' : null,
+      hasPersonalContext: !!finalPersonalContext,
+      personalContextLength: finalPersonalContext?.length || 0,
+      personalContextPreview: finalPersonalContext ? finalPersonalContext.substring(0, 100) + '...' : null,
       messagePreview: message.substring(0, 50) + '...'
     });
 
@@ -418,7 +450,7 @@ export async function POST(request: NextRequest) {
       chatHistory,
       effectiveConversationType,
       runningSummary,
-      personalContext || undefined,
+      finalPersonalContext || undefined,
       enhancedTextContext || undefined,
       4000, // transcript tail
       participantMe,

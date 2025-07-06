@@ -9,6 +9,7 @@ import { AIAdvisorPanel } from '@/components/meeting/ai-advisor/AIAdvisorPanel';
 import { useMeetingSession } from '@/lib/meeting/hooks/useMeetingSession';
 import { useMeetingRealtimeSync } from '@/lib/meeting/hooks/useMeetingRealtimeSync';
 import { useRealtimeSummary } from '@/lib/meeting/hooks/useRealtimeSummary';
+import { usePersonalContext } from '@/lib/meeting/hooks/usePersonalContext';
 import { LoadingStates } from '@/components/meeting/common/LoadingStates';
 import { GlowingLoader } from '@/components/meeting/common/GlowingLoader';
 import { ErrorBoundary } from '@/components/meeting/common/ErrorBoundary';
@@ -29,6 +30,9 @@ function MeetingPageContent() {
 
   // Initialize real-time summary
   useRealtimeSummary(meetingId);
+  
+  // Initialize personal context
+  usePersonalContext();
 
   // Calculate right panel width based on minimized state
   const rightPanelWidth = isAIAdvisorMinimized ? 4 : 100 - leftPanelWidth - 0.1;
