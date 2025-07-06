@@ -8,21 +8,33 @@ interface Props {
   onNewMeeting?: () => void;
 }
 
-// Elegant logo illustration for empty state
+// Professional icon-based illustration for empty state
 const ConversationIllustration: React.FC = () => (
   <motion.div
     initial={{ opacity: 0, scale: 0.9 }}
     animate={{ opacity: 1, scale: 1 }}
     transition={{ duration: 0.8, ease: "easeOut" }}
-    className="mx-auto mb-8"
+    className="mx-auto mb-12"
   >
-    <img
-      src="https://ucvfgfbjcrxbzppwjpuu.supabase.co/storage/v1/object/public/images//LogoSquare%20LivePrompt.png"
-      alt="LivePrompt Logo"
-      width={240}
-      height={240}
-      className="rounded-2xl shadow-lg"
-    />
+    <div className="relative">
+      <div className="w-32 h-32 bg-gradient-to-br from-app-primary/10 to-app-primary-dark/10 rounded-full flex items-center justify-center">
+        <div className="w-24 h-24 bg-gradient-to-br from-app-primary/20 to-app-primary-dark/20 rounded-full flex items-center justify-center">
+          <svg className="w-12 h-12 text-app-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+          </svg>
+        </div>
+      </div>
+      <motion.div
+        initial={{ scale: 0 }}
+        animate={{ scale: 1 }}
+        transition={{ delay: 0.3, type: "spring", stiffness: 200 }}
+        className="absolute -right-2 -top-2 w-8 h-8 bg-app-success rounded-full flex items-center justify-center"
+      >
+        <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+        </svg>
+      </motion.div>
+    </div>
   </motion.div>
 );
 
@@ -100,29 +112,29 @@ const EmptyState: React.FC<Props> = ({ onNewConversation, onNewMeeting }) => {
         <ConversationIllustration />
         
         {/* Content */}
-        <div className="text-center max-w-lg space-y-4">
-          <motion.h2 
-            className="text-2xl font-bold text-foreground"
+        <div className="text-center max-w-2xl space-y-6">
+          <motion.h1 
+            className="text-4xl font-semibold text-foreground tracking-tight"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 0.3 }}
           >
-            Welcome to Liveprompt.ai
-          </motion.h2>
+            Start Your First Conversation
+          </motion.h1>
           
           <motion.p 
-            className="text-muted-foreground text-lg leading-relaxed"
+            className="text-muted-foreground text-xl leading-relaxed max-w-xl mx-auto"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 0.4 }}
           >
-            Start your first AI-powered conversation to capture insights, generate summaries, and keep track of important discussions.
+            Transform your meetings with AI-powered real-time coaching and intelligent conversation insights.
           </motion.p>
         </div>
         
         {/* Action buttons */}
         <motion.div 
-          className="flex flex-col sm:flex-row gap-4 mt-8 items-center"
+          className="flex flex-col sm:flex-row gap-4 mt-10 items-center"
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.5 }}
@@ -135,16 +147,16 @@ const EmptyState: React.FC<Props> = ({ onNewConversation, onNewMeeting }) => {
           ) : (
             <button
               onClick={onNewConversation}
-              className="flex items-center justify-center space-x-2 bg-gradient-to-r from-app-primary to-app-primary-dark hover:from-app-primary-dark hover:to-app-primary text-primary-foreground px-6 py-3 rounded-lg transition-all transform hover:scale-105 shadow-lg hover:shadow-xl"
+              className="flex items-center justify-center space-x-2 bg-app-primary hover:bg-app-primary-dark text-primary-foreground px-8 py-3.5 rounded-lg transition-all font-medium text-base shadow-sm hover:shadow-md"
             >
               <PlusIcon className="w-5 h-5" />
-              <span className="font-medium">Start Your First Conversation</span>
+              <span>New Conversation</span>
             </button>
           )}
           
           <button
             onClick={() => setIsLearnMoreOpen(true)}
-            className="flex items-center justify-center space-x-2 bg-card text-foreground px-6 py-3 rounded-lg hover:bg-muted transition-all border border-border hover:border-app-primary/50 min-w-[140px] hover:scale-105 transform"
+            className="flex items-center justify-center space-x-2 text-muted-foreground hover:text-foreground px-6 py-3 rounded-lg transition-all"
           >
             <QuestionMarkCircleIcon className="w-5 h-5" />
             <span className="font-medium">Learn More</span>
@@ -153,35 +165,38 @@ const EmptyState: React.FC<Props> = ({ onNewConversation, onNewMeeting }) => {
         
         {/* Features hint */}
         <motion.div 
-          className="mt-16 grid grid-cols-1 sm:grid-cols-3 gap-6 max-w-4xl w-full"
+          className="mt-20 grid grid-cols-1 sm:grid-cols-3 gap-8 max-w-5xl w-full"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 0.7 }}
         >
           {[
             { 
-              icon: "🤖", 
-              title: "Real-time AI Advisor", 
-              desc: "Get live AI coaching and guidance during your conversations",
-              gradient: "from-app-primary/10 via-app-primary-light/10 to-app-success/10",
-              borderGradient: "from-app-primary/20 via-app-primary-light/20 to-app-success/20",
-              iconBg: "from-app-primary/20 to-app-primary-dark/20"
+              icon: (
+                <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                </svg>
+              ),
+              title: "Real-time AI Coaching", 
+              desc: "Get intelligent suggestions and guidance during your conversations"
             },
             { 
-              icon: "🎙️", 
+              icon: (
+                <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
+                </svg>
+              ),
               title: "Live Transcription", 
-              desc: "Real-time speech-to-text with speaker identification",
-              gradient: "from-app-success/10 via-app-success-light/10 to-app-primary/10",
-              borderGradient: "from-app-success/20 via-app-success-light/20 to-app-primary/20",
-              iconBg: "from-app-success/20 to-app-success-light/20"
+              desc: "Accurate speech-to-text with automatic speaker identification"
             },
             { 
-              icon: "📋", 
+              icon: (
+                <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+              ),
               title: "Smart Summaries", 
-              desc: "Auto-generated insights, action items, and follow-ups",
-              gradient: "from-app-primary-light/10 via-app-success/10 to-app-primary/10",
-              borderGradient: "from-app-primary-light/20 via-app-success/20 to-app-primary/20",
-              iconBg: "from-app-primary-light/20 to-app-primary/20"
+              desc: "Automatic insights, action items, and comprehensive meeting notes"
             }
           ].map((feature, index) => (
             <motion.div
@@ -191,28 +206,18 @@ const EmptyState: React.FC<Props> = ({ onNewConversation, onNewMeeting }) => {
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.8 + index * 0.1 }}
             >
-              {/* Gradient border wrapper */}
-              <div className={`absolute inset-0 bg-gradient-to-br ${feature.borderGradient} rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-500 blur-sm`} />
-              
-              {/* Card content */}
-              <div className={`relative glass bg-gradient-to-br ${feature.gradient} backdrop-blur-md border border-border/30 rounded-2xl p-6 h-full transition-all duration-300 group-hover:translate-y-[-4px] group-hover:shadow-2xl group-hover:border-border/50`}>
-                {/* Icon with gradient background */}
-                <div className={`w-14 h-14 bg-gradient-to-br ${feature.iconBg} rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300 shadow-md`}>
-                  <div className="text-2xl filter drop-shadow-md">{feature.icon}</div>
+              <div className="bg-card border border-border/50 rounded-xl p-8 h-full transition-all duration-300 hover:shadow-lg hover:border-app-primary/30 hover:-translate-y-1">
+                <div className="w-12 h-12 bg-app-primary/10 rounded-lg flex items-center justify-center mb-5 text-app-primary">
+                  {feature.icon}
                 </div>
                 
-                {/* Title */}
-                <h3 className="font-semibold text-foreground mb-2 text-base">
+                <h3 className="font-semibold text-foreground mb-2 text-lg">
                   {feature.title}
                 </h3>
                 
-                {/* Description */}
-                <p className="text-sm text-muted-foreground leading-relaxed">
+                <p className="text-muted-foreground leading-relaxed">
                   {feature.desc}
                 </p>
-                
-                {/* Subtle shine effect on hover */}
-                <div className="absolute inset-0 bg-gradient-to-tr from-white/0 via-white/5 to-white/0 opacity-0 group-hover:opacity-100 transition-opacity duration-700 rounded-2xl pointer-events-none" />
               </div>
             </motion.div>
           ))}

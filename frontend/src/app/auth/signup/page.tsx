@@ -55,45 +55,12 @@ export default function SignUpPage() {
     setLoading(true)
     setError(null)
 
-    try {
-      const waitlistResponse = await fetch('/api/auth/check-waitlist', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ email }),
-      })
-
-      const waitlistData = await waitlistResponse.json()
-
-      if (!waitlistResponse.ok) {
-        setError('Failed to verify waitlist status. Please try again.')
-        setLoading(false)
-        return
-      }
-
-      if (!waitlistData.isApproved) {
-        setError(
-          <span>
-            This email is not on our approved waitlist.{' '}
-            <Link href="/#waitlist" className="text-primary hover:text-primary/80 underline">
-              Request access here
-            </Link>
-          </span>
-        )
-        setLoading(false)
-        return
-      }
-
-      const { error } = await signUp(email, password, fullName)
-      
-      if (error) {
-        setError(error.message)
-      } else {
-        router.push('/auth/login?message=Check your email to confirm your account')
-      }
-    } catch (error) {
-      setError('An error occurred during signup. Please try again.')
+    const { error } = await signUp(email, password, fullName)
+    
+    if (error) {
+      setError(error.message)
+    } else {
+      router.push('/auth/login?message=Check your email to confirm your account')
     }
     
     setLoading(false)
@@ -122,15 +89,6 @@ export default function SignUpPage() {
       title="Create your account"
       subtitle="Join the future of AI-powered conversations"
     >
-      {/* Waitlist Notice */}
-      <div className="mb-6 p-3 bg-primary/10 border border-primary/30 rounded-lg">
-        <p className="text-xs text-primary">
-          Beta access is limited to approved waitlist members.{' '}
-          <Link href="/#waitlist" className="underline hover:text-primary/80">
-            Request access
-          </Link>
-        </p>
-      </div>
 
       {error && (
         <motion.div

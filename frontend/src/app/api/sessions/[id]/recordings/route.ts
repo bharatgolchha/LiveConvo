@@ -35,100 +35,78 @@ export async function GET(
       );
     }
 
-    // Get all recordings for this session
-    console.log('📊 Querying bot_recordings for session:', sessionId);
-    const { data: recordings, error } = await authClient
-      .from('bot_recordings')
-      .select('*')
-      .eq('session_id', sessionId)
-      .order('created_at', { ascending: false });
+    // Get session to check if it has a bot ID
+    const { data: session, error: sessionError } = await authClient
+      .from('sessions')
+      .select('id, recall_bot_id, created_at, title')
+      .eq('id', sessionId)
+      .single();
 
-    console.log('Query result - recordings found:', recordings?.length || 0);
-    console.log('Query error:', error);
-    
-    if (error) {
-      console.error('Database error:', error);
+    if (sessionError || !session) {
+      console.error('Session not found:', sessionError);
       return NextResponse.json(
-        { error: 'Database error', message: error.message },
-        { status: 500 }
+        { error: 'Not found', message: 'Session not found' },
+        { status: 404 }
       );
     }
 
-    // Always fetch fresh URLs from Recall.ai for recordings that have bot IDs
-    if (recordings && recordings.length > 0) {
-      const recallClient = new RecallAIClient({
-        apiKey: process.env.RECALL_AI_API_KEY!,
-        region: (process.env.RECALL_AI_REGION as any) || 'us-west-2',
-      });
+    // If session has a bot ID, fetch recording directly from Recall.ai
+    if (session.recall_bot_id) {
+      try {
+        console.log('🔄 Fetching recording from Recall.ai for bot:', session.recall_bot_id);
+        
+        const recallClient = new RecallAIClient({
+          apiKey: process.env.RECALL_AI_API_KEY!,
+          region: (process.env.RECALL_AI_REGION as any) || 'us-west-2',
+        });
+        
+        const bot = await recallClient.getBotWithRecordings(session.recall_bot_id);
+        
+        if (bot.recordings && bot.recordings.length > 0) {
+          // Convert Recall.ai recordings to our format
+          const recordings = bot.recordings.map(botRecording => {
+            const videoUrl = recallClient.extractVideoUrl(botRecording);
+            
+            return {
+              id: botRecording.id,
+              session_id: sessionId,
+              bot_id: session.recall_bot_id,
+              recording_id: botRecording.id,
+              recording_url: videoUrl,
+              recording_status: botRecording.status?.code || 'done',
+              recording_expires_at: botRecording.expires_at,
+              duration_seconds: botRecording.started_at && botRecording.completed_at 
+                ? Math.floor(
+                    (new Date(botRecording.completed_at).getTime() - 
+                     new Date(botRecording.started_at).getTime()) / 1000
+                  )
+                : null,
+              bot_name: bot.bot_name || 'LivePrompt Assistant',
+              created_at: botRecording.created_at || session.created_at
+            };
+          });
 
-      // Fetch fresh URLs for all recordings with bot IDs
-      for (const recording of recordings) {
-        if (recording.bot_id) {
-          try {
-            console.log('🔄 Fetching fresh recording URL for bot:', recording.bot_id);
-            
-            const bot = await recallClient.getBotWithRecordings(recording.bot_id);
-            
-            if (bot.recordings && bot.recordings.length > 0) {
-              // Get the first recording from Recall AI (usually there's only one per bot)
-              const botRecording = bot.recordings[0];
-              
-              if (botRecording) {
-                const videoUrl = recallClient.extractVideoUrl(botRecording);
-                
-                console.log('📹 Found recording:', {
-                  botRecordingId: botRecording.id,
-                  storedRecordingId: recording.recording_id,
-                  hasVideoUrl: !!videoUrl,
-                  recordingStatus: botRecording.status?.code
-                });
-                
-                if (videoUrl) {
-                  // Only update status and metadata, NOT the URL (per user's request)
-                  const updateData: any = {
-                    recording_status: botRecording.status?.code || 'done',
-                    recording_id: botRecording.id, // Update to match Recall AI's ID
-                    updated_at: new Date().toISOString()
-                  };
-                  
-                  if (botRecording.started_at && botRecording.completed_at) {
-                    updateData.duration_seconds = Math.floor(
-                      (new Date(botRecording.completed_at).getTime() - 
-                       new Date(botRecording.started_at).getTime()) / 1000
-                    );
-                  }
-                  
-                  // Update the recording metadata (but NOT the URL)
-                  await authClient
-                    .from('bot_recordings')
-                    .update(updateData)
-                    .eq('id', recording.id);
-                    
-                  // Update local object with fresh URL for this response only
-                  recording.recording_url = videoUrl;
-                  recording.recording_status = botRecording.status?.code || 'done';
-                  recording.recording_expires_at = botRecording.expires_at;
-                  recording.recording_id = botRecording.id;
-                }
-              }
-            }
-          } catch (error) {
-            console.error(`Failed to refresh recording for bot ${recording.bot_id}:`, error);
-            // Continue with other recordings
-          }
+          console.log('📤 Returning recordings from Recall.ai:', {
+            count: recordings.length,
+            hasRecordings: recordings.length > 0,
+            firstRecording: recordings[0],
+            sessionId
+          });
+          
+          return NextResponse.json({
+            recordings: recordings
+          });
         }
+      } catch (error) {
+        console.error(`Failed to fetch recordings from Recall.ai:`, error);
       }
     }
 
-    console.log('📤 Returning recordings:', {
-      count: recordings?.length || 0,
-      hasRecordings: !!recordings && recordings.length > 0,
-      firstRecording: recordings?.[0],
-      sessionId
-    });
+    // No recordings found
+    console.log('📤 No recordings found for session:', sessionId);
     
     return NextResponse.json({
-      recordings: recordings || []
+      recordings: []
     });
 
   } catch (error) {

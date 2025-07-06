@@ -32,7 +32,14 @@ interface CalendarSyncWebhookEvent {
   };
 }
 
-type WebhookEvent = BotStatusWebhookEvent | CalendarSyncWebhookEvent;
+interface CalendarUpdateWebhookEvent {
+  event: 'calendar.update';
+  data: {
+    calendar_id: string;
+  };
+}
+
+type WebhookEvent = BotStatusWebhookEvent | CalendarSyncWebhookEvent | CalendarUpdateWebhookEvent;
 
 /**
  * Global webhook handler for bot status events from Recall.ai
@@ -236,6 +243,22 @@ export async function POST(request: NextRequest) {
           details: syncError instanceof Error ? syncError.message : 'Unknown error' 
         }, { status: 500 });
       }
+    }
+    
+    // Handle calendar.update events (different structure than calendar.sync_events)
+    if (event.event === 'calendar.update') {
+      console.log('📅 Calendar update event received:', {
+        calendarId: (event as any).data.calendar_id
+      });
+      
+      // Log the event and return success
+      // The calendar.update event just notifies that something changed
+      // It doesn't require the same processing as calendar.sync_events
+      return NextResponse.json({ 
+        success: true, 
+        type: 'calendar_update',
+        message: 'Calendar update notification received'
+      });
     }
     
     // Handle bot status events
