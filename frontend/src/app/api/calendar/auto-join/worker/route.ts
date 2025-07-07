@@ -112,6 +112,8 @@ async function handleAutoJoin(request: NextRequest) {
             auto_session_created,
             auto_session_id,
             auto_bot_status,
+            organizer_email,
+            is_organizer,
             calendar_connections!inner(user_id)
           `)
           .eq('calendar_connections.user_id', user.id)
@@ -146,9 +148,36 @@ async function handleAutoJoin(request: NextRequest) {
           }
 
           const meetingTitle = meeting.title || 'Untitled Meeting';
+          
+          // Determine the session owner - if user is organizer, use their ID
+          // Otherwise, try to find the organizer's user account
+          let sessionUserId = user.id;
+          let sessionOrgId = user.current_organization_id || user.id;
+          
+          if (meeting.is_organizer) {
+            // Current user is the organizer, use their info
+            sessionUserId = user.id;
+            sessionOrgId = user.current_organization_id || user.id;
+          } else if (meeting.organizer_email) {
+            // Try to find the organizer's user account
+            const { data: organizerUser } = await supabase
+              .from('users')
+              .select('id, current_organization_id')
+              .eq('email', meeting.organizer_email.toLowerCase())
+              .single();
+            
+            if (organizerUser) {
+              sessionUserId = organizerUser.id;
+              sessionOrgId = organizerUser.current_organization_id || organizerUser.id;
+              console.log(`Assigning session to organizer: ${meeting.organizer_email} (${organizerUser.id})`);
+            } else {
+              console.log(`Organizer ${meeting.organizer_email} not found in system, using calendar owner`);
+            }
+          }
+          
           const sessionData = {
-            user_id: user.id,
-            organization_id: user.current_organization_id || user.id,
+            user_id: sessionUserId,
+            organization_id: sessionOrgId,
             title: `Auto: ${meetingTitle}`,
             meeting_url: meeting.meeting_url,
             meeting_platform: 'google-meet',
@@ -172,7 +201,7 @@ async function handleAutoJoin(request: NextRequest) {
             });
             
             await supabase.rpc('log_auto_join_activity', {
-              p_user_id: user.id,
+              p_user_id: sessionUserId,
               p_event_id: meeting.id,
               p_session_id: null,
               p_bot_id: null,
@@ -195,7 +224,7 @@ async function handleAutoJoin(request: NextRequest) {
             .eq('id', meeting.id);
 
           await supabase.rpc('log_auto_join_activity', {
-            p_user_id: user.id,
+            p_user_id: sessionUserId,
             p_event_id: meeting.id,
             p_session_id: session.id,
             p_bot_id: null,
@@ -207,8 +236,8 @@ async function handleAutoJoin(request: NextRequest) {
           // Check usage limits before deploying bot
           const { data: limits, error: limitsError } = await supabase
             .rpc('check_usage_limit', {
-              p_user_id: user.id,
-              p_organization_id: user.current_organization_id || user.id
+              p_user_id: sessionUserId,
+              p_organization_id: sessionOrgId
             });
 
           if (limitsError) {
@@ -234,7 +263,7 @@ async function handleAutoJoin(request: NextRequest) {
               .eq('id', meeting.id);
 
             await supabase.rpc('log_auto_join_activity', {
-              p_user_id: user.id,
+              p_user_id: sessionUserId,
               p_event_id: meeting.id,
               p_session_id: session.id,
               p_bot_id: null,
@@ -284,7 +313,7 @@ async function handleAutoJoin(request: NextRequest) {
               .eq('id', meeting.id);
 
             await supabase.rpc('log_auto_join_activity', {
-              p_user_id: user.id,
+              p_user_id: sessionUserId,
               p_event_id: meeting.id,
               p_session_id: session.id,
               p_bot_id: bot.id,
@@ -295,7 +324,7 @@ async function handleAutoJoin(request: NextRequest) {
             });
 
             await supabase.rpc('create_meeting_notification', {
-              p_user_id: user.id,
+              p_user_id: sessionUserId,
               p_event_id: meeting.id,
               p_session_id: session.id,
               p_type: 'bot_deployed',
@@ -319,7 +348,7 @@ async function handleAutoJoin(request: NextRequest) {
               .eq('id', meeting.id);
 
             await supabase.rpc('log_auto_join_activity', {
-              p_user_id: user.id,
+              p_user_id: sessionUserId,
               p_event_id: meeting.id,
               p_session_id: session.id,
               p_bot_id: null,
@@ -329,7 +358,7 @@ async function handleAutoJoin(request: NextRequest) {
             });
 
             await supabase.rpc('create_meeting_notification', {
-              p_user_id: user.id,
+              p_user_id: sessionUserId,
               p_event_id: meeting.id,
               p_session_id: session.id,
               p_type: 'bot_failed',
