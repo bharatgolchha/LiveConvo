@@ -21,7 +21,7 @@ export default function PrivacyPolicy() {
         <div className="prose prose-gray dark:prose-invert max-w-none">
           <h1 className="text-4xl font-bold mb-2">Privacy Policy</h1>
           <p className="text-muted-foreground mb-8">
-            Effective Date: January 16, 2025 | Last Updated: January 16, 2025
+            Effective Date: January 16, 2025 | Last Updated: January 23, 2025
           </p>
 
           <div className="bg-muted/50 p-6 rounded-lg mb-8">
@@ -99,13 +99,19 @@ export default function PrivacyPolicy() {
           <section className="mb-8">
             <h2 className="text-2xl font-semibold mb-4">3. Google API Services and Limited Use Disclosure</h2>
             <div className="bg-green-50 dark:bg-green-900/20 p-6 rounded-lg mb-6">
-              <h3 className="text-xl font-semibold mb-3 text-green-800 dark:text-green-200">Google API Services User Data Policy</h3>
-              <p className="text-green-700 dark:text-green-300 font-medium">
-                liveprompt.ai's use and transfer to any other app of information received from Google APIs will adhere to 
-                <a href="https://developers.google.com/terms/api-services-user-data-policy" className="underline ml-1" target="_blank" rel="noopener noreferrer">
+              <h3 className="text-xl font-semibold mb-3 text-green-800 dark:text-green-200">Limited Use Requirements for Google User Data</h3>
+              <p className="text-green-700 dark:text-green-300 font-semibold text-lg mb-4">
+                liveprompt.ai's use and transfer to any other app of information received from Google APIs adheres to the 
+                <a href="https://developers.google.com/terms/api-services-user-data-policy#additional_requirements_for_specific_api_scopes" className="underline ml-1" target="_blank" rel="noopener noreferrer">
                   Google API Services User Data Policy
                 </a>, including the Limited Use requirements.
               </p>
+              
+              <div className="bg-white dark:bg-gray-800 p-4 rounded border-2 border-green-600 dark:border-green-400 mb-4">
+                <p className="text-green-800 dark:text-green-200 font-bold text-lg">
+                  Affirmative Statement: We confirm that our use of Google user data complies with the Limited Use restrictions as specified in the Google API Services User Data Policy.
+                </p>
+              </div>
               
               <div className="mt-4 space-y-3">
                 <p className="text-green-700 dark:text-green-300">
@@ -119,14 +125,23 @@ export default function PrivacyPolicy() {
                 </ul>
                 
                 <p className="text-green-700 dark:text-green-300 mt-3">
-                  <strong>We do NOT:</strong>
+                  <strong>Limited Use Compliance - We do NOT:</strong>
                 </p>
                 <ul className="list-disc ml-6 text-green-700 dark:text-green-300">
-                  <li>Use Google user data for advertising or marketing purposes</li>
+                  <li>Use Google user data for serving advertisements</li>
+                  <li>Transfer Google user data to ad platforms, data brokers, or any information resellers</li>
+                  <li>Use Google user data for purposes unrelated to providing or improving user-facing features that are prominent in our application's user interface</li>
+                  <li>Transfer Google user data for purposes unrelated to our application's functionality as described to users</li>
+                  <li>Use or transfer Google user data to determine creditworthiness or for lending purposes</li>
                   <li>Share Google user data with third parties except as necessary to provide our core service functionality</li>
-                  <li>Use Google user data for any purpose other than providing and improving liveprompt.ai features</li>
-                  <li>Transfer Google user data to third parties without your explicit consent</li>
                 </ul>
+                
+                <p className="text-green-700 dark:text-green-300 mt-4">
+                  For more information about Google's Limited Use requirements, please visit the 
+                  <a href="https://developers.google.com/terms/api-services-user-data-policy#additional_requirements_for_specific_api_scopes" className="underline ml-1" target="_blank" rel="noopener noreferrer">
+                    Google API Services User Data Policy
+                  </a>.
+                </p>
               </div>
             </div>
           </section>

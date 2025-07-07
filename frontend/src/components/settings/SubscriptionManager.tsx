@@ -112,28 +112,25 @@ export const SubscriptionManager: React.FC = () => {
   const handleManageSubscription = async () => {
     try {
       setManagingSubscription(true);
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) return;
-
-      const response = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/create-portal-session`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session.access_token}`
-        },
-        body: JSON.stringify({
-          userId: session.user.id
-        })
-      });
-
-      if (response.ok) {
-        const { url } = await response.json();
-        window.location.href = url;
-      } else {
-        throw new Error('Failed to create portal session');
+      
+      // Determine environment and use appropriate billing portal URL
+      const isProduction = process.env.NEXT_PUBLIC_SUPABASE_URL?.includes('xkxjycccifwyxgtvflxz');
+      
+      const portalId = isProduction 
+        ? process.env.NEXT_PUBLIC_STRIPE_PROD_PORTAL_ID 
+        : process.env.NEXT_PUBLIC_STRIPE_TEST_PORTAL_ID;
+      
+      if (!portalId) {
+        console.error('Stripe billing portal ID not configured');
+        alert('Billing management is not available at the moment. Please contact support.');
+        return;
       }
+      
+      // Redirect to Stripe Customer Portal
+      window.location.href = `https://billing.stripe.com/p/login/${portalId}`;
     } catch (error) {
       console.error('Error opening subscription portal:', error);
+      alert('Unable to open billing portal. Please try again or contact support.');
     } finally {
       setManagingSubscription(false);
     }
@@ -210,8 +207,8 @@ export const SubscriptionManager: React.FC = () => {
   }
 
   const { plan, subscription, usage } = subscriptionData;
-  const isPro = plan.name === 'individual_pro';
-  const isFree = plan.name === 'individual_free';
+  const isPro = plan.name === 'pro' || plan.name === 'individual_pro';
+  const isFree = plan.name === 'individual_free' || plan.name === 'free';
 
   return (
     <div className="space-y-6">
