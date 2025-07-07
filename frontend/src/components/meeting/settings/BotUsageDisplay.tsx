@@ -19,7 +19,6 @@ import {
 import { useBotUsage } from '@/lib/meeting/hooks/useBotUsage';
 import { cn } from '@/lib/utils';
 import { format, parseISO, formatDistanceToNow } from 'date-fns';
-import { SyncBotStatusButton } from './SyncBotStatusButton';
 import { Badge } from '@/components/ui/badge';
 
 interface BotUsageDisplayProps {
@@ -189,20 +188,13 @@ export function BotUsageDisplay({ organizationId, className }: BotUsageDisplayPr
           <Bot className="w-5 h-5" />
           Bot Usage
         </h3>
-        <div className="flex items-center gap-2">
-          <SyncBotStatusButton 
-            onSyncComplete={refetch}
-            variant="ghost"
-            size="sm"
-          />
-          <button 
-            onClick={refetch}
-            className="p-2 hover:bg-muted rounded-full transition-colors"
-            title="Refresh"
-          >
-            <RefreshCw className="w-4 h-4" />
-          </button>
-        </div>
+        <button 
+          onClick={refetch}
+          className="p-2 hover:bg-muted rounded-full transition-colors"
+          title="Refresh"
+        >
+          <RefreshCw className="w-4 h-4" />
+        </button>
       </div>
 
       {/* Stats Overview */}
