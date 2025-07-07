@@ -1,3 +1,4 @@
+'use client';
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -11,6 +12,7 @@ import {
 import { ThemeToggle } from '@/components/ui/ThemeToggle';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
+import { useIntercom } from '@/lib/hooks/useIntercom';
 
 export interface DashboardUser {
   name: string;
@@ -31,6 +33,7 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({ user, onSearch, onNav
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const { signOut } = useAuth();
   const { resolvedTheme } = useTheme();
+  const { show: showIntercom } = useIntercom();
 
   const handleLogout = async () => {
     const { error } = await signOut();
@@ -97,15 +100,7 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({ user, onSearch, onNav
           {/* Help / Intercom */}
           <button
             type="button"
-            onClick={() => {
-              try {
-                (require('@intercom/messenger-js-sdk') as any)(
-                  'show'
-                );
-              } catch (err) {
-                console.error('Intercom show failed', err);
-              }
-            }}
+            onClick={showIntercom}
             className="p-2 rounded-lg hover:bg-accent transition-colors"
             aria-label="Help & Support"
           >
