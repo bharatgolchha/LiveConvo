@@ -46,6 +46,7 @@ export const WelcomeStep: React.FC<WelcomeStepProps> = ({
             value={data.organization_name}
             onChange={(e) => updateData({ organization_name: e.target.value })}
             placeholder="e.g. Acme Corp or John's Workspace"
+            required
             className="w-full px-4 py-3 bg-background border border-border rounded-lg focus:ring-2 focus:ring-app-primary focus:border-app-primary transition-all duration-200 text-foreground placeholder:text-muted-foreground"
           />
           <p className="text-xs text-muted-foreground">
