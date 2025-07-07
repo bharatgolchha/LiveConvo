@@ -6,6 +6,7 @@ import {
   UserCircleIcon,
   Cog6ToothIcon,
   ArrowRightOnRectangleIcon,
+  QuestionMarkCircleIcon,
 } from '@heroicons/react/24/outline';
 import { ThemeToggle } from '@/components/ui/ThemeToggle';
 import { useTheme } from '@/contexts/ThemeContext';
@@ -93,6 +94,24 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({ user, onSearch, onNav
 
         {/* Right Actions */}
         <div className="flex items-center space-x-4">
+          {/* Help / Intercom */}
+          <button
+            type="button"
+            onClick={() => {
+              try {
+                (require('@intercom/messenger-js-sdk') as any)(
+                  'show'
+                );
+              } catch (err) {
+                console.error('Intercom show failed', err);
+              }
+            }}
+            className="p-2 rounded-lg hover:bg-accent transition-colors"
+            aria-label="Help & Support"
+          >
+            <QuestionMarkCircleIcon className="w-6 h-6 text-muted-foreground" />
+          </button>
+
           {/* Theme Toggle */}
           <ThemeToggle />
 

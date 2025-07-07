@@ -36,6 +36,7 @@ export default function IntercomProvider() {
       try {
         Intercom({
           app_id: 'zclf9bta',
+          hide_default_launcher: true,
           ...buildUserProps(),
         });
         bootedRef.current = true;
@@ -47,7 +48,7 @@ export default function IntercomProvider() {
       // Already booted → update user context (might transition from visitor→logged-in)
       if (user) {
         try {
-          (Intercom as any)('update', buildUserProps());
+          (Intercom as any)('update', { hide_default_launcher: true, ...buildUserProps() });
         } catch (err) {
           // eslint-disable-next-line no-console
           console.error('Intercom update failed', err);
