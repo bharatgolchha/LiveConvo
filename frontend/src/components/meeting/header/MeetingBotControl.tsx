@@ -5,26 +5,75 @@ import {
   XCircleIcon,
   PlayCircleIcon,
   StopCircleIcon,
-  ExclamationTriangleIcon
+  ExclamationTriangleIcon,
+  ArrowUpCircleIcon
 } from '@heroicons/react/24/outline';
 import { Loader2 } from 'lucide-react';
 import { useMeetingContext } from '@/lib/meeting/context/MeetingContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRecallBotStatus } from '@/lib/meeting/hooks/useRecallBotStatus';
+import { useBotUsage } from '@/lib/meeting/hooks/useBotUsage';
 import { supabase } from '@/lib/supabase';
+import { useRouter } from 'next/navigation';
+import { cn } from '@/lib/utils';
 
 export function MeetingBotControl() {
   const { meeting, setMeeting, botStatus, setBotStatus } = useMeetingContext();
   const { session: authSession } = useAuth();
+  const router = useRouter();
   const [isStarting, setIsStarting] = useState(false);
   const [isStopping, setIsStopping] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<React.ReactNode>(null);
+  const [showUpgradePrompt, setShowUpgradePrompt] = useState(false);
+  
+  // Get bot usage data
+  const { stats, loading: usageLoading, refetch: refetchUsage } = useBotUsage(undefined, false);
   
   // Monitor bot status
   const { status: recallStatus, refetch } = useRecallBotStatus(
     meeting?.id || '',
     meeting?.botId
   );
+  
+  // Subscribe to real-time usage updates
+  const { user } = useAuth();
+  React.useEffect(() => {
+    if (!user?.id) return;
+
+    const channel = supabase
+      .channel(`bot-control-usage-${user.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'bot_usage_tracking',
+          filter: `user_id=eq.${user.id}`
+        },
+        () => {
+          // Refetch usage data when tracking changes
+          refetchUsage();
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'monthly_usage_cache',
+          filter: `user_id=eq.${user.id}`
+        },
+        () => {
+          // Refetch when monthly cache updates
+          refetchUsage();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user?.id, refetchUsage]);
   
   // Debug logging
   React.useEffect(() => {
@@ -77,10 +126,27 @@ export function MeetingBotControl() {
         
         // Handle usage limit exceeded error specially
         if (response.status === 403 && data.details?.upgradeRequired) {
-          setError(data.details.message || 'Bot recording limit exceeded. Please upgrade your plan.');
+          // Show detailed error with usage info
+          const minutesUsed = data.details.minutesUsed || 0;
+          const minutesLimit = data.details.minutesLimit || 0;
           
-          // Show upgrade modal or redirect to pricing
-          // You could add a state to show upgrade modal here
+          setError(
+            <div className="space-y-2">
+              <div className="font-medium">Recording Limit Reached</div>
+              <div className="text-xs">
+                You've used {minutesUsed} of your {minutesLimit} monthly bot minutes.
+              </div>
+              <button
+                onClick={() => router.push('/pricing')}
+                className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:text-primary/80 transition-colors"
+              >
+                <ArrowUpCircleIcon className="w-3 h-3" />
+                Upgrade to continue
+              </button>
+            </div>
+          );
+          
+          setShowUpgradePrompt(true);
           console.error('Usage limit exceeded:', data.details);
           return;
         }
@@ -344,6 +410,10 @@ export function MeetingBotControl() {
   };
 
   const { showStartButton, statusElement } = getStatusDisplay();
+  
+  // Check if user has minutes remaining
+  const hasMinutesRemaining = !usageLoading && stats && stats.remainingMinutes > 0;
+  const isOutOfMinutes = !usageLoading && stats && stats.remainingMinutes <= 0;
 
   return (
     <div className="flex items-center gap-2">
@@ -361,22 +431,81 @@ export function MeetingBotControl() {
         )}
       </AnimatePresence>
 
+      {/* Upgrade prompt for users out of minutes */}
+      <AnimatePresence>
+        {showUpgradePrompt && isOutOfMinutes && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.95 }}
+            className="absolute top-full mt-2 right-0 w-80 p-4 bg-background border border-border rounded-lg shadow-lg z-50"
+          >
+            <div className="space-y-3">
+              <div className="flex items-start gap-3">
+                <ExclamationTriangleIcon className="w-5 h-5 text-yellow-600 dark:text-yellow-400 mt-0.5" />
+                <div className="flex-1">
+                  <h4 className="font-semibold text-foreground">Out of Bot Minutes</h4>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    You've used all {stats?.monthlyBotMinutesLimit} minutes in your {stats?.planDisplayName} plan. 
+                    Upgrade to continue recording meetings.
+                  </p>
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => router.push('/pricing')}
+                  className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors text-sm font-medium"
+                >
+                  <ArrowUpCircleIcon className="w-4 h-4" />
+                  Upgrade Plan
+                </button>
+                <button
+                  onClick={() => setShowUpgradePrompt(false)}
+                  className="px-3 py-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Status element or start button */}
       {statusElement ? (
         statusElement
       ) : showStartButton ? (
-        <button
-          onClick={handleStartBot}
-          disabled={isStarting || !meeting?.meetingUrl}
-          className="flex items-center gap-2 px-4 py-2 bg-primary hover:bg-primary/90 text-primary-foreground rounded-lg transition-colors disabled:opacity-50 font-medium"
-        >
-          {isStarting ? (
-            <Loader2 className="w-4 h-4 animate-spin" />
-          ) : (
-            <PlayCircleIcon className="w-4 h-4" />
-          )}
-          <span className="text-sm">Start Recording</span>
-        </button>
+        <div className="relative">
+          <button
+            onClick={() => {
+              if (isOutOfMinutes) {
+                setShowUpgradePrompt(true);
+              } else {
+                handleStartBot();
+              }
+            }}
+            disabled={isStarting || !meeting?.meetingUrl || usageLoading}
+            className={cn(
+              "flex items-center gap-2 px-4 py-2 rounded-lg transition-all font-medium",
+              isOutOfMinutes 
+                ? "bg-muted hover:bg-muted/80 text-muted-foreground cursor-not-allowed" 
+                : "bg-primary hover:bg-primary/90 text-primary-foreground",
+              "disabled:opacity-50"
+            )}
+            title={isOutOfMinutes ? "You're out of bot minutes. Upgrade to continue recording." : undefined}
+          >
+            {isStarting ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : isOutOfMinutes ? (
+              <ExclamationTriangleIcon className="w-4 h-4" />
+            ) : (
+              <PlayCircleIcon className="w-4 h-4" />
+            )}
+            <span className="text-sm">
+              {isOutOfMinutes ? "No Minutes Left" : "Start Recording"}
+            </span>
+          </button>
+        </div>
       ) : null}
     </div>
   );
