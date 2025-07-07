@@ -54,7 +54,7 @@ export function BotUsageDisplay({ organizationId, className }: BotUsageDisplayPr
   
   console.log('🤖 BotUsageDisplay received organizationId:', organizationId);
   
-  const { sessions, stats, loading, error, refetch } = useBotUsage(organizationId, true); // Show all-time data in settings
+  const { sessions, stats, loading, error, refetch } = useBotUsage(organizationId, false); // Show current billing period data
 
   // Debug log the sessions data
   useEffect(() => {

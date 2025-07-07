@@ -88,8 +88,29 @@ export async function GET(req: NextRequest) {
 
     // Default to current month if no dates provided
     const now = new Date();
-    const monthStart = startDate ? new Date(startDate) : new Date(now.getFullYear(), now.getMonth(), 1);
-    const monthEnd = endDate ? new Date(endDate) : new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
+    let monthStart = startDate ? new Date(startDate) : new Date(now.getFullYear(), now.getMonth(), 1);
+    let monthEnd = endDate ? new Date(endDate) : new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
+
+    // ------------------------------------------------------------------
+    // Determine active subscription billing period (if any) to override
+    // ------------------------------------------------------------------
+    if (!showAllTime && (!startDate && !endDate)) {
+      const { data: activeSub } = await serviceClient
+        .from('subscriptions')
+        .select('current_period_start, current_period_end')
+        .eq('organization_id', organizationId)
+        .eq('status', 'active')
+        .single();
+
+      if (activeSub?.current_period_start && activeSub?.current_period_end) {
+        monthStart = new Date(activeSub.current_period_start);
+        monthEnd = new Date(activeSub.current_period_end);
+        console.log('📅 Overriding period with subscription billing period:', {
+          monthStart: monthStart.toISOString(),
+          monthEnd: monthEnd.toISOString()
+        });
+      }
+    }
 
     console.log('🔍 Querying bot usage with:', { organizationId, userId, monthStart: monthStart.toISOString(), monthEnd: monthEnd.toISOString() });
 
@@ -208,28 +229,59 @@ export async function GET(req: NextRequest) {
       planDisplayName = plan.display_name;
     }
 
-    // Calculate remaining minutes and overage
-    const remainingMinutes = Math.max(0, monthlyBotMinutesLimit - totalBillableMinutes);
-    const overageMinutes = Math.max(0, totalBillableMinutes - monthlyBotMinutesLimit);
+    // ------------------------------------------------------------------
+    // Reconcile with check_usage_limit for accuracy (single source of truth)
+    // ------------------------------------------------------------------
+    const { data: limitData } = await serviceClient.rpc('check_usage_limit', {
+      p_user_id: userId,
+      p_organization_id: organizationId
+    });
+    const limitRow = Array.isArray(limitData) ? limitData[0] : limitData;
+
+    const minutesUsedOfficial = limitRow?.minutes_used ?? totalBillableMinutes;
+    const minutesLimitOfficial = limitRow?.minutes_limit ?? monthlyBotMinutesLimit;
+
+    // Treat very large limits as unlimited
+    const isUnlimited = minutesLimitOfficial && minutesLimitOfficial >= 999999;
+
+    const remainingMinutes = isUnlimited ? null : Math.max(0, minutesLimitOfficial - minutesUsedOfficial);
+    const overageMinutes = isUnlimited ? 0 : Math.max(0, minutesUsedOfficial - minutesLimitOfficial);
     const overageCost = overageMinutes * 0.10;
     const totalCost = overageCost; // Cost is 0 if within plan limits
+
+    // Use the direct query total (current period) as the authoritative usage
+    const totalBillableMinutesFinal = totalBillableMinutes; // from earlier aggregation within period
+    // In rare cases check_usage_limit may be out-of-sync; adjust minutesRemaining accordingly
+    const adjustedRemaining = minutesLimitOfficial === null ? null : Math.max(0, minutesLimitOfficial - totalBillableMinutesFinal);
+    const minutesRemaining = adjustedRemaining;
+    monthlyBotMinutesLimit = minutesLimitOfficial;
+    // Overwrite to keep consistency
+    limitRow.minutes_used = totalBillableMinutesFinal;
+    limitRow.minutes_remaining = adjustedRemaining;
+
+    // -------------------------------------------------
+    // Recompute overage based on final billable minutes
+    // -------------------------------------------------
+    const finalOverageMinutes = monthlyBotMinutesLimit === null ? 0 : Math.max(0, totalBillableMinutesFinal - monthlyBotMinutesLimit);
+    const finalOverageCost = finalOverageMinutes * 0.10;
+    const finalTotalCost = finalOverageCost; // No cost within limit
 
     return NextResponse.json({
       success: true,
       data: {
         summary: {
-          totalBillableMinutes,
+          totalBillableMinutes: totalBillableMinutesFinal,
           totalRecordingSeconds,
           totalSessions,
-          averageMinutesPerSession: totalSessions > 0 ? Math.round(totalBillableMinutes / totalSessions * 100) / 100 : 0,
+          averageMinutesPerSession: totalSessions > 0 ? Math.round(totalBillableMinutesFinal / totalSessions * 100) / 100 : 0,
           periodStart: monthStart.toISOString(),
           periodEnd: monthEnd.toISOString(),
           // New fields for plan limits
           monthlyBotMinutesLimit,
-          remainingMinutes,
-          overageMinutes,
-          totalCost,
-          overageCost
+          remainingMinutes: adjustedRemaining ?? 0,
+          overageMinutes: finalOverageMinutes,
+          totalCost: finalTotalCost,
+          overageCost: finalOverageCost
         },
         platformBreakdown,
         dailyBreakdown,

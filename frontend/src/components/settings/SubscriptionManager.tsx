@@ -145,6 +145,8 @@ export const SubscriptionManager: React.FC = () => {
         return <AlertCircle className="w-4 h-4 text-red-500" />;
       case 'canceled':
         return <Clock className="w-4 h-4 text-gray-500" />;
+      case 'inactive':
+        return <CheckCircle className="w-4 h-4 text-green-500" />;
       default:
         return <AlertCircle className="w-4 h-4 text-yellow-500" />;
     }
@@ -157,6 +159,7 @@ export const SubscriptionManager: React.FC = () => {
       unpaid: 'bg-red-100 text-red-800 border-red-200',
       canceled: 'bg-gray-100 text-gray-800 border-gray-200',
       incomplete: 'bg-yellow-100 text-yellow-800 border-yellow-200',
+      inactive: 'bg-green-100 text-green-800 border-green-200',
     };
 
     const statusLabels = {
@@ -165,10 +168,11 @@ export const SubscriptionManager: React.FC = () => {
       unpaid: 'Unpaid',
       canceled: 'Canceled',
       incomplete: 'Incomplete',
+      inactive: 'Free',
     };
 
     return (
-      <Badge className={statusColors[status as keyof typeof statusColors] || statusColors.incomplete}>
+      <Badge className={statusColors[status as keyof typeof statusColors] || statusColors.inactive}>
         {statusLabels[status as keyof typeof statusLabels] || 'Unknown'}
       </Badge>
     );
