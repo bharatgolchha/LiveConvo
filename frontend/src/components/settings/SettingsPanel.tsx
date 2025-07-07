@@ -333,43 +333,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ onSessionsDeleted 
 
         {/* Usage Tab */}
         <TabsContent value="usage" className="space-y-6">
-          {/* Quick Stats Overview */}
-          <Card className="p-6">
-            <h2 className="text-xl font-semibold mb-4">Usage Overview</h2>
-            {statsLoading ? (
-              <div className="grid grid-cols-2 gap-4">
-                <div className="animate-pulse">
-                  <div className="h-4 bg-muted rounded mb-2"></div>
-                  <div className="h-8 bg-muted rounded"></div>
-                </div>
-                <div className="animate-pulse">
-                  <div className="h-4 bg-muted rounded mb-2"></div>
-                  <div className="h-8 bg-muted rounded"></div>
-                </div>
-              </div>
-            ) : stats ? (
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <div className="text-center p-4 bg-muted/30 rounded-lg">
-                  <p className="text-sm text-muted-foreground mb-1">Total Sessions</p>
-                  <p className="text-2xl font-bold">{stats.totalSessions || 0}</p>
-                </div>
-                <div className="text-center p-4 bg-muted/30 rounded-lg">
-                  <p className="text-sm text-muted-foreground mb-1">Completed</p>
-                  <p className="text-2xl font-bold">{stats.completedSessions || 0}</p>
-                </div>
-                <div className="text-center p-4 bg-muted/30 rounded-lg">
-                  <p className="text-sm text-muted-foreground mb-1">Bot Minutes</p>
-                  <p className="text-2xl font-bold">{Math.round((stats.monthlySecondsUsed || 0) / 60)}</p>
-                </div>
-                <div className="text-center p-4 bg-muted/30 rounded-lg">
-                  <p className="text-sm text-muted-foreground mb-1">Usage</p>
-                  <p className="text-2xl font-bold">{Math.round(stats.usagePercentage || 0)}%</p>
-                </div>
-              </div>
-            ) : (
-              <p className="text-muted-foreground">No usage data available</p>
-            )}
-          </Card>
+          {/* (Quick Stats Overview removed per user request) */}
 
           {/* Bot Usage Display - Primary Focus */}
           <Card className="p-6 border-2 border-primary/20">

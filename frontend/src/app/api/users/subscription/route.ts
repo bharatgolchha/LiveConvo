@@ -45,10 +45,31 @@ export async function GET(request: NextRequest) {
 
     // If no active subscription found, return default free plan
     if (!subscriptionData) {
+      // Fetch the free plan limits dynamically so we don\'t rely on a hard-coded value
+      const { data: freePlan, error: freePlanError } = await supabase
+        .from('plans')
+        .select('display_name, monthly_audio_minutes_limit, monthly_audio_hours_limit')
+        .eq('name', 'individual_free')
+        .single();
+
+      if (freePlanError) {
+        console.error('Error fetching free plan data:', freePlanError);
+      }
+
+      // Calculate the monthly audio limit in hours (null === unlimited)
+      let freeLimitAudioHours: number | null = null;
+      if (freePlan) {
+        if (freePlan.monthly_audio_minutes_limit !== null) {
+          freeLimitAudioHours = freePlan.monthly_audio_minutes_limit / 60;
+        } else if (freePlan.monthly_audio_hours_limit !== null) {
+          freeLimitAudioHours = freePlan.monthly_audio_hours_limit;
+        }
+      }
+
       return NextResponse.json({
         plan: {
           name: 'individual_free',
-          displayName: 'Free',
+          displayName: freePlan?.display_name || 'Free',
           pricing: {
             monthly: null,
             yearly: null,
@@ -63,7 +84,7 @@ export async function GET(request: NextRequest) {
         },
         usage: {
           currentAudioHours: 0,
-          limitAudioHours: 4, // Default free plan limit
+          limitAudioHours: freeLimitAudioHours,
           currentSessions: 0,
           limitSessions: null,
         }
@@ -100,25 +121,68 @@ export async function GET(request: NextRequest) {
       console.log('📅 Using calendar month (no subscription found)');
     }
     
-    // Get bot minutes data for current billing period - this is THE usage metric
-    const { data: botMinutesData } = await supabase
-      .from('bot_usage_tracking')
-      .select('billable_minutes')
-      .eq('user_id', user.id)
-      .eq('organization_id', userData.current_organization_id)
-      .gte('created_at', periodStart.toISOString())
-      .lt('created_at', periodEnd.toISOString());
-
-    const totalBotMinutes = botMinutesData?.reduce((sum: number, record: any) => sum + (record.billable_minutes || 0), 0) || 0;
-    const totalAudioHours = Math.round((totalBotMinutes / 60) * 100) / 100; // Round to 2 decimal places
-    
-    console.log('📊 Usage calculation:', {
-      periodStart: periodStart.toISOString(),
-      periodEnd: periodEnd.toISOString(),
-      botRecords: botMinutesData?.length || 0,
-      totalBotMinutes,
-      totalAudioHours
+    // --------------------------------------------------------------------
+    // Fetch usage limits & minutes used via database function (source of truth)
+    // --------------------------------------------------------------------
+    const { data: limitResult, error: limitError } = await supabase.rpc('check_usage_limit', {
+      p_user_id: user.id,
+      p_organization_id: userData.current_organization_id
     });
+    
+    if (limitError) {
+      console.error('check_usage_limit RPC error:', limitError);
+    }
+    
+    const limitRow = Array.isArray(limitResult) ? limitResult[0] : limitResult;
+    let minutesUsed = limitRow?.minutes_used ?? 0;
+    const minutesLimitRaw = limitRow?.minutes_limit ?? null;
+    // Treat very large limits as unlimited (e.g., 999999)
+    const minutesLimit = minutesLimitRaw && minutesLimitRaw >= 999999 ? null : minutesLimitRaw;
+    let minutesRemaining = limitRow?.minutes_remaining ?? (minutesLimit ? Math.max(minutesLimit - minutesUsed, 0) : null);
+    
+    // If subscription is active and started mid-month, recalc usage from that start date to ensure we don't include pre-subscription minutes
+    if (subscriptionData.status === 'active' && subscriptionData.current_period_start) {
+      const subStart = new Date(subscriptionData.current_period_start);
+      const monthStartCalendar = new Date(now.getFullYear(), now.getMonth(), 1);
+      if (subStart > monthStartCalendar) {
+        const { data: subUsageData, error: subUsageErr } = await supabase
+          .from('bot_usage_tracking')
+          .select('billable_minutes')
+          .eq('user_id', user.id)
+          .eq('organization_id', userData.current_organization_id)
+          .gte('created_at', subStart.toISOString())
+          .lt('created_at', periodEnd.toISOString());
+
+        if (!subUsageErr) {
+          const subMinutes = subUsageData?.reduce((sum: number, r: any) => sum + (r.billable_minutes || 0), 0) || 0;
+          console.log('🔄 Re-computed minutes since subscription start:', { subMinutes });
+          // Update minutesUsed/remaining only if differs
+          if (subMinutes !== minutesUsed) {
+            minutesRemaining = minutesLimit ? Math.max(minutesLimit - subMinutes, 0) : null;
+          }
+          // overwrite values
+          limitRow.minutes_used = subMinutes;
+          minutesUsed = subMinutes;
+          limitRow.minutes_remaining = minutesRemaining;
+        }
+      }
+    }
+    
+    // Convert to hours for the settings page component
+    const totalAudioHours = Math.round((minutesUsed / 60) * 100) / 100; // 2-decimal precision
+    const limitAudioHours = minutesLimit === null ? null : Math.round((minutesLimit / 60) * 100) / 100;
+    
+    console.log('📊 Usage after check_usage_limit:', {
+      minutesUsed,
+      minutesLimit,
+      minutesRemaining,
+      totalAudioHours,
+      limitAudioHours
+    });
+
+    // --------------------------------------------------------------------
+    // END usage calculation via check_usage_limit
+    // --------------------------------------------------------------------
 
     // Get session count for billing period by organization
     const { count: sessionCount } = await supabase
@@ -155,7 +219,7 @@ export async function GET(request: NextRequest) {
       },
       usage: {
         currentAudioHours: totalAudioHours,
-        limitAudioHours: subscriptionData.plan_bot_minutes_limit ? subscriptionData.plan_bot_minutes_limit / 60 : subscriptionData.plan_audio_hours_limit,
+        limitAudioHours: limitAudioHours,
         currentSessions: sessionCount || 0,
         limitSessions: subscriptionData.max_sessions_per_month,
       }

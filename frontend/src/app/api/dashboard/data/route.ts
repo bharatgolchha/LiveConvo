@@ -276,8 +276,46 @@ async function fetchUserStats(
     console.error('Error fetching user stats:', userStatsError);
   }
 
-  // Get bot minutes data for current billing period - this is THE usage metric
-  const { data: botMinutesData } = await serviceClient
+  // ------------------------------------------------------------------
+  // Use database function for authoritative usage numbers
+  // ------------------------------------------------------------------
+  const { data: limitFuncData, error: limitFuncError } = await serviceClient.rpc('check_usage_limit', {
+    p_user_id: userId,
+    p_organization_id: organizationId
+  });
+
+  if (limitFuncError) {
+    console.error('check_usage_limit error:', limitFuncError);
+  }
+
+  const limitRow = Array.isArray(limitFuncData) ? limitFuncData[0] : limitFuncData;
+
+  // Fallback values if function fails
+  let minutesUsed = limitRow?.minutes_used ?? 0;
+  const minutesLimit = limitRow?.minutes_limit ?? 60;
+  let minutesRemaining = limitRow?.minutes_remaining ?? Math.max(0, minutesLimit - minutesUsed);
+  const percentageUsed = limitRow?.percentage_used ?? (minutesLimit ? Math.round((minutesUsed / minutesLimit) * 100) : 0);
+
+  const isUnlimited = minutesLimit >= 999999;
+  const bot_minutes_used = limitRow?.minutes_used ?? 0;
+  const bot_minutes_limit = minutesLimit;
+
+  const limitData = {
+    can_record: limitRow?.can_record ?? true,
+    minutes_used: minutesUsed,
+    minutes_limit: minutesLimit,
+    minutes_remaining: minutesRemaining,
+    percentage_used: percentageUsed,
+    bot_minutes_used,
+    bot_minutes_limit
+  };
+
+  console.log('📊 Usage from check_usage_limit:', limitData);
+
+  // -------------------------------------------------
+  // Recompute minutes within active billing period
+  // -------------------------------------------------
+  const { data: periodUsageRows } = await serviceClient
     .from('bot_usage_tracking')
     .select('billable_minutes')
     .eq('user_id', userId)
@@ -285,43 +323,17 @@ async function fetchUserStats(
     .gte('created_at', periodStart.toISOString())
     .lt('created_at', periodEnd.toISOString());
 
-  const currentPeriodBotMinutes = botMinutesData?.reduce((sum, record) => sum + (record.billable_minutes || 0), 0) || 0;
-  
-  console.log('📊 Current billing period bot usage:', { 
-    botMinutes: currentPeriodBotMinutes,
-    periodStart: periodStart.toISOString(),
-    periodEnd: periodEnd.toISOString()
-  });
+  const currentPeriodBotMinutes = periodUsageRows?.reduce((sum, r) => sum + (r.billable_minutes || 0), 0) || 0;
 
-  // Get the plan's bot minutes limit
-  const { data: planData } = await serviceClient
-    .from('plans')
-    .select('monthly_bot_minutes_limit')
-    .eq('id', (await serviceClient
-      .from('subscriptions')
-      .select('plan_id')
-      .eq('user_id', userId)
-      .eq('status', 'active')
-      .single()).data?.plan_id)
-    .single();
+  // Use limitData.minutes_limit as the plan limit but minutes_used from current period calculation
+  minutesUsed = currentPeriodBotMinutes;
+  minutesRemaining = isUnlimited ? null : Math.max(0, minutesLimit - minutesUsed);
+  limitData.minutes_used = minutesUsed;
+  limitData.minutes_remaining = minutesRemaining;
+  limitData.percentage_used = isUnlimited ? 0 : Math.round((minutesUsed / minutesLimit) * 100);
+  limitData.bot_minutes_used = minutesUsed;
 
-  const botMinutesLimit = planData?.monthly_bot_minutes_limit || 60;
-
-  // Bot minutes ARE the total usage - no need to add anything else
-  const totalMinutesUsed = currentPeriodBotMinutes;
-  const minutesLimit = botMinutesLimit || userStatsData?.monthly_minutes_limit || 6000;
-  
-  let limitData = {
-    can_record: totalMinutesUsed < minutesLimit,
-    minutes_used: totalMinutesUsed,
-    minutes_limit: minutesLimit,
-    minutes_remaining: Math.max(0, minutesLimit - totalMinutesUsed),
-    percentage_used: Math.round((totalMinutesUsed / minutesLimit) * 100),
-    bot_minutes_used: currentPeriodBotMinutes,
-    bot_minutes_limit: botMinutesLimit
-  };
-  
-  console.log('📊 Calculated usage data:', limitData);
+  console.log('🔄 Recalculated current period bot minutes:', { currentPeriodBotMinutes });
 
   // Get session statistics
   const { data: sessionStats } = await serviceClient
@@ -349,7 +361,6 @@ async function fetchUserStats(
     new Date(s.created_at) >= last30Days
   ).length;
 
-  const isUnlimited = limitData.minutes_limit >= 999999;
   const monthlyMinutesLimit = isUnlimited ? null : limitData.minutes_limit;
   const monthlyHoursLimit = isUnlimited ? null : Math.round((limitData.minutes_limit / 60) * 10) / 10;
   const monthlyAudioHours = Math.round((limitData.minutes_used / 60) * 10) / 10;
@@ -370,9 +381,8 @@ async function fetchUserStats(
     sessionsLast7Days,
     sessionsLast30Days,
     currentMonth: periodKey,
-    // Add bot minutes data
     monthlyBotMinutesUsed: limitData.bot_minutes_used || 0,
-    monthlyBotMinutesLimit: limitData.bot_minutes_limit || botMinutesLimit
+    monthlyBotMinutesLimit: limitData.bot_minutes_limit || minutesLimit
   };
 }
 
