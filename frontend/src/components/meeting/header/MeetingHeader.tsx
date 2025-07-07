@@ -7,6 +7,7 @@ import { MeetingTimer } from './MeetingTimer';
 import { MeetingActions } from './MeetingActions';
 import { MeetingUrlEditor } from './MeetingUrlEditor';
 import { MeetingSetupPrompt } from './MeetingSetupPrompt';
+import { BotMinutesIndicator } from './BotMinutesIndicator';
 import { getPlatformIcon, getPlatformName } from '@/lib/meeting/utils/platform-detector';
 import { 
   ArrowLeftIcon, 
@@ -177,7 +178,12 @@ export function MeetingHeader() {
             </div>
             
               {/* Bot Control - Only show if meeting is not completed */}
-              {!isCompleted && <MeetingBotControl />}
+              {!isCompleted && (
+                <div className="flex items-center gap-3">
+                  <BotMinutesIndicator compact />
+                  <MeetingBotControl />
+                </div>
+              )}
             </motion.div>
           )}
         </AnimatePresence>

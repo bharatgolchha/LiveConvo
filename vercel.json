@@ -28,5 +28,11 @@
         }
       ]
     }
+  ],
+  "crons": [
+    {
+      "path": "/api/cron/enforce-bot-limits",
+      "schedule": "*/1 * * * *"
+    }
   ]
 } 

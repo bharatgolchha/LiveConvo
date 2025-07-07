@@ -55,6 +55,7 @@ const NewConversationModal = dynamic(() => import('@/components/dashboard/NewCon
 const ContextUploadWidget = dynamic(() => import('@/components/dashboard/ContextUploadWidget'));
 const NewConversationButton = dynamic(() => import('@/components/dashboard/NewConversationButton').then(mod => ({ default: mod.NewConversationButton })));
 const CreateMeetingModal = dynamic(() => import('@/components/meeting/create/CreateMeetingModal').then(mod => ({ default: mod.CreateMeetingModal })));
+const UsageWarningBanner = dynamic(() => import('@/components/dashboard/UsageWarningBanner').then(mod => ({ default: mod.UsageWarningBanner })));
 
 // Types (using Session from useSessions hook)
 
@@ -645,6 +646,15 @@ const DashboardPage: React.FC = () => {
         onSearch={handleSearch}
         onNavigateToSettings={() => setActivePath('settings')}
       />
+      
+      {/* Usage Warning Banner */}
+      {userStats && (
+        <UsageWarningBanner
+          monthlyMinutesUsed={userStats.monthlyMinutesUsed}
+          monthlyMinutesLimit={userStats.monthlyMinutesLimit}
+          minutesRemaining={userStats.minutesRemaining}
+        />
+      )}
       
       <div className="flex flex-1 overflow-hidden">
         <DashboardSidebar 
