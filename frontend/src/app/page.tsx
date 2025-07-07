@@ -42,35 +42,35 @@ export default function LandingPage() {
       name: 'Live Transcription',
       icon: Mic,
       description: 'Real-time speech-to-text with speaker identification',
-      image: 'https://ucvfgfbjcrxbzppwjpuu.supabase.co/storage/v1/object/public/images//Screenshot%202025-06-23%20at%2012.54.37%20PM.png'
+      image: 'https://ucvfgfbjcrxbzppwjpuu.supabase.co/storage/v1/object/public/images/Screenshots/1.png'
     },
     {
       id: 1,
       name: 'AI Guidance',
       icon: Brain,
       description: 'Smart suggestions and perfect responses in real-time',
-      image: 'https://ucvfgfbjcrxbzppwjpuu.supabase.co/storage/v1/object/public/images//Screenshot%202025-06-23%20at%2012.54.37%20PM.png'
+      image: 'https://ucvfgfbjcrxbzppwjpuu.supabase.co/storage/v1/object/public/images/Screenshots/2.png'
     },
     {
       id: 2,
       name: 'Smart Notes',
       icon: ListChecks,
       description: 'Automated action items and meeting summaries',
-      image: 'https://ucvfgfbjcrxbzppwjpuu.supabase.co/storage/v1/object/public/images//Screenshot%202025-06-23%20at%2012.54.37%20PM.png'
+      image: 'https://ucvfgfbjcrxbzppwjpuu.supabase.co/storage/v1/object/public/images/Screenshots/4.png'
     },
     {
       id: 3,
       name: 'Context Memory',
       icon: History,
       description: 'Access previous conversations and maintain continuity',
-      image: 'https://ucvfgfbjcrxbzppwjpuu.supabase.co/storage/v1/object/public/images//Screenshot%202025-06-23%20at%2012.54.37%20PM.png'
+      image: 'https://ucvfgfbjcrxbzppwjpuu.supabase.co/storage/v1/object/public/images/Screenshots/3.png'
     },
     {
       id: 4,
       name: 'Analytics',
       icon: BarChart3,
       description: 'Meeting insights and performance metrics',
-      image: 'https://ucvfgfbjcrxbzppwjpuu.supabase.co/storage/v1/object/public/images//Screenshot%202025-06-23%20at%2012.54.37%20PM.png'
+      image: 'https://ucvfgfbjcrxbzppwjpuu.supabase.co/storage/v1/object/public/images/Screenshots/5.png'
     }
   ];
 
