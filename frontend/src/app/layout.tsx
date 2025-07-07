@@ -6,6 +6,7 @@ import { ThemeProvider } from "@/contexts/ThemeContext";
 import { AuthErrorBoundary } from "@/components/auth/AuthErrorBoundary";
 import { Toaster } from "sonner";
 import Script from "next/script";
+import IntercomProvider from '@/components/IntercomProvider';
 
 // Suppress React DevTools warning in development
 if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
@@ -156,6 +157,7 @@ export default function RootLayout({
           <ThemeProvider defaultTheme="dark" storageKey="liveprompt-theme">
             <AuthProvider>
               {children}
+              <IntercomProvider />
               <Toaster 
                 position="top-right"
                 toastOptions={{
