@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { 
   CalendarIcon,
@@ -23,6 +23,7 @@ interface CalendarStepProps {
   onComplete: () => void;
   onBack: () => void;
   isLoading: boolean;
+  error?: string | null;
 }
 
 export const CalendarStep: React.FC<CalendarStepProps> = ({
@@ -30,7 +31,8 @@ export const CalendarStep: React.FC<CalendarStepProps> = ({
   updateData,
   onComplete,
   onBack,
-  isLoading
+  isLoading,
+  error
 }) => {
   const { session } = useAuth();
   const [isConnecting, setIsConnecting] = useState(false);
@@ -43,8 +45,15 @@ export const CalendarStep: React.FC<CalendarStepProps> = ({
       try {
         // Check URL params first (for OAuth callback)
         const urlParams = new URLSearchParams(window.location.search);
-        if (urlParams.get('calendar_connected') === 'true') {
-          updateData({ calendar_connected: true });
+        const calendarConnected = urlParams.get('calendar_connected');
+        
+        console.log('🔍 Checking calendar connection, URL params:', calendarConnected);
+        
+        let shouldUpdateCalendarStatus = false;
+        
+        if (calendarConnected === 'true' || calendarConnected === 'google') {
+          console.log('✅ Calendar connected via URL param');
+          shouldUpdateCalendarStatus = true;
         }
 
         // Check for existing calendar connections
@@ -55,15 +64,22 @@ export const CalendarStep: React.FC<CalendarStepProps> = ({
         });
 
         if (response.ok) {
-          const data = await response.json();
-          const connections = data.connections || [];
+          const responseData = await response.json();
+          const connections = responseData.connections || [];
+          console.log('📅 Existing calendar connections:', connections);
+          
           if (connections.length > 0) {
             setExistingConnection(connections[0]);
-            updateData({ calendar_connected: true });
+            shouldUpdateCalendarStatus = true;
           }
         }
+        
+        // Only update if calendar status is not already true
+        if (shouldUpdateCalendarStatus && !data.calendar_connected) {
+          updateData({ calendar_connected: true });
+        }
       } catch (error) {
-        console.error('Error checking calendar connections:', error);
+        console.error('❌ Error checking calendar connections:', error);
       } finally {
         setCheckingConnection(false);
       }
@@ -71,8 +87,10 @@ export const CalendarStep: React.FC<CalendarStepProps> = ({
 
     if (session?.access_token) {
       checkCalendarConnection();
+    } else {
+      setCheckingConnection(false);
     }
-  }, [session, updateData]);
+  }, [session, updateData, data.calendar_connected]);
 
   const handleConnectCalendar = async () => {
     try {
@@ -193,6 +211,12 @@ export const CalendarStep: React.FC<CalendarStepProps> = ({
         {connectionError && (
           <div className="p-4 bg-destructive/10 border border-destructive/30 rounded-lg">
             <p className="text-sm text-destructive">{connectionError}</p>
+          </div>
+        )}
+
+        {error && (
+          <div className="p-4 bg-destructive/10 border border-destructive/30 rounded-lg">
+            <p className="text-sm text-destructive">{error}</p>
           </div>
         )}
       </div>

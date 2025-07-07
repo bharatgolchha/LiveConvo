@@ -196,9 +196,11 @@ export async function GET(request: NextRequest) {
       });
 
     // Redirect to success
-    return NextResponse.redirect(
-      new URL(`${oauthState.redirect_url}?calendar_connected=google`, request.url)
-    );
+    // Parse existing URL parameters to avoid duplicates
+    const redirectUrl = new URL(oauthState.redirect_url, request.url);
+    redirectUrl.searchParams.set('calendar_connected', 'google');
+    
+    return NextResponse.redirect(redirectUrl);
   } catch (error) {
     console.error('OAuth callback error:', error);
     return NextResponse.redirect(

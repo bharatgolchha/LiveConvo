@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, Suspense } from 'react';
+import React, { useState, useEffect, Suspense, useCallback } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '@/contexts/AuthContext';
@@ -25,18 +25,47 @@ function OnboardingContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { user, session } = useAuth();
-  const { completeOnboarding, isLoading } = useOnboarding();
+  const { completeOnboarding, isLoading, error: onboardingError } = useOnboarding();
   
-  const [currentStep, setCurrentStep] = useState(1);
+  const [currentStep, setCurrentStep] = useState(() => {
+    // Try to restore current step from sessionStorage
+    if (typeof window !== 'undefined') {
+      const savedStep = sessionStorage.getItem('onboardingStep');
+      if (savedStep) {
+        const step = parseInt(savedStep);
+        if (!isNaN(step) && step >= 1 && step <= 3) {
+          console.log('📍 Restored onboarding step:', step);
+          return step;
+        }
+      }
+    }
+    return 1;
+  });
   const [checkingStatus, setCheckingStatus] = useState(true);
-  const [onboardingData, setOnboardingData] = useState<OnboardingData>({
-    organization_name: '',
-    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-    use_case: '',
-    acquisition_source: '',
-    calendar_connected: false,
-    auto_join_enabled: false,
-    auto_record_enabled: false
+  const [onboardingData, setOnboardingData] = useState<OnboardingData>(() => {
+    // Try to restore from sessionStorage
+    if (typeof window !== 'undefined') {
+      const saved = sessionStorage.getItem('onboardingData');
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved);
+          console.log('📂 Restored onboarding data from session:', parsed);
+          return parsed;
+        } catch (e) {
+          console.error('Failed to parse saved onboarding data:', e);
+        }
+      }
+    }
+    
+    return {
+      organization_name: '',
+      timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+      use_case: '',
+      acquisition_source: '',
+      calendar_connected: false,
+      auto_join_enabled: false,
+      auto_record_enabled: false
+    };
   });
 
   const totalSteps = 3;
@@ -45,7 +74,11 @@ function OnboardingContent() {
   useEffect(() => {
     // Check if user has already completed onboarding
     const checkOnboardingStatus = async () => {
-      if (!user || !session) return;
+      if (!user || !session) {
+        // If we are unauthenticated, unblock UI to avoid endless spinner
+        setCheckingStatus(false);
+        return;
+      }
       
       try {
         const { data: userData, error } = await supabase
@@ -68,24 +101,43 @@ function OnboardingContent() {
     checkOnboardingStatus();
   }, [user, session, router, redirectUrl]);
 
-  const updateData = (data: Partial<OnboardingData>) => {
-    setOnboardingData(prev => ({ ...prev, ...data }));
-  };
+  const updateData = useCallback((data: Partial<OnboardingData>) => {
+    setOnboardingData(prev => {
+      const updated = { ...prev, ...data };
+      // Save to sessionStorage
+      if (typeof window !== 'undefined') {
+        sessionStorage.setItem('onboardingData', JSON.stringify(updated));
+        console.log('💾 Saved onboarding data to session:', updated);
+      }
+      return updated;
+    });
+  }, []);
 
   const handleNext = () => {
     if (currentStep < totalSteps) {
-      setCurrentStep(currentStep + 1);
+      const nextStep = currentStep + 1;
+      setCurrentStep(nextStep);
+      if (typeof window !== 'undefined') {
+        sessionStorage.setItem('onboardingStep', nextStep.toString());
+      }
     }
   };
 
   const handleBack = () => {
     if (currentStep > 1) {
-      setCurrentStep(currentStep - 1);
+      const prevStep = currentStep - 1;
+      setCurrentStep(prevStep);
+      if (typeof window !== 'undefined') {
+        sessionStorage.setItem('onboardingStep', prevStep.toString());
+      }
     }
   };
 
   const handleComplete = async () => {
     if (!user) return;
+    
+    console.log('🚀 Starting onboarding completion for user:', user.id);
+    console.log('📋 Onboarding data:', onboardingData);
     
     try {
       // Check if user has already completed onboarding
@@ -96,7 +148,7 @@ function OnboardingContent() {
         .single();
 
       if (!checkError && userData?.has_completed_onboarding) {
-        console.log('User already completed onboarding, saving preferences only');
+        console.log('✅ User already completed onboarding, saving preferences only');
         
         // If already onboarded, just save calendar preferences if needed
         if (onboardingData.calendar_connected && session?.access_token) {
@@ -117,29 +169,37 @@ function OnboardingContent() {
             });
 
             if (!response.ok) {
-              console.error('Failed to save calendar preferences');
+              console.error('❌ Failed to save calendar preferences:', response.status);
+            } else {
+              console.log('✅ Calendar preferences saved successfully');
             }
           } catch (error) {
-            console.error('Error saving calendar preferences:', error);
+            console.error('❌ Error saving calendar preferences:', error);
           }
         }
         
         // Redirect to dashboard
+        console.log('🔄 Redirecting to:', redirectUrl);
         router.push(redirectUrl);
         return;
       }
 
+      console.log('📝 User has not completed onboarding, proceeding with onboarding...');
+      
       // If not onboarded, complete the onboarding process
-      await completeOnboarding({
+      const result = await completeOnboarding({
         organization_name: onboardingData.organization_name,
         timezone: onboardingData.timezone,
         use_case: onboardingData.use_case,
         acquisition_source: onboardingData.acquisition_source
       });
       
+      console.log('✅ Onboarding completed successfully:', result);
+      
       // Save calendar preferences after successful onboarding
       if (onboardingData.calendar_connected && session?.access_token) {
         try {
+          console.log('💾 Saving calendar preferences...');
           const response = await fetch('/api/calendar/preferences', {
             method: 'PUT',
             headers: {
@@ -156,18 +216,28 @@ function OnboardingContent() {
           });
 
           if (!response.ok) {
-            console.error('Failed to save calendar preferences');
+            console.error('❌ Failed to save calendar preferences:', response.status);
+          } else {
+            console.log('✅ Calendar preferences saved successfully');
           }
         } catch (error) {
-          console.error('Error saving calendar preferences:', error);
+          console.error('❌ Error saving calendar preferences:', error);
         }
       }
       
+      // Clear sessionStorage on successful completion
+      if (typeof window !== 'undefined') {
+        sessionStorage.removeItem('onboardingData');
+        sessionStorage.removeItem('onboardingStep');
+        console.log('🧹 Cleared onboarding session data');
+      }
+      
+      console.log('🔄 Redirecting to:', redirectUrl);
       router.push(redirectUrl);
     } catch (error) {
-      console.error('Failed to complete onboarding:', error);
-      // Still redirect even if there's an error
-      router.push(redirectUrl);
+      console.error('❌ Failed to complete onboarding:', error);
+      // Don't redirect on error, show the error to user
+      alert('Failed to complete onboarding. Please check the console for details.');
     }
   };
 
@@ -198,6 +268,7 @@ function OnboardingContent() {
             onComplete={handleComplete}
             onBack={handleBack}
             isLoading={isLoading}
+            error={onboardingError}
           />
         );
       default:
