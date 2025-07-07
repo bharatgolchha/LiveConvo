@@ -16,7 +16,12 @@ import {
   ChevronDown,
   Clock,
   Users,
-  X
+  X,
+  Mic,
+  Brain,
+  ListChecks,
+  History,
+  BarChart3
 } from 'lucide-react';
 import SeoJsonLd from '@/components/SeoJsonLd';
 import { Header } from '@/components/layout/Header';
@@ -28,6 +33,46 @@ export default function LandingPage() {
   const [expandedFaq, setExpandedFaq] = useState<number | null>(null);
   const [showFloatingCTA, setShowFloatingCTA] = useState(false);
   const [showScheduleModal, setShowScheduleModal] = useState(false);
+  const [activeTab, setActiveTab] = useState(0);
+
+  // Tab data for the product showcase
+  const productTabs = [
+    {
+      id: 0,
+      name: 'Live Transcription',
+      icon: Mic,
+      description: 'Real-time speech-to-text with speaker identification',
+      image: 'https://ucvfgfbjcrxbzppwjpuu.supabase.co/storage/v1/object/public/images//Screenshot%202025-06-23%20at%2012.54.37%20PM.png'
+    },
+    {
+      id: 1,
+      name: 'AI Guidance',
+      icon: Brain,
+      description: 'Smart suggestions and perfect responses in real-time',
+      image: 'https://ucvfgfbjcrxbzppwjpuu.supabase.co/storage/v1/object/public/images//Screenshot%202025-06-23%20at%2012.54.37%20PM.png'
+    },
+    {
+      id: 2,
+      name: 'Smart Notes',
+      icon: ListChecks,
+      description: 'Automated action items and meeting summaries',
+      image: 'https://ucvfgfbjcrxbzppwjpuu.supabase.co/storage/v1/object/public/images//Screenshot%202025-06-23%20at%2012.54.37%20PM.png'
+    },
+    {
+      id: 3,
+      name: 'Context Memory',
+      icon: History,
+      description: 'Access previous conversations and maintain continuity',
+      image: 'https://ucvfgfbjcrxbzppwjpuu.supabase.co/storage/v1/object/public/images//Screenshot%202025-06-23%20at%2012.54.37%20PM.png'
+    },
+    {
+      id: 4,
+      name: 'Analytics',
+      icon: BarChart3,
+      description: 'Meeting insights and performance metrics',
+      image: 'https://ucvfgfbjcrxbzppwjpuu.supabase.co/storage/v1/object/public/images//Screenshot%202025-06-23%20at%2012.54.37%20PM.png'
+    }
+  ];
 
   // Check if this is an auth callback
   React.useEffect(() => {
@@ -150,7 +195,12 @@ export default function LandingPage() {
         </section>
 
         {/* What is liveprompt - Poetic Introduction */}
-        <section className="py-24 px-4 sm:px-6 lg:px-8 bg-muted/5">
+        <section 
+          className="py-24 px-4 sm:px-6 lg:px-8"
+          style={{
+            background: 'linear-gradient(to bottom, #243a32 0%, rgb(9 9 11) 100%)'
+          }}
+        >
           <div className="max-w-4xl mx-auto">
             <motion.div
               initial={{ opacity: 0, y: 20 }}
@@ -241,29 +291,99 @@ export default function LandingPage() {
           </div>
         </section>
 
-        {/* Product Screenshot */}
+        {/* Product Screenshot with Tabs */}
         <section className="py-20 px-4 sm:px-6 lg:px-8">
-          <div className="max-w-6xl mx-auto">
+          <div className="max-w-7xl mx-auto">
+            {/* Tab Navigation */}
             <motion.div
-              initial={{ opacity: 0, y: 20 }}
+              initial={{ opacity: 0, y: -20 }}
               whileInView={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6 }}
               viewport={{ once: true }}
-              className="relative rounded-xl overflow-hidden shadow-2xl border border-border"
+              className="mb-8"
             >
-              <Image 
-                src="https://ucvfgfbjcrxbzppwjpuu.supabase.co/storage/v1/object/public/images//Screenshot%202025-06-23%20at%2012.54.37%20PM.png"
-                alt="liveprompt.ai dashboard showing real-time AI conversation coaching interface"
-                width={1200}
-                height={800}
-                className="w-full h-auto"
-                priority
-              />
-              <div className="absolute bottom-0 left-0 right-0 p-8 bg-gradient-to-t from-card to-transparent">
-                <p className="text-sm text-center text-muted-foreground">
-                  Works seamlessly with Zoom, Google Meet, Teams, and any video platform
-                </p>
+              <div className="flex flex-wrap justify-center gap-2 sm:gap-4">
+                {productTabs.map((tab) => {
+                  const Icon = tab.icon;
+                  const isActive = activeTab === tab.id;
+                  
+                  return (
+                    <motion.button
+                      key={tab.id}
+                      onClick={() => setActiveTab(tab.id)}
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.98 }}
+                      className={`
+                        group relative px-5 sm:px-7 py-3.5 rounded-2xl font-medium text-sm sm:text-base
+                        transition-all duration-300
+                        ${isActive 
+                          ? 'bg-gradient-to-r from-app-success via-app-success-light to-app-info text-white shadow-xl shadow-app-success/25 scale-105' 
+                          : 'bg-card/80 backdrop-blur-sm hover:bg-card text-foreground border border-border hover:border-app-success/30 hover:shadow-lg'
+                        }
+                      `}
+                    >
+                      <div className="flex items-center gap-2.5">
+                        <Icon className={`w-4 h-4 sm:w-5 sm:h-5 transition-colors duration-300 ${
+                          isActive 
+                            ? 'text-white' 
+                            : 'text-muted-foreground group-hover:text-app-success'
+                        }`} />
+                        <span className={isActive ? 'font-semibold' : ''}>{tab.name}</span>
+                      </div>
+                      
+                      {/* Glow effect for active tab */}
+                      {isActive && (
+                        <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-app-success/20 to-app-info/20 blur-xl -z-10" />
+                      )}
+                    </motion.button>
+                  );
+                })}
               </div>
+              
+              {/* Tab Description */}
+              <motion.p 
+                key={activeTab}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.3 }}
+                className="text-center mt-4 text-muted-foreground"
+              >
+                {productTabs[activeTab].description}
+              </motion.p>
+            </motion.div>
+
+            {/* Tab Content - Image */}
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              whileInView={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 0.6 }}
+              viewport={{ once: true }}
+              className="relative"
+            >
+              <AnimatePresence mode="wait">
+                <motion.div
+                  key={activeTab}
+                  initial={{ opacity: 0, x: 20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -20 }}
+                  transition={{ duration: 0.3 }}
+                  className="relative rounded-xl overflow-hidden shadow-2xl border border-border"
+                >
+                  <Image 
+                    src={productTabs[activeTab].image}
+                    alt={`${productTabs[activeTab].name} feature screenshot`}
+                    width={1400}
+                    height={900}
+                    className="w-full h-auto"
+                    priority
+                  />
+                  <div className="absolute bottom-0 left-0 right-0 p-8 bg-gradient-to-t from-card/90 to-transparent">
+                    <p className="text-sm text-center text-muted-foreground">
+                      Works seamlessly with Zoom, Google Meet, Teams, and any video platform
+                    </p>
+                  </div>
+                </motion.div>
+              </AnimatePresence>
             </motion.div>
           </div>
         </section>
