@@ -29,14 +29,13 @@ export function LandingAuthSection({ variant = 'hero', className = '' }: Landing
 
   if (variant === 'hero') {
     return (
-      <div className={`flex flex-col sm:flex-row gap-4 justify-center items-center ${className}`}>
+      <div className={`flex justify-center items-center ${className}`}>
         {/* Google Auth Button - Custom Design */}
         <button
           onClick={handleGoogleSignUp}
           disabled={loading}
-          className="group relative inline-flex items-center justify-center gap-3 px-8 py-4 text-base font-medium text-foreground bg-background border-2 border-border rounded-xl transition-all duration-200 hover:border-app-success hover:shadow-lg hover:shadow-app-success/20 hover:-translate-y-0.5 disabled:opacity-50 disabled:cursor-not-allowed"
+          className="group relative inline-flex items-center justify-center gap-3 px-8 py-4 text-base font-medium text-foreground bg-card hover:bg-muted border border-border rounded-xl shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          <div className="absolute inset-0 rounded-xl bg-gradient-to-r from-app-success/0 via-app-success/5 to-app-success/0 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
           {loading ? (
             <Loader2 className="w-5 h-5 animate-spin relative" />
           ) : (
@@ -62,16 +61,6 @@ export function LandingAuthSection({ variant = 'hero', className = '' }: Landing
               <span className="relative">Continue with Google</span>
             </>
           )}
-        </button>
-
-        {/* Demo Button - Matching Design */}
-        <button
-          onClick={() => router.push('/demo')}
-          className="group relative inline-flex items-center justify-center gap-3 px-8 py-4 text-base font-medium text-foreground bg-background border-2 border-border rounded-xl transition-all duration-200 hover:border-app-info hover:shadow-lg hover:shadow-app-info/20 hover:-translate-y-0.5"
-        >
-          <div className="absolute inset-0 rounded-xl bg-gradient-to-r from-app-info/0 via-app-info/5 to-app-info/0 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-          <PlayCircle className="w-5 h-5 relative" />
-          <span className="relative">Watch 2-Min Demo</span>
         </button>
       </div>
     )

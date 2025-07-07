@@ -15,7 +15,8 @@ import {
   FileText,
   ChevronDown,
   Clock,
-  Users
+  Users,
+  X
 } from 'lucide-react';
 import SeoJsonLd from '@/components/SeoJsonLd';
 import { Header } from '@/components/layout/Header';
@@ -26,6 +27,7 @@ export default function LandingPage() {
   const router = useRouter();
   const [expandedFaq, setExpandedFaq] = useState<number | null>(null);
   const [showFloatingCTA, setShowFloatingCTA] = useState(false);
+  const [showScheduleModal, setShowScheduleModal] = useState(false);
 
   // Check if this is an auth callback
   React.useEffect(() => {
@@ -81,27 +83,54 @@ export default function LandingPage() {
         <section 
           className="relative min-h-screen flex items-center justify-center px-4 sm:px-6 lg:px-8 bg-cover bg-center bg-no-repeat"
           style={{
-            backgroundImage: 'url(https://ucvfgfbjcrxbzppwjpuu.supabase.co/storage/v1/object/public/images//BG1.png)'
+            backgroundImage: 'url(https://ucvfgfbjcrxbzppwjpuu.supabase.co/storage/v1/object/public/images//ChatGPT%20Image%20Jul%207,%202025,%2008_58_51%20AM.png)'
           }}
         >
           {/* Dark overlay for better text readability */}
-          <div className="absolute inset-0 bg-background/70" />
+          <div className="absolute inset-0 bg-background/40" />
           <div className="max-w-4xl mx-auto text-center relative z-10">
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full mb-6 bg-app-success/10 border border-app-success/30">
-              <span className="text-sm font-medium text-app-success">AI-Powered Conversations</span>
+              <span className="text-sm font-medium text-app-success">#1 AI Teammate</span>
             </div>
             
             <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold mb-6 tracking-tight text-foreground">
               Turn Every Conversation
               <br />
-              <span className="text-app-success">into Conversion</span>
+              <span 
+                className="relative inline-block text-5xl sm:text-6xl lg:text-7xl"
+                style={{
+                  fontFamily: "'Raleway', 'Montserrat', 'Helvetica Neue', sans-serif",
+                  fontWeight: '200',
+                  background: 'linear-gradient(135deg, #16a34a 0%, #22d3ee 50%, #16a34a 100%)',
+                  WebkitBackgroundClip: 'text',
+                  WebkitTextFillColor: 'transparent',
+                  backgroundClip: 'text',
+                  textShadow: '0 0 40px rgba(22, 163, 74, 0.5)',
+                  letterSpacing: '0.04em'
+                }}
+              >
+                into Conversion
+              </span>
             </h1>
             
             <p className="text-xl mb-8 max-w-2xl mx-auto text-muted-foreground">
-              Live AI coaching delivers winning responses, compelling stories, and perfect questions in <span className="font-semibold text-foreground">&lt;2 seconds</span>—helping you close deals with confidence.
+              Your AI joins meetings • Remembers everything • Responds instantly
             </p>
             
-            <LandingAuthSection variant="hero" className="mb-12" />
+            <div className="mb-8 flex flex-col sm:flex-row items-center justify-center gap-4">
+              <Button
+                onClick={() => setShowScheduleModal(true)}
+                size="lg"
+                className="text-base px-8 py-4 bg-app-success hover:bg-app-success-light text-black font-semibold rounded-xl shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-all duration-200"
+              >
+                Schedule Demo
+                <ArrowRight className="ml-2 w-4 h-4" />
+              </Button>
+              
+              <span className="text-sm text-muted-foreground hidden sm:block">or</span>
+              
+              <LandingAuthSection variant="hero" />
+            </div>
 
             <div className="flex items-center justify-center gap-6 text-sm text-muted-foreground">
               <span className="flex items-center gap-2">
@@ -117,6 +146,98 @@ export default function LandingPage() {
                 Join 500+ sales leaders closing 35% more deals
               </span>
             </div>
+          </div>
+        </section>
+
+        {/* What is liveprompt - Poetic Introduction */}
+        <section className="py-24 px-4 sm:px-6 lg:px-8 bg-muted/5">
+          <div className="max-w-4xl mx-auto">
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.8 }}
+              viewport={{ once: true }}
+              className="text-center"
+            >
+              <p className="text-2xl sm:text-3xl lg:text-4xl leading-relaxed font-light text-foreground/90">
+                Meet your{' '}
+                <span 
+                  style={{
+                    fontFamily: "'Raleway', 'Montserrat', 'Helvetica Neue', sans-serif",
+                    fontWeight: '200',
+                    background: 'linear-gradient(135deg, #16a34a 0%, #22d3ee 50%, #16a34a 100%)',
+                    WebkitBackgroundClip: 'text',
+                    WebkitTextFillColor: 'transparent',
+                    backgroundClip: 'text',
+                    letterSpacing: '0.04em'
+                  }}
+                >
+                  AI teammate
+                </span>{' '}
+                that automatically joins every meeting, remembers past conversations, and delivers{' '}
+                <span 
+                  style={{
+                    fontFamily: "'Raleway', 'Montserrat', 'Helvetica Neue', sans-serif",
+                    fontWeight: '200',
+                    background: 'linear-gradient(135deg, #16a34a 0%, #22d3ee 50%, #16a34a 100%)',
+                    WebkitBackgroundClip: 'text',
+                    WebkitTextFillColor: 'transparent',
+                    backgroundClip: 'text',
+                    letterSpacing: '0.04em'
+                  }}
+                >
+                  perfect responses
+                </span>{' '}
+                in real-time. While you focus on the human connection, liveprompt handles the{' '}
+                <span 
+                  style={{
+                    fontFamily: "'Raleway', 'Montserrat', 'Helvetica Neue', sans-serif",
+                    fontWeight: '200',
+                    background: 'linear-gradient(135deg, #16a34a 0%, #22d3ee 50%, #16a34a 100%)',
+                    WebkitBackgroundClip: 'text',
+                    WebkitTextFillColor: 'transparent',
+                    backgroundClip: 'text',
+                    letterSpacing: '0.04em'
+                  }}
+                >
+                  heavy lifting
+                </span>—surfacing 
+                relevant context, suggesting winning responses, and ensuring nothing falls through 
+                the cracks. Your{' '}
+                <span 
+                  style={{
+                    fontFamily: "'Raleway', 'Montserrat', 'Helvetica Neue', sans-serif",
+                    fontWeight: '200',
+                    background: 'linear-gradient(135deg, #16a34a 0%, #22d3ee 50%, #16a34a 100%)',
+                    WebkitBackgroundClip: 'text',
+                    WebkitTextFillColor: 'transparent',
+                    backgroundClip: 'text',
+                    letterSpacing: '0.04em'
+                  }}
+                >
+                  unfair advantage
+                </span>{' '}
+                in every call.
+              </p>
+            </motion.div>
+            
+            {/* Schedule Demo Button */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6, delay: 0.2 }}
+              viewport={{ once: true }}
+              className="mt-12 text-center"
+            >
+              <Button
+                onClick={() => setShowScheduleModal(true)}
+                size="lg"
+                className="text-base px-8 py-4 bg-app-success hover:bg-app-success-light text-black font-semibold rounded-xl shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-all duration-200"
+              >
+                Schedule Demo
+                <ArrowRight className="ml-2 w-4 h-4" />
+              </Button>
+            </motion.div>
           </div>
         </section>
 
@@ -1068,6 +1189,44 @@ export default function LandingPage() {
             </Button>
           </div>
         )}
+
+        {/* Schedule Demo Modal */}
+        <AnimatePresence>
+          {showScheduleModal && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
+              onClick={() => setShowScheduleModal(false)}
+            >
+              <motion.div
+                initial={{ scale: 0.95, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                exit={{ scale: 0.95, opacity: 0 }}
+                className="relative w-full max-w-4xl h-[80vh] bg-white rounded-xl shadow-2xl overflow-hidden"
+                onClick={(e) => e.stopPropagation()}
+              >
+                {/* Close button */}
+                <button
+                  onClick={() => setShowScheduleModal(false)}
+                  className="absolute top-4 right-4 z-10 p-2 rounded-lg bg-gray-100 hover:bg-gray-200 transition-colors"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+
+                {/* Google Calendar iframe */}
+                <iframe 
+                  src="https://calendar.google.com/calendar/appointments/schedules/AcZssZ2H0MGzewCsHK-o0A1Z4j5h-DS23T6U-030Wyx_LAY15of4hUEpz84VR0s4okY1JrFSrYtSpUTu?gv=true" 
+                  style={{ border: 0 }} 
+                  width="100%" 
+                  height="100%" 
+                  frameBorder="0"
+                />
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
     </>
   );
