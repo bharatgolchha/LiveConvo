@@ -26,7 +26,7 @@ export default function TermsOfService() {
 
           <div className="bg-muted/50 p-6 rounded-lg mb-8">
             <p className="text-sm">
-              These Terms of Service ("Terms") govern your use of liveprompt.ai (the "Service") operated by NexGenAI LLC, 
+              These Terms of Service ("Terms") govern your use of liveprompt.ai (the "Service") operated by InnoventuresAI Inc., 
               a Delaware limited liability company ("Company", "we", "us", or "our"). By accessing or using our Service, 
               you agree to be bound by these Terms. If you disagree with any part of these terms, then you may not access the Service.
             </p>
@@ -173,7 +173,7 @@ export default function TermsOfService() {
             <h3 className="text-xl font-semibold mb-2">6.1 Our Property</h3>
             <p>
               The Service and its original content (excluding content provided by users), features, and functionality are and 
-              will remain the exclusive property of NexGenAI LLC and its licensors. The Service is protected by copyright, 
+              will remain the exclusive property of InnoventuresAI Inc. and its licensors. The Service is protected by copyright, 
               trademark, and other laws. Our trademarks and trade dress may not be used in connection with any product or 
               service without our prior written consent.
             </p>
@@ -251,7 +251,7 @@ export default function TermsOfService() {
           <section className="mb-8">
             <h2 className="text-2xl font-semibold mb-4">9. Limitation of Liability</h2>
             <p>
-              TO THE MAXIMUM EXTENT PERMITTED BY LAW, IN NO EVENT SHALL NEXGENAI LLC, ITS DIRECTORS, EMPLOYEES, PARTNERS, 
+              TO THE MAXIMUM EXTENT PERMITTED BY LAW, IN NO EVENT SHALL INNOVENTURESAI INC., ITS DIRECTORS, EMPLOYEES, PARTNERS, 
               AGENTS, SUPPLIERS, OR AFFILIATES BE LIABLE FOR ANY INDIRECT, INCIDENTAL, SPECIAL, CONSEQUENTIAL, OR PUNITIVE 
               DAMAGES, INCLUDING WITHOUT LIMITATION, LOSS OF PROFITS, DATA, USE, GOODWILL, OR OTHER INTANGIBLE LOSSES, 
               RESULTING FROM YOUR USE OF THE SERVICE.
@@ -265,7 +265,7 @@ export default function TermsOfService() {
           <section className="mb-8">
             <h2 className="text-2xl font-semibold mb-4">10. Indemnification</h2>
             <p>
-              You agree to defend, indemnify, and hold harmless NexGenAI LLC and its officers, directors, employees, agents, 
+              You agree to defend, indemnify, and hold harmless InnoventuresAI Inc. and its officers, directors, employees, agents, 
               and affiliates from and against any claims, liabilities, damages, judgments, awards, losses, costs, expenses, 
               or fees arising out of or relating to your violation of these Terms or your use of the Service.
             </p>
@@ -334,7 +334,7 @@ export default function TermsOfService() {
 
             <h3 className="text-xl font-semibold mb-2 mt-4">13.3 Entire Agreement</h3>
             <p>
-              These Terms constitute the entire agreement between you and NexGenAI LLC regarding the use of the Service, 
+              These Terms constitute the entire agreement between you and InnoventuresAI Inc. regarding the use of the Service, 
               superseding any prior agreements.
             </p>
 
@@ -356,7 +356,7 @@ export default function TermsOfService() {
               If you have any questions about these Terms of Service, please contact us at:
             </p>
             <div className="bg-muted p-4 rounded-lg mt-4">
-              <p><strong>NexGenAI LLC</strong></p>
+              <p><strong>InnoventuresAI Inc.</strong></p>
               <p>Email: hello@liveprompt.ai</p>
               <p>State of Incorporation: Delaware, United States</p>
             </div>
