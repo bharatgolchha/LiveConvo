@@ -17,6 +17,7 @@ import {
   ComputerDesktopIcon
 } from '@heroicons/react/24/outline';
 import { useRouter } from 'next/navigation';
+import Image from 'next/image';
 
 export function MeetingHeader() {
   const { meeting, botStatus } = useMeetingContext();
@@ -28,6 +29,18 @@ export function MeetingHeader() {
   const isActive = botStatus?.status === 'in_call';
   const isCompleted = meeting.status === 'completed';
   const hasUrl = meeting.meetingUrl && meeting.meetingUrl.trim();
+
+  const getPlatformLogo = () => {
+    if (!meeting.platform) return null;
+    
+    const logos = {
+      zoom: 'https://ucvfgfbjcrxbzppwjpuu.storage.supabase.co/v1/object/public/images/Logos/zoom.png',
+      google_meet: 'https://ucvfgfbjcrxbzppwjpuu.storage.supabase.co/v1/object/public/images/Logos/meet.png',
+      teams: 'https://ucvfgfbjcrxbzppwjpuu.storage.supabase.co/v1/object/public/images/Logos/teams.png'
+    };
+    
+    return logos[meeting.platform];
+  };
 
   const getThemeIcon = () => {
     switch (theme) {
@@ -77,9 +90,19 @@ export function MeetingHeader() {
                   transition={{ duration: 0.2 }}
                 >
                   <div className="p-3 bg-muted/50 rounded-xl border border-border/50">
-                    <span className="text-2xl">
-                      {getPlatformIcon(meeting.platform)}
-                    </span>
+                    {getPlatformLogo() ? (
+                      <Image
+                        src={getPlatformLogo()!}
+                        alt={getPlatformName(meeting.platform)}
+                        width={32}
+                        height={32}
+                        className="w-8 h-8"
+                      />
+                    ) : (
+                      <span className="text-2xl">
+                        {getPlatformIcon(meeting.platform)}
+                      </span>
+                    )}
                   </div>
                   {/* Live Recording Indicator */}
                   {isActive && (

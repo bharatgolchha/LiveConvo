@@ -55,7 +55,8 @@ export async function GET(
       // 1. Prefer bot.status.code if available (newer API format)
       // 2. Otherwise, fall back to the latest entry in bot.status_changes
 
-      let status: 'created' | 'joining' | 'in_call' | 'completed' | 'failed' = 'created';
+      let status: 'created' | 'joining' | 'waiting' | 'in_call' | 'completed' | 'failed' = 'created';
+      let detailedStatus: string | undefined;
 
       // Helper to map Recall status codes → simplified status
       const mapCodeToStatus = (code?: string | null) => {
@@ -67,6 +68,7 @@ export async function GET(
             return 'joining';
           case 'in_call':
           case 'in_waiting_room':
+            return 'waiting';
           case 'in_call_recording':
           case 'in_call_not_recording':
             return 'in_call';
@@ -84,11 +86,30 @@ export async function GET(
 
       const botData = bot as any;
 
-      if (botData.status?.code) {
+      // Check if we have recording info which would indicate the bot is actually recording
+      const hasRecordings = botData.recordings && botData.recordings.length > 0;
+      const recordingStarted = hasRecordings && botData.recordings[0]?.started_at;
+
+      // First check local database status for the most accurate current state
+      const localStatus = botUsage?.status;
+      
+      if (localStatus === 'recording' || localStatus === 'in_call') {
+        // Trust the local status if it shows recording/in_call
+        status = 'in_call';
+        detailedStatus = localStatus === 'recording' ? 'in_call_recording' : 'in_call_not_recording';
+      } else if (botData.status?.code) {
         status = mapCodeToStatus(botData.status.code);
+        detailedStatus = botData.status.code;
       } else if (Array.isArray(botData.status_changes) && botData.status_changes.length > 0) {
         const latest = botData.status_changes[botData.status_changes.length - 1];
         status = mapCodeToStatus(latest.code);
+        detailedStatus = latest.code;
+      }
+
+      // Override if we have evidence the bot is recording
+      if (recordingStarted && status !== 'completed' && status !== 'failed') {
+        status = 'in_call';
+        detailedStatus = 'in_call_recording';
       }
 
       // Derive recording ID if not provided directly
@@ -148,6 +169,7 @@ export async function GET(
 
       return NextResponse.json({
         status,
+        detailedStatus,
         botId: bot.id,
         recordingId,
         completedAt: (bot as any).completed_at ?? undefined,

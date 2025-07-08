@@ -106,7 +106,7 @@ export function MeetingBotControl() {
     
     // Set initial status to prevent flickering
     setBotStatus({
-      status: 'joining',
+      status: 'created',
       participantCount: 0
     });
 
@@ -344,14 +344,49 @@ export function MeetingBotControl() {
     }
 
     switch (botStatus?.status) {
+      case 'created':
+        return {
+          showStartButton: false,
+          statusElement: (
+            <div className="flex items-center gap-2 px-3 py-1.5 bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800/30 rounded-lg">
+              <Loader2 className="w-4 h-4 animate-spin text-blue-600 dark:text-blue-400" />
+              <span className="text-sm font-medium text-blue-700 dark:text-blue-400">Initializing AI bot...</span>
+            </div>
+          )
+        };
+
       case 'joining':
+        const joiningMessage = botStatus.detailedStatus === 'joining_call' 
+          ? 'Connecting to meeting...' 
+          : 'Joining...';
         return {
           showStartButton: false,
           statusElement: (
             <div className="flex items-center gap-2">
               <div className="flex items-center gap-2 px-3 py-1.5 bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800/30 rounded-lg">
                 <Loader2 className="w-4 h-4 animate-spin text-blue-600 dark:text-blue-400" />
-                <span className="text-sm font-medium text-blue-700 dark:text-blue-400">Joining...</span>
+                <span className="text-sm font-medium text-blue-700 dark:text-blue-400">{joiningMessage}</span>
+              </div>
+              <button
+                onClick={handleCancelBot}
+                disabled={isStopping}
+                className="px-2 py-1 text-xs text-muted-foreground hover:text-foreground hover:bg-muted/50 rounded transition-colors"
+                title="Cancel"
+              >
+                Cancel
+              </button>
+            </div>
+          )
+        };
+
+      case 'waiting':
+        return {
+          showStartButton: false,
+          statusElement: (
+            <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 px-3 py-1.5 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800/30 rounded-lg">
+                <Loader2 className="w-4 h-4 animate-spin text-amber-600 dark:text-amber-400" />
+                <span className="text-sm font-medium text-amber-700 dark:text-amber-400">Waiting for host approval...</span>
               </div>
               <button
                 onClick={handleCancelBot}

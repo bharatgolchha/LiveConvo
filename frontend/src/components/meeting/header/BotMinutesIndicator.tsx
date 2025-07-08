@@ -61,6 +61,11 @@ export function BotMinutesIndicator({ className, compact = false }: BotMinutesIn
   }
 
   const { totalMinutes, monthlyBotMinutesLimit, remainingMinutes } = stats;
+  // Hide indicator in compact mode until there are less than 10 minutes remaining
+  // Reason: Meeting header should only display the warning when usage is low to avoid cluttering the UI.
+  if (compact && remainingMinutes >= 10) {
+    return null;
+  }
   const usagePercentage = (totalMinutes / monthlyBotMinutesLimit) * 100;
   const isNearLimit = usagePercentage >= 80;
   const isAtLimit = remainingMinutes <= 0;

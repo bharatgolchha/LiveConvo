@@ -63,6 +63,7 @@ export function useRecallBotStatus(sessionId: string, botId: string | undefined)
     const shouldPoll = sessionId && status && (
       status.status === 'created' || 
       status.status === 'joining' ||
+      status.status === 'waiting' ||
       status.status === 'in_call' ||
       (status.localStatus === 'recording' && status.status !== 'completed') // Poll if local shows recording but not completed
     );

@@ -90,7 +90,8 @@ interface ConversationContentProps {
   meetingUrl?: string;
   meetingPlatform?: 'zoom' | 'google_meet' | 'teams' | null;
   recallBotId?: string;
-  recallBotStatus?: 'created' | 'joining' | 'in_call' | 'completed' | 'failed' | 'timeout' | null;
+  recallBotStatus?: 'created' | 'joining' | 'waiting' | 'in_call' | 'completed' | 'failed' | 'timeout' | null;
+  recallBotDetailedStatus?: string;
   onStopBot?: () => void;
   onJoinMeeting?: () => void;
   onUpdateMeetingUrl?: (url: string) => Promise<void>;
@@ -126,6 +127,7 @@ export const ConversationContent: React.FC<ConversationContentProps> = ({
   meetingPlatform,
   recallBotId,
   recallBotStatus,
+  recallBotDetailedStatus,
   onStopBot,
   onJoinMeeting,
   onUpdateMeetingUrl
@@ -487,6 +489,7 @@ export const ConversationContent: React.FC<ConversationContentProps> = ({
             meetingPlatform={meetingPlatform}
             botId={recallBotId}
             recallStatus={recallBotStatus || undefined}
+            detailedStatus={recallBotDetailedStatus}
             onStopBot={onStopBot}
           />
         </div>
@@ -520,6 +523,8 @@ export const ConversationContent: React.FC<ConversationContentProps> = ({
                           ? "AI bot is recording the meeting. Transcripts will appear here in real-time."
                           : recallBotStatus === 'joining'
                           ? "AI bot is joining the meeting. Please admit the bot when it appears."
+                          : recallBotStatus === 'waiting'
+                          ? "AI bot is waiting for host approval. Please admit the bot to start recording."
                           : recallBotStatus === 'created'
                           ? "AI bot is preparing to join the meeting..."
                           : recallBotStatus === 'completed'
