@@ -13,12 +13,14 @@ import { useRouter } from 'next/navigation';
 import { useEndMeeting } from '@/lib/meeting/hooks/useEndMeeting';
 import { MeetingSettingsModal } from '@/components/meeting/settings/MeetingSettingsModal';
 import { EndMeetingStatus } from '@/components/meeting/common/EndMeetingStatus';
+import { EndMeetingModal } from '../modals/EndMeetingModal';
 
 export function MeetingActions() {
   const { meeting, botStatus } = useMeetingContext();
   const router = useRouter();
   const [showMenu, setShowMenu] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [showEndModal, setShowEndModal] = useState(false);
   
   const { 
     endMeeting, 
@@ -30,6 +32,7 @@ export function MeetingActions() {
 
   const handleEndMeeting = () => {
     if (!meeting) return;
+    setShowEndModal(false);
     endMeeting(meeting.id, meeting.title);
   };
 
@@ -176,7 +179,7 @@ export function MeetingActions() {
 
       {/* End meeting button */}
       <button
-        onClick={handleEndMeeting}
+        onClick={() => setShowEndModal(true)}
         disabled={isEnding}
         className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-all font-medium min-w-[120px] ${
           endingSuccess
@@ -214,6 +217,15 @@ export function MeetingActions() {
       />
 
       <MeetingSettingsModal isOpen={showSettings} onClose={() => setShowSettings(false)} />
+      
+      {/* End Meeting Modal */}
+      <EndMeetingModal
+        isOpen={showEndModal}
+        onClose={() => setShowEndModal(false)}
+        onConfirm={handleEndMeeting}
+        isLoading={isEnding}
+        meetingTitle={meeting?.title}
+      />
     </div>
   );
 }

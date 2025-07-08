@@ -36,13 +36,6 @@ export function useEndMeeting(options: UseEndMeetingOptions = {}) {
   const endMeeting = useCallback(async (meetingId: string, meetingTitle?: string) => {
     if (isEnding) return;
 
-    const confirmed = window.confirm(
-      `Are you sure you want to end "${meetingTitle || 'this meeting'}"?\n\n` +
-      'This will stop the recording, generate a final summary, and mark the meeting as complete.'
-    );
-    
-    if (!confirmed) return;
-
     setIsEnding(true);
     setEndingSuccess(false);
     setError(null);
