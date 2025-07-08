@@ -83,6 +83,7 @@ export default function ChangePasswordPage() {
             width={180}
             height={40}
             className="object-contain"
+            unoptimized
           />
         </Link>
       </motion.div>
