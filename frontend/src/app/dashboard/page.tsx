@@ -145,7 +145,7 @@ const DashboardPage: React.FC = () => {
       console.log('🔄 Real-time bot status update:', update);
       // Update the session in local state
       updateSession(update.session_id, {
-        recall_bot_status: update.status,
+        recall_bot_status: update.status as Session['recall_bot_status'],
         recall_bot_id: update.bot_id,
         updated_at: update.updated_at
       });
