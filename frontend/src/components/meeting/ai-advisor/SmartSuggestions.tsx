@@ -42,7 +42,7 @@ export function SmartSuggestions() {
   useEffect(() => {
     const shouldUpdate = transcript.length > 0 && 
                         transcript.length !== lastUpdateLength &&
-                        transcript.length % 10 === 0; // Update every 10 new messages
+                        transcript.length % 15 === 0; // Update every 15 new messages
 
     if (shouldUpdate && botStatus?.status === 'in_call') {
       generateSuggestions();
@@ -57,8 +57,8 @@ export function SmartSuggestions() {
     setError(null);
     
     try {
-      // Build recent transcript for context
-      const recentTranscript = transcript.slice(-20).map(t => 
+      // Build full transcript for context (entire conversation)
+      const fullTranscript = transcript.map(t => 
         `${t.displayName || t.speaker}: ${t.text}`
       ).join('\n');
 
@@ -82,12 +82,13 @@ export function SmartSuggestions() {
         method: 'POST',
         headers: authHeaders,
         body: JSON.stringify({
-          transcript: recentTranscript,
+          transcript: fullTranscript,
           summary: summary || null,
           meetingType: meeting?.type || 'team_meeting',
           meetingTitle: meeting?.title,
           context: meeting?.context,
-          stage: getConversationStage()
+          stage: getConversationStage(),
+          participantMe: meeting?.participantMe || 'You'
         })
       });
 
@@ -301,7 +302,7 @@ export function SmartSuggestions() {
                     </div>
                     
                     {suggestion.prompt && (
-                      <p className="text-xs text-muted-foreground line-clamp-2">
+                      <p className="text-xs text-muted-foreground line-clamp-4">
                         {suggestion.prompt}
                       </p>
                     )}

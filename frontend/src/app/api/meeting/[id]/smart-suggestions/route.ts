@@ -68,7 +68,8 @@ export async function POST(
       meetingType = 'meeting',
       meetingTitle = '',
       context = '',
-      stage = 'discussion' 
+      stage = 'discussion',
+      participantMe = 'You' 
     } = await request.json();
 
     console.log('🔄 Generating smart suggestions for:', {
@@ -80,7 +81,7 @@ export async function POST(
     });
 
     // Build context for AI
-    const recentTranscript = transcript ? transcript.slice(-2000) : ''; // Last 2000 chars
+    const fullTranscript = transcript; // Use full transcript as requested
     const summaryContext = summary ? `
 Current meeting summary:
 - TL;DR: ${summary.tldr || 'In progress'}
@@ -97,10 +98,12 @@ Meeting Context:
 - Title: ${meetingTitle}
 - Stage: ${stage}
 - Context: ${context}
+
+Primary participant (the person seeking advice): ${participantMe}
 ${summaryContext}
 
-Recent Transcript:
-${recentTranscript}
+Full Transcript:
+${fullTranscript}
 
 Generate 4-5 contextual suggestions that would help the user navigate this meeting effectively. Each suggestion should be:
 1. Specific to the current conversation 
@@ -126,6 +129,10 @@ Categories:
 
 Focus on what's actually happening in the conversation, not generic advice.`;
 
+    const styleGuide = `\n\nSTYLE GUIDELINES:\n- Address ${participantMe} directly (use first-person suggestions, e.g., \"Alex, can you...\").\n- Be concrete and action-oriented: assign owners, timelines, deliverables.\n- Where helpful, incorporate specific numbers or dates from the conversation.\n- Keep \"text\" under 40 characters but sharp and engaging (e.g., \"Summarize & anchor timeline\").\n- Ensure \"prompt\" is a full sentence the user can click to send as-is.\n- Avoid filler words and generic business jargon.\n- Maintain the same JSON format exactly.`;
+
+    const finalPrompt = `${systemPrompt}${styleGuide}`;
+
     // Get the AI model for smart suggestions
     const defaultModel = await getAIModelForAction(AIAction.SMART_SUGGESTIONS);
 
@@ -142,7 +149,7 @@ Focus on what's actually happening in the conversation, not generic advice.`;
         messages: [
           {
             role: 'user',
-            content: systemPrompt
+            content: finalPrompt
           }
         ],
         max_tokens: 1000,
@@ -188,8 +195,8 @@ Focus on what's actually happening in the conversation, not generic advice.`;
           ['high', 'medium', 'low'].includes(item.priority)
         )
         .map((item: any) => ({
-          text: item.text.substring(0, 50), // Limit text length
-          prompt: item.prompt.substring(0, 200), // Limit prompt length
+          text: item.text.substring(0, 80), // Limit text length (was 50)
+          prompt: item.prompt.substring(0, 400), // Limit prompt length (was 200)
           category: item.category,
           priority: item.priority,
           impact: typeof item.impact === 'number' ? Math.min(100, Math.max(0, item.impact)) : 75
