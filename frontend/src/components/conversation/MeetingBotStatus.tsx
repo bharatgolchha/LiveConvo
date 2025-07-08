@@ -17,7 +17,8 @@ interface MeetingBotStatusProps {
   meetingUrl?: string;
   meetingPlatform?: 'zoom' | 'google_meet' | 'teams' | null;
   botId?: string;
-  recallStatus?: 'created' | 'joining' | 'in_call' | 'completed' | 'failed' | 'timeout';
+  recallStatus?: 'created' | 'joining' | 'waiting' | 'in_call' | 'completed' | 'failed' | 'timeout';
+  detailedStatus?: string;
   onStopBot?: () => void;
   className?: string;
 }
@@ -40,6 +41,7 @@ export function MeetingBotStatus({
   meetingPlatform,
   botId,
   recallStatus,
+  detailedStatus,
   onStopBot,
   className
 }: MeetingBotStatusProps) {
@@ -52,15 +54,26 @@ export function MeetingBotStatus({
   const getStatusMessage = () => {
     switch (recallStatus) {
       case 'created':
-        return 'AI bot created, preparing to join...';
+        return 'AI bot initializing...';
       case 'joining':
-        return 'AI bot is joining the meeting...';
+        return detailedStatus === 'joining_call'
+          ? 'AI bot connecting to meeting...'
+          : 'AI bot joining the meeting...';
+      case 'waiting':
+        return 'AI bot waiting for host approval...';
       case 'in_call':
+        if (detailedStatus === 'in_call_not_recording') {
+          return 'AI bot connected (preparing to record)';
+        } else if (detailedStatus === 'recording') {
+          return 'AI bot is recording';
+        }
         return 'AI bot is in the meeting';
       case 'completed':
         return 'Meeting ended';
       case 'failed':
-        return 'Failed to join meeting';
+        return detailedStatus === 'permission_denied'
+          ? 'Recording permission denied'
+          : 'Failed to join meeting';
       case 'timeout':
         return 'AI bot timed out trying to join';
       default:
@@ -72,6 +85,7 @@ export function MeetingBotStatus({
     switch (recallStatus) {
       case 'created':
       case 'joining':
+      case 'waiting':
         return <Loader2 className="w-4 h-4 animate-spin" />;
       case 'in_call':
         return <CheckCircle2 className="w-4 h-4" />;
@@ -90,6 +104,8 @@ export function MeetingBotStatus({
       case 'created':
       case 'joining':
         return 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/30';
+      case 'waiting':
+        return 'text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/30';
       case 'in_call':
         return 'text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-950/30';
       case 'completed':
@@ -103,7 +119,7 @@ export function MeetingBotStatus({
     }
   };
 
-  const isActive = recallStatus === 'in_call' || recallStatus === 'joining' || recallStatus === 'created';
+  const isActive = recallStatus === 'in_call' || recallStatus === 'joining' || recallStatus === 'created' || recallStatus === 'waiting';
 
   return (
     <AnimatePresence>
@@ -181,7 +197,7 @@ export function MeetingBotStatus({
           </div>
 
           {/* Progress indicator for joining */}
-          {(recallStatus === 'created' || recallStatus === 'joining') && (
+          {(recallStatus === 'created' || recallStatus === 'joining' || recallStatus === 'waiting') && (
             <div className="h-1 bg-current/10 relative overflow-hidden">
               <motion.div
                 className="h-full bg-current/30"

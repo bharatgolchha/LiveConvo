@@ -49,7 +49,8 @@ export interface MeetingTypeOption {
 }
 
 export interface BotStatus {
-  status: 'created' | 'joining' | 'in_call' | 'completed' | 'failed' | 'timeout';
+  status: 'created' | 'joining' | 'waiting' | 'in_call' | 'completed' | 'failed' | 'timeout';
+  detailedStatus?: 'joining_call' | 'in_waiting_room' | 'in_call_not_recording' | 'recording' | 'permission_denied';
   error?: string;
   participantCount?: number;
   recordingId?: string;
