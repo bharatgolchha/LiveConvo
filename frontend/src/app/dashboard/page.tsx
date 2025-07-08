@@ -32,6 +32,7 @@ import { useSessionData } from '@/lib/hooks/useSessionData';
 import { useDebounce } from '@/lib/utils/debounce';
 import type { Session } from '@/lib/hooks/useSessions';
 import { defaultStats } from '@/lib/hooks/useUserStats';
+import { useRealtimeBotStatus } from '@/lib/hooks/useRealtimeBotStatus';
 import { DeleteConfirmationModal } from '@/components/ui/DeleteConfirmationModal';
 import { PricingModal } from '@/components/ui/PricingModal';
 import { SettingsPanel } from '@/components/settings/SettingsPanel';
@@ -137,6 +138,19 @@ const DashboardPage: React.FC = () => {
       });
     }
   }, [userStats]);
+
+  // Real-time bot status updates
+  useRealtimeBotStatus({
+    onStatusUpdate: (update) => {
+      console.log('🔄 Real-time bot status update:', update);
+      // Update the session in local state
+      updateSession(update.session_id, {
+        recall_bot_status: update.status,
+        recall_bot_id: update.bot_id,
+        updated_at: update.updated_at
+      });
+    }
+  });
 
   // Debug logging
   React.useEffect(() => {

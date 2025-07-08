@@ -16,6 +16,7 @@ import { useBotUsage } from '@/lib/meeting/hooks/useBotUsage';
 import { supabase } from '@/lib/supabase';
 import { useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
+import { StopRecordingModal } from '../modals/StopRecordingModal';
 
 export function MeetingBotControl() {
   const { meeting, setMeeting, botStatus, setBotStatus } = useMeetingContext();
@@ -25,6 +26,7 @@ export function MeetingBotControl() {
   const [isStopping, setIsStopping] = useState(false);
   const [error, setError] = useState<React.ReactNode>(null);
   const [showUpgradePrompt, setShowUpgradePrompt] = useState(false);
+  const [showStopModal, setShowStopModal] = useState(false);
   
   // Get bot usage data
   const { stats, loading: usageLoading, refetch: refetchUsage } = useBotUsage(undefined, false);
@@ -223,9 +225,7 @@ export function MeetingBotControl() {
   const handleStopBot = async () => {
     if (!meeting || !meeting.botId || isStopping) return;
     
-    const confirmed = window.confirm('Are you sure you want to stop recording?');
-    if (!confirmed) return;
-
+    setShowStopModal(false);
     setIsStopping(true);
     setError(null);
 
@@ -405,7 +405,7 @@ export function MeetingBotControl() {
           showStartButton: false,
           statusElement: (
             <button
-              onClick={handleStopBot}
+              onClick={() => setShowStopModal(true)}
               disabled={isStopping}
               className="flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors disabled:opacity-50 font-medium"
             >
@@ -542,6 +542,14 @@ export function MeetingBotControl() {
           </button>
         </div>
       ) : null}
+
+      {/* Stop Recording Modal */}
+      <StopRecordingModal
+        isOpen={showStopModal}
+        onClose={() => setShowStopModal(false)}
+        onConfirm={handleStopBot}
+        isLoading={isStopping}
+      />
     </div>
   );
 }
