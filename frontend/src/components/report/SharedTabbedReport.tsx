@@ -4,7 +4,8 @@ import {
   Lightbulb,
   Target,
   BarChart3,
-  Calendar
+  Calendar,
+  MessageSquare
 } from 'lucide-react';
 import { TabbedReport } from './TabbedReport';
 
@@ -13,6 +14,7 @@ interface SharedTabbedReportProps {
   activeTab: string;
   setActiveTab: (tab: string) => void;
   allowedTabs: string[];
+  sharedToken?: string;
 }
 
 const ALL_TABS = [
@@ -20,10 +22,11 @@ const ALL_TABS = [
   { id: 'insights', label: 'Insights & Decisions', icon: Lightbulb },
   { id: 'actions', label: 'Action Items', icon: Target },
   { id: 'analytics', label: 'Analytics & Performance', icon: BarChart3 },
-  { id: 'followup', label: 'Follow-up & Next Steps', icon: Calendar }
+  { id: 'followup', label: 'Follow-up & Next Steps', icon: Calendar },
+  { id: 'transcript', label: 'Transcript', icon: MessageSquare }
 ];
 
-export function SharedTabbedReport({ report, activeTab, setActiveTab, allowedTabs }: SharedTabbedReportProps) {
+export function SharedTabbedReport({ report, activeTab, setActiveTab, allowedTabs, sharedToken }: SharedTabbedReportProps) {
   // Filter tabs to only show allowed ones
   const visibleTabs = ALL_TABS.filter(tab => allowedTabs.includes(tab.id));
   
@@ -68,6 +71,7 @@ export function SharedTabbedReport({ report, activeTab, setActiveTab, allowedTab
         activeTab={activeTab}
         setActiveTab={setActiveTab}
         hideNavigation={true}
+        sharedToken={sharedToken}
       />
     </div>
   );

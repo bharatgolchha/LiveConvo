@@ -18,6 +18,7 @@ import {
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { EmailTagInput } from '@/components/ui/EmailTagInput';
 import { 
   Share2, 
   Copy, 
@@ -28,7 +29,10 @@ import {
   BarChart3,
   Calendar,
   Clock,
-  AlertCircle
+  AlertCircle,
+  Mail,
+  Send,
+  MessageSquare
 } from 'lucide-react';
 
 interface ShareReportModalProps {
@@ -45,9 +49,12 @@ interface ShareSettings {
     actions: boolean;
     analytics: boolean;
     followup: boolean;
+    transcript: boolean;
   };
   expiration: string;
   message: string;
+  sendEmail: boolean;
+  emailRecipients: string[];
 }
 
 const TAB_INFO = [
@@ -56,6 +63,7 @@ const TAB_INFO = [
   { id: 'actions', label: 'Action Items', icon: Target, description: 'Tasks and action items with assignments' },
   { id: 'analytics', label: 'Analytics & Performance', icon: BarChart3, description: 'Meeting metrics and effectiveness scores' },
   { id: 'followup', label: 'Follow-up & Next Steps', icon: Calendar, description: 'Next meeting prep and follow-up content' },
+  { id: 'transcript', label: 'Transcript', icon: MessageSquare, description: 'Full conversation transcript and recording' },
 ];
 
 export function ShareReportModal({ isOpen, onClose, reportId, reportTitle }: ShareReportModalProps) {
@@ -67,13 +75,17 @@ export function ShareReportModal({ isOpen, onClose, reportId, reportTitle }: Sha
       actions: true,
       analytics: false,
       followup: false,
+      transcript: false,
     },
     expiration: '7days',
     message: '',
+    sendEmail: false,
+    emailRecipients: [],
   });
   const [isGenerating, setIsGenerating] = useState(false);
   const [shareLink, setShareLink] = useState('');
   const [copied, setCopied] = useState(false);
+  const [emailsSent, setEmailsSent] = useState(false);
 
   const handleTabToggle = (tabId: string) => {
     setShareSettings(prev => ({
@@ -107,6 +119,7 @@ export function ShareReportModal({ isOpen, onClose, reportId, reportTitle }: Sha
           sharedTabs: selectedTabs,
           expiresIn: shareSettings.expiration,
           message: shareSettings.message,
+          emailRecipients: shareSettings.sendEmail ? shareSettings.emailRecipients : undefined,
         }),
       });
 
@@ -115,8 +128,11 @@ export function ShareReportModal({ isOpen, onClose, reportId, reportTitle }: Sha
         throw new Error(errorData.error || 'Failed to create share link');
       }
 
-      const { shareUrl } = await response.json();
+      const { shareUrl, emailsSent: emailsSentResponse } = await response.json();
       setShareLink(shareUrl);
+      if (emailsSentResponse) {
+        setEmailsSent(true);
+      }
     } catch (error) {
       console.error('Error generating share link:', error);
       alert(error instanceof Error ? error.message : 'Failed to generate share link. Please try again.');
@@ -135,52 +151,48 @@ export function ShareReportModal({ isOpen, onClose, reportId, reportTitle }: Sha
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Share2 className="w-5 h-5" />
+      <DialogContent className="max-w-2xl">
+        <DialogHeader className="pb-3">
+          <DialogTitle className="flex items-center gap-2 text-base">
+            <Share2 className="w-4 h-4" />
             Share Report
           </DialogTitle>
-          <DialogDescription>
+          <DialogDescription className="text-xs">
             Share "{reportTitle}" with others. Choose what information to include.
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-6 mt-4">
+        <div className="space-y-4 mt-2">
           {!shareLink ? (
             <>
               {/* Tab Selection */}
-              <div className="space-y-3">
+              <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <Label className="text-base font-medium">Select sections to share</Label>
-                  <span className="text-sm text-muted-foreground">
+                  <Label className="text-sm font-medium">Select sections to share</Label>
+                  <span className="text-xs text-muted-foreground">
                     {selectedCount} selected
                   </span>
                 </div>
-                <div className="space-y-2">
+                <div className="grid grid-cols-2 gap-2">
                   {TAB_INFO.map(tab => {
                     const Icon = tab.icon;
                     return (
                       <div
                         key={tab.id}
-                        className="flex items-start space-x-3 p-3 rounded-lg border bg-card/50 hover:bg-card/80 transition-colors"
+                        className="flex items-center space-x-2 p-2 rounded-md border bg-card/50 hover:bg-card/80 transition-colors"
                       >
                         <Checkbox
                           id={tab.id}
                           checked={shareSettings.tabs[tab.id as keyof typeof shareSettings.tabs]}
                           onCheckedChange={() => handleTabToggle(tab.id)}
+                          className="h-4 w-4"
                         />
                         <Label
                           htmlFor={tab.id}
-                          className="flex-1 cursor-pointer space-y-1"
+                          className="flex-1 cursor-pointer flex items-center gap-1.5 text-sm"
                         >
-                          <div className="flex items-center gap-2">
-                            <Icon className="w-4 h-4 text-muted-foreground" />
-                            <span className="font-medium">{tab.label}</span>
-                          </div>
-                          <p className="text-sm text-muted-foreground">
-                            {tab.description}
-                          </p>
+                          <Icon className="w-3.5 h-3.5 text-muted-foreground" />
+                          <span>{tab.label}</span>
                         </Label>
                       </div>
                     );
@@ -188,45 +200,87 @@ export function ShareReportModal({ isOpen, onClose, reportId, reportTitle }: Sha
                 </div>
               </div>
 
-              {/* Expiration */}
-              <div className="space-y-2">
-                <Label htmlFor="expiration">Link expiration</Label>
-                <Select
-                  value={shareSettings.expiration}
-                  onValueChange={(value) => setShareSettings(prev => ({ ...prev, expiration: value }))}
-                >
-                  <SelectTrigger id="expiration">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="24hours">24 hours</SelectItem>
-                    <SelectItem value="7days">7 days</SelectItem>
-                    <SelectItem value="30days">30 days</SelectItem>
-                    <SelectItem value="never">Never expires</SelectItem>
-                  </SelectContent>
-                </Select>
+              {/* Expiration and Message Row */}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <Label htmlFor="expiration" className="text-sm">Link expiration</Label>
+                  <Select
+                    value={shareSettings.expiration}
+                    onValueChange={(value) => setShareSettings(prev => ({ ...prev, expiration: value }))}
+                  >
+                    <SelectTrigger id="expiration" className="h-9">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="24hours">24 hours</SelectItem>
+                      <SelectItem value="7days">7 days</SelectItem>
+                      <SelectItem value="30days">30 days</SelectItem>
+                      <SelectItem value="never">Never expires</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label htmlFor="message" className="text-sm">Message (optional)</Label>
+                  <Textarea
+                    id="message"
+                    placeholder="Add context..."
+                    value={shareSettings.message}
+                    onChange={(e) => setShareSettings(prev => ({ ...prev, message: e.target.value }))}
+                    rows={2}
+                    className="resize-none"
+                  />
+                </div>
               </div>
 
-              {/* Optional Message */}
+              {/* Email Recipients */}
               <div className="space-y-2">
-                <Label htmlFor="message">Add a message (optional)</Label>
-                <Textarea
-                  id="message"
-                  placeholder="Add context or instructions for recipients..."
-                  value={shareSettings.message}
-                  onChange={(e) => setShareSettings(prev => ({ ...prev, message: e.target.value }))}
-                  rows={3}
-                />
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1.5">
+                    <Mail className="w-3.5 h-3.5 text-muted-foreground" />
+                    <Label className="text-sm font-medium">Send via email</Label>
+                  </div>
+                  <Checkbox
+                    id="sendEmail"
+                    checked={shareSettings.sendEmail}
+                    onCheckedChange={(checked) => 
+                      setShareSettings(prev => ({ ...prev, sendEmail: checked as boolean }))
+                    }
+                    className="h-4 w-4"
+                  />
+                </div>
+                
+                {shareSettings.sendEmail && (
+                  <div className="space-y-1.5">
+                    <EmailTagInput
+                      value={shareSettings.emailRecipients}
+                      onChange={(emails) => 
+                        setShareSettings(prev => ({ ...prev, emailRecipients: emails }))
+                      }
+                      placeholder="Enter email addresses (press Enter or comma to add)"
+                      className="w-full"
+                      maxEmails={10}
+                    />
+                    <p className="text-xs text-muted-foreground pl-1">
+                      Recipients will receive the summary and link
+                    </p>
+                  </div>
+                )}
               </div>
 
               {/* Generate Button */}
-              <div className="flex justify-end gap-3 pt-4">
-                <Button variant="outline" onClick={onClose}>
+              <div className="flex justify-end gap-2 pt-2">
+                <Button variant="outline" onClick={onClose} size="sm">
                   Cancel
                 </Button>
                 <Button
                   onClick={handleGenerateLink}
-                  disabled={selectedCount === 0 || isGenerating}
+                  disabled={
+                    selectedCount === 0 || 
+                    isGenerating || 
+                    (shareSettings.sendEmail && shareSettings.emailRecipients.length === 0)
+                  }
+                  size="sm"
                 >
                   {isGenerating ? (
                     <>
@@ -245,39 +299,50 @@ export function ShareReportModal({ isOpen, onClose, reportId, reportTitle }: Sha
           ) : (
             <>
               {/* Share Link Generated */}
-              <div className="space-y-4">
-                <div className="p-4 bg-primary/10 rounded-lg border border-primary/20">
-                  <div className="flex items-center gap-2 mb-2">
-                    <Check className="w-5 h-5 text-primary" />
-                    <h3 className="font-medium">Share link created!</h3>
+              <div className="space-y-3">
+                <div className="p-3 bg-primary/10 rounded-lg border border-primary/20">
+                  <div className="flex items-center gap-2 mb-1">
+                    <Check className="w-4 h-4 text-primary" />
+                    <h3 className="font-medium text-sm">Share link created!</h3>
                   </div>
-                  <p className="text-sm text-muted-foreground">
+                  <p className="text-xs text-muted-foreground">
                     Anyone with this link can view the selected sections of your report.
                   </p>
+                  {emailsSent && shareSettings.emailRecipients.length > 0 && (
+                    <div className="mt-2 pt-2 border-t border-primary/20">
+                      <div className="flex items-center gap-1.5">
+                        <Send className="w-3.5 h-3.5 text-primary" />
+                        <p className="text-xs text-muted-foreground">
+                          Email sent to {shareSettings.emailRecipients.length} recipient{shareSettings.emailRecipients.length > 1 ? 's' : ''}
+                        </p>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
-                <div className="space-y-2">
-                  <Label>Share link</Label>
+                <div className="space-y-1.5">
+                  <Label className="text-sm">Share link</Label>
                   <div className="flex gap-2">
                     <input
                       type="text"
                       value={shareLink}
                       readOnly
-                      className="flex-1 px-3 py-2 text-sm bg-muted border border-input rounded-md"
+                      className="flex-1 px-2.5 py-1.5 text-xs bg-muted border border-input rounded-md"
                     />
                     <Button
                       onClick={handleCopyLink}
                       variant="outline"
                       size="sm"
+                      className="h-8"
                     >
                       {copied ? (
                         <>
-                          <Check className="w-4 h-4 mr-2" />
+                          <Check className="w-3.5 h-3.5 mr-1.5" />
                           Copied!
                         </>
                       ) : (
                         <>
-                          <Copy className="w-4 h-4 mr-2" />
+                          <Copy className="w-3.5 h-3.5 mr-1.5" />
                           Copy
                         </>
                       )}
@@ -285,37 +350,37 @@ export function ShareReportModal({ isOpen, onClose, reportId, reportTitle }: Sha
                   </div>
                 </div>
 
-                <div className="p-3 bg-muted/50 rounded-lg">
-                  <div className="flex items-start gap-2">
-                    <AlertCircle className="w-4 h-4 text-muted-foreground mt-0.5" />
-                    <div className="text-sm text-muted-foreground">
+                <div className="p-2.5 bg-muted/50 rounded-md">
+                  <div className="flex items-start gap-1.5">
+                    <AlertCircle className="w-3.5 h-3.5 text-muted-foreground mt-0.5" />
+                    <div className="text-xs text-muted-foreground">
                       <p className="font-medium">Shared sections:</p>
-                      <ul className="mt-1 space-y-0.5">
+                      <span className="text-xs">
                         {TAB_INFO.filter(tab => shareSettings.tabs[tab.id as keyof typeof shareSettings.tabs])
-                          .map(tab => (
-                            <li key={tab.id}>• {tab.label}</li>
-                          ))}
-                      </ul>
+                          .map(tab => tab.label).join(', ')}
+                      </span>
                       {shareSettings.expiration !== 'never' && (
-                        <p className="mt-2">
-                          Expires in: {shareSettings.expiration === '24hours' ? '24 hours' : shareSettings.expiration === '7days' ? '7 days' : '30 days'}
+                        <p className="mt-1">
+                          Expires: {shareSettings.expiration === '24hours' ? '24 hours' : shareSettings.expiration === '7days' ? '7 days' : '30 days'}
                         </p>
                       )}
                     </div>
                   </div>
                 </div>
 
-                <div className="flex justify-end gap-3 pt-4">
+                <div className="flex justify-end gap-2 pt-2">
                   <Button
                     variant="outline"
                     onClick={() => {
                       setShareLink('');
                       setCopied(false);
+                      setEmailsSent(false);
                     }}
+                    size="sm"
                   >
                     Create Another Link
                   </Button>
-                  <Button onClick={onClose}>
+                  <Button onClick={onClose} size="sm">
                     Done
                   </Button>
                 </div>

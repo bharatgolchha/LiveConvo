@@ -213,7 +213,7 @@ export function generateSessionSummaryEmail(data: SessionSummaryEmailData): { ht
     }
     .cta-button {
       display: inline-block;
-      background: #0B3D2E;
+      background: #6BB297;
       color: #FFFFFF;
       padding: 12px 28px;
       text-decoration: none;
@@ -221,6 +221,7 @@ export function generateSessionSummaryEmail(data: SessionSummaryEmailData): { ht
       font-weight: 600;
       font-size: 14px;
       transition: all 0.2s ease;
+      text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
     }
     .cta-text {
       margin-bottom: 16px;
@@ -308,12 +309,20 @@ export function generateSessionSummaryEmail(data: SessionSummaryEmailData): { ht
         ${summary.action_items && summary.action_items.length > 0 ? `
         <div class="section">
           <h2 class="section-title">Action Items</h2>
-          ${summary.action_items.map(item => `
-            <div class="action-item">
-              <div><span class="action-owner">${item.owner || 'Unassigned'}:</span> ${item.description}</div>
-              ${item.deadline ? `<div class="action-deadline">Due: ${item.deadline}</div>` : ''}
-            </div>
-          `).join('')}
+          ${summary.action_items.map(item => {
+            if (typeof item === 'string') {
+              return `<div class="action-item">${item}</div>`;
+            }
+            const owner = item.owner || 'Unassigned';
+            const description = 'task' in item ? item.task : (item.description || '');
+            const deadline = 'timeline' in item ? item.timeline : item.deadline;
+            return `
+              <div class="action-item">
+                <div><span class="action-owner">${owner}:</span> ${description}</div>
+                ${deadline ? `<div class="action-deadline">Due: ${deadline}</div>` : ''}
+              </div>
+            `;
+          }).join('')}
         </div>
         ` : ''}
 
@@ -393,9 +402,15 @@ ${summary.key_points.map(point => `• ${point}`).join('\n')}
 ${summary.action_items && summary.action_items.length > 0 ? `
 ACTION ITEMS
 ------------
-${summary.action_items.map(item => 
-  `• ${item.owner || 'Unassigned'}: ${item.description}${item.deadline ? ` (Due: ${item.deadline})` : ''}`
-).join('\n')}
+${summary.action_items.map(item => {
+  if (typeof item === 'string') {
+    return `• ${item}`;
+  }
+  const owner = item.owner || 'Unassigned';
+  const description = 'task' in item ? item.task : (item.description || '');
+  const deadline = 'timeline' in item ? item.timeline : item.deadline;
+  return `• ${owner}: ${description}${deadline ? ` (Due: ${deadline})` : ''}`;
+}).join('\n')}
 ` : ''}
 
 ${summary.insights && summary.insights.length > 0 ? `

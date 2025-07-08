@@ -350,7 +350,7 @@ export default function MeetingReportPage() {
           speakingTime: speakingTime,
           sentiment: parsedStructuredNotes.sentiment || 'neutral'
         },
-        recordingUrl: sessionData.session.recording_url,
+        recordingUrl: sessionData.session.recall_recording_url || sessionData.session.recording_url,
         transcriptAvailable: sessionData.session.transcripts?.length > 0
       };
 
