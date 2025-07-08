@@ -22,6 +22,7 @@ import {
 import { Button } from '@/components/ui/Button';
 import { EnhancedReportSection } from './EnhancedReportSection';
 import { ReportGenerationProgress } from './ReportGenerationProgress';
+import { TranscriptTab } from './TranscriptTab';
 import {
   Select,
   SelectContent,
@@ -41,6 +42,7 @@ import type {
 
 interface TabbedReportProps {
   report: {
+    id?: string;
     duration: number;
     participants: {
       me: string;
@@ -111,15 +113,17 @@ interface TabbedReportProps {
     total: number;
   } | null;
   hideNavigation?: boolean;
+  sharedToken?: string;
 }
 
-export function TabbedReport({ report, activeTab, setActiveTab, handleManualFinalize, finalizing, finalizationProgress, hideNavigation = false }: TabbedReportProps) {
+export function TabbedReport({ report, activeTab, setActiveTab, handleManualFinalize, finalizing, finalizationProgress, hideNavigation = false, sharedToken }: TabbedReportProps) {
   const tabs = [
     { id: 'overview', label: 'Overview', icon: FileText },
     { id: 'insights', label: 'Insights & Decisions', icon: Lightbulb },
     { id: 'actions', label: 'Action Items', icon: Target },
     { id: 'analytics', label: 'Analytics & Performance', icon: BarChart3 },
-    { id: 'followup', label: 'Follow-up & Next Steps', icon: Calendar }
+    { id: 'followup', label: 'Follow-up & Next Steps', icon: Calendar },
+    { id: 'transcript', label: 'Transcript', icon: MessageSquare }
   ];
 
   // Action items filtering state
@@ -1118,6 +1122,10 @@ export function TabbedReport({ report, activeTab, setActiveTab, handleManualFina
               </div>
             )}
           </div>
+        )}
+        {/* Transcript Tab */}
+        {activeTab === 'transcript' && (
+          <TranscriptTab sessionId={report.id} sharedToken={sharedToken} />
         )}
       </div>
     </>

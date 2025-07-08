@@ -100,19 +100,19 @@ export function ReportExportMenu({ report, className = '', disabled = false }: R
         ref={buttonRef}
         onClick={() => setIsOpen(!isOpen)}
         disabled={isDisabled}
-        className="inline-flex items-center gap-2 px-3 py-2 bg-card hover:bg-muted/50 text-foreground border border-border rounded-lg text-sm font-medium transition-all hover:scale-105 disabled:opacity-50 disabled:hover:scale-100 disabled:cursor-not-allowed"
+        className="h-8 inline-flex items-center gap-1.5 px-3 py-1.5 bg-card hover:bg-muted/50 text-foreground border border-border rounded-md text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         title={isDisabled ? 'No report available to export' : 'Export report'}
       >
         {isExporting ? (
           <>
-            <div className="w-4 h-4 border-2 border-muted-foreground/20 border-t-primary rounded-full animate-spin" />
-            <span className="hidden sm:inline">Exporting...</span>
+            <div className="w-3 h-3 border-2 border-muted-foreground/20 border-t-primary rounded-full animate-spin" />
+            <span>Exporting...</span>
           </>
         ) : (
           <>
-            <Download className="w-4 h-4" />
-            <span className="hidden sm:inline">Export</span>
-            <ChevronDown className={`w-4 h-4 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+            <Download className="w-3 h-3 mr-1.5" />
+            <span>Export</span>
+            <ChevronDown className={`w-3 h-3 ml-0.5 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
           </>
         )}
       </button>

@@ -12,7 +12,7 @@ import {
   Loader2
 } from 'lucide-react';
 import { SharedTabbedReport } from '@/components/report/SharedTabbedReport';
-import { ThemeToggle } from '@/components/ui/ThemeToggle';
+import { SharedReportHeader } from '@/components/report/SharedReportHeader';
 import { Button } from '@/components/ui/Button';
 import { CollaborationPanel } from '@/components/collaboration/CollaborationPanel';
 
@@ -41,8 +41,10 @@ interface SharedReportData {
     expiresAt?: string;
     allowedTabs: string[];
     summary: any;
+    recall_recording_url?: string;
   };
   isShared: boolean;
+  sessionId?: string;
 }
 
 export default function SharedReportPage() {
@@ -85,7 +87,8 @@ export default function SharedReportPage() {
           'insights': 'insights',
           'actions': 'actions',
           'analytics': 'analytics',
-          'followup': 'followup'
+          'followup': 'followup',
+          'transcript': 'transcript'
         };
         
         const firstAllowedTab = data.report.allowedTabs.find((tab: string) => tabMap[tab]);
@@ -125,10 +128,13 @@ export default function SharedReportPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-background via-background to-primary/5 flex items-center justify-center">
-        <div className="text-center space-y-4">
-          <Loader2 className="w-16 h-16 text-primary animate-spin mx-auto" />
-          <p className="text-muted-foreground">Loading shared report...</p>
+      <div className="min-h-screen bg-gradient-to-br from-background via-background to-primary/5">
+        <SharedReportHeader />
+        <div className="flex items-center justify-center min-h-[calc(100vh-4rem)]">
+          <div className="text-center space-y-4">
+            <Loader2 className="w-16 h-16 text-primary animate-spin mx-auto" />
+            <p className="text-muted-foreground">Loading shared report...</p>
+          </div>
         </div>
       </div>
     );
@@ -136,11 +142,14 @@ export default function SharedReportPage() {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-background via-background to-primary/5 flex items-center justify-center">
-        <div className="text-center space-y-4 max-w-md">
-          <AlertCircle className="w-16 h-16 text-destructive mx-auto" />
-          <h2 className="text-xl font-semibold text-foreground">Unable to Load Report</h2>
-          <p className="text-muted-foreground">{error}</p>
+      <div className="min-h-screen bg-gradient-to-br from-background via-background to-primary/5">
+        <SharedReportHeader />
+        <div className="flex items-center justify-center min-h-[calc(100vh-4rem)]">
+          <div className="text-center space-y-4 max-w-md">
+            <AlertCircle className="w-16 h-16 text-destructive mx-auto" />
+            <h2 className="text-xl font-semibold text-foreground">Unable to Load Report</h2>
+            <p className="text-muted-foreground">{error}</p>
+          </div>
         </div>
       </div>
     );
@@ -159,7 +168,8 @@ export default function SharedReportPage() {
       'insights': 'insights',
       'actions': 'actions',
       'analytics': 'analytics',
-      'followup': 'followup'
+      'followup': 'followup',
+      'transcript': 'transcript'
     };
     
     return report.allowedTabs?.includes(tabMapping[tabId]);
@@ -167,43 +177,49 @@ export default function SharedReportPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-primary/5">
-      <div className="container mx-auto px-4 py-6">
+      <SharedReportHeader />
+      <div className="container mx-auto px-4 py-8">
         <div className="max-w-6xl mx-auto">
-          {/* Shared Report Banner */}
-          <div className="mb-4 p-4 bg-primary/10 rounded-lg border border-primary/20">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-primary/20 rounded-full flex items-center justify-center">
-                  <Shield className="w-5 h-5 text-primary" />
-                </div>
-                <div>
-                  <h3 className="font-medium text-foreground flex items-center gap-2">
-                    Shared Report
-                    <span className="text-xs px-2 py-0.5 bg-primary/20 rounded-full">Read Only</span>
-                  </h3>
-                  <p className="text-sm text-muted-foreground">
-                    Shared by {report.sharedBy}
-                    {report.expiresAt && (
-                      <span className="ml-2">
-                        • Expires {formatDate(report.expiresAt)}
+          {/* Shared Report Info Card */}
+          <div className="mb-6 bg-gradient-to-r from-primary/5 via-secondary/5 to-primary/5 rounded-xl border border-border shadow-sm">
+            <div className="p-6">
+              <div className="flex items-start justify-between">
+                <div className="flex items-start gap-4">
+                  <div className="w-12 h-12 bg-gradient-to-br from-primary/20 to-secondary/20 rounded-xl flex items-center justify-center shadow-sm">
+                    <Shield className="w-6 h-6 text-primary" />
+                  </div>
+                  <div className="space-y-1">
+                    <h3 className="font-semibold text-lg text-foreground flex items-center gap-2">
+                      Shared Report
+                      <span className="text-xs px-2 py-1 bg-muted rounded-full font-normal text-muted-foreground">View Only</span>
+                    </h3>
+                    <div className="flex items-center gap-3 text-sm text-muted-foreground">
+                      <span className="flex items-center gap-1">
+                        <Users className="w-3 h-3" />
+                        Shared by {report.sharedBy}
                       </span>
-                    )}
-                  </p>
+                      {report.expiresAt && (
+                        <span className="flex items-center gap-1">
+                          <Clock className="w-3 h-3" />
+                          Expires {formatDate(report.expiresAt)}
+                        </span>
+                      )}
+                    </div>
+                  </div>
                 </div>
-              </div>
-              <div className="flex items-center gap-2">
-                <ThemeToggle className="h-8 w-8" />
-                <Button onClick={copyLink} variant="outline" size="sm">
+                <Button onClick={copyLink} variant="outline" size="sm" className="shadow-sm">
                   <Share2 className="w-3 h-3 mr-1.5" />
                   Copy Link
                 </Button>
               </div>
+              {report.shareMessage && (
+                <div className="mt-4 p-4 bg-background/80 rounded-lg border border-border/50">
+                  <p className="text-sm text-foreground leading-relaxed">
+                    <span className="font-medium text-muted-foreground">Message:</span> {report.shareMessage}
+                  </p>
+                </div>
+              )}
             </div>
-            {report.shareMessage && (
-              <div className="mt-3 p-3 bg-background/50 rounded-lg">
-                <p className="text-sm text-foreground">{report.shareMessage}</p>
-              </div>
-            )}
           </div>
 
           {/* Report Header */}
@@ -253,11 +269,14 @@ export default function SharedReportPage() {
                 wordCount: report.wordCount || 0,
                 speakingTime: report.speakingTime || { me: 50, them: 50 },
                 sentiment: 'neutral'
-              }
+              },
+              id: report.id,
+              recordingUrl: report.recall_recording_url
             }}
             activeTab={activeTab}
             setActiveTab={setActiveTab}
             allowedTabs={report.allowedTabs || []}
+            sharedToken={token}
           />
 
           {/* Collaboration Panel for shared view */}

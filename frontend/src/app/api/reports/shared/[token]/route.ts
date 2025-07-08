@@ -64,6 +64,7 @@ export async function GET(
         participant_me,
         participant_them,
         total_words_spoken,
+        recall_recording_url,
         transcripts (
           speaker,
           content
@@ -197,6 +198,7 @@ export async function GET(
       shareMessage: shareRecord.message,
       expiresAt: shareRecord.expires_at,
       allowedTabs: sharedTabs,
+      recall_recording_url: sharedTabs.includes('transcript') ? session.recall_recording_url : null,
       summary: {
         // Always include basic info
         tldr: sharedTabs.includes('overview') ? summary?.tldr : null,

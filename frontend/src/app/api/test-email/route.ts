@@ -43,27 +43,25 @@ export async function POST(request: NextRequest) {
       insights: [
         {
           observation: "Team morale is high with clear excitement about the new product direction",
-          category: "team_dynamics",
-          impact: "high"
+          evidence: "Multiple team members expressed enthusiasm during the discussion",
+          recommendation: "Maintain this momentum by providing regular updates on progress"
         },
         {
           observation: "Some concerns about timeline feasibility were raised but addressed through resource reallocation",
-          category: "risk_management",
-          impact: "medium"
+          evidence: "Initial estimates showed a 2-week delay",
+          recommendation: "Monitor progress closely and adjust resources as needed"
         }
       ],
       quotable_quotes: [
         {
           quote: "This is exactly the kind of innovation our customers have been asking for",
           speaker: "Sarah Johnson",
-          context: "Discussing the new feature set",
-          timestamp: "15:42"
+          context: "Discussing the new feature set"
         },
         {
           quote: "Let's make sure we're not over-promising on the timeline",
           speaker: "Mike Wilson",
-          context: "During timeline discussion",
-          timestamp: "23:18"
+          context: "During timeline discussion"
         }
       ],
       missed_opportunities: [],
@@ -72,11 +70,11 @@ export async function POST(request: NextRequest) {
         "All participants actively contributed to discussions"
       ],
       conversation_dynamics: {
-        rapport_level: "high",
-        engagement_quality: "excellent",
+        rapport_level: "excellent",
+        engagement_quality: "high",
         dominant_speaker: "balanced",
         pace: "moderate",
-        tone: "collaborative"
+        tone: "formal"
       },
       effectiveness_metrics: {
         objective_achievement: 95,
