@@ -26,6 +26,10 @@ export default function AuthCallbackPage() {
         const error_description = hashParams.get('error_description') || searchParams.get('error_description')
         if (error_description) {
           console.error('OAuth error:', error_description)
+          // Check if it's the specific database error
+          if (error_description.includes('Database error saving new user')) {
+            console.error('User creation failed in database trigger. This might be due to email conflict or trigger error.')
+          }
           router.replace(`/auth/login?error=${encodeURIComponent(error_description)}`)
           return
         }
@@ -76,6 +80,12 @@ export default function AuthCallbackPage() {
 
         if (userError) {
           console.error('Error fetching user data:', userError)
+          // If user doesn't exist in public.users table, it might be due to trigger failure
+          if (userError.code === 'PGRST116') {
+            console.error('User record not found in public.users table. The database trigger may have failed.')
+            router.replace('/auth/login?error=User profile creation failed. Please try again or contact support.')
+            return
+          }
           router.replace('/dashboard')
           return
         }
