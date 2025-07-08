@@ -724,7 +724,7 @@ const DashboardPage: React.FC = () => {
                   setActivePath('conversations'); // Return to conversations view
                 }}
               />
-            ) : !hasAnySessions ? (
+            ) : !hasAnySessions && activePath !== 'archive' ? (
               <EmptyState onNewConversation={handleNewConversation} onNewMeeting={handleNewMeeting} />
             ) : (
               <div className="flex flex-col flex-1">
@@ -900,16 +900,37 @@ const DashboardPage: React.FC = () => {
                     className="bg-card rounded-lg shadow-sm border border-border overflow-hidden"
                   >
                     <div className="text-center py-16">
-                      <MagnifyingGlassIcon className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
-                      <h3 className="text-lg font-medium text-foreground mb-2">No meetings found</h3>
-                      <p className="text-muted-foreground mb-6">Try adjusting your search terms or start a new meeting.</p>
-                                              <Button
-                        onClick={handleNewConversation}
-                        className="bg-primary hover:bg-primary/90 text-primary-foreground"
-                      >
-                        <PlusIcon className="w-4 h-4 mr-2" />
-                        Start New Meeting
-                      </Button>
+                      {activePath === 'archive' ? (
+                        <>
+                          <ArchiveBoxIcon className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
+                          <h3 className="text-lg font-medium text-foreground mb-2">No archived meetings</h3>
+                          <p className="text-muted-foreground mb-6">
+                            {searchQuery 
+                              ? "No archived meetings match your search" 
+                              : "Archived meetings will appear here when you archive them"}
+                          </p>
+                          <Button
+                            variant="outline"
+                            onClick={() => setActivePath('conversations')}
+                            className="hover:bg-muted"
+                          >
+                            View Active Meetings
+                          </Button>
+                        </>
+                      ) : (
+                        <>
+                          <MagnifyingGlassIcon className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
+                          <h3 className="text-lg font-medium text-foreground mb-2">No meetings found</h3>
+                          <p className="text-muted-foreground mb-6">Try adjusting your search terms or start a new meeting.</p>
+                          <Button
+                            onClick={handleNewConversation}
+                            className="bg-primary hover:bg-primary/90 text-primary-foreground"
+                          >
+                            <PlusIcon className="w-4 h-4 mr-2" />
+                            Start New Meeting
+                          </Button>
+                        </>
+                      )}
                     </div>
                   </motion.div>
                 )}
