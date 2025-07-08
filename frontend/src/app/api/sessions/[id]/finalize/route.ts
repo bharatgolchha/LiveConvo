@@ -29,6 +29,7 @@ import {
   generateFollowUpContentPrompt,
   combineModularResults
 } from '@/lib/prompts/modularSummaryPrompts';
+import { sendPostCallNotification } from '@/lib/services/email/postCallNotification';
 
 const openrouterApiKey = process.env.OPENROUTER_API_KEY;
 console.log('🔍 Environment check:', {
@@ -409,6 +410,63 @@ async function processFinalization({
     .eq('id', sessionId);
 
   sendProgress?.('Report generation complete!', 8, 8);
+
+  // Send email notification if enabled
+  try {
+    // Get user email
+    const userEmail = user.email;
+    
+    if (userEmail && process.env.RESEND_API_KEY) {
+      // Check user preferences
+      const { data: preferences } = await authenticatedSupabase
+        .from('user_preferences')
+        .select('email_notifications_enabled, email_post_call_summary')
+        .eq('user_id', user.id)
+        .single();
+      
+      // Default to true if no preferences exist
+      const emailEnabled = preferences?.email_notifications_enabled ?? true;
+      const postCallSummaryEnabled = preferences?.email_post_call_summary ?? true;
+      
+      if (emailEnabled && postCallSummaryEnabled) {
+        console.log('📧 Sending post-call notification email to:', userEmail);
+        
+        // Get app URL from environment or use default
+        const appUrl = process.env.NEXT_PUBLIC_APP_URL || 
+                       process.env.NEXT_PUBLIC_SITE_URL || 
+                       `https://${request.headers.get('host')}`;
+        
+        await sendPostCallNotification({
+          sessionId,
+          userId: user.id,
+          userEmail,
+          sessionTitle: conversationTitle || 'Conversation Summary',
+          sessionDate: new Date(),
+          duration: sessionDuration,
+          participants: {
+            me: participantMe || 'Me',
+            them: participantThem || 'Participant'
+          },
+          summary,
+          transcript: transcriptText,
+          conversationType,
+          appUrl
+        });
+        
+        console.log('✅ Post-call notification sent successfully');
+      } else {
+        console.log('⚠️ User has disabled email notifications');
+      }
+    } else {
+      console.log('⚠️ Skipping email notification:', {
+        hasEmail: !!userEmail,
+        hasResendKey: !!process.env.RESEND_API_KEY
+      });
+    }
+  } catch (emailError) {
+    // Don't fail the entire request if email fails
+    console.error('❌ Failed to send post-call notification:', emailError);
+  }
 
   // Return final result
   const result = {
