@@ -26,7 +26,7 @@ export default function PrivacyPolicy() {
 
           <div className="bg-muted/50 p-6 rounded-lg mb-8">
             <p className="text-sm">
-              NexGenAI LLC ("Company", "we", "us", or "our") is committed to protecting your privacy. This Privacy Policy 
+              InnoventuresAI Inc. ("Company", "we", "us", or "our") is committed to protecting your privacy. This Privacy Policy 
               explains how we collect, use, disclose, and safeguard your information when you use our service liveprompt.ai 
               (the "Service"). Please read this privacy policy carefully. If you do not agree with the terms of this privacy 
               policy, please do not access the Service.
@@ -362,7 +362,7 @@ export default function PrivacyPolicy() {
               If you have any questions about this Privacy Policy or our privacy practices, please contact us at:
             </p>
             <div className="bg-muted p-4 rounded-lg mt-4">
-              <p><strong>NexGenAI LLC</strong></p>
+              <p><strong>InnoventuresAI Inc.</strong></p>
               <p>Email: hello@liveprompt.ai</p>
               <p>State of Incorporation: Delaware, United States</p>
             </div>

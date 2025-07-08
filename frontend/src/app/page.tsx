@@ -291,6 +291,55 @@ export default function LandingPage() {
           </div>
         </section>
 
+        {/* Platform Integration Section */}
+        <section className="py-16 px-4 sm:px-6 lg:px-8">
+          <div className="max-w-4xl mx-auto">
+            <motion.div 
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.6 }}
+              className="text-center"
+            >
+              <h3 className="text-2xl font-semibold mb-8 text-foreground">
+                Works seamlessly with your favorite platforms
+              </h3>
+              <div className="flex justify-center items-center gap-8 md:gap-12 flex-wrap">
+                <div className="group cursor-pointer transition-transform hover:scale-110">
+                  <Image
+                    src="/platform-logos/zoom.png"
+                    alt="Zoom"
+                    width={100}
+                    height={35}
+                    className="object-contain opacity-60 group-hover:opacity-100 transition-opacity duration-300 filter grayscale group-hover:grayscale-0"
+                  />
+                </div>
+                <div className="group cursor-pointer transition-transform hover:scale-110">
+                  <Image
+                    src="/platform-logos/meet.png"
+                    alt="Google Meet"
+                    width={100}
+                    height={35}
+                    className="object-contain opacity-60 group-hover:opacity-100 transition-opacity duration-300 filter grayscale group-hover:grayscale-0"
+                  />
+                </div>
+                <div className="group cursor-pointer transition-transform hover:scale-110">
+                  <Image
+                    src="/platform-logos/teams.png"
+                    alt="Microsoft Teams"
+                    width={100}
+                    height={35}
+                    className="object-contain opacity-60 group-hover:opacity-100 transition-opacity duration-300 filter grayscale group-hover:grayscale-0"
+                  />
+                </div>
+              </div>
+              <p className="text-sm mt-6 text-muted-foreground">
+                No downloads required • Works in your browser • Zero setup time
+              </p>
+            </motion.div>
+          </div>
+        </section>
+
         {/* Product Screenshot with Tabs */}
         <section className="py-20 px-4 sm:px-6 lg:px-8">
           <div className="max-w-7xl mx-auto">
@@ -388,53 +437,6 @@ export default function LandingPage() {
           </div>
         </section>
 
-        {/* Platform Integration Section */}
-        <section className="py-20 px-4 sm:px-6 lg:px-8">
-          <div className="max-w-6xl mx-auto">
-            <motion.div 
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              className="text-center mb-20"
-            >
-              <p className="text-sm font-medium mb-8 uppercase tracking-wider text-muted-foreground">
-                Works seamlessly with your favorite platforms
-              </p>
-              <div className="flex justify-center items-center gap-12 md:gap-16">
-                <div className="group cursor-pointer">
-                  <Image
-                    src="/platform-logos/zoom.png"
-                    alt="Zoom"
-                    width={120}
-                    height={40}
-                    className="object-contain opacity-70 group-hover:opacity-100 transition-opacity duration-300 filter grayscale group-hover:grayscale-0"
-                  />
-                </div>
-                <div className="group cursor-pointer">
-                  <Image
-                    src="/platform-logos/meet.png"
-                    alt="Google Meet"
-                    width={120}
-                    height={40}
-                    className="object-contain opacity-70 group-hover:opacity-100 transition-opacity duration-300 filter grayscale group-hover:grayscale-0"
-                  />
-                </div>
-                <div className="group cursor-pointer">
-                  <Image
-                    src="/platform-logos/teams.png"
-                    alt="Microsoft Teams"
-                    width={120}
-                    height={40}
-                    className="object-contain opacity-70 group-hover:opacity-100 transition-opacity duration-300 filter grayscale group-hover:grayscale-0"
-                  />
-                </div>
-              </div>
-              <p className="text-sm mt-6 text-muted-foreground">
-                No downloads required • Works in your browser • Zero setup time
-              </p>
-            </motion.div>
-          </div>
-        </section>
 
         {/* The Moment That Changes Everything */}
         <section className="py-20 px-4 sm:px-6 lg:px-8">
@@ -1272,7 +1274,7 @@ export default function LandingPage() {
                     <Shield className="w-4 h-4" />
                     SOC 2 Compliant
                   </span>
-                  <span>© {new Date().getFullYear()} NexGenAI LLC</span>
+                  <span>© {new Date().getFullYear()} InnoventuresAI Inc.</span>
                 </div>
               </div>
               
