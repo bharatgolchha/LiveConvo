@@ -682,7 +682,6 @@ const DashboardPage: React.FC = () => {
             }
           }}
           currentUser={currentUser}
-          sessions={sessions}
         />
         
         <main className="flex-1 overflow-hidden flex">

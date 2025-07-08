@@ -176,6 +176,9 @@ async function fetchSessions(
   // Apply filters
   if (status) {
     query = query.eq('status', status);
+  } else {
+    // If no status filter is provided, exclude archived sessions by default
+    query = query.neq('status', 'archived');
   }
 
   if (conversationType) {

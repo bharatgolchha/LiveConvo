@@ -5,7 +5,6 @@ import {
   Cog6ToothIcon,
 } from '@heroicons/react/24/outline';
 import { Crown } from 'lucide-react';
-import type { Session } from '@/lib/hooks/useSessions';
 import { PricingModal } from '@/components/ui/PricingModal';
 
 export interface UsageStats {
@@ -16,6 +15,9 @@ export interface UsageStats {
   minutesRemaining?: number;
   totalSessions: number;
   completedSessions: number;
+  activeSessions?: number;
+  draftSessions?: number;
+  archivedSessions?: number;
   monthlyBotMinutesUsed?: number;
   monthlyBotMinutesLimit?: number;
   session_minutes_used?: number;
@@ -26,10 +28,9 @@ interface DashboardSidebarProps {
   activePath: string;
   onNavigate: (path: string) => void;
   currentUser: { plan: 'free' | 'pro' | 'team'; };
-  sessions: Session[];
 }
 
-const DashboardSidebar: React.FC<DashboardSidebarProps> = ({ usageStats, activePath, onNavigate, currentUser, sessions }) => {
+const DashboardSidebar: React.FC<DashboardSidebarProps> = ({ usageStats, activePath, onNavigate, currentUser }) => {
   // Debug: Log the usageStats to see what's being passed
   React.useEffect(() => {
     console.log('📊 DashboardSidebar usageStats:', {
@@ -40,12 +41,16 @@ const DashboardSidebar: React.FC<DashboardSidebarProps> = ({ usageStats, activeP
     });
   }, [usageStats]);
 
-  // Calculate counts with memoization to prevent recalculation on every render
+  // Use counts from stats instead of calculating from sessions
   const { archivedCount, activeCount } = useMemo(() => {
-    const archived = sessions.filter((s) => s.status === 'archived').length;
-    const active = sessions.filter((s) => s.status !== 'archived').length;
+    // Use the counts from usageStats which has the full picture
+    const archived = usageStats.archivedSessions || 0;
+    // Active count should include all non-archived sessions (active + draft + completed)
+    const active = (usageStats.activeSessions || 0) + 
+                   (usageStats.draftSessions || 0) + 
+                   (usageStats.completedSessions || 0);
     return { archivedCount: archived, activeCount: active };
-  }, [sessions]);
+  }, [usageStats]);
 
   // Format minutes to a human-friendly string
   const formatMinutes = (minutes: number): string => {
