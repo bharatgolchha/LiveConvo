@@ -591,6 +591,73 @@ async function handleBotCompleted(
         supabase
       );
     }
+    
+    // Trigger summary generation and email notification
+    if (targetSessionId && session) {
+      console.log('🔄 Triggering automatic summary generation for completed session');
+      try {
+        // Get session details for summary generation
+        const { data: sessionData } = await supabase
+          .from('sessions')
+          .select('*')
+          .eq('id', targetSessionId)
+          .single();
+          
+        const { data: sessionContext } = await supabase
+          .from('session_context')
+          .select('text_context')
+          .eq('session_id', targetSessionId)
+          .single();
+          
+        // Get service role token for internal API call
+        const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+        if (!serviceRoleKey) {
+          console.error('❌ Service role key not configured for auto-finalization');
+          return;
+        }
+        
+        // Create a JWT token for the user to authenticate the finalization request
+        const { data: { session: authSession } } = await supabase.auth.admin.createSession({
+          user_id: session.user_id
+        });
+        
+        if (!authSession) {
+          console.error('❌ Failed to create auth session for auto-finalization');
+          return;
+        }
+        
+        // Call the finalize endpoint
+        const baseUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.APP_URL || 'http://localhost:3000';
+        const finalizeUrl = `${baseUrl}/api/sessions/${targetSessionId}/finalize`;
+        
+        const finalizePayload = {
+          conversationType: sessionData?.conversation_type,
+          conversationTitle: sessionData?.title,
+          textContext: sessionContext?.text_context,
+          participantMe: sessionData?.participant_me,
+          participantThem: sessionData?.participant_them
+        };
+        
+        const response = await fetch(finalizeUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${authSession.access_token}`
+          },
+          body: JSON.stringify(finalizePayload)
+        });
+        
+        if (response.ok) {
+          console.log('✅ Auto-finalization triggered successfully');
+        } else {
+          const errorText = await response.text();
+          console.error('❌ Auto-finalization failed:', response.status, errorText);
+        }
+      } catch (error) {
+        console.error('❌ Error triggering auto-finalization:', error);
+        // Don't fail the webhook processing if finalization fails
+      }
+    }
   }
   
   console.log(`✅ Bot ${botId} completed: ${durationSeconds}s = ${billableMinutes} billable minutes`);
