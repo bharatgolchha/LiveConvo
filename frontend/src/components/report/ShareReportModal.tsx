@@ -234,12 +234,8 @@ export function ShareReportModal({ isOpen, onClose, reportId, reportTitle }: Sha
               </div>
 
               {/* Email Recipients */}
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-1.5">
-                    <Mail className="w-3.5 h-3.5 text-muted-foreground" />
-                    <Label className="text-sm font-medium">Send via email</Label>
-                  </div>
+              <div className="space-y-2 border rounded-lg p-3 bg-muted/30">
+                <div className="flex items-center gap-2">
                   <Checkbox
                     id="sendEmail"
                     checked={shareSettings.sendEmail}
@@ -248,10 +244,17 @@ export function ShareReportModal({ isOpen, onClose, reportId, reportTitle }: Sha
                     }
                     className="h-4 w-4"
                   />
+                  <Label 
+                    htmlFor="sendEmail" 
+                    className="text-sm font-medium cursor-pointer flex items-center gap-1.5"
+                  >
+                    <Mail className="w-3.5 h-3.5 text-muted-foreground" />
+                    Send report via email
+                  </Label>
                 </div>
                 
                 {shareSettings.sendEmail && (
-                  <div className="space-y-1.5">
+                  <div className="space-y-1.5 mt-3">
                     <EmailTagInput
                       value={shareSettings.emailRecipients}
                       onChange={(emails) => 
@@ -262,7 +265,7 @@ export function ShareReportModal({ isOpen, onClose, reportId, reportTitle }: Sha
                       maxEmails={10}
                     />
                     <p className="text-xs text-muted-foreground pl-1">
-                      Recipients will receive the summary and link
+                      Recipients will receive the summary and share link
                     </p>
                   </div>
                 )}
@@ -289,8 +292,17 @@ export function ShareReportModal({ isOpen, onClose, reportId, reportTitle }: Sha
                     </>
                   ) : (
                     <>
-                      <Share2 className="w-4 h-4 mr-2" />
-                      Generate Link
+                      {shareSettings.sendEmail && shareSettings.emailRecipients.length > 0 ? (
+                        <>
+                          <Send className="w-4 h-4 mr-2" />
+                          Generate Link & Send
+                        </>
+                      ) : (
+                        <>
+                          <Share2 className="w-4 h-4 mr-2" />
+                          Generate Link
+                        </>
+                      )}
                     </>
                   )}
                 </Button>
