@@ -28,6 +28,7 @@ export function AuthLayout({ children, title, subtitle }: AuthLayoutProps) {
             width={180}
             height={40}
             className="object-contain"
+            unoptimized
           />
         </Link>
       </motion.div>

@@ -45,6 +45,7 @@ export const OnboardingLayout: React.FC<OnboardingLayoutProps> = ({
                     width={200}
                     height={45}
                     className="object-contain"
+                    unoptimized
                   />
                 </motion.div>
               </div>

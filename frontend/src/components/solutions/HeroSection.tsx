@@ -84,6 +84,7 @@ export function HeroSection({ headline, subheadline, cta, accentColor }: HeroSec
                 height={600}
                 className="w-full h-auto"
                 priority
+                unoptimized
               />
               <div className="absolute inset-0 bg-gradient-to-tr from-gray-900/20 to-transparent" />
             </div>
