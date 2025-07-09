@@ -9,10 +9,13 @@ import {
   ExclamationTriangleIcon,
   CheckCircleIcon,
   ArrowPathIcon,
-  PlayIcon
+  PlayIcon,
+  ClipboardIcon,
+  BookmarkIcon
 } from '@heroicons/react/24/outline';
 import { useMeetingContext } from '@/lib/meeting/context/MeetingContext';
 import { supabase } from '@/lib/supabase';
+import { toast } from 'sonner';
 
 interface SuggestionChip {
   text: string;
@@ -212,6 +215,47 @@ export function SmartSuggestions() {
     }
   };
 
+  const sendToSmartNotes = async (suggestion: SuggestionChip, e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent triggering the useSuggestion click
+
+    try {
+      // Create smart note object
+      const smartNote = {
+        id: `suggestion-${Date.now()}`,
+        category: (suggestion as any).category || 'key_point',
+        content: `${suggestion.text}: ${suggestion.prompt}`,
+        importance: (suggestion as any).priority || 'medium',
+        timestamp: new Date().toISOString()
+      };
+
+      // Dispatch event to add smart note through the meeting context
+      const event = new CustomEvent('addSmartNote', {
+        detail: smartNote
+      });
+      window.dispatchEvent(event);
+
+      toast.success('Added to Smart Notes');
+      console.log('✅ Sent to smart notes:', suggestion.text);
+    } catch (error) {
+      console.error('Error sending to smart notes:', error);
+      toast.error('Failed to add to smart notes');
+    }
+  };
+
+  const copyToClipboard = async (suggestion: SuggestionChip, e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent triggering the useSuggestion click
+
+    try {
+      const textToCopy = `${suggestion.text}\n\n${suggestion.prompt}`;
+      await navigator.clipboard.writeText(textToCopy);
+      toast.success('Copied to clipboard');
+      console.log('📋 Copied to clipboard:', suggestion.text);
+    } catch (error) {
+      console.error('Error copying to clipboard:', error);
+      toast.error('Failed to copy to clipboard');
+    }
+  };
+
   const formatTime = (timestamp: string) => {
     return new Date(timestamp).toLocaleTimeString('en-US', { 
       hour12: false, 
@@ -268,20 +312,22 @@ export function SmartSuggestions() {
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -20 }}
                 transition={{ delay: index * 0.1 }}
-                className={`group relative p-3 rounded-lg border transition-all cursor-pointer hover:shadow-sm ${
+                className={`group relative p-3 rounded-lg border transition-all hover:shadow-sm ${
                   (suggestion as any).isUsed 
                     ? 'bg-muted/50 border-muted text-muted-foreground'
                     : 'bg-card border-border hover:border-primary/50 hover:bg-card/80'
                 }`}
-                onClick={() => useSuggestion(suggestion)}
               >
                 <div className="flex items-start gap-3">
                   <div className="flex-shrink-0 mt-0.5">
-                    <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs ${
-                      (suggestion as any).isUsed
-                        ? 'bg-muted text-muted-foreground'
-                        : 'bg-primary/10 text-primary'
-                    }`}>
+                    <div 
+                      className={`w-6 h-6 rounded-full flex items-center justify-center text-xs cursor-pointer ${
+                        (suggestion as any).isUsed
+                          ? 'bg-muted text-muted-foreground'
+                          : 'bg-primary/10 text-primary hover:bg-primary/20'
+                      }`}
+                      onClick={() => useSuggestion(suggestion)}
+                    >
                       {(suggestion as any).isUsed ? (
                         <CheckCircleIcon className="w-4 h-4" />
                       ) : (
@@ -290,7 +336,7 @@ export function SmartSuggestions() {
                     </div>
                   </div>
                   
-                  <div className="flex-1 min-w-0">
+                  <div className="flex-1 min-w-0 cursor-pointer" onClick={() => useSuggestion(suggestion)}>
                     <div className="flex items-center gap-2 mb-1">
                       <h4 className="font-medium text-sm truncate">
                         {suggestion.text}
@@ -309,7 +355,21 @@ export function SmartSuggestions() {
                     )}
                   </div>
                   
-                  <div className="flex-shrink-0">
+                  <div className="flex-shrink-0 flex items-center gap-1">
+                    <button
+                      onClick={(e) => copyToClipboard(suggestion, e)}
+                      className="p-1.5 rounded hover:bg-muted transition-colors"
+                      title="Copy to clipboard"
+                    >
+                      <ClipboardIcon className="w-4 h-4 text-muted-foreground hover:text-foreground" />
+                    </button>
+                    <button
+                      onClick={(e) => sendToSmartNotes(suggestion, e)}
+                      className="p-1.5 rounded hover:bg-muted transition-colors"
+                      title="Send to Smart Notes"
+                    >
+                      <BookmarkIcon className="w-4 h-4 text-muted-foreground hover:text-foreground" />
+                    </button>
                     <ArrowRightIcon className={`w-4 h-4 transition-transform group-hover:translate-x-1 ${
                       (suggestion as any).isUsed ? 'text-muted-foreground' : 'text-muted-foreground'
                     }`} />

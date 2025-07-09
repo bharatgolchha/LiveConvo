@@ -5,6 +5,8 @@ import { EnhancedAIChat, EnhancedAIChatRef } from './EnhancedAIChat';
 import { SmartSuggestions } from './SmartSuggestions';
 import { MeetingInsights } from './MeetingInsights';
 import { QuickActions } from './QuickActions';
+import { supabase } from '@/lib/supabase';
+import { toast } from 'sonner';
 import { 
   SparklesIcon, 
   ChatBubbleLeftRightIcon,
@@ -25,7 +27,7 @@ export function AIAdvisorPanel({
   isMinimized: externalIsMinimized = false, 
   onMinimizedChange 
 }: AIAdvisorPanelProps) {
-  const { botStatus, transcript } = useMeetingContext();
+  const { botStatus, transcript, meeting, addSmartNote } = useMeetingContext();
   const [activeTab, setActiveTab] = useState<TabType>('chat');
   const [internalIsMinimized, setInternalIsMinimized] = useState(false);
   const [autoSwitched, setAutoSwitched] = useState(false);
@@ -55,12 +57,66 @@ export function AIAdvisorPanel({
       setActiveTab('chat');
     };
 
+    const handleAddSmartNote = async (event: Event) => {
+      const customEvent = event as CustomEvent;
+      const smartNote = customEvent.detail;
+      console.log('[AIAdvisorPanel] Received addSmartNote event:', smartNote);
+      
+      // Add to local state first for immediate UI update
+      addSmartNote(smartNote);
+      
+      // Persist to database
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session?.access_token || !meeting?.id) {
+          console.error('[AIAdvisorPanel] No auth token or meeting ID');
+          return;
+        }
+
+        // Get user and organization info
+        const { data: meetingData } = await supabase
+          .from('sessions')
+          .select('organization_id, user_id')
+          .eq('id', meeting.id)
+          .single();
+
+        if (!meetingData) {
+          console.error('[AIAdvisorPanel] Failed to get meeting data');
+          return;
+        }
+
+        // Save to smart_notes table
+        const { error: insertError } = await supabase
+          .from('smart_notes')
+          .insert({
+            session_id: meeting.id,
+            user_id: meetingData.user_id,
+            organization_id: meetingData.organization_id,
+            category: smartNote.category,
+            content: smartNote.content,
+            importance: smartNote.importance || 'medium',
+            is_manual: true
+          });
+
+        if (insertError) {
+          console.error('[AIAdvisorPanel] Failed to save smart note:', insertError);
+          toast.error('Failed to save smart note');
+        } else {
+          console.log('[AIAdvisorPanel] Smart note saved to database');
+        }
+      } catch (error) {
+        console.error('[AIAdvisorPanel] Error saving smart note:', error);
+      }
+    };
+
     window.addEventListener('useSuggestion', handleUseSuggestion);
+    window.addEventListener('addSmartNote', handleAddSmartNote);
     
     return () => {
       window.removeEventListener('useSuggestion', handleUseSuggestion);
+      window.removeEventListener('addSmartNote', handleAddSmartNote);
     };
-  }, []);
+  }, [addSmartNote, meeting]);
 
   const tabs = [
     { 
