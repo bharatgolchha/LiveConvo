@@ -28,6 +28,7 @@ export function CreateMeetingModal({ isOpen, onClose, onStart }: CreateMeetingMo
   const [title, setTitle] = useState('');
   const [context, setContext] = useState('');
   const [meetingUrl, setMeetingUrl] = useState('');
+  const [aiInstructions, setAiInstructions] = useState('');
   const [selectedPrevious, setSelectedPrevious] = useState<{ id: string; title: string; conversation_type?: string; created_at: string; recording_duration_seconds?: number; status?: string; total_words_spoken?: number }[]>([]);
   
   // Fixed meeting type - simplified for better UX
@@ -43,6 +44,7 @@ export function CreateMeetingModal({ isOpen, onClose, onStart }: CreateMeetingMo
         meetingUrl: meetingUrl.trim() || undefined,
         context: context.trim() || undefined,
         linkedConversationIds: selectedPrevious.map(p => p.id),
+        ai_instructions: aiInstructions.trim() || undefined,
       });
       onClose();
     } catch (error) {
@@ -61,6 +63,7 @@ export function CreateMeetingModal({ isOpen, onClose, onStart }: CreateMeetingMo
     setTitle('');
     setContext('');
     setMeetingUrl('');
+    setAiInstructions('');
     setSelectedPrevious([]);
     setStep(0);
     setIsStarting(false);
@@ -177,6 +180,8 @@ export function CreateMeetingModal({ isOpen, onClose, onStart }: CreateMeetingMo
                       setContext={setContext}
                       selectedPrevious={selectedPrevious}
                       setSelectedPrevious={setSelectedPrevious}
+                      aiInstructions={aiInstructions}
+                      setAiInstructions={setAiInstructions}
                     />
                   )}
                   {step === 2 && (

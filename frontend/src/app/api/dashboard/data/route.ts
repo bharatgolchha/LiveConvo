@@ -205,6 +205,12 @@ async function fetchSessions(
     organizationId 
   });
 
+  // Get session IDs to fetch additional data
+  const sessionIds = sessions?.map(s => s.id) || [];
+
+  // Fetch transcript speakers for all sessions
+  const transcriptSpeakersData = sessionIds.length > 0 ? await getTranscriptSpeakers(sessionIds, authClient) : new Map();
+
   // Calculate additional fields for each session
   const enhancedSessions = sessions?.map(session => ({
     ...session,
@@ -214,7 +220,7 @@ async function fetchSessions(
     hasSummary: false,
     linkedConversationsCount: 0,
     linkedConversations: [],
-    transcript_speakers: []
+    transcript_speakers: transcriptSpeakersData.get(session.id) || []
   })) || [];
 
   const totalCount = count || 0;
@@ -486,5 +492,49 @@ function calculateLastActivity(session: any): string {
     return `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`;
   } else {
     return `${diffDays} day${diffDays > 1 ? 's' : ''} ago`;
+  }
+}
+
+/**
+ * Get unique speakers from transcripts for each session
+ */
+async function getTranscriptSpeakers(sessionIds: string[], authClient: ReturnType<typeof createAuthenticatedSupabaseClient>): Promise<Map<string, string[]>> {
+  try {
+    if (sessionIds.length === 0) {
+      return new Map();
+    }
+
+    // Get unique speakers from transcripts for all sessions
+    const { data: transcripts, error } = await authClient
+      .from('transcripts')
+      .select('session_id, speaker')
+      .in('session_id', sessionIds)
+      .not('speaker', 'is', null)
+      .neq('speaker', '');
+
+    if (error) {
+      console.error('Error fetching transcript speakers:', error);
+      return new Map();
+    }
+
+    // Group speakers by session and get unique values
+    const speakersMap = new Map<string, string[]>();
+    
+    transcripts?.forEach(transcript => {
+      const sessionId = transcript.session_id;
+      const speaker = transcript.speaker?.trim();
+      
+      if (speaker && !['me', 'them', 'user', 'other'].includes(speaker.toLowerCase())) {
+        const existingSpeakers = speakersMap.get(sessionId) || [];
+        if (!existingSpeakers.includes(speaker)) {
+          speakersMap.set(sessionId, [...existingSpeakers, speaker]);
+        }
+      }
+    });
+
+    return speakersMap;
+  } catch (error) {
+    console.error('Error in getTranscriptSpeakers:', error);
+    return new Map();
   }
 }

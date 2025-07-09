@@ -304,23 +304,127 @@ function MinimizedView({
 
 // Settings panel
 function AdvisorSettings() {
+  const { meeting } = useMeetingContext();
+  const [aiInstructions, setAiInstructions] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+
+  // Fetch AI instructions on mount
+  useEffect(() => {
+    if (meeting?.id) {
+      fetchAiInstructions();
+    }
+  }, [meeting?.id]);
+
+  const fetchAiInstructions = async () => {
+    if (!meeting?.id) return;
+    
+    setIsLoading(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) return;
+
+      const response = await fetch(`/api/sessions/${meeting.id}/ai-instructions`, {
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`
+        }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setAiInstructions(data.ai_instructions || '');
+      }
+    } catch (error) {
+      console.error('Failed to fetch AI instructions:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const saveAiInstructions = async () => {
+    if (!meeting?.id) return;
+    
+    setIsSaving(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) return;
+
+      const response = await fetch(`/api/sessions/${meeting.id}/ai-instructions`, {
+        method: 'PATCH',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ ai_instructions: aiInstructions.trim() || null })
+      });
+
+      if (response.ok) {
+        toast.success('AI instructions updated successfully');
+        
+        // Emit event to notify other components
+        const event = new CustomEvent('aiInstructionsUpdated', {
+          detail: { instructions: aiInstructions.trim() || null }
+        });
+        window.dispatchEvent(event);
+      } else {
+        toast.error('Failed to update AI instructions');
+      }
+    } catch (error) {
+      console.error('Failed to save AI instructions:', error);
+      toast.error('Failed to update AI instructions');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   return (
-    <div className="p-4 space-y-4">
-      <h3 className="font-medium text-sm">Advisor Preferences</h3>
-      <div className="space-y-3">
-        <label className="flex items-center justify-between">
-          <span className="text-sm">Auto-suggestions</span>
-          <input type="checkbox" className="rounded" defaultChecked />
-        </label>
-        <label className="flex items-center justify-between">
-          <span className="text-sm">Sound notifications</span>
-          <input type="checkbox" className="rounded" />
-        </label>
-        <label className="flex items-center justify-between">
-          <span className="text-sm">Proactive tips</span>
-          <input type="checkbox" className="rounded" defaultChecked />
-        </label>
+    <div className="p-4 space-y-4 h-full overflow-y-auto">
+      <div>
+        <h3 className="font-medium text-sm mb-3">AI Behavior Instructions</h3>
+        <div className="space-y-2">
+          <label className="text-xs text-muted-foreground">
+            Customize how the AI advisor behaves during this meeting
+          </label>
+          <textarea
+            value={aiInstructions}
+            onChange={(e) => setAiInstructions(e.target.value)}
+            placeholder="E.g., 'Focus on pricing discussions', 'Help me close the deal', 'Track technical requirements', 'Don't interrupt unless asked'..."
+            className="w-full h-32 p-3 text-sm bg-muted/30 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent resize-none"
+            disabled={isLoading}
+          />
+          <div className="flex items-center justify-between">
+            <span className="text-xs text-muted-foreground">
+              {aiInstructions.length}/1000 characters
+            </span>
+            <button
+              onClick={saveAiInstructions}
+              disabled={isSaving || isLoading}
+              className="px-3 py-1.5 text-xs bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {isSaving ? 'Saving...' : 'Save Instructions'}
+            </button>
+          </div>
+        </div>
       </div>
+
+      <div className="pt-3 border-t border-border">
+        <h4 className="text-sm font-medium mb-3">Advisor Preferences</h4>
+        <div className="space-y-3">
+          <label className="flex items-center justify-between">
+            <span className="text-sm">Auto-suggestions</span>
+            <input type="checkbox" className="rounded" defaultChecked />
+          </label>
+          <label className="flex items-center justify-between">
+            <span className="text-sm">Sound notifications</span>
+            <input type="checkbox" className="rounded" />
+          </label>
+          <label className="flex items-center justify-between">
+            <span className="text-sm">Proactive tips</span>
+            <input type="checkbox" className="rounded" defaultChecked />
+          </label>
+        </div>
+      </div>
+
       <div className="pt-3 border-t border-border">
         <h4 className="text-sm font-medium mb-2">Response Style</h4>
         <select className="w-full p-2 text-sm border border-border rounded-md">

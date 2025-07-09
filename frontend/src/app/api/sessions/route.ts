@@ -93,7 +93,8 @@ export async function GET(request: NextRequest) {
         recall_bot_id,
         recall_bot_status,
         meeting_url,
-        meeting_platform
+        meeting_platform,
+        ai_instructions
       `,
         { count: 'exact' }
       )
@@ -203,7 +204,8 @@ export async function POST(request: NextRequest) {
       linkedConversationIds,
       participant_me,
       participant_them,
-      meeting_url // New field for Recall.ai integration
+      meeting_url, // New field for Recall.ai integration
+      ai_instructions // Custom AI behavior instructions
     } = body;
     console.log('🔗 Meeting URL received:', meeting_url);
 
@@ -261,7 +263,8 @@ export async function POST(request: NextRequest) {
         participant_me: participantMe,
         participant_them: participant_them || null,
         meeting_url: meeting_url || null,
-        meeting_platform: meeting_url ? detectMeetingPlatform(meeting_url) : null
+        meeting_platform: meeting_url ? detectMeetingPlatform(meeting_url) : null,
+        ai_instructions: ai_instructions || null
       })
       .select()
       .single();

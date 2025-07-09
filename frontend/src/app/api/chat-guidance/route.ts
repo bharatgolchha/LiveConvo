@@ -226,6 +226,7 @@ export async function POST(request: NextRequest) {
     // Fetch and combine all available context
     // ------------------------------------------------------------------
     let combinedContext = textContext || '';
+    let aiInstructions: string | null = null;
 
     if (sessionId) {
       const authHeader = request.headers.get('authorization');
@@ -241,6 +242,22 @@ export async function POST(request: NextRequest) {
         try {
           const supabase = createAuthenticatedSupabaseClient(token);
           console.log('🔍 Chat Guidance Debug - Created Supabase client');
+
+          // Fetch AI instructions for this session
+          const { data: sessionData, error: sessionError } = await supabase
+            .from('sessions')
+            .select('ai_instructions')
+            .eq('id', sessionId)
+            .single();
+
+          if (!sessionError && sessionData?.ai_instructions) {
+            aiInstructions = sessionData.ai_instructions;
+            console.log('🤖 AI Instructions found for session:', {
+              sessionId,
+              instructionsLength: aiInstructions?.length ?? 0,
+              instructionsPreview: aiInstructions ? (aiInstructions.substring(0, 100) + (aiInstructions.length > 100 ? '...' : '')) : 'No instructions'
+            });
+          }
 
           // 1. Fetch linked conversation IDs
           console.log('🔍 Chat Guidance Debug - Fetching linked conversation IDs...');
@@ -491,7 +508,8 @@ export async function POST(request: NextRequest) {
       enhancedTextContext || undefined, 
       meetingUrl || undefined,
       effectiveTranscript || undefined,
-      sessionOwner
+      sessionOwner,
+      aiInstructions || undefined
     );
 
     // Debug: Log the system prompt
@@ -645,7 +663,8 @@ function getChatGuidanceSystemPrompt(
     email: string;
     fullName: string | null;
     personalContext: string | null;
-  }
+  },
+  aiInstructions?: string
 ): string {
   const live = isRecording && transcriptLength > 0;
   const modeDescriptor = live ? '🎥 LIVE (conversation in progress)' : '📝 PREP (planning before the call)';
@@ -681,10 +700,18 @@ function getChatGuidanceSystemPrompt(
     sessionOwnerSection += '\nIMPORTANT: This is the primary user who created this session. Tailor all advice specifically for them.\n';
   }
 
+  // Build AI instructions section
+  let aiInstructionsSection = '';
+  if (aiInstructions) {
+    aiInstructionsSection = '\n🤖 CUSTOM AI BEHAVIOR INSTRUCTIONS:\n';
+    aiInstructionsSection += `${aiInstructions}\n`;
+    aiInstructionsSection += '\nIMPORTANT: Follow these custom instructions carefully throughout the conversation.\n';
+  }
+
   return `You are ${meLabel}'s helpful AI meeting advisor. Your job is to be genuinely useful - answer questions directly, give practical advice, and help ${meLabel} navigate their conversation with ${themLabel}.
 
 ${getCurrentDateContext()}
-${sessionOwnerSection}
+${sessionOwnerSection}${aiInstructionsSection}
 CURRENT SITUATION: ${modeDescriptor}${meetingContextSection}
 Conversation Stage: ${stage}
 ${transcript ? `Recent Context: ${transcript.slice(-500)}` : ''}
