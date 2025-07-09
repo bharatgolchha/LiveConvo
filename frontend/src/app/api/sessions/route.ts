@@ -104,6 +104,9 @@ export async function GET(request: NextRequest) {
     // Apply filters
     if (status) {
       query = query.eq('status', status);
+    } else {
+      // If no status filter is provided, exclude only archived sessions
+      query = query.not('status', 'in', '("archived")');
     }
 
     if (conversationType) {
