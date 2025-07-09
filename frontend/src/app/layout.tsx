@@ -57,23 +57,28 @@ export const metadata: Metadata = {
   icons: {
     icon: [
       {
-        url: 'https://ucvfgfbjcrxbzppwjpuu.supabase.co/storage/v1/object/public/images//LogoSquare%20LivePrompt.png',
+        url: '/favicon.ico',
+        sizes: 'any',
+      },
+      {
+        url: '/favicon-16x16.png',
         sizes: '16x16',
         type: 'image/png',
       },
       {
-        url: 'https://ucvfgfbjcrxbzppwjpuu.supabase.co/storage/v1/object/public/images//LogoSquare%20LivePrompt.png',
+        url: '/favicon-32x32.png',
         sizes: '32x32',
         type: 'image/png',
       },
       {
-        url: 'https://ucvfgfbjcrxbzppwjpuu.supabase.co/storage/v1/object/public/images//LogoSquare%20LivePrompt.png',
-        sizes: 'any',
+        url: '/favicon-48x48.png',
+        sizes: '48x48',
+        type: 'image/png',
       },
     ],
     apple: [
       {
-        url: 'https://ucvfgfbjcrxbzppwjpuu.supabase.co/storage/v1/object/public/images//LogoSquare%20LivePrompt.png',
+        url: '/apple-touch-icon.png',
         sizes: '180x180',
         type: 'image/png',
       },
@@ -81,7 +86,7 @@ export const metadata: Metadata = {
     other: [
       {
         rel: 'mask-icon',
-        url: 'https://ucvfgfbjcrxbzppwjpuu.supabase.co/storage/v1/object/public/images//LogoSquare%20LivePrompt.png',
+        url: '/safari-pinned-tab.svg',
         color: '#0B3D2E',
       },
     ],
