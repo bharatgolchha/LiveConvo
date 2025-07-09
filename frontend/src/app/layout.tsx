@@ -145,14 +145,14 @@ export default function RootLayout({
     <html lang="en" suppressHydrationWarning>
       {/* Google Analytics 4 */}
       <Script
-        src="https://www.googletagmanager.com/gtag/js?id=G-VDZ06T78WV"
+        src="https://www.googletagmanager.com/gtag/js?id=G-YYPP67HS2H"
         strategy="afterInteractive"
       />
       <Script id="ga4-init" strategy="afterInteractive">{`
         window.dataLayer = window.dataLayer || [];
         function gtag(){dataLayer.push(arguments);}
         gtag('js', new Date());
-        gtag('config', 'G-VDZ06T78WV');
+        gtag('config', 'G-YYPP67HS2H');
       `}</Script>
       {/* End Google Analytics 4 */}
       <body
