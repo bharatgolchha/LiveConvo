@@ -16,7 +16,61 @@ function TranscriptMessageComponent({ message, previousSpeaker }: TranscriptMess
   const { meeting } = useMeetingContext();
   const speakerLabel = message.displayName || message.speaker;
   const showAvatar = speakerLabel !== previousSpeaker;
-  const isMe = message.speaker === 'ME' || speakerLabel === meeting?.participantMe;
+  
+  // Improved primary user identification using sessionOwner
+  const isPrimaryUser = (() => {
+    // First, check if message is explicitly marked as owner
+    if (message.isOwner) {
+      console.log(`[TranscriptMessage] Speaker "${speakerLabel}" identified as owner via isOwner flag`);
+      return true;
+    }
+    
+    // If we have session owner info, check against it
+    if (meeting?.sessionOwner) {
+      const sessionOwner = meeting.sessionOwner;
+      const speakerLower = speakerLabel.toLowerCase().trim();
+      
+      // Check against email
+      if (sessionOwner.email && speakerLower === sessionOwner.email.toLowerCase()) {
+        console.log(`[TranscriptMessage] Speaker "${speakerLabel}" matched session owner email: ${sessionOwner.email}`);
+        return true;
+      }
+      
+      // Check against full name
+      if (sessionOwner.fullName && speakerLower === sessionOwner.fullName.toLowerCase()) {
+        console.log(`[TranscriptMessage] Speaker "${speakerLabel}" matched session owner name: ${sessionOwner.fullName}`);
+        return true;
+      }
+      
+      // Check if speaker contains first/last name from full name
+      if (sessionOwner.fullName) {
+        const nameParts = sessionOwner.fullName.toLowerCase().split(' ').filter(p => p.length > 2);
+        if (nameParts.some(part => speakerLower.includes(part))) {
+          console.log(`[TranscriptMessage] Speaker "${speakerLabel}" contains name part from: ${sessionOwner.fullName}`);
+          return true;
+        }
+      }
+      
+      // Check if speaker contains email username
+      if (sessionOwner.email) {
+        const emailUsername = sessionOwner.email.split('@')[0].toLowerCase();
+        if (speakerLower.includes(emailUsername)) {
+          console.log(`[TranscriptMessage] Speaker "${speakerLabel}" contains email username: ${emailUsername}`);
+          return true;
+        }
+      }
+    }
+    
+    // Fallback to participantMe if no session owner (backward compatibility)
+    if (speakerLabel === meeting?.participantMe) {
+      console.log(`[TranscriptMessage] Speaker "${speakerLabel}" matched participantMe fallback`);
+      return true;
+    }
+    
+    return false;
+  })();
+  
+  const isMe = isPrimaryUser;
   
   return (
     <motion.div
@@ -40,7 +94,7 @@ function TranscriptMessageComponent({ message, previousSpeaker }: TranscriptMess
               <SpeakerAvatar 
                 speaker={speakerLabel} 
                 isHost={isMe}
-                isOwner={message.isOwner}
+                isOwner={isMe}
                 size="md"
               />
             </motion.div>
@@ -60,10 +114,12 @@ function TranscriptMessageComponent({ message, previousSpeaker }: TranscriptMess
                 isMe ? 'text-primary' : 'text-foreground'
               } flex items-center gap-1`}>
                 {speakerLabel}
-                {message.isOwner && (
+                {isMe && (
                   <span className="inline-flex items-center gap-1">
                     <StarIconSolid className="w-3.5 h-3.5 text-yellow-500" />
-                    <span className="text-xs font-medium text-muted-foreground">(Organizer)</span>
+                    <span className="text-xs font-medium text-muted-foreground">
+                      {meeting?.sessionOwner?.fullName === speakerLabel ? '(You)' : '(Session Owner)'}
+                    </span>
                   </span>
                 )}
               </span>
@@ -98,7 +154,7 @@ function TranscriptMessageComponent({ message, previousSpeaker }: TranscriptMess
                 : 'bg-card text-card-foreground border-border hover:border-border/80'
               }
               ${message.isPartial ? '' : ''}
-              ${message.isOwner ? 'ring-1 ring-yellow-400/30' : ''}
+              ${isMe ? 'ring-1 ring-yellow-400/30' : ''}
               group-hover:shadow-md
             `}>
               <p className={`text-sm leading-relaxed whitespace-pre-wrap break-words ${

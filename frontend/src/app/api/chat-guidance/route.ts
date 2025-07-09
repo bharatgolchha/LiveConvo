@@ -140,6 +140,12 @@ interface ChatRequest {
   participantMe?: string;
   participantThem?: string;
   smartNotes?: Array<any>;
+  sessionOwner?: {
+    id: string;
+    email: string;
+    fullName: string | null;
+    personalContext: string | null;
+  };
 }
 
 // Add interface for parsed context
@@ -172,7 +178,13 @@ export async function POST(request: NextRequest) {
       smartNotes: z.array(z.any()).optional(),
       stage: z.enum(['opening','discovery','demo','pricing','closing','discussion']).optional(),
       isRecording: z.boolean().optional(),
-      transcriptLength: z.number().optional()
+      transcriptLength: z.number().optional(),
+      sessionOwner: z.object({
+        id: z.string(),
+        email: z.string(),
+        fullName: z.string().nullable(),
+        personalContext: z.string().nullable()
+      }).optional()
     }).passthrough();
 
     let parsedBody;
@@ -207,6 +219,7 @@ export async function POST(request: NextRequest) {
       stage,
       isRecording = false,
       transcriptLength = 0,
+      sessionOwner,
     } = parsedBody;
 
     // ------------------------------------------------------------------
@@ -477,7 +490,8 @@ export async function POST(request: NextRequest) {
       conversationTitle || undefined, 
       enhancedTextContext || undefined, 
       meetingUrl || undefined,
-      effectiveTranscript || undefined
+      effectiveTranscript || undefined,
+      sessionOwner
     );
 
     // Debug: Log the system prompt
@@ -625,7 +639,13 @@ function getChatGuidanceSystemPrompt(
   meetingTitle?: string,
   meetingContext?: string,
   meetingUrl?: string,
-  transcript?: string
+  transcript?: string,
+  sessionOwner?: {
+    id: string;
+    email: string;
+    fullName: string | null;
+    personalContext: string | null;
+  }
 ): string {
   const live = isRecording && transcriptLength > 0;
   const modeDescriptor = live ? '🎥 LIVE (conversation in progress)' : '📝 PREP (planning before the call)';
@@ -649,10 +669,22 @@ function getChatGuidanceSystemPrompt(
     console.log('⚠️ No meeting context provided to AI system prompt');
   }
 
+  // Build session owner context
+  let sessionOwnerSection = '';
+  if (sessionOwner) {
+    sessionOwnerSection = '\n🔐 SESSION OWNER (Primary User):\n';
+    sessionOwnerSection += `• Name: ${sessionOwner.fullName || sessionOwner.email}\n`;
+    sessionOwnerSection += `• Email: ${sessionOwner.email}\n`;
+    if (sessionOwner.personalContext) {
+      sessionOwnerSection += `• Personal Context: ${sessionOwner.personalContext}\n`;
+    }
+    sessionOwnerSection += '\nIMPORTANT: This is the primary user who created this session. Tailor all advice specifically for them.\n';
+  }
+
   return `You are ${meLabel}'s helpful AI meeting advisor. Your job is to be genuinely useful - answer questions directly, give practical advice, and help ${meLabel} navigate their conversation with ${themLabel}.
 
 ${getCurrentDateContext()}
-
+${sessionOwnerSection}
 CURRENT SITUATION: ${modeDescriptor}${meetingContextSection}
 Conversation Stage: ${stage}
 ${transcript ? `Recent Context: ${transcript.slice(-500)}` : ''}

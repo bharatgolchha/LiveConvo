@@ -122,6 +122,21 @@ export function LiveTranscriptTab() {
 
   return (
     <div className="flex flex-col h-full bg-background">
+      {/* Session Owner Indicator */}
+      {meeting?.sessionOwner && (
+        <div className="px-4 py-2 bg-primary/10 border-b border-primary/20">
+          <div className="flex items-center gap-2 text-xs text-primary">
+            <div className="flex items-center gap-1">
+              <div className="w-2 h-2 bg-primary rounded-full animate-pulse" />
+              <span className="font-medium">Session Owner:</span>
+            </div>
+            <span className="text-primary/70">
+              {meeting.sessionOwner.fullName || meeting.sessionOwner.email} (messages aligned right)
+            </span>
+          </div>
+        </div>
+      )}
+      
       {/* Header with Search and Stats */}
       <div className="flex-shrink-0 border-b border-border bg-card/50">
         {/* Search Bar */}

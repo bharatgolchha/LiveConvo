@@ -79,7 +79,8 @@ export function useMeetingSession(meetingId: string) {
           recallRecordingUrl: data.recall_recording_url,
           recallRecordingStatus: data.recall_recording_status,
           recallRecordingExpiresAt: data.recall_recording_expires_at,
-          recallRecordingId: data.recall_recording_id
+          recallRecordingId: data.recall_recording_id,
+          sessionOwner: data.sessionOwner || null
         };
 
         setLocalMeeting(meeting);

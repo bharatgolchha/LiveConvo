@@ -57,7 +57,7 @@ interface TabbedReportProps {
     };
     summary: {
       tldr: string;
-      effectiveness: {
+      effectiveness?: {
         overall: number;
         communication: number;
         goalAchievement: number;
@@ -281,8 +281,14 @@ export function TabbedReport({ report, activeTab, setActiveTab, handleManualFina
                     <TrendingUp className="w-5 h-5 text-primary" />
                   </div>
                   <div>
-                    <div className={`text-2xl font-bold ${getEffectivenessColor(report.summary.effectiveness.overall)}`}>
-                      {report.summary.effectiveness.overall}%
+                    <div className={`text-2xl font-bold ${getEffectivenessColor(
+                      report.summary.effectiveness?.overall || 
+                      report.summary.effectivenessScore?.overall || 
+                      0
+                    )}`}>
+                      {report.summary.effectiveness?.overall || 
+                       report.summary.effectivenessScore?.overall || 
+                       0}%
                     </div>
                     <div className="text-sm text-muted-foreground">Effectiveness</div>
                   </div>

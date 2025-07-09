@@ -69,7 +69,8 @@ export async function POST(
       meetingTitle = '',
       context = '',
       stage = 'discussion',
-      participantMe = 'You' 
+      participantMe = 'You',
+      sessionOwner = null
     } = await request.json();
 
     console.log('🔄 Generating smart suggestions for:', {
@@ -89,10 +90,22 @@ Current meeting summary:
 - Action Items: ${(summary.actionItems || []).slice(0, 3).join(', ')}
 ` : '';
 
+    // Build session owner context
+    let sessionOwnerContext = '';
+    if (sessionOwner) {
+      sessionOwnerContext = `\n🔐 SESSION OWNER (Primary User):\n`;
+      sessionOwnerContext += `- Name: ${sessionOwner.fullName || sessionOwner.email}\n`;
+      sessionOwnerContext += `- Email: ${sessionOwner.email}\n`;
+      if (sessionOwner.personalContext) {
+        sessionOwnerContext += `- Personal Context: ${sessionOwner.personalContext}\n`;
+      }
+      sessionOwnerContext += `\nIMPORTANT: Generate suggestions specifically tailored for ${sessionOwner.fullName || sessionOwner.email}.\n`;
+    }
+
     const systemPrompt = `You are an AI advisor that generates smart, actionable suggestions for meeting participants.
 
 ${getCurrentDateContext()}
-
+${sessionOwnerContext}
 Meeting Context:
 - Type: ${meetingType}
 - Title: ${meetingTitle}
