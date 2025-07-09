@@ -88,7 +88,8 @@ export function SmartSuggestions() {
           meetingTitle: meeting?.title,
           context: meeting?.context,
           stage: getConversationStage(),
-          participantMe: meeting?.participantMe || 'You'
+          participantMe: meeting?.participantMe || 'You',
+          sessionOwner: meeting?.sessionOwner
         })
       });
 

@@ -37,7 +37,13 @@ export async function GET(
       .select(`
         *,
         meeting_metadata (*),
-        session_context (text_context, context_metadata)
+        session_context (text_context, context_metadata),
+        users!sessions_user_id_fkey (
+          id,
+          email,
+          full_name,
+          personal_context
+        )
       `)
       .eq('id', id)
       .single();
@@ -78,13 +84,21 @@ export async function GET(
       sessionId: id,
       hasSessionContext: !!session.session_context,
       contextLength: contextValue?.length || 0,
-      contextPreview: contextValue ? contextValue.substring(0, 100) + '...' : 'null'
+      contextPreview: contextValue ? contextValue.substring(0, 100) + '...' : 'null',
+      sessionOwner: session.users?.email || 'Unknown',
+      hasPersonalContext: !!session.users?.personal_context
     });
 
     return NextResponse.json({ 
       meeting: {
         ...session,
-        context: contextValue
+        context: contextValue,
+        sessionOwner: session.users ? {
+          id: session.users.id,
+          email: session.users.email,
+          fullName: session.users.full_name,
+          personalContext: session.users.personal_context
+        } : null
       }
     });
   } catch (error) {

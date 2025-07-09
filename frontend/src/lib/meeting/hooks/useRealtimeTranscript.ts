@@ -58,6 +58,7 @@ export function useRealtimeTranscript(sessionId: string) {
         isFinal: row.is_final,
         confidence: row.confidence_score,
         displayName: row.speaker,
+        isOwner: row.is_owner || false,
       }));
 
       // Track the highest sequence number from loaded data

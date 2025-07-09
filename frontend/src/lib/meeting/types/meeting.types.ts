@@ -22,6 +22,12 @@ export interface Meeting {
   recallRecordingStatus?: string;
   recallRecordingExpiresAt?: string;
   recallRecordingId?: string;
+  sessionOwner?: {
+    id: string;
+    email: string;
+    fullName: string | null;
+    personalContext: string | null;
+  };
 }
 
 export interface CreateMeetingData {
