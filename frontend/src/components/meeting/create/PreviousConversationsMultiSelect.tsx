@@ -243,14 +243,14 @@ export function PreviousConversationsMultiSelect({ selected, setSelected }: Prop
             <div className="text-xs font-medium text-muted-foreground mb-2">
               Selected ({selected.length})
             </div>
-            <div className="space-y-2 max-h-32 overflow-y-auto">
+            <div className="space-y-2 max-h-24 sm:max-h-32 overflow-y-auto">
               {selected.map(session => (
                 <motion.div
                   key={`selected-conversation-${session.id}`}
                   initial={{ opacity: 0, scale: 0.95 }}
                   animate={{ opacity: 1, scale: 1 }}
                   exit={{ opacity: 0, scale: 0.95 }}
-                  className="flex items-center justify-between bg-primary/10 border border-primary/20 rounded-lg px-3 py-2"
+                  className="flex items-center justify-between bg-primary/10 border border-primary/20 rounded-lg px-2 sm:px-3 py-1.5 sm:py-2"
                 >
                   <div className="flex items-center gap-2 min-w-0 flex-1">
                     <div className="flex-shrink-0 text-primary">
@@ -318,7 +318,7 @@ export function PreviousConversationsMultiSelect({ selected, setSelected }: Prop
               initial={{ opacity: 0, y: -10 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -10 }}
-              className="absolute z-50 w-full mt-2 bg-popover border border-border rounded-lg shadow-lg max-h-80 overflow-hidden"
+              className="absolute z-50 w-full mt-2 bg-popover border border-border rounded-lg shadow-lg max-h-60 sm:max-h-72 md:max-h-80 overflow-hidden"
             >
               {loading ? (
                 <div className="flex items-center justify-center py-8">
@@ -344,7 +344,7 @@ export function PreviousConversationsMultiSelect({ selected, setSelected }: Prop
                   )}
                 </div>
               ) : (
-                <div className="max-h-80 overflow-y-auto">
+                <div className="max-h-60 sm:max-h-72 md:max-h-80 overflow-y-auto">
                   {options.map((session, index) => (
                     <motion.div
                       key={`dropdown-conversation-${session.id}`}
@@ -353,7 +353,7 @@ export function PreviousConversationsMultiSelect({ selected, setSelected }: Prop
                       transition={{ delay: index * 0.05 }}
                       onClick={() => addSession(session)}
                       className={`
-                        flex items-center gap-3 p-3 hover:bg-muted/50 cursor-pointer transition-colors border-b border-border/50 last:border-b-0
+                        flex items-center gap-2 sm:gap-3 p-2 sm:p-3 hover:bg-muted/50 cursor-pointer transition-colors border-b border-border/50 last:border-b-0
                         ${isSelected(session.id) ? 'bg-primary/5 border-primary/20' : ''}
                       `}
                     >

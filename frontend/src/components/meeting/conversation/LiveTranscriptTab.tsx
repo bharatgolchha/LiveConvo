@@ -106,13 +106,7 @@ export function LiveTranscriptTab() {
               className="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50 flex items-center gap-2"
             >
               <ArrowPathIcon className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
-              {isRefreshing ? 'Refreshing...' : 'Refresh'}
-            </button>
-            <button
-              onClick={() => window.location.reload()}
-              className="px-4 py-2 bg-secondary text-secondary-foreground rounded-lg hover:bg-secondary/90 transition-colors"
-            >
-              Reload Page
+              {isRefreshing ? 'Retrying...' : 'Try Again'}
             </button>
           </div>
         </div>

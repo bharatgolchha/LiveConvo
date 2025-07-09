@@ -86,20 +86,20 @@ export function CreateMeetingModal({ isOpen, onClose, onStart }: CreateMeetingMo
           />
 
           {/* Modal */}
-          <div className="fixed inset-0 flex items-center justify-center p-4">
+          <div className="fixed inset-0 flex items-center justify-center p-4 sm:p-6 md:p-8">
             <motion.div
               initial={{ scale: 0.95, opacity: 0, y: 20 }}
               animate={{ scale: 1, opacity: 1, y: 0 }}
               exit={{ scale: 0.95, opacity: 0, y: 20 }}
               transition={{ type: "spring", duration: 0.3 }}
-              className="relative bg-gradient-to-br from-background via-card to-background rounded-3xl shadow-2xl max-w-3xl w-full border border-border/30 overflow-hidden"
+              className="relative bg-gradient-to-br from-background via-card to-background rounded-3xl shadow-2xl max-w-3xl w-full border border-border/30 overflow-hidden flex flex-col max-h-[90vh] sm:max-h-[85vh]"
             >
               {/* Header */}
-              <div className="relative px-10 py-8 bg-gradient-to-br from-primary/5 via-transparent to-secondary/5 border-b border-border/20">
+              <div className="relative px-6 sm:px-8 md:px-10 py-6 sm:py-8 bg-gradient-to-br from-primary/5 via-transparent to-secondary/5 border-b border-border/20 flex-shrink-0">
                 <button
                   onClick={handleClose}
                   disabled={isStarting}
-                  className="absolute right-8 top-8 p-2.5 hover:bg-muted/30 rounded-xl transition-all duration-200 disabled:opacity-50 group"
+                  className="absolute right-4 sm:right-6 md:right-8 top-4 sm:top-6 md:top-8 p-2.5 hover:bg-muted/30 rounded-xl transition-all duration-200 disabled:opacity-50 group"
                 >
                   <XMarkIcon className="w-5 h-5 text-muted-foreground group-hover:text-foreground transition-colors" />
                 </button>
@@ -161,7 +161,7 @@ export function CreateMeetingModal({ isOpen, onClose, onStart }: CreateMeetingMo
               </div>
 
               {/* Content */}
-              <div className="px-10 py-8 min-h-[350px]">
+              <div className="px-6 sm:px-8 md:px-10 py-6 sm:py-8 flex-1 overflow-y-auto">
                 <AnimatePresence mode="wait">
                   {step === 0 && (
                     <MeetingBasicsStep
@@ -190,7 +190,7 @@ export function CreateMeetingModal({ isOpen, onClose, onStart }: CreateMeetingMo
               </div>
 
               {/* Footer */}
-              <div className="px-10 py-6 bg-gradient-to-t from-muted/10 to-transparent border-t border-border/20">
+              <div className="px-6 sm:px-8 md:px-10 py-4 sm:py-6 bg-gradient-to-t from-muted/10 to-transparent border-t border-border/20 flex-shrink-0">
                 <div className="flex justify-between items-center">
                   {step > 0 ? (
                     <motion.button

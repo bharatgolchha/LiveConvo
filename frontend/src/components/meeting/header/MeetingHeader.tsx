@@ -163,19 +163,11 @@ export function MeetingHeader() {
               {/* Recording Status */}
               <div className="flex items-center">
               {isActive ? (
-                <div className="flex items-center gap-3 px-4 py-2.5 bg-destructive/10 border border-destructive/20 rounded-xl shadow-sm">
-                  <div className="flex items-center gap-2">
-                    <div className="w-2.5 h-2.5 bg-destructive rounded-full animate-pulse" />
-                    <span className="text-sm font-semibold text-destructive">
-                      LIVE
-                    </span>
-                  </div>
-                  <div className="w-px h-4 bg-destructive/30" />
-                  <MeetingTimer 
-                    isActive={isActive}
-                    isCompleted={isCompleted}
-                    meetingDurationSeconds={meeting.recordingDurationSeconds}
-                  />
+                <div className="flex items-center gap-2 px-4 py-2.5 bg-destructive/10 border border-destructive/20 rounded-xl shadow-sm">
+                  <div className="w-2.5 h-2.5 bg-destructive rounded-full animate-pulse" />
+                  <span className="text-sm font-semibold text-destructive">
+                    LIVE
+                  </span>
                 </div>
               ) : isCompleted ? (
                 <div className="flex items-center gap-3 px-4 py-2.5 bg-primary/10 border border-primary/20 rounded-xl shadow-sm">

@@ -167,12 +167,13 @@ export function MeetingDebugInfo() {
             
             <button
               onClick={() => {
-                console.log('Forcing reconnect to SSE...');
-                window.location.reload();
+                console.log('Force reconnect requested - implementing reconnection logic...');
+                // TODO: Implement proper reconnection logic without page reload
+                alert('Reconnection logic to be implemented. For now, please try refreshing data using the refresh button.');
               }}
               className="px-3 py-1 bg-yellow-600 hover:bg-yellow-700 rounded text-xs block w-full"
             >
-              Force Reconnect
+              Force Reconnect (WIP)
             </button>
           </div>
         </div>
