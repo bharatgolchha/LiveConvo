@@ -6,7 +6,8 @@ import {
   SparklesIcon,
   ClockIcon,
   ExclamationTriangleIcon,
-  BoltIcon
+  BoltIcon,
+  Cog6ToothIcon
 } from '@heroicons/react/24/outline';
 import ReactMarkdown from 'react-markdown';
 import { useMeetingContext } from '@/lib/meeting/context/MeetingContext';
@@ -42,6 +43,7 @@ export const EnhancedAIChat = forwardRef<EnhancedAIChatRef>((props, ref) => {
   const [suggestedPrompts, setSuggestedPrompts] = useState<SuggestedAction[]>([]);
   const [initialPrompts, setInitialPrompts] = useState<SuggestedAction[]>([]);
   const [isLoadingInitialPrompts, setIsLoadingInitialPrompts] = useState(false);
+  const [aiInstructions, setAiInstructions] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -57,6 +59,79 @@ export const EnhancedAIChat = forwardRef<EnhancedAIChatRef>((props, ref) => {
   // Focus input on mount
   useEffect(() => {
     inputRef.current?.focus();
+  }, []);
+
+  // Fetch AI instructions
+  useEffect(() => {
+    const fetchAiInstructions = async () => {
+      if (!meeting?.id) return;
+      
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session?.access_token) return;
+
+        const response = await fetch(`/api/sessions/${meeting.id}/ai-instructions`, {
+          headers: {
+            'Authorization': `Bearer ${session.access_token}`
+          }
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          setAiInstructions(data.ai_instructions);
+        }
+      } catch (error) {
+        console.error('Failed to fetch AI instructions:', error);
+      }
+    };
+
+    fetchAiInstructions();
+  }, [meeting?.id]);
+
+  // Listen for AI instructions updates
+  useEffect(() => {
+    const handleInstructionsUpdate = (event: Event) => {
+      const customEvent = event as CustomEvent;
+      const { instructions } = customEvent.detail;
+      setAiInstructions(instructions);
+      
+      // Update the welcome message if it exists and add a notification
+      setMessages(prevMessages => {
+        const updatedMessages = [...prevMessages];
+        
+        // Update welcome message if it exists
+        if (updatedMessages.length > 0 && updatedMessages[0].id === 'welcome') {
+          let welcomeContent = "👋 Hi! I'm your AI meeting advisor. Ask me anything about the conversation, request suggestions, or get help with next steps.";
+          
+          if (instructions) {
+            welcomeContent += "\n\n🤖 I'm following custom instructions for this meeting.";
+          }
+          
+          updatedMessages[0] = {
+            ...updatedMessages[0],
+            content: welcomeContent
+          };
+        }
+        
+        // Add a system message about the update
+        const updateMessage: ChatMessage = {
+          id: `system-update-${Date.now()}`,
+          role: 'system',
+          content: instructions 
+            ? `🤖 AI instructions have been updated. I'll now follow these guidelines: "${instructions.substring(0, 100)}${instructions.length > 100 ? '...' : ''}"`
+            : '🤖 AI instructions have been cleared. I\'ll use standard guidance.',
+          timestamp: new Date().toISOString()
+        };
+        
+        return [...updatedMessages, updateMessage];
+      });
+    };
+
+    window.addEventListener('aiInstructionsUpdated', handleInstructionsUpdate);
+    
+    return () => {
+      window.removeEventListener('aiInstructionsUpdated', handleInstructionsUpdate);
+    };
   }, []);
 
   // Fetch initial prompts
@@ -120,14 +195,20 @@ export const EnhancedAIChat = forwardRef<EnhancedAIChatRef>((props, ref) => {
   // Add welcome message on first load
   useEffect(() => {
     if (messages.length === 0) {
+      let welcomeContent = "👋 Hi! I'm your AI meeting advisor. Ask me anything about the conversation, request suggestions, or get help with next steps.";
+      
+      if (aiInstructions) {
+        welcomeContent += "\n\n🤖 I'm following custom instructions for this meeting.";
+      }
+      
       setMessages([{
         id: 'welcome',
         role: 'system',
-        content: "👋 Hi! I'm your AI meeting advisor. Ask me anything about the conversation, request suggestions, or get help with next steps.",
+        content: welcomeContent,
         timestamp: new Date().toISOString()
       }]);
     }
-  }, [messages.length]);
+  }, [messages.length, aiInstructions]);
 
   // Fetch initial prompts when meeting data is available
   useEffect(() => {
@@ -444,6 +525,19 @@ export const EnhancedAIChat = forwardRef<EnhancedAIChatRef>((props, ref) => {
 
   return (
     <div className="flex flex-col h-full">
+      {/* AI Instructions Indicator */}
+      {aiInstructions && (
+        <div className="px-4 py-2 bg-purple-500/10 border-b border-purple-500/20">
+          <div className="flex items-center gap-2 text-xs text-purple-700 dark:text-purple-300">
+            <Cog6ToothIcon className="w-3.5 h-3.5" />
+            <span className="font-medium">Custom AI Instructions Active</span>
+            <span className="text-purple-600 dark:text-purple-400 truncate flex-1">
+              "{aiInstructions.substring(0, 50)}{aiInstructions.length > 50 ? '...' : ''}"
+            </span>
+          </div>
+        </div>
+      )}
+      
       {/* Personalized Context Indicator */}
       {hasPersonalizedContext && (
         <div className="px-4 py-2 bg-primary/10 border-b border-primary/20">

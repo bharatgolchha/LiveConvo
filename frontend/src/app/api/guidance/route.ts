@@ -5,7 +5,7 @@ import { getCurrentDateContext } from '@/lib/utils';
 
 export async function POST(request: NextRequest) {
   try {
-    const { transcript, context, userContext, conversationType, participantRole, participantMe, participantThem } = await request.json();
+    const { transcript, context, userContext, conversationType, participantRole, participantMe, participantThem, sessionId } = await request.json();
 
     const apiKey = process.env.OPENROUTER_API_KEY;
     if (!apiKey) {
@@ -15,8 +15,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Fetch user's personal context
+    // Fetch user's personal context and AI instructions
     let personalContext = '';
+    let aiInstructions = '';
     const { data: { user } } = await supabase.auth.getUser();
     
     if (user) {
@@ -29,7 +30,20 @@ export async function POST(request: NextRequest) {
       personalContext = userData?.personal_context || '';
     }
 
-    const systemPrompt = getSystemPrompt(conversationType, participantRole, participantMe, participantThem);
+    // Fetch AI instructions if sessionId is provided
+    if (sessionId) {
+      const { data: sessionData } = await supabase
+        .from('sessions')
+        .select('ai_instructions')
+        .eq('id', sessionId)
+        .single();
+      
+      if (sessionData?.ai_instructions) {
+        aiInstructions = sessionData.ai_instructions;
+      }
+    }
+
+    const systemPrompt = getSystemPrompt(conversationType, participantRole, participantMe, participantThem, aiInstructions);
     const prompt = buildGuidancePrompt({ 
       transcript, 
       context, 
@@ -90,7 +104,7 @@ export async function POST(request: NextRequest) {
   }
 }
 
-function getSystemPrompt(conversationType?: string, participantRole?: string, participantMe?: string, participantThem?: string): string {
+function getSystemPrompt(conversationType?: string, participantRole?: string, participantMe?: string, participantThem?: string, aiInstructions?: string): string {
   const meLabel = participantMe || 'You';
   const themLabel = participantThem || 'The other participant';
   
@@ -168,7 +182,18 @@ INTERVIEW CONVERSATION FOCUS for ${meLabel}:
 - ${meLabel} maintaining professional tone with ${themLabel}`
   };
 
-  return basePrompt + (roleSpecificPrompts[conversationType as keyof typeof roleSpecificPrompts] || '');
+  // Add custom AI instructions if provided
+  let customInstructionsSection = '';
+  if (aiInstructions) {
+    customInstructionsSection = `
+
+CUSTOM AI INSTRUCTIONS (MUST FOLLOW):
+${aiInstructions}
+
+These custom instructions override any default behaviors. Follow them carefully when generating guidance.`;
+  }
+
+  return basePrompt + (roleSpecificPrompts[conversationType as keyof typeof roleSpecificPrompts] || '') + customInstructionsSection;
 }
 
 function buildGuidancePrompt(request: {

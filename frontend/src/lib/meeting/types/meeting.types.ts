@@ -40,6 +40,7 @@ export interface CreateMeetingData {
   participantMe?: string;
   participantThem?: string;
   linkedConversationIds?: string[];
+  ai_instructions?: string;
 }
 
 export interface MeetingTypeOption {

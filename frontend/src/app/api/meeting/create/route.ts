@@ -87,7 +87,8 @@ export async function POST(req: NextRequest) {
         participant_them: data.participantThem || 'Participants',
         meeting_url: data.meetingUrl && data.meetingUrl.trim() ? data.meetingUrl : null,
         meeting_platform: platform,
-        transcription_provider: 'recall_ai'
+        transcription_provider: 'recall_ai',
+        ai_instructions: data.ai_instructions || null
       })
       .select()
       .single();

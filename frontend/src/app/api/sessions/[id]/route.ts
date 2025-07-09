@@ -173,7 +173,8 @@ export async function PATCH(
       'total_words_spoken',
       'recording_started_at',
       'recording_ended_at',
-      'realtime_summary_cache'
+      'realtime_summary_cache',
+      'ai_instructions'
     ];
 
     const updateData: Record<string, unknown> = {};

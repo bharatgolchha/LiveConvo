@@ -339,8 +339,10 @@ const ConversationInboxItem: React.FC<Props> = ({
         </div>
       )}
 
-      {/* Bot Status Row - Prominent Display */}
-      {session.recall_bot_id && session.recall_bot_status && (
+      {/* Bot Status Row - Only show when actively recording or in progress */}
+      {session.recall_bot_id && 
+       session.recall_bot_status && 
+       ['created', 'joining', 'waiting', 'in_call', 'recording'].includes(session.recall_bot_status) && (
         <div className="mb-2">
           <BotStatusBadge
             status={session.recall_bot_status}

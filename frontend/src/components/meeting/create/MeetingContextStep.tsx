@@ -20,6 +20,8 @@ interface MeetingContextStepProps {
   setSelectedPrevious: (sessions: SessionOption[]) => void;
   scheduledAt?: string;
   setScheduledAt?: (date: string) => void;
+  aiInstructions?: string;
+  setAiInstructions?: (instructions: string) => void;
 }
 
 const contextExamples = [
@@ -36,7 +38,9 @@ export function MeetingContextStep({
   selectedPrevious,
   setSelectedPrevious,
   scheduledAt,
-  setScheduledAt
+  setScheduledAt,
+  aiInstructions,
+  setAiInstructions
 }: MeetingContextStepProps) {
   // Debug log to verify component is using updated limits
   console.log('🔍 MeetingContextStep mounted with 6000 char limit');
@@ -98,6 +102,36 @@ export function MeetingContextStep({
 
       {/* Previous conversations selector */}
       <PreviousConversationsMultiSelect selected={selectedPrevious} setSelected={setSelectedPrevious} />
+
+      {/* AI Instructions (Optional) */}
+      {setAiInstructions && (
+        <div className="space-y-3">
+          <label className="text-sm font-semibold text-foreground flex items-center gap-2">
+            <span className="w-1.5 h-1.5 bg-primary rounded-full"></span>
+            AI Behavior Instructions
+            <span className="text-muted-foreground font-normal text-xs ml-1">(optional)</span>
+          </label>
+          <div className="relative group">
+            <textarea
+              value={aiInstructions || ''}
+              onChange={(e) => setAiInstructions(e.target.value)}
+              placeholder="Tell the AI how to behave during this meeting. E.g., 'Focus on pricing discussions', 'Help me close the deal', 'Track technical requirements', 'Don't interrupt unless asked'..."
+              rows={3}
+              className="w-full px-4 sm:px-5 py-3 sm:py-4 bg-card border-2 border-border/50 rounded-2xl focus:outline-none focus:ring-0 focus:border-primary/50 focus:bg-background transition-all duration-200 placeholder:text-muted-foreground/60 resize-none group-hover:border-border min-h-[80px]"
+              maxLength={1000}
+            />
+            <div className="absolute inset-x-0 -bottom-1 h-px bg-gradient-to-r from-transparent via-primary/20 to-transparent opacity-0 group-focus-within:opacity-100 transition-opacity duration-300"></div>
+          </div>
+          <div className="flex items-center justify-between px-1">
+            <span className="text-xs text-muted-foreground">
+              Customize how the AI assistant behaves during your meeting
+            </span>
+            <span className="text-xs text-muted-foreground font-medium">
+              {(aiInstructions || '').length}/1000
+            </span>
+          </div>
+        </div>
+      )}
 
       {/* Schedule (Optional) */}
       {setScheduledAt && (
