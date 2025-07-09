@@ -605,12 +605,6 @@ export default function MeetingReportPage() {
                     Share
                   </Button>
                   <ReportExportMenu report={report} />
-                  {report.transcriptAvailable && (
-                    <Button onClick={() => setActiveTab('transcript')} variant="outline" size="sm" className="h-8">
-                      <MessageSquare className="w-3 h-3 mr-1.5" />
-                      Transcript
-                    </Button>
-                  )}
                 </div>
                 <div className="flex items-center gap-2 text-sm">
                   <span className="text-muted-foreground">Effectiveness:</span>

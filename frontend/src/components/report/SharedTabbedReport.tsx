@@ -42,15 +42,15 @@ export function SharedTabbedReport({ report, activeTab, setActiveTab, allowedTab
     <div className="shared-tabbed-report">
       {/* Custom Tab Navigation */}
       <div className="mb-8">
-        <div className="border-b border-border overflow-x-auto">
-          <nav className="-mb-px flex space-x-8">
+        <div className="border-b border-border">
+          <nav className="-mb-px flex gap-6 px-1 overflow-x-auto scrollbar-hide">
             {visibleTabs.map((tab) => {
               const Icon = tab.icon;
               return (
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
-                  className={`py-3 px-1 border-b-2 font-medium text-sm transition-colors whitespace-nowrap ${
+                  className={`py-3 px-1 border-b-2 font-medium text-sm transition-colors whitespace-nowrap flex-shrink-0 ${
                     activeTab === tab.id
                       ? 'border-primary text-primary'
                       : 'border-transparent text-muted-foreground hover:text-foreground hover:border-muted'
