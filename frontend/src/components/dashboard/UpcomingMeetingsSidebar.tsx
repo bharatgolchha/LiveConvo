@@ -16,6 +16,7 @@ import {
 import { format, isToday, isTomorrow, isThisWeek, differenceInMinutes } from 'date-fns';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
+import { Switch } from '@/components/ui/switch';
 import { CalendarEventCard } from '@/components/calendar/CalendarEventCard';
 import { CalendarEmptyState } from '@/components/calendar/CalendarEmptyState';
 import { MeetingCardSkeleton } from '@/components/calendar/MeetingCardSkeleton';
@@ -648,11 +649,45 @@ const getMeetingPlatformLogo = (meetingUrl: string | null) => {
 
 // Compact meeting card component
 const MeetingCard: React.FC<{ meeting: UpcomingMeeting }> = ({ meeting }) => {
+  const { session } = useAuth();
+  const [isUpdatingAutoJoin, setIsUpdatingAutoJoin] = useState(false);
   const startTime = new Date(meeting.start_time);
   const endTime = new Date(meeting.end_time);
   const duration = differenceInMinutes(endTime, startTime);
   const isNow = new Date() >= startTime && new Date() <= endTime;
   const platformLogo = getMeetingPlatformLogo(meeting.meeting_url || null);
+  
+  // Determine the current auto-join state
+  // If auto_join_enabled is null, it uses the global preference
+  const isAutoJoinEnabled = meeting.auto_join_enabled ?? meeting.bot_scheduled;
+  
+  const handleAutoJoinToggle = async (checked: boolean) => {
+    if (!session?.access_token) return;
+    
+    setIsUpdatingAutoJoin(true);
+    try {
+      const response = await fetch(`/api/calendar/events/${meeting.event_id}/auto-join`, {
+        method: 'PATCH',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ auto_join_enabled: checked })
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to update auto-join preference');
+      }
+      
+      // Update the local state - in a real app, you'd update the parent state
+      meeting.auto_join_enabled = checked;
+    } catch (error) {
+      console.error('Failed to update auto-join preference:', error);
+      // In a real app, show an error toast
+    } finally {
+      setIsUpdatingAutoJoin(false);
+    }
+  };
 
   return (
     <motion.div
@@ -703,10 +738,22 @@ const MeetingCard: React.FC<{ meeting: UpcomingMeeting }> = ({ meeting }) => {
           </Button>
         )}
       </div>
-      {meeting.bot_scheduled && (
-        <div className="mt-2 flex items-center gap-1">
-          <div className="w-2 h-2 bg-green-500 rounded-full" />
-          <span className="text-xs text-muted-foreground">Auto-join enabled</span>
+      {meeting.meeting_url && (
+        <div className="mt-2 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Switch
+              checked={isAutoJoinEnabled}
+              onCheckedChange={handleAutoJoinToggle}
+              disabled={isUpdatingAutoJoin || isNow}
+              className="scale-90"
+            />
+            <span className="text-xs text-muted-foreground">
+              {isAutoJoinEnabled ? 'Auto-join enabled' : 'Auto-join disabled'}
+            </span>
+          </div>
+          {isAutoJoinEnabled && (
+            <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
+          )}
         </div>
       )}
     </motion.div>
