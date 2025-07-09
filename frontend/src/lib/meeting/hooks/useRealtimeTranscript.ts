@@ -27,6 +27,8 @@ export function useRealtimeTranscript(sessionId: string) {
   const partialMessages = useRef<Map<string, { id: string; timestamp: number; contentHash: string }>>(new Map()); // Track partial messages with timestamp and content
   const partialCleanupInterval = useRef<NodeJS.Timeout | null>(null);
   const recentFinalMessages = useRef<Map<string, number>>(new Map()); // Track recent final messages by content hash
+  const retryCountRef = useRef<number>(0);
+  const maxRetries = 3;
 
   // Simple hash function for content deduplication
   const getContentHash = (text: string, speaker: string): string => {
@@ -38,6 +40,7 @@ export function useRealtimeTranscript(sessionId: string) {
   const loadTranscript = useCallback(async () => {
     if (!sessionId) return;
     setLoading(true);
+    setError(null);
 
     try {
       const { data, error: fetchError } = await supabase
@@ -73,8 +76,18 @@ export function useRealtimeTranscript(sessionId: string) {
         lastSeqRef.current = maxSequence;
       }
       setTranscript(messages);
+      retryCountRef.current = 0; // Reset retry count on success
     } catch (err) {
+      console.error('[LoadTranscript] Error:', err);
       setError(err as Error);
+      
+      // Auto-retry with exponential backoff
+      if (retryCountRef.current < maxRetries) {
+        retryCountRef.current++;
+        const delay = Math.min(1000 * Math.pow(2, retryCountRef.current - 1), 8000);
+        console.log(`[LoadTranscript] Retrying in ${delay}ms (attempt ${retryCountRef.current}/${maxRetries})`);
+        setTimeout(() => loadTranscript(), delay);
+      }
     } finally {
       setLoading(false);
     }
@@ -221,53 +234,79 @@ export function useRealtimeTranscript(sessionId: string) {
     // Load transcript initially
     loadTranscript();
 
-    const channel = supabase.channel(`rt-transcripts-${sessionId}`)
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'transcripts',
-          filter: `session_id=eq.${sessionId}`,
-        },
-        payload => {
-          const row = payload.new as any;
-          if (!row || seenIds.current.has(row.id)) return; // skip duplicates
+    let reconnectTimeout: NodeJS.Timeout | null = null;
+    let reconnectAttempts = 0;
+    const maxReconnectAttempts = 5;
 
-          const message: TranscriptMessage = {
-            id: row.id,
-            sessionId: row.session_id,
-            speaker: row.speaker,
-            text: row.content,
-            timestamp: row.created_at,
-            timeSeconds: row.start_time_seconds || 0,
-            isFinal: row.is_final,
-            confidence: row.confidence_score,
-            displayName: row.speaker,
-          };
+    const setupChannel = () => {
+      const channel = supabase.channel(`rt-transcripts-${sessionId}`)
+        .on(
+          'postgres_changes',
+          {
+            event: 'INSERT',
+            schema: 'public',
+            table: 'transcripts',
+            filter: `session_id=eq.${sessionId}`,
+          },
+          payload => {
+            const row = payload.new as any;
+            if (!row || seenIds.current.has(row.id)) return; // skip duplicates
 
-          addTranscriptMessage(message);
-          seenIds.current.add(row.id);
-          // Update sequence tracking
-          if (row.sequence_number && row.sequence_number > lastSeqRef.current) {
-            lastSeqRef.current = row.sequence_number;
+            const message: TranscriptMessage = {
+              id: row.id,
+              sessionId: row.session_id,
+              speaker: row.speaker,
+              text: row.content,
+              timestamp: row.created_at,
+              timeSeconds: row.start_time_seconds || 0,
+              isFinal: row.is_final,
+              confidence: row.confidence_score,
+              displayName: row.speaker,
+            };
+
+            addTranscriptMessage(message);
+            seenIds.current.add(row.id);
+            // Update sequence tracking
+            if (row.sequence_number && row.sequence_number > lastSeqRef.current) {
+              lastSeqRef.current = row.sequence_number;
+            }
+          },
+        )
+        .subscribe(status => {
+          console.log('[RealtimeTranscript] subscription status:', status);
+          if (status === 'SUBSCRIBED') {
+            setConnectionStatus('connected');
+            reconnectAttempts = 0; // Reset attempts on successful connection
+          } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+            setConnectionStatus('disconnected');
+            
+            // Attempt to reconnect with exponential backoff
+            if (reconnectAttempts < maxReconnectAttempts) {
+              const delay = Math.min(1000 * Math.pow(2, reconnectAttempts), 30000);
+              console.log(`[RealtimeTranscript] Reconnecting in ${delay}ms (attempt ${reconnectAttempts + 1}/${maxReconnectAttempts})`);
+              
+              reconnectTimeout = setTimeout(() => {
+                reconnectAttempts++;
+                channel.unsubscribe();
+                setupChannel();
+              }, delay);
+            }
           }
-        },
-      )
-      .subscribe(status => {
-        console.log('[RealtimeTranscript] subscription status:', status);
-        if (status === 'SUBSCRIBED') {
-          setConnectionStatus('connected');
-        } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
-          setConnectionStatus('disconnected');
-        }
-      });
+        });
 
-    channelRef.current = channel;
+      channelRef.current = channel;
+    };
+
+    setupChannel();
 
     return () => {
-      channel.unsubscribe();
-      channelRef.current = null;
+      if (reconnectTimeout) {
+        clearTimeout(reconnectTimeout);
+      }
+      if (channelRef.current) {
+        channelRef.current.unsubscribe();
+        channelRef.current = null;
+      }
     };
   }, [sessionId, loadTranscript, addTranscriptMessage]);
 

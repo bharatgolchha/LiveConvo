@@ -14,6 +14,7 @@ import { LoadingStates } from '@/components/meeting/common/LoadingStates';
 import { GlowingLoader } from '@/components/meeting/common/GlowingLoader';
 import { ErrorBoundary } from '@/components/meeting/common/ErrorBoundary';
 import { MeetingDebugInfo } from '@/components/meeting/debug/MeetingDebugInfo';
+import ProtectedRoute from '@/components/auth/ProtectedRoute';
 
 function MeetingPageContent() {
   const params = useParams();
@@ -129,10 +130,12 @@ function MeetingPageContent() {
 
 export default function MeetingPage() {
   return (
-    <ErrorBoundary>
-      <MeetingProvider>
-        <MeetingPageContent />
-      </MeetingProvider>
-    </ErrorBoundary>
+    <ProtectedRoute>
+      <ErrorBoundary>
+        <MeetingProvider>
+          <MeetingPageContent />
+        </MeetingProvider>
+      </ErrorBoundary>
+    </ProtectedRoute>
   );
 }

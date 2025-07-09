@@ -1,6 +1,6 @@
-import React from 'react';
-import { motion } from 'framer-motion';
-import { CalendarDaysIcon, ClockIcon } from '@heroicons/react/24/outline';
+import React, { useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { CalendarDaysIcon, ClockIcon, ChevronDownIcon, ChevronUpIcon } from '@heroicons/react/24/outline';
 import { PreviousConversationsMultiSelect } from './PreviousConversationsMultiSelect';
 
 interface SessionOption {
@@ -41,6 +41,8 @@ export function MeetingContextStep({
   // Debug log to verify component is using updated limits
   console.log('🔍 MeetingContextStep mounted with 6000 char limit');
   
+  const [showTips, setShowTips] = useState(false);
+  
   const handleExampleClick = () => {
     const randomExample = contextExamples[Math.floor(Math.random() * contextExamples.length)];
     console.log('📝 MeetingContextStep: Setting example context:', randomExample.substring(0, 50) + '...');
@@ -69,8 +71,8 @@ export function MeetingContextStep({
               setContext(e.target.value);
             }}
             placeholder="Add background information, goals, or specific topics you want to cover..."
-            rows={6}
-            className="w-full px-5 py-4 bg-card border-2 border-border/50 rounded-2xl focus:outline-none focus:ring-0 focus:border-primary/50 focus:bg-background transition-all duration-200 placeholder:text-muted-foreground/60 resize-none group-hover:border-border"
+            rows={4}
+            className="w-full px-4 sm:px-5 py-3 sm:py-4 bg-card border-2 border-border/50 rounded-2xl focus:outline-none focus:ring-0 focus:border-primary/50 focus:bg-background transition-all duration-200 placeholder:text-muted-foreground/60 resize-none group-hover:border-border min-h-[100px]"
             maxLength={6000}
           />
           <div className="absolute inset-x-0 -bottom-1 h-px bg-gradient-to-r from-transparent via-primary/20 to-transparent opacity-0 group-focus-within:opacity-100 transition-opacity duration-300"></div>
@@ -124,15 +126,34 @@ export function MeetingContextStep({
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.2 }}
-        className="bg-gradient-to-br from-primary/5 to-secondary/5 rounded-2xl p-5 space-y-3 border border-primary/10"
+        className="bg-gradient-to-br from-primary/5 to-secondary/5 rounded-2xl border border-primary/10 overflow-hidden"
       >
-        <h4 className="text-sm font-semibold text-foreground flex items-center gap-2">
-          <div className="p-1.5 bg-primary/10 rounded-lg">
-            <ClockIcon className="w-4 h-4 text-primary" />
-          </div>
-          Pro Tips for Better AI Guidance
-        </h4>
-        <ul className="space-y-2 text-sm text-muted-foreground">
+        <button
+          onClick={() => setShowTips(!showTips)}
+          className="w-full p-4 sm:p-5 flex items-center justify-between hover:bg-primary/5 transition-colors"
+        >
+          <h4 className="text-sm font-semibold text-foreground flex items-center gap-2">
+            <div className="p-1.5 bg-primary/10 rounded-lg">
+              <ClockIcon className="w-4 h-4 text-primary" />
+            </div>
+            Pro Tips for Better AI Guidance
+          </h4>
+          {showTips ? (
+            <ChevronUpIcon className="w-4 h-4 text-muted-foreground" />
+          ) : (
+            <ChevronDownIcon className="w-4 h-4 text-muted-foreground" />
+          )}
+        </button>
+        <AnimatePresence>
+          {showTips && (
+            <motion.div
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: 'auto', opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              className="overflow-hidden"
+            >
+              <ul className="space-y-2 text-sm text-muted-foreground px-4 sm:px-5 pb-4 sm:pb-5">
           <li className="flex items-start gap-2">
             <span className="text-primary mt-1">•</span>
             <span>Include key topics or questions you want to cover</span>
@@ -159,7 +180,10 @@ export function MeetingContextStep({
               <span>Previous meeting context will help the AI understand ongoing discussions</span>
             </motion.li>
           )}
-        </ul>
+              </ul>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </motion.div>
     </motion.div>
   );

@@ -533,15 +533,15 @@ const requestAllPermissions = async () => {
         <p className="text-sm text-red-700 mb-3">
           {!navigator.mediaDevices ? 
             'Your browser doesn\'t support media access. Try using Chrome, Firefox, or Edge.' :
-            'Permissions were denied. Please refresh the page and grant both screen sharing and microphone access.'
+            'Permissions were denied. Please grant both screen sharing and microphone access when prompted.'
           }
         </p>
         <Button
-          onClick={() => window.location.reload()}
+          onClick={requestAllPermissions}
           variant="outline"
           size="sm"
         >
-          Refresh Page
+          Request Permissions Again
         </Button>
       </div>
     );
