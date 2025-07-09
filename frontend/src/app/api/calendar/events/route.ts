@@ -47,13 +47,13 @@ export async function GET(request: NextRequest) {
     }
 
     // Get user preferences for auto-join
-    const { data: userPrefs } = await supabase
-      .from('users')
-      .select('calendar_preferences')
-      .eq('id', user.id)
+    const { data: calendarPrefs } = await supabase
+      .from('calendar_preferences')
+      .select('auto_join_enabled')
+      .eq('user_id', user.id)
       .single();
 
-    const autoJoinEnabled = userPrefs?.calendar_preferences?.auto_record_enabled || false;
+    const autoJoinEnabled = calendarPrefs?.auto_join_enabled || false;
 
     // Transform the data to match our TypeScript types
     const upcomingMeetings: UpcomingMeeting[] = (meetings || []).map((meeting: any) => ({
@@ -68,7 +68,7 @@ export async function GET(request: NextRequest) {
       bot_scheduled: meeting.bot_scheduled,
       calendar_email: meeting.calendar_email,
       calendar_provider: meeting.calendar_provider,
-      auto_join_enabled: autoJoinEnabled,
+      auto_join_enabled: meeting.auto_join_enabled ?? autoJoinEnabled, // Use per-event preference, fallback to global
       auto_session_created: meeting.auto_session_created || false,
       auto_session_id: meeting.auto_session_id,
       auto_bot_status: meeting.auto_bot_status
