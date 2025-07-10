@@ -46,7 +46,7 @@ import dynamic from 'next/dynamic';
 // Dynamically load smaller components to reduce initial bundle size
 const DashboardHeader = dynamic(() => import('@/components/dashboard/DashboardHeader'));
 const DashboardSidebar = dynamic(() => import('@/components/dashboard/DashboardSidebar'));
-const UpcomingMeetingsSidebar = dynamic(() => import('@/components/dashboard/UpcomingMeetingsSidebar').then(mod => ({ default: mod.UpcomingMeetingsSidebar })));
+const UpcomingMeetingsSidebar = dynamic(() => import('@/components/dashboard/UpcomingMeetingsSidebar').then(mod => ({ default: mod.UpcomingMeetingsSidebar })), { ssr: false });
 const CalendarConnectionBanner = dynamic(() => import('@/components/calendar/CalendarConnectionBanner').then(mod => ({ default: mod.CalendarConnectionBanner })));
 
 // Newly extracted components (loaded lazily to reduce initial JS)

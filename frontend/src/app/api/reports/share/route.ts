@@ -20,7 +20,15 @@ export async function POST(request: NextRequest) {
     // Parse request body
     const body = await request.json();
     console.log('Share request body:', body);
-    const { sessionId, sharedTabs, expiresIn, message, emailRecipients } = body;
+    const { 
+      sessionId, 
+      sharedTabs, 
+      expiresIn, 
+      message, 
+      emailRecipients,
+      shareWithParticipants,
+      excludedEmails = []
+    } = body;
 
     if (!sessionId || !sharedTabs || sharedTabs.length === 0) {
       return NextResponse.json(
@@ -54,6 +62,7 @@ export async function POST(request: NextRequest) {
         id, 
         user_id,
         title,
+        participants,
         summaries (
           id,
           tldr,
@@ -61,6 +70,9 @@ export async function POST(request: NextRequest) {
           action_items,
           follow_up_questions,
           conversation_highlights
+        ),
+        calendar_events (
+          attendees
         )
       `)
       .eq('id', sessionId)
@@ -100,6 +112,22 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // Collect participant emails if requested
+    let allEmailRecipients = [...(emailRecipients || [])];
+    if (shareWithParticipants) {
+      // Get participants from session or calendar event
+      const participants = session.participants || session.calendar_events?.[0]?.attendees || [];
+      
+      // Extract unique emails, excluding the specified ones
+      const participantEmails = participants
+        .filter((p: any) => p.email && !excludedEmails.includes(p.email))
+        .map((p: any) => p.email)
+        .filter((email: string) => !allEmailRecipients.includes(email)); // Avoid duplicates
+      
+      allEmailRecipients = [...allEmailRecipients, ...participantEmails];
+      console.log(`Adding ${participantEmails.length} participant emails to recipients`);
+    }
+
     // Create share record
     const { data: shareRecord, error: insertError } = await supabase
       .from('shared_reports')
@@ -109,7 +137,9 @@ export async function POST(request: NextRequest) {
         share_token: shareToken,
         shared_tabs: sharedTabs,
         message: message || null,
-        expires_at: expiresAt
+        expires_at: expiresAt,
+        share_with_participants: shareWithParticipants || false,
+        excluded_participants: excludedEmails || []
       })
       .select()
       .single();
@@ -145,7 +175,8 @@ export async function POST(request: NextRequest) {
 
     // Send emails if recipients provided
     let emailsSent = false;
-    if (emailRecipients && emailRecipients.length > 0 && process.env.RESEND_API_KEY) {
+    let emailSendStatus: Record<string, any> = {};
+    if (allEmailRecipients && allEmailRecipients.length > 0 && process.env.RESEND_API_KEY) {
       try {
         // Get user details for sender name
         const { data: userData } = await supabase
@@ -170,39 +201,54 @@ export async function POST(request: NextRequest) {
         };
 
         // Send email to each recipient
-        const emailPromises = emailRecipients.map(async (recipientEmail: string) => {
-          const { html, text } = generateShareReportEmail({
-            recipientEmail,
-            senderName,
-            reportTitle: session.title || 'Meeting Report',
-            reportUrl: shareUrl,
-            personalMessage: message,
-            summary: emailSummary,
-            sharedSections: sharedTabs,
-            expiresAt
-          });
+        const emailPromises = allEmailRecipients.map(async (recipientEmail: string) => {
+          try {
+            const { html, text } = generateShareReportEmail({
+              recipientEmail,
+              senderName,
+              reportTitle: session.title || 'Meeting Report',
+              reportUrl: shareUrl,
+              personalMessage: message,
+              summary: emailSummary,
+              sharedSections: sharedTabs,
+              expiresAt
+            });
 
-          return sendEmail({
-            to: recipientEmail,
-            subject: `${senderName} shared a meeting report with you: ${session.title || 'Meeting Report'}`,
-            html,
-            text,
-            replyTo: userData?.email
-          });
+            await sendEmail({
+              to: recipientEmail,
+              subject: `${senderName} shared a meeting report with you: ${session.title || 'Meeting Report'}`,
+              html,
+              text,
+              replyTo: userData?.email
+            });
+
+            emailSendStatus[recipientEmail] = { status: 'sent', sentAt: new Date().toISOString() };
+          } catch (error) {
+            console.error(`Failed to send email to ${recipientEmail}:`, error);
+            emailSendStatus[recipientEmail] = { status: 'failed', error: error.message };
+          }
         });
 
         // Send all emails in parallel
         await Promise.all(emailPromises);
-        emailsSent = true;
+        emailsSent = Object.values(emailSendStatus).some((status: any) => status.status === 'sent');
+
+        // Update share record with email send status
+        if (Object.keys(emailSendStatus).length > 0) {
+          await supabase
+            .from('shared_reports')
+            .update({ email_send_status: emailSendStatus })
+            .eq('id', shareRecord.id);
+        }
 
         // Log email notifications
-        const emailLogs = emailRecipients.map((email: string) => ({
+        const emailLogs = allEmailRecipients.map((email: string) => ({
           session_id: sessionId,
           user_id: user.id,
           email_type: 'share_report',
           recipient_email: email,
-          status: 'sent',
-          sent_at: new Date().toISOString()
+          status: emailSendStatus[email]?.status || 'sent',
+          sent_at: emailSendStatus[email]?.sentAt || new Date().toISOString()
         }));
 
         await supabase

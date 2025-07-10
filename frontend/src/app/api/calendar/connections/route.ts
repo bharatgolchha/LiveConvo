@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerSupabaseClient } from '@/lib/supabase';
 
+// Simple in-memory cache for calendar connections
+const connectionCache = new Map<string, { data: any; timestamp: number }>();
+const CACHE_DURATION = 30 * 1000; // 30 seconds
+
 export async function GET(request: NextRequest) {
   try {
     const supabase = createServerSupabaseClient();
@@ -14,6 +18,13 @@ export async function GET(request: NextRequest) {
     
     if (authError || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    // Check cache first
+    const cacheKey = `connections_${user.id}`;
+    const cached = connectionCache.get(cacheKey);
+    if (cached && Date.now() - cached.timestamp < CACHE_DURATION) {
+      return NextResponse.json({ connections: cached.data });
     }
 
     // Get user's calendar connections
@@ -63,9 +74,13 @@ export async function GET(request: NextRequest) {
         })
       );
 
+      // Cache the result
+      connectionCache.set(cacheKey, { data: connectionsWithStatus, timestamp: Date.now() });
       return NextResponse.json({ connections: connectionsWithStatus });
     }
 
+    // Cache the result
+    connectionCache.set(cacheKey, { data: connections || [], timestamp: Date.now() });
     return NextResponse.json({ connections: connections || [] });
   } catch (error) {
     console.error('Error in calendar connections:', error);
@@ -139,6 +154,10 @@ export async function DELETE(request: NextRequest) {
         { status: 500 }
       );
     }
+
+    // Clear cache for this user
+    const cacheKey = `connections_${user.id}`;
+    connectionCache.delete(cacheKey);
 
     return NextResponse.json({ success: true });
   } catch (error) {
