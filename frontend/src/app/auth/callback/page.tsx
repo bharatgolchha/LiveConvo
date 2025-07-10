@@ -122,20 +122,39 @@ export default function AuthCallbackPage() {
         }
 
         // Check if user has completed onboarding
-        let { data: userData, error: userError } = await supabase
-          .from('users')
-          .select('has_completed_onboarding, referral_code')
-          .eq('id', session.user.id)
-          .single()
+        // Retry logic to handle race condition with database trigger
+        let userData = null
+        let userError = null
+        let retryCount = 0
+        const maxRetries = 3
+        const retryDelay = 1000 // 1 second
 
-        if (userError) {
-          console.error('Error fetching user data:', userError)
-          // If user doesn't exist in public.users table, it might be due to trigger failure
+        while (retryCount < maxRetries && !userData) {
+          const { data, error } = await supabase
+            .from('users')
+            .select('has_completed_onboarding, referral_code')
+            .eq('id', session.user.id)
+            .single()
+
+          if (!error && data) {
+            userData = data
+            break
+          }
+
+          userError = error
+          retryCount++
+
+          if (retryCount < maxRetries) {
+            // Wait before retrying to give the trigger time to complete
+            await new Promise(resolve => setTimeout(resolve, retryDelay))
+          }
+        }
+
+        if (!userData && userError) {
+          // If user doesn't exist after retries, create as fallback
           if (userError.code === 'PGRST116' || userError.message?.includes('Row not found')) {
-            console.error('User record not found in public.users table. The database trigger may have failed.')
-            
             // Attempt to create the user record as a fallback
-            const { error: createError } = await supabase
+            const { data: createdUser, error: createError } = await supabase
               .from('users')
               .insert({
                 id: session.user.id,
@@ -152,8 +171,6 @@ export default function AuthCallbackPage() {
               .single()
             
             if (createError) {
-              console.error('Failed to create user record:', createError)
-              
               // If it's a conflict error (user already exists), try to fetch again
               if (createError.code === '23505' || createError.message?.includes('duplicate')) {
                 const { data: existingUser, error: fetchError } = await supabase
@@ -164,19 +181,16 @@ export default function AuthCallbackPage() {
                 
                 if (!fetchError && existingUser) {
                   userData = existingUser
-                  userError = null
                 } else {
-                  router.replace('/auth/login?error=User profile creation failed. Please try again or contact support.')
+                  router.replace('/auth/login?error=User profile creation failed. Please try again.')
                   return
                 }
               } else {
-                router.replace('/auth/login?error=User profile creation failed. Please try again or contact support.')
+                router.replace('/auth/login?error=User profile creation failed. Please try again.')
                 return
               }
             } else {
-              // Successfully created user, continue to onboarding
-              router.replace('/onboarding')
-              return
+              userData = createdUser
             }
           } else {
             // Other types of errors

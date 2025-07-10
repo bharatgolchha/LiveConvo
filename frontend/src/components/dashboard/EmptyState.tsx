@@ -162,66 +162,6 @@ const EmptyState: React.FC<Props> = ({ onNewConversation, onNewMeeting }) => {
             <span className="font-medium">Learn More</span>
           </button>
         </motion.div>
-        
-        {/* Features hint */}
-        <motion.div 
-          className="mt-20 grid grid-cols-1 sm:grid-cols-3 gap-8 max-w-5xl w-full"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.7 }}
-        >
-          {[
-            { 
-              icon: (
-                <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                </svg>
-              ),
-              title: "Real-time AI Coaching", 
-              desc: "Get intelligent suggestions and guidance during your conversations"
-            },
-            { 
-              icon: (
-                <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
-                </svg>
-              ),
-              title: "Live Transcription", 
-              desc: "Accurate speech-to-text with automatic speaker identification"
-            },
-            { 
-              icon: (
-                <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                </svg>
-              ),
-              title: "Smart Summaries", 
-              desc: "Automatic insights, action items, and comprehensive meeting notes"
-            }
-          ].map((feature, index) => (
-            <motion.div
-              key={feature.title}
-              className="relative group"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.8 + index * 0.1 }}
-            >
-              <div className="bg-card border border-border/50 rounded-xl p-8 h-full transition-all duration-300 hover:shadow-lg hover:border-app-primary/30 hover:-translate-y-1">
-                <div className="w-12 h-12 bg-app-primary/10 rounded-lg flex items-center justify-center mb-5 text-app-primary">
-                  {feature.icon}
-                </div>
-                
-                <h3 className="font-semibold text-foreground mb-2 text-lg">
-                  {feature.title}
-                </h3>
-                
-                <p className="text-muted-foreground leading-relaxed">
-                  {feature.desc}
-                </p>
-              </div>
-            </motion.div>
-          ))}
-        </motion.div>
       </motion.div>
       
       {/* Learn More Modal */}

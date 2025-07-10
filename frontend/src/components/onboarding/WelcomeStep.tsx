@@ -1,9 +1,10 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { Building2, Clock, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
+import { timezones, getDetectedTimezone, getTimezoneOffset } from '@/lib/timezones';
 
 interface WelcomeStepProps {
   data: {
@@ -19,10 +20,45 @@ export const WelcomeStep: React.FC<WelcomeStepProps> = ({
   updateData,
   onNext
 }) => {
+  const [searchQuery, setSearchQuery] = useState('');
+  const [showAllTimezones, setShowAllTimezones] = useState(false);
+
+  useEffect(() => {
+    // Auto-detect timezone if not already set
+    if (!data.timezone) {
+      const detectedTimezone = getDetectedTimezone();
+      updateData({ timezone: detectedTimezone });
+    }
+  }, []);
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     onNext();
   };
+
+  // Filter timezones based on search query
+  const filteredTimezones = timezones.map(group => ({
+    ...group,
+    zones: group.zones.filter(zone => 
+      zone.label.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      zone.value.toLowerCase().includes(searchQuery.toLowerCase())
+    )
+  })).filter(group => group.zones.length > 0);
+
+  // Get common timezones for quick selection
+  const commonTimezones = [
+    { value: "America/New_York", label: "New York (Eastern)" },
+    { value: "America/Chicago", label: "Chicago (Central)" },
+    { value: "America/Denver", label: "Denver (Mountain)" },
+    { value: "America/Los_Angeles", label: "Los Angeles (Pacific)" },
+    { value: "Europe/London", label: "London (GMT)" },
+    { value: "Europe/Paris", label: "Paris (CET)" },
+    { value: "Europe/Berlin", label: "Berlin (CET)" },
+    { value: "Asia/Tokyo", label: "Tokyo (JST)" },
+    { value: "Asia/Shanghai", label: "Shanghai (CST)" },
+    { value: "Asia/Kolkata", label: "Kolkata (IST)" },
+    { value: "Asia/Singapore", label: "Singapore (SGT)" },
+    { value: "Australia/Sydney", label: "Sydney (AEST)" }
+  ];
 
   return (
     <form onSubmit={handleSubmit} className="p-8 space-y-6">
@@ -59,34 +95,76 @@ export const WelcomeStep: React.FC<WelcomeStepProps> = ({
             <Clock className="w-4 h-4 mr-2 text-app-success" />
             Your Timezone
           </label>
-          <select
-            value={data.timezone}
-            onChange={(e) => updateData({ timezone: e.target.value })}
-            className="w-full px-4 py-3 bg-background border border-border rounded-lg focus:ring-2 focus:ring-app-primary focus:border-app-primary transition-all duration-200 text-foreground"
-          >
-            <optgroup label="North America">
-              <option value="America/New_York">Eastern Time (ET)</option>
-              <option value="America/Chicago">Central Time (CT)</option>
-              <option value="America/Denver">Mountain Time (MT)</option>
-              <option value="America/Los_Angeles">Pacific Time (PT)</option>
-            </optgroup>
-            <optgroup label="Europe">
-              <option value="Europe/London">London (GMT)</option>
-              <option value="Europe/Paris">Paris (CET)</option>
-              <option value="Europe/Berlin">Berlin (CET)</option>
-              <option value="Europe/Amsterdam">Amsterdam (CET)</option>
-            </optgroup>
-            <optgroup label="Asia">
-              <option value="Asia/Tokyo">Tokyo (JST)</option>
-              <option value="Asia/Shanghai">Shanghai (CST)</option>
-              <option value="Asia/Kolkata">Mumbai (IST)</option>
-              <option value="Asia/Singapore">Singapore (SGT)</option>
-            </optgroup>
-            <optgroup label="Other">
-              <option value="Australia/Sydney">Sydney (AEST)</option>
-              <option value="UTC">UTC (Coordinated Universal Time)</option>
-            </optgroup>
-          </select>
+          
+          {data.timezone && (
+            <div className="mb-2 p-2 bg-app-success/10 border border-app-success/20 rounded-md text-sm text-app-success">
+              Auto-detected: {data.timezone} ({getTimezoneOffset(data.timezone)})
+            </div>
+          )}
+
+          {!showAllTimezones ? (
+            <>
+              <select
+                value={data.timezone}
+                onChange={(e) => updateData({ timezone: e.target.value })}
+                className="w-full px-4 py-3 bg-background border border-border rounded-lg focus:ring-2 focus:ring-app-primary focus:border-app-primary transition-all duration-200 text-foreground"
+              >
+                <option value={data.timezone}>
+                  {data.timezone} ({getTimezoneOffset(data.timezone)}) - Auto-detected
+                </option>
+                <optgroup label="Common Timezones">
+                  {commonTimezones.map(tz => (
+                    <option key={tz.value} value={tz.value}>
+                      {tz.label} ({getTimezoneOffset(tz.value)})
+                    </option>
+                  ))}
+                </optgroup>
+              </select>
+              <button
+                type="button"
+                onClick={() => setShowAllTimezones(true)}
+                className="text-xs text-app-primary hover:underline"
+              >
+                Show all timezones
+              </button>
+            </>
+          ) : (
+            <>
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search timezones..."
+                className="w-full px-4 py-2 mb-2 bg-background border border-border rounded-lg focus:ring-2 focus:ring-app-primary focus:border-app-primary transition-all duration-200 text-foreground placeholder:text-muted-foreground"
+              />
+              <select
+                value={data.timezone}
+                onChange={(e) => updateData({ timezone: e.target.value })}
+                className="w-full px-4 py-3 bg-background border border-border rounded-lg focus:ring-2 focus:ring-app-primary focus:border-app-primary transition-all duration-200 text-foreground"
+                size={8}
+              >
+                {filteredTimezones.map(group => (
+                  <optgroup key={group.group} label={group.group}>
+                    {group.zones.map(zone => (
+                      <option key={zone.value} value={zone.value}>
+                        {zone.label} ({getTimezoneOffset(zone.value)})
+                      </option>
+                    ))}
+                  </optgroup>
+                ))}
+              </select>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowAllTimezones(false);
+                  setSearchQuery('');
+                }}
+                className="text-xs text-muted-foreground hover:underline"
+              >
+                Show common timezones
+              </button>
+            </>
+          )}
         </div>
       </div>
 
