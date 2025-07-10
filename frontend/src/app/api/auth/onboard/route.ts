@@ -19,7 +19,7 @@ import { supabase, createServerSupabaseClient } from '@/lib/supabase';
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { organization_name, timezone = 'UTC', use_case, acquisition_source } = body;
+    const { organization_name, timezone = 'UTC', use_case, acquisition_source, referral_code, device_id } = body;
 
     // Get current user from Supabase auth
     const authHeader = request.headers.get('authorization');
@@ -291,6 +291,28 @@ export async function POST(request: NextRequest) {
         { error: 'Database error', message: 'Failed to create subscription' },
         { status: 500 }
       );
+    }
+
+    // Process referral code if provided
+    if (referral_code) {
+      try {
+        // Get IP address from request headers
+        const forwarded = request.headers.get('x-forwarded-for');
+        const ip_address = forwarded ? forwarded.split(',')[0] : request.headers.get('x-real-ip') || null;
+        
+        const { data: referralProcessed } = await serviceClient
+          .rpc('process_referral_code', {
+            p_user_id: user.id,
+            p_referral_code: referral_code,
+            p_device_id: device_id || null,
+            p_ip_address: ip_address
+          });
+        
+        console.log('Referral processing result:', referralProcessed);
+      } catch (referralError) {
+        console.error('Error processing referral during onboarding:', referralError);
+        // Don't fail onboarding if referral processing fails
+      }
     }
 
     // Update user to mark onboarding as complete and set current organization

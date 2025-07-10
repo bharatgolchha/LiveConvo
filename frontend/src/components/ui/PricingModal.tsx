@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Check, Sparkles, Zap, Shield, Star } from 'lucide-react';
+import { X, Check, Sparkles, Zap, Shield, Star, Gift, DollarSign } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/badge';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface PricingPlan {
   id: string;
@@ -68,14 +69,27 @@ export const PricingModal: React.FC<PricingModalProps> = ({ isOpen, onClose }) =
   const [billingPeriod, setBillingPeriod] = useState<'monthly' | 'yearly'>('monthly');
   const [loading, setLoading] = useState(true);
   const [currentUserPlan, setCurrentUserPlan] = useState<string | null>(null);
+  const [creditBalance, setCreditBalance] = useState(0);
+  const [referralCode, setReferralCode] = useState('');
+  const [referralDiscount, setReferralDiscount] = useState<{ valid: boolean; message?: string }>({ valid: false });
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const { session } = useAuth();
 
   useEffect(() => {
     if (isOpen) {
       fetchPricingPlans();
       fetchUserPlan();
+      fetchCreditBalance();
+      
+      // Check for referral code in URL
+      const urlReferralCode = searchParams.get('ref');
+      if (urlReferralCode) {
+        setReferralCode(urlReferralCode);
+        validateReferralCode(urlReferralCode);
+      }
     }
-  }, [isOpen]);
+  }, [isOpen, searchParams]);
 
   const fetchPricingPlans = async () => {
     try {
@@ -107,6 +121,53 @@ export const PricingModal: React.FC<PricingModalProps> = ({ isOpen, onClose }) =
       }
     } catch (error) {
       console.error('Error fetching user plan:', error);
+    }
+  };
+
+  const fetchCreditBalance = async () => {
+    if (!session?.access_token) return;
+    
+    try {
+      const response = await fetch('/api/credits', {
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`
+        }
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        setCreditBalance(data.balance || 0);
+      }
+    } catch (error) {
+      console.error('Error fetching credit balance:', error);
+    }
+  };
+
+  const validateReferralCode = async (code: string) => {
+    if (!code) {
+      setReferralDiscount({ valid: false });
+      return;
+    }
+    
+    try {
+      const response = await fetch('/api/referrals/validate', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ code }),
+      });
+      
+      const data = await response.json();
+      
+      if (response.ok && data.valid) {
+        setReferralDiscount({ valid: true, message: '10% referral discount applied!' });
+      } else {
+        setReferralDiscount({ valid: false, message: data.error || 'Invalid referral code' });
+      }
+    } catch (error) {
+      console.error('Error validating referral code:', error);
+      setReferralDiscount({ valid: false, message: 'Could not validate referral code' });
     }
   };
 
@@ -154,8 +215,8 @@ export const PricingModal: React.FC<PricingModalProps> = ({ isOpen, onClose }) =
         return;
       }
 
-      // Create checkout session
-      const response = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/create-checkout-session`, {
+      // Create checkout session with our new API
+      const response = await fetch('/api/checkout/create-session', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -163,8 +224,8 @@ export const PricingModal: React.FC<PricingModalProps> = ({ isOpen, onClose }) =
         },
         body: JSON.stringify({
           priceId: priceId,
-          planId: plan.id,
-          interval: billingPeriod === 'monthly' ? 'month' : 'year'
+          billingCycle: billingPeriod,
+          referralCode: referralDiscount.valid ? referralCode : undefined
         })
       });
 
@@ -179,7 +240,7 @@ export const PricingModal: React.FC<PricingModalProps> = ({ isOpen, onClose }) =
         throw new Error(errorData.error || 'Failed to create checkout session');
       }
 
-      const { url } = await response.json();
+      const { url, credits_available } = await response.json();
       
       // Redirect to Stripe checkout
       window.location.href = url;
@@ -221,6 +282,12 @@ export const PricingModal: React.FC<PricingModalProps> = ({ isOpen, onClose }) =
                 <p className="text-muted-foreground text-sm">
                   Choose the perfect plan for your needs. No hidden fees, cancel anytime.
                 </p>
+                {creditBalance > 0 && (
+                  <div className="mt-2 inline-flex items-center gap-2 px-3 py-1.5 bg-green-500/10 text-green-600 rounded-full text-sm font-medium">
+                    <DollarSign className="w-4 h-4" />
+                    ${creditBalance} credits available
+                  </div>
+                )}
               </div>
               <button
                 onClick={onClose}
@@ -255,6 +322,38 @@ export const PricingModal: React.FC<PricingModalProps> = ({ isOpen, onClose }) =
                   <Badge className="bg-green-500/20 text-green-600 border-green-500/30 text-xs">17%</Badge>
                 </button>
               </div>
+            </div>
+            
+            {/* Referral Code Input */}
+            <div className="mt-4 max-w-sm mx-auto">
+              <div className="relative">
+                <input
+                  type="text"
+                  placeholder="Have a referral code?"
+                  value={referralCode}
+                  onChange={(e) => {
+                    setReferralCode(e.target.value);
+                    validateReferralCode(e.target.value);
+                  }}
+                  className="w-full px-4 py-2 pr-10 bg-muted/50 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+                />
+                {referralCode && (
+                  <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                    {referralDiscount.valid ? (
+                      <Check className="w-4 h-4 text-green-500" />
+                    ) : (
+                      <X className="w-4 h-4 text-red-500" />
+                    )}
+                  </div>
+                )}
+              </div>
+              {referralDiscount.message && (
+                <p className={`mt-1 text-xs ${
+                  referralDiscount.valid ? 'text-green-600' : 'text-red-600'
+                }`}>
+                  {referralDiscount.message}
+                </p>
+              )}
             </div>
           </div>
 

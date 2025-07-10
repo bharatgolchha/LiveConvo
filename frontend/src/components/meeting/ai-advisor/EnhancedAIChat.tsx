@@ -538,20 +538,6 @@ export const EnhancedAIChat = forwardRef<EnhancedAIChatRef>((props, ref) => {
         </div>
       )}
       
-      {/* Personalized Context Indicator */}
-      {hasPersonalizedContext && (
-        <div className="px-4 py-2 bg-primary/10 border-b border-primary/20">
-          <div className="flex items-center gap-2 text-xs text-primary">
-            <div className="flex items-center gap-1">
-              <div className="w-2 h-2 bg-primary rounded-full animate-pulse" />
-              <span className="font-medium">Personalized advice active</span>
-            </div>
-            <span className="text-primary/70">
-              • Tailored for {meeting?.sessionOwner?.fullName || meeting?.sessionOwner?.email || 'you'}
-            </span>
-          </div>
-        </div>
-      )}
       
       {/* Messages */}
       <div className="flex-1 overflow-y-auto">

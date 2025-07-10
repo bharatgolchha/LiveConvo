@@ -677,6 +677,8 @@ const DashboardPage: React.FC = () => {
           onNavigate={(path) => {
             if (path === 'pricing') {
               setIsPricingModalOpen(true);
+            } else if (path === 'referrals') {
+              router.push('/dashboard/referrals');
             } else {
               setActivePath(path);
             }
@@ -688,7 +690,7 @@ const DashboardPage: React.FC = () => {
           {/* Main content area */}
           <div className="flex-1 p-6 flex flex-col overflow-auto">
             {/* Hero Section */}
-            {hasAnySessions && activePath !== 'settings' && (
+            {hasAnySessions && activePath !== 'settings' && activePath !== 'referrals' && (
               <motion.div 
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}

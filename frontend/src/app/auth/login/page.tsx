@@ -21,6 +21,7 @@ function LoginContent() {
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [isEmailMode, setIsEmailMode] = useState(false)
+  const [referralMessage, setReferralMessage] = useState<string | null>(null)
   const { signIn, signInWithGoogle, user } = useAuth()
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -33,6 +34,24 @@ function LoginContent() {
       setError(error)
     } else if (message) {
       setError(message)
+    }
+    
+    // Check for referral code
+    const referralCode = localStorage.getItem('ref_code')
+    if (referralCode) {
+      // Validate and get referrer info
+      fetch('/api/referrals/validate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code: referralCode })
+      })
+        .then(res => res.json())
+        .then(data => {
+          if (data.valid && data.referrer_name) {
+            setReferralMessage(`${data.referrer_name} referred you! Sign up to get 10% off your subscription.`)
+          }
+        })
+        .catch(() => {})
     }
   }, [searchParams])
 
@@ -76,6 +95,21 @@ function LoginContent() {
       title="Welcome back"
       subtitle="Sign in to your account to continue"
     >
+      {referralMessage && (
+        <motion.div
+          initial={{ opacity: 0, height: 0 }}
+          animate={{ opacity: 1, height: 'auto' }}
+          className="mb-6"
+        >
+          <Alert className="border-green-500/50 bg-green-500/10">
+            <div className="flex items-center gap-2">
+              <span className="text-2xl">🎉</span>
+              <span className="text-green-700 dark:text-green-400">{referralMessage}</span>
+            </div>
+          </Alert>
+        </motion.div>
+      )}
+
       {error && (
         <motion.div
           initial={{ opacity: 0, height: 0 }}
