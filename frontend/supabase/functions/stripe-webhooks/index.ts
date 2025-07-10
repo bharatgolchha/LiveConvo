@@ -63,20 +63,20 @@ Deno.serve(async (req: Request) => {
 
     // Process the event
     try {
-      // Handle checkout session completed
+      // Handle checkout session completed - THIS IS CRITICAL FOR IMMEDIATE UPDATES
       if (event.type === 'checkout.session.completed') {
         const session = event.data.object;
         console.log('Processing checkout completion:', session.id);
         console.log('Subscription ID:', session.subscription);
         console.log('Payment status:', session.payment_status);
         console.log('Customer:', session.customer);
-        console.log('Metadata:', session.metadata);
         
         if (session.subscription && session.payment_status === 'paid') {
           // Get the subscription from Stripe to get all details
           const subscription = await stripe.subscriptions.retrieve(session.subscription);
           console.log('Retrieved subscription:', subscription.id);
           console.log('Subscription status:', subscription.status);
+          console.log('Subscription metadata:', subscription.metadata);
           
           // Find user by customer ID
           const { data: userData, error: userError } = await supabase
@@ -174,6 +174,114 @@ Deno.serve(async (req: Request) => {
               updated_at: new Date().toISOString()
             })
             .eq('id', userData.id);
+
+          // REFERRAL PROCESSING
+          const referralCode = subscription.metadata?.referral_code;
+          const referrerId = subscription.metadata?.referrer_id;
+          
+          if (referralCode && referrerId) {
+            console.log('Processing referral:', { referralCode, referrerId, userId: userData.id });
+            
+            // Check for existing referral
+            const { data: existingReferral } = await supabase
+              .from('user_referrals')
+              .select('*')
+              .eq('referee_id', userData.id)
+              .eq('referrer_id', referrerId)
+              .single();
+            
+            if (existingReferral && existingReferral.status === 'pending') {
+              console.log('Found pending referral:', existingReferral.id);
+              
+              // Update referral status to completed
+              const { error: referralUpdateError } = await supabase
+                .from('user_referrals')
+                .update({
+                  status: 'completed',
+                  completed_at: new Date().toISOString(),
+                  stripe_payment_intent_id: session.payment_intent,
+                  metadata: {
+                    ...existingReferral.metadata,
+                    invoice_id: session.invoice,
+                    subscription_id: subscription.id,
+                    amount_paid: session.amount_total / 100, // Convert from cents
+                  }
+                })
+                .eq('id', existingReferral.id);
+              
+              if (referralUpdateError) {
+                console.error('Error updating referral:', referralUpdateError);
+              } else {
+                console.log('✅ Referral marked as completed');
+                
+                // Log the event
+                await supabase.rpc('log_referral_event', {
+                  p_event_type: 'payment_completed',
+                  p_referral_id: existingReferral.id,
+                  p_referee_id: userData.id,
+                  p_referrer_id: referrerId,
+                  p_referral_code: referralCode,
+                  p_event_data: {
+                    payment_intent_id: session.payment_intent,
+                    invoice_id: session.invoice,
+                    amount_paid: session.amount_total / 100
+                  }
+                });
+                
+                // Schedule credit for 7 days later
+                const creditDate = new Date();
+                creditDate.setDate(creditDate.getDate() + 7);
+                
+                const { data: credit, error: creditError } = await supabase
+                  .from('user_credits')
+                  .insert({
+                    user_id: referrerId,
+                    amount: existingReferral.reward_amount || 5.00,
+                    type: 'referral_reward',
+                    description: `Referral reward for ${userData.email}`,
+                    reference_id: existingReferral.id,
+                    created_at: creditDate.toISOString(), // Schedule for future
+                    expires_at: new Date(creditDate.getTime() + 365 * 24 * 60 * 60 * 1000).toISOString(), // 1 year expiry
+                    metadata: {
+                      referee_email: userData.email,
+                      payment_intent_id: session.payment_intent,
+                      scheduled_date: creditDate.toISOString()
+                    }
+                  })
+                  .select()
+                  .single();
+                
+                if (creditError) {
+                  console.error('Error creating credit:', creditError);
+                  await supabase.rpc('log_referral_event', {
+                    p_event_type: 'credit_failed',
+                    p_referral_id: existingReferral.id,
+                    p_referrer_id: referrerId,
+                    p_error_message: creditError.message
+                  });
+                } else {
+                  console.log('✅ Credit scheduled for:', creditDate.toISOString());
+                  
+                  await supabase.rpc('log_referral_event', {
+                    p_event_type: 'credit_scheduled',
+                    p_referral_id: existingReferral.id,
+                    p_referrer_id: referrerId,
+                    p_event_data: {
+                      credit_id: credit.id,
+                      scheduled_date: creditDate.toISOString(),
+                      amount: existingReferral.reward_amount || 5.00
+                    }
+                  });
+                  
+                  // Update referral status to rewarded
+                  await supabase
+                    .from('user_referrals')
+                    .update({ status: 'rewarded' })
+                    .eq('id', existingReferral.id);
+                }
+              }
+            }
+          }
         }
         
         return new Response(JSON.stringify({ 
@@ -186,144 +294,7 @@ Deno.serve(async (req: Request) => {
         });
       }
       
-      // Handle invoice payment succeeded - REFERRAL PROCESSING
-      if (event.type === 'invoice.payment_succeeded') {
-        const invoice = event.data.object;
-        console.log('Processing payment success for invoice:', invoice.id);
-        console.log('Invoice details:', {
-          subscription_id: invoice.subscription,
-          customer_id: invoice.customer,
-          amount_paid: invoice.amount_paid,
-          billing_reason: invoice.billing_reason,
-          metadata: invoice.metadata
-        });
-        
-        if (invoice.subscription) {
-          // Update subscription status to active
-          const { error: updateError } = await supabase
-            .from('subscriptions')
-            .update({ 
-              status: 'active',
-              updated_at: new Date().toISOString()
-            })
-            .eq('stripe_subscription_id', invoice.subscription);
-            
-          if (updateError) {
-            console.error('Failed to update subscription status:', updateError);
-          } else {
-            console.log('Subscription marked as active');
-          }
-          
-          // Get subscription and user data
-          const { data: subData } = await supabase
-            .from('subscriptions')
-            .select('user_id, stripe_checkout_session_id')
-            .eq('stripe_subscription_id', invoice.subscription)
-            .single();
-            
-          if (subData) {
-            // Update user's last_subscription_change timestamp
-            await supabase
-              .from('users')
-              .update({ 
-                last_subscription_change: new Date().toISOString(),
-                updated_at: new Date().toISOString()
-              })
-              .eq('id', subData.user_id);
-            
-            // REFERRAL PROCESSING - Check if this is first payment
-            if (invoice.billing_reason === 'subscription_create') {
-              console.log('First payment detected, processing referral...');
-              
-              // Check for pending referral
-              const { data: referralData, error: referralError } = await supabase
-                .from('user_referrals')
-                .select('*')
-                .eq('referee_user_id', subData.user_id)
-                .eq('status', 'pending')
-                .single();
-              
-              if (referralData && !referralError) {
-                console.log('Found pending referral:', referralData.id);
-                
-                // Update referral to completed
-                const { error: updateRefError } = await supabase
-                  .from('user_referrals')
-                  .update({
-                    status: 'completed',
-                    completed_at: new Date().toISOString(),
-                    first_payment_id: invoice.payment_intent,
-                    stripe_checkout_session_id: subData.stripe_checkout_session_id
-                  })
-                  .eq('id', referralData.id);
-                
-                if (!updateRefError) {
-                  console.log('Referral marked as completed');
-                  
-                  // Schedule credit for referrer after 7 days
-                  const creditDate = new Date();
-                  creditDate.setDate(creditDate.getDate() + 7);
-                  
-                  // Create a scheduled credit record
-                  const { error: creditError } = await supabase
-                    .from('user_credits')
-                    .insert({
-                      user_id: referralData.referrer_user_id,
-                      amount: referralData.reward_amount || 5.00,
-                      type: 'referral_reward',
-                      description: `Referral reward for referring a new user`,
-                      reference_id: referralData.id,
-                      expires_at: new Date(creditDate.getTime() + 365 * 24 * 60 * 60 * 1000).toISOString(), // 1 year from credit date
-                      created_at: creditDate.toISOString() // Will be available after 7 days
-                    });
-                  
-                  if (!creditError) {
-                    console.log('Referral credit scheduled for:', creditDate.toISOString());
-                    
-                    // Update referral status to rewarded
-                    await supabase
-                      .from('user_referrals')
-                      .update({
-                        status: 'rewarded',
-                        rewarded_at: creditDate.toISOString()
-                      })
-                      .eq('id', referralData.id);
-                  } else {
-                    console.error('Failed to create credit:', creditError);
-                  }
-                } else {
-                  console.error('Failed to update referral:', updateRefError);
-                }
-              }
-            }
-
-            // Reset monthly usage if it's a new billing period
-            if (invoice.billing_reason === 'subscription_cycle') {
-              // Reset user's monthly usage
-              await supabase
-                .from('users')
-                .update({ 
-                  current_month_audio_seconds: 0,
-                  updated_at: new Date().toISOString()
-                })
-                .eq('id', subData.user_id);
-                
-              console.log('Reset monthly usage for user:', subData.user_id);
-            }
-          }
-        }
-        
-        return new Response(JSON.stringify({ 
-          received: true, 
-          event_type: event.type,
-          invoice_id: invoice.id 
-        }), {
-          headers: { 'Content-Type': 'application/json', ...corsHeaders },
-          status: 200,
-        });
-      }
-
-      // Handle customer subscription events
+      // Handle subscription events - FIXED REDUNDANT LOOKUP
       if (event.type === 'customer.subscription.created' || 
           event.type === 'customer.subscription.updated') {
         const subscription = event.data.object;
@@ -331,59 +302,48 @@ Deno.serve(async (req: Request) => {
         console.log('Customer ID:', subscription.customer);
         console.log('Status:', subscription.status);
         
-        // Get customer email
+        // Get customer email and user data in one flow
+        let userData: any = null;
         let email: string | null = null;
-        try {
-          const customer = await stripe.customers.retrieve(subscription.customer as string);
-          email = (customer as any).email;
-          console.log('Customer email:', email);
-        } catch (err: any) {
-          console.error('Failed to retrieve customer:', err.message);
-          
-          // Try to find user by stripe_customer_id
-          console.log('Looking up user by stripe_customer_id...');
-          const { data: userData, error: userError } = await supabase
-            .from('users')
-            .select('id, email, current_organization_id')
-            .eq('stripe_customer_id', subscription.customer)
-            .single();
+        
+        // First try to get user by stripe_customer_id
+        const { data: userByCustomerId, error: userLookupError } = await supabase
+          .from('users')
+          .select('id, email, current_organization_id')
+          .eq('stripe_customer_id', subscription.customer)
+          .single();
+        
+        if (userByCustomerId) {
+          userData = userByCustomerId;
+          email = userData.email;
+          console.log('Found user by customer ID:', userData);
+        } else {
+          // If not found, try to get email from Stripe
+          try {
+            const customer = await stripe.customers.retrieve(subscription.customer as string);
+            email = (customer as any).email;
+            console.log('Customer email from Stripe:', email);
             
-          if (userData) {
-            console.log('Found user by customer ID:', userData);
-            email = userData.email;
-          } else {
-            console.error('User lookup failed:', userError);
-            return new Response(JSON.stringify({ 
-              received: true, 
-              error: 'Customer not found' 
-            }), {
-              headers: { 'Content-Type': 'application/json', ...corsHeaders },
-              status: 200,
-            });
+            if (email) {
+              // Look up user by email
+              const { data: userByEmail, error: emailLookupError } = await supabase
+                .from('users')
+                .select('id, current_organization_id')
+                .eq('email', email)
+                .single();
+                
+              if (userByEmail) {
+                userData = userByEmail;
+                userData.email = email; // Add email to userData for consistency
+              }
+            }
+          } catch (err: any) {
+            console.error('Failed to retrieve customer from Stripe:', err.message);
           }
         }
         
-        if (!email) {
-          console.error('No email found');
-          return new Response(JSON.stringify({ 
-            received: true, 
-            error: 'No email' 
-          }), {
-            headers: { 'Content-Type': 'application/json', ...corsHeaders },
-            status: 200,
-          });
-        }
-        
-        // Get user
-        console.log('Looking up user by email:', email);
-        const { data: userData, error: userError } = await supabase
-          .from('users')
-          .select('id, current_organization_id')
-          .eq('email', email)
-          .single();
-          
         if (!userData) {
-          console.error('User not found:', userError);
+          console.error('User not found for subscription');
           return new Response(JSON.stringify({ 
             received: true, 
             error: 'User not found' 
@@ -406,7 +366,7 @@ Deno.serve(async (req: Request) => {
         // Look up plan by price ID from database
         const { data: planData, error: planError } = await supabase
           .from('plans')
-          .select('id, name, plan_type, monthly_audio_hours_limit')
+          .select('id, name, plan_type')
           .or(`stripe_price_id_monthly.eq.${priceId},stripe_price_id_yearly.eq.${priceId}`)
           .single();
           
@@ -527,36 +487,45 @@ Deno.serve(async (req: Request) => {
           .eq('id', userData.id);
         
         // Sync organization member limits (trigger should handle this, but be explicit)
-        if (subscription.status === 'active' && userData.current_organization_id && planData) {
+        if (subscription.status === 'active' && userData.current_organization_id) {
           console.log('Syncing organization member limits...');
           
-          // Update organization member limits
-          const { error: memberUpdateError } = await supabase
-            .from('organization_members')
-            .update({ 
-              monthly_audio_hours_limit: planData.monthly_audio_hours_limit,
-              updated_at: new Date().toISOString()
-            })
-            .eq('user_id', userData.id)
-            .eq('organization_id', userData.current_organization_id);
+          // Get plan details
+          const { data: planData, error: planError } = await supabase
+            .from('plans')
+            .select('monthly_audio_hours_limit')
+            .eq('id', planId)
+            .single();
             
-          if (memberUpdateError) {
-            console.error('Failed to update organization member limits:', memberUpdateError);
-          } else {
-            console.log('Organization member limits updated to:', planData.monthly_audio_hours_limit, 'hours');
-          }
-          
-          // Update organization limits
-          const { error: orgUpdateError } = await supabase
-            .from('organizations')
-            .update({ 
-              monthly_audio_hours_limit: planData.monthly_audio_hours_limit,
-              updated_at: new Date().toISOString()
-            })
-            .eq('id', userData.current_organization_id);
+          if (planData && !planError) {
+            // Update organization member limits
+            const { error: memberUpdateError } = await supabase
+              .from('organization_members')
+              .update({ 
+                monthly_audio_hours_limit: planData.monthly_audio_hours_limit,
+                updated_at: new Date().toISOString()
+              })
+              .eq('user_id', userData.id)
+              .eq('organization_id', userData.current_organization_id);
+              
+            if (memberUpdateError) {
+              console.error('Failed to update organization member limits:', memberUpdateError);
+            } else {
+              console.log('Organization member limits updated to:', planData.monthly_audio_hours_limit, 'hours');
+            }
             
-          if (orgUpdateError) {
-            console.error('Failed to update organization limits:', orgUpdateError);
+            // Update organization limits
+            const { error: orgUpdateError } = await supabase
+              .from('organizations')
+              .update({ 
+                monthly_audio_hours_limit: planData.monthly_audio_hours_limit,
+                updated_at: new Date().toISOString()
+              })
+              .eq('id', userData.current_organization_id);
+              
+            if (orgUpdateError) {
+              console.error('Failed to update organization limits:', orgUpdateError);
+            }
           }
         }
         
@@ -564,6 +533,191 @@ Deno.serve(async (req: Request) => {
           received: true, 
           event_type: event.type,
           subscription_id: subscription.id 
+        }), {
+          headers: { 'Content-Type': 'application/json', ...corsHeaders },
+          status: 200,
+        });
+      }
+      
+      // Handle payment success events
+      if (event.type === 'invoice.payment_succeeded') {
+        const invoice = event.data.object;
+        console.log('Processing payment success for invoice:', invoice.id);
+        console.log('Invoice details:', {
+          subscription_id: invoice.subscription,
+          customer_id: invoice.customer,
+          amount_paid: invoice.amount_paid,
+          billing_reason: invoice.billing_reason
+        });
+        
+        if (invoice.subscription) {
+          // Update subscription status to active
+          const { error: updateError } = await supabase
+            .from('subscriptions')
+            .update({ 
+              status: 'active',
+              updated_at: new Date().toISOString()
+            })
+            .eq('stripe_subscription_id', invoice.subscription);
+            
+          if (updateError) {
+            console.error('Failed to update subscription status:', updateError);
+          } else {
+            console.log('Subscription marked as active');
+          }
+          
+          // Update user's last_subscription_change timestamp
+          const { data: subData } = await supabase
+            .from('subscriptions')
+            .select('user_id')
+            .eq('stripe_subscription_id', invoice.subscription)
+            .single();
+            
+          if (subData) {
+            await supabase
+              .from('users')
+              .update({ 
+                last_subscription_change: new Date().toISOString(),
+                updated_at: new Date().toISOString()
+              })
+              .eq('id', subData.user_id);
+          }
+
+          // Reset monthly usage if it's a new billing period
+          if (invoice.billing_reason === 'subscription_cycle') {
+            const { data: subData } = await supabase
+              .from('subscriptions')
+              .select('user_id')
+              .eq('stripe_subscription_id', invoice.subscription)
+              .single();
+              
+            if (subData) {
+              // Reset user's monthly usage
+              await supabase
+                .from('users')
+                .update({ 
+                  current_month_audio_seconds: 0,
+                  updated_at: new Date().toISOString()
+                })
+                .eq('id', subData.user_id);
+                
+              console.log('Reset monthly usage for user:', subData.user_id);
+            }
+          }
+
+          // REFERRAL PROCESSING FOR FIRST PAYMENT
+          if (invoice.billing_reason === 'subscription_create') {
+            console.log('First subscription payment - checking for referrals');
+            
+            // Get subscription metadata
+            const subscription = await stripe.subscriptions.retrieve(invoice.subscription);
+            const referralCode = subscription.metadata?.referral_code;
+            const referrerId = subscription.metadata?.referrer_id;
+            
+            if (referralCode && referrerId) {
+              // Find the user
+              const { data: user } = await supabase
+                .from('users')
+                .select('id, email')
+                .eq('stripe_customer_id', invoice.customer)
+                .single();
+              
+              if (user) {
+                // Find referral record
+                const { data: referral } = await supabase
+                  .from('user_referrals')
+                  .select('*')
+                  .eq('referee_id', user.id)
+                  .eq('referrer_id', referrerId)
+                  .eq('status', 'pending')
+                  .single();
+                
+                if (referral) {
+                  console.log('Processing referral payment for:', referral.id);
+                  
+                  // Update referral status
+                  await supabase
+                    .from('user_referrals')
+                    .update({
+                      status: 'completed',
+                      completed_at: new Date().toISOString(),
+                      stripe_payment_intent_id: invoice.payment_intent,
+                      metadata: {
+                        ...referral.metadata,
+                        invoice_id: invoice.id,
+                        subscription_id: invoice.subscription,
+                        amount_paid: invoice.amount_paid / 100,
+                      }
+                    })
+                    .eq('id', referral.id);
+                  
+                  // Log payment completed
+                  await supabase.rpc('log_referral_event', {
+                    p_event_type: 'payment_completed',
+                    p_referral_id: referral.id,
+                    p_referee_id: user.id,
+                    p_referrer_id: referrerId,
+                    p_referral_code: referralCode,
+                    p_event_data: {
+                      payment_intent_id: invoice.payment_intent,
+                      invoice_id: invoice.id,
+                      amount_paid: invoice.amount_paid / 100
+                    }
+                  });
+                  
+                  // Schedule credit for 7 days later
+                  const creditDate = new Date();
+                  creditDate.setDate(creditDate.getDate() + 7);
+                  
+                  const { data: credit, error: creditError } = await supabase
+                    .from('user_credits')
+                    .insert({
+                      user_id: referrerId,
+                      amount: referral.reward_amount || 5.00,
+                      type: 'referral_reward',
+                      description: `Referral reward for ${user.email}`,
+                      reference_id: referral.id,
+                      created_at: creditDate.toISOString(),
+                      expires_at: new Date(creditDate.getTime() + 365 * 24 * 60 * 60 * 1000).toISOString(),
+                      metadata: {
+                        referee_email: user.email,
+                        payment_intent_id: invoice.payment_intent,
+                        scheduled_date: creditDate.toISOString()
+                      }
+                    })
+                    .select()
+                    .single();
+                  
+                  if (!creditError) {
+                    console.log('✅ Credit scheduled for referral');
+                    
+                    await supabase.rpc('log_referral_event', {
+                      p_event_type: 'credit_scheduled',
+                      p_referral_id: referral.id,
+                      p_referrer_id: referrerId,
+                      p_event_data: {
+                        credit_id: credit.id,
+                        scheduled_date: creditDate.toISOString(),
+                        amount: referral.reward_amount || 5.00
+                      }
+                    });
+                    
+                    // Update referral to rewarded
+                    await supabase
+                      .from('user_referrals')
+                      .update({ status: 'rewarded' })
+                      .eq('id', referral.id);
+                  }
+                }
+              }
+            }
+          }
+        }
+        
+        return new Response(JSON.stringify({ 
+          received: true, 
+          event_type: event.type,
+          invoice_id: invoice.id 
         }), {
           headers: { 'Content-Type': 'application/json', ...corsHeaders },
           status: 200,
@@ -824,13 +978,152 @@ Deno.serve(async (req: Request) => {
         });
       }
 
-      // Handle refunds
+      // Handle refunds - FIXED CREDIT REVERSAL LOGIC
       if (event.type === 'charge.refunded') {
         const charge = event.data.object;
         console.log('Charge refunded:', charge.id);
         console.log('Amount refunded:', charge.amount_refunded);
         
-        // Could be used to track refunds in your database
+        // REFERRAL REFUND PROCESSING
+        const paymentIntentId = charge.payment_intent;
+        const refundAmount = charge.amount_refunded / 100; // Convert from cents
+        const isFullRefund = charge.amount === charge.amount_refunded;
+        
+        // Find referral by payment intent
+        const { data: referral } = await supabase
+          .from('user_referrals')
+          .select('*')
+          .eq('stripe_payment_intent_id', paymentIntentId)
+          .single();
+        
+        if (referral) {
+          console.log('Found referral for refund:', referral.id);
+          
+          // Log refund event
+          await supabase.rpc('log_referral_event', {
+            p_event_type: 'refund_processed',
+            p_referral_id: referral.id,
+            p_referrer_id: referral.referrer_id,
+            p_referee_id: referral.referee_id,
+            p_event_data: {
+              payment_intent_id: paymentIntentId,
+              refund_amount: refundAmount,
+              is_full_refund: isFullRefund,
+              charge_id: charge.id
+            }
+          });
+          
+          // If full refund and referral is still pending/completed (not rewarded yet)
+          if (isFullRefund && referral.status !== 'rewarded') {
+            // Cancel the referral
+            const { error: updateError } = await supabase
+              .from('user_referrals')
+              .update({
+                status: 'expired',
+                metadata: {
+                  ...referral.metadata,
+                  cancelled_reason: 'refund',
+                  refund_date: new Date().toISOString(),
+                  refund_amount: refundAmount
+                }
+              })
+              .eq('id', referral.id);
+            
+            if (!updateError) {
+              console.log(`Referral ${referral.id} cancelled due to refund`);
+            }
+          }
+          
+          // If referral was already rewarded, handle credit reversal
+          if (referral.status === 'rewarded' && isFullRefund) {
+            // Check if credit exists and hasn't been fully used
+            const { data: credit } = await supabase
+              .from('user_credits')
+              .select('*')
+              .eq('reference_id', referral.id)
+              .eq('type', 'referral_reward')
+              .single();
+            
+            if (credit) {
+              // Check total balance to see if credit can be reversed
+              const { data: allCredits } = await supabase
+                .from('user_credits')
+                .select('amount, type')
+                .eq('user_id', referral.referrer_id);
+              
+              // Calculate current balance
+              const currentBalance = allCredits?.reduce((acc, c) => {
+                if (c.type === 'redemption') {
+                  return acc - c.amount;
+                }
+                return acc + c.amount;
+              }, 0) || 0;
+              
+              console.log(`Current balance for user ${referral.referrer_id}: ${currentBalance}`);
+              
+              if (currentBalance >= credit.amount) {
+                // User has enough balance, we can reverse the full credit
+                // Insert a NEGATIVE credit to reverse the reward
+                await supabase
+                  .from('user_credits')
+                  .insert({
+                    user_id: referral.referrer_id,
+                    amount: -credit.amount, // NEGATIVE amount to reverse
+                    type: 'referral_reward', // Same type but negative
+                    description: `Reversal: Refund for ${referral.referee_email}`,
+                    reference_id: referral.id,
+                    metadata: {
+                      reversal_reason: 'refund',
+                      original_credit_id: credit.id,
+                      refund_amount: refundAmount,
+                      charge_id: charge.id
+                    }
+                  });
+                
+                console.log(`Reversed ${credit.amount} credits for referral ${referral.id}`);
+                
+                // Update referral status to indicate reversal
+                await supabase
+                  .from('user_referrals')
+                  .update({
+                    status: 'expired',
+                    metadata: {
+                      ...referral.metadata,
+                      credit_reversed: true,
+                      reversal_date: new Date().toISOString(),
+                      reversal_amount: credit.amount
+                    }
+                  })
+                  .eq('id', referral.id);
+                  
+              } else if (currentBalance > 0) {
+                // User has some balance but not enough for full reversal
+                // Reverse what we can
+                await supabase
+                  .from('user_credits')
+                  .insert({
+                    user_id: referral.referrer_id,
+                    amount: -currentBalance, // Reverse available balance
+                    type: 'referral_reward',
+                    description: `Partial reversal: Refund for ${referral.referee_email}`,
+                    reference_id: referral.id,
+                    metadata: {
+                      reversal_reason: 'refund',
+                      original_credit_id: credit.id,
+                      refund_amount: refundAmount,
+                      partial_reversal: true,
+                      reversed_amount: currentBalance,
+                      original_amount: credit.amount
+                    }
+                  });
+                
+                console.log(`Partially reversed ${currentBalance} credits for referral ${referral.id}`);
+              } else {
+                console.log(`Cannot reverse credits for referral ${referral.id} - insufficient balance`);
+              }
+            }
+          }
+        }
         
         return new Response(JSON.stringify({ 
           received: true, 

@@ -3,6 +3,16 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 
+// Simple referral code generator for fallback
+function generateSimpleReferralCode() {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
+  let result = ''
+  for (let i = 0; i < 6; i++) {
+    result += chars[Math.floor(Math.random() * chars.length)]
+  }
+  return result
+}
+
 export default function AuthCallbackPage() {
   const router = useRouter()
   const [status, setStatus] = useState('Signing in...')
@@ -63,6 +73,46 @@ export default function AuthCallbackPage() {
             router.replace('/auth/login?error=This email is not on our approved waitlist. Please contact support.')
             return
           }
+          
+          // Process referral code for OAuth signups
+          const referralCode = localStorage.getItem('ref_code')
+          if (referralCode && session.user.id) {
+            try {
+              // Check if this is a new user or doesn't have a referrer yet
+              const { data: userData } = await supabase
+                .from('users')
+                .select('created_at, referral_code, referred_by_user_id')
+                .eq('id', session.user.id)
+                .single()
+              
+              if (userData) {
+                // Process referral if user doesn't have a referrer yet
+                // Remove time restriction as it's unreliable
+                if (!userData.referred_by_user_id) {
+                  const response = await fetch('/api/referrals/process', {
+                    method: 'POST',
+                    headers: {
+                      'Content-Type': 'application/json',
+                      'Authorization': `Bearer ${session.access_token}`,
+                    },
+                    body: JSON.stringify({ 
+                      referral_code: referralCode,
+                      device_id: null 
+                    }),
+                  })
+                  
+                  if (response.ok) {
+                    // Clear the referral code after successful processing
+                    localStorage.removeItem('ref_code')
+                    console.log('Referral code processed successfully')
+                  }
+                }
+              }
+            } catch (error) {
+              console.error('Error processing referral:', error)
+              // Don't block the auth flow for referral errors
+            }
+          }
         }
 
         // Check if we have a valid session before checking onboarding
@@ -72,22 +122,67 @@ export default function AuthCallbackPage() {
         }
 
         // Check if user has completed onboarding
-        const { data: userData, error: userError } = await supabase
+        let { data: userData, error: userError } = await supabase
           .from('users')
-          .select('has_completed_onboarding')
+          .select('has_completed_onboarding, referral_code')
           .eq('id', session.user.id)
           .single()
 
         if (userError) {
           console.error('Error fetching user data:', userError)
           // If user doesn't exist in public.users table, it might be due to trigger failure
-          if (userError.code === 'PGRST116') {
+          if (userError.code === 'PGRST116' || userError.message?.includes('Row not found')) {
             console.error('User record not found in public.users table. The database trigger may have failed.')
-            router.replace('/auth/login?error=User profile creation failed. Please try again or contact support.')
+            
+            // Attempt to create the user record as a fallback
+            const { error: createError } = await supabase
+              .from('users')
+              .insert({
+                id: session.user.id,
+                email: session.user.email,
+                full_name: session.user.user_metadata?.full_name || session.user.email?.split('@')[0] || null,
+                referral_code: generateSimpleReferralCode(),
+                has_completed_onboarding: false,
+                has_completed_organization_setup: false,
+                is_active: true,
+                created_at: new Date().toISOString(),
+                updated_at: new Date().toISOString()
+              })
+              .select()
+              .single()
+            
+            if (createError) {
+              console.error('Failed to create user record:', createError)
+              
+              // If it's a conflict error (user already exists), try to fetch again
+              if (createError.code === '23505' || createError.message?.includes('duplicate')) {
+                const { data: existingUser, error: fetchError } = await supabase
+                  .from('users')
+                  .select('has_completed_onboarding, referral_code')
+                  .eq('id', session.user.id)
+                  .single()
+                
+                if (!fetchError && existingUser) {
+                  userData = existingUser
+                  userError = null
+                } else {
+                  router.replace('/auth/login?error=User profile creation failed. Please try again or contact support.')
+                  return
+                }
+              } else {
+                router.replace('/auth/login?error=User profile creation failed. Please try again or contact support.')
+                return
+              }
+            } else {
+              // Successfully created user, continue to onboarding
+              router.replace('/onboarding')
+              return
+            }
+          } else {
+            // Other types of errors
+            router.replace('/auth/login?error=Unable to access user profile. Please try again.')
             return
           }
-          router.replace('/dashboard')
-          return
         }
 
         // Redirect based on onboarding status

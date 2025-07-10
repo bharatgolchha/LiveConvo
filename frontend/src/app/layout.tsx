@@ -155,6 +155,41 @@ export default function RootLayout({
         gtag('config', 'G-YYPP67HS2H');
       `}</Script>
       {/* End Google Analytics 4 */}
+      
+      {/* Referral Code Capture Script */}
+      <Script id="referral-capture" strategy="afterInteractive">{`
+        (function() {
+          const urlParams = new URLSearchParams(window.location.search);
+          const refCode = urlParams.get('ref');
+          if (refCode) {
+            // Validate referral code format (alphanumeric, 6-10 chars)
+            const cleanCode = refCode.replace(/[^A-Za-z0-9]/g, '').toUpperCase();
+            if (cleanCode.length >= 6 && cleanCode.length <= 10) {
+              // Only update if different from existing code
+              const existingCode = localStorage.getItem('ref_code');
+              if (!existingCode || existingCode !== cleanCode) {
+                localStorage.setItem('ref_code', cleanCode);
+                localStorage.setItem('ref_timestamp', Date.now());
+                // Track event if analytics available
+                if (typeof gtag !== 'undefined') {
+                  gtag('event', 'referral_link_clicked', {
+                    referral_code: cleanCode
+                  });
+                }
+              }
+            }
+          } else {
+            // Check and clean up expired referral codes (30 days)
+            const storedTimestamp = localStorage.getItem('ref_timestamp');
+            if (storedTimestamp && Date.now() - parseInt(storedTimestamp) > 30 * 24 * 60 * 60 * 1000) {
+              localStorage.removeItem('ref_code');
+              localStorage.removeItem('ref_timestamp');
+            }
+          }
+        })();
+      `}</Script>
+      {/* End Referral Code Capture */}
+      
       <body
         className={`${geistSans.variable} ${geistMono.variable} ${poppins.variable} antialiased`}
       >

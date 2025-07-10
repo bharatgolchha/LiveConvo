@@ -101,11 +101,20 @@ export default function PrivacyPolicy() {
             <div className="bg-green-50 dark:bg-green-900/20 p-6 rounded-lg mb-6">
               <h3 className="text-xl font-semibold mb-3 text-green-800 dark:text-green-200">Limited Use Requirements for Google User Data</h3>
               <p className="text-green-700 dark:text-green-300 font-semibold text-lg mb-4">
-                liveprompt.ai's use and transfer to any other app of information received from Google APIs adheres to the 
-                <a href="https://developers.google.com/terms/api-services-user-data-policy#additional_requirements_for_specific_api_scopes" className="underline ml-1" target="_blank" rel="noopener noreferrer">
-                  Google API Services User Data Policy
-                </a>, including the Limited Use requirements.
+                liveprompt.ai's use and transfer to any other app of information received from Google APIs adheres to the Google API Services User Data Policy, including the Limited Use requirements. This includes compliance with:
               </p>
+              <ul className="list-disc ml-6 text-green-700 dark:text-green-300 mb-4">
+                <li>
+                  <a href="https://developers.google.com/workspace/workspace-api-user-data-developer-policy" className="underline" target="_blank" rel="noopener noreferrer">
+                    Workspace API User Data and Developer Policy
+                  </a>
+                </li>
+                <li>
+                  <a href="https://developers.google.com/photos/support/api-policy" className="underline" target="_blank" rel="noopener noreferrer">
+                    Photos API User Data and Developer Policy
+                  </a>
+                </li>
+              </ul>
               
               <div className="bg-white dark:bg-gray-800 p-4 rounded border-2 border-green-600 dark:border-green-400 mb-4">
                 <p className="text-green-800 dark:text-green-200 font-bold text-lg">
@@ -137,11 +146,20 @@ export default function PrivacyPolicy() {
                 </ul>
                 
                 <p className="text-green-700 dark:text-green-300 mt-4">
-                  For more information about Google's Limited Use requirements, please visit the 
-                  <a href="https://developers.google.com/terms/api-services-user-data-policy#additional_requirements_for_specific_api_scopes" className="underline ml-1" target="_blank" rel="noopener noreferrer">
-                    Google API Services User Data Policy
-                  </a>.
+                  For more information about Google's Limited Use requirements, please visit:
                 </p>
+                <ul className="list-disc ml-6 text-green-700 dark:text-green-300 mt-2">
+                  <li>
+                    <a href="https://developers.google.com/workspace/workspace-api-user-data-developer-policy" className="underline" target="_blank" rel="noopener noreferrer">
+                      Workspace API User Data and Developer Policy
+                    </a>
+                  </li>
+                  <li>
+                    <a href="https://developers.google.com/photos/support/api-policy" className="underline" target="_blank" rel="noopener noreferrer">
+                      Photos API User Data and Developer Policy
+                    </a>
+                  </li>
+                </ul>
               </div>
             </div>
           </section>
