@@ -16,7 +16,8 @@ import {
   AlertCircle,
   ExternalLink,
   QrCode,
-  ArrowLeft
+  ArrowLeft,
+  Percent
 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { format } from 'date-fns';
@@ -238,7 +239,7 @@ export default function ReferralsPage() {
         </div>
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
           <Card>
             <CardHeader className="pb-3">
               <CardTitle className="text-sm font-medium flex items-center">
@@ -290,6 +291,23 @@ export default function ReferralsPage() {
             <CardContent>
               <div className="text-2xl font-bold">${credits.balance || 0}</div>
               <p className="text-xs text-muted-foreground">Available to use</p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-medium flex items-center">
+                <Percent className="w-4 h-4 mr-2" />
+                Conversion Rate
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">
+                {stats?.stats.total_referrals > 0 
+                  ? Math.round((stats.stats.completed / stats.stats.total_referrals) * 100) 
+                  : 0}%
+              </div>
+              <p className="text-xs text-muted-foreground">Success rate</p>
             </CardContent>
           </Card>
         </div>
@@ -368,6 +386,81 @@ export default function ReferralsPage() {
                     <QrCode className="w-12 h-12 text-muted-foreground" />
                   </div>
                 )}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Referral Status Breakdown */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Referral Status Breakdown</CardTitle>
+            <CardDescription>
+              Visual overview of your referral pipeline
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              {/* Status bars */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Clock className="w-4 h-4 text-yellow-500" />
+                    <span className="text-sm font-medium">Pending</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-bold">{stats?.stats.pending || 0}</span>
+                    <span className="text-xs text-muted-foreground">
+                      ({stats?.stats.total_referrals > 0 
+                        ? Math.round((stats.stats.pending / stats.stats.total_referrals) * 100) 
+                        : 0}%)
+                    </span>
+                  </div>
+                </div>
+                <div className="w-full bg-muted rounded-full h-2">
+                  <div 
+                    className="bg-yellow-500 h-2 rounded-full transition-all duration-500"
+                    style={{ 
+                      width: `${stats?.stats.total_referrals > 0 
+                        ? (stats.stats.pending / stats.stats.total_referrals) * 100 
+                        : 0}%` 
+                    }}
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle className="w-4 h-4 text-green-500" />
+                    <span className="text-sm font-medium">Converted</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-bold">{stats?.stats.completed || 0}</span>
+                    <span className="text-xs text-muted-foreground">
+                      ({stats?.stats.total_referrals > 0 
+                        ? Math.round((stats.stats.completed / stats.stats.total_referrals) * 100) 
+                        : 0}%)
+                    </span>
+                  </div>
+                </div>
+                <div className="w-full bg-muted rounded-full h-2">
+                  <div 
+                    className="bg-green-500 h-2 rounded-full transition-all duration-500"
+                    style={{ 
+                      width: `${stats?.stats.total_referrals > 0 
+                        ? (stats.stats.completed / stats.stats.total_referrals) * 100 
+                        : 0}%` 
+                    }}
+                  />
+                </div>
+              </div>
+
+              <div className="pt-2 border-t">
+                <p className="text-sm text-muted-foreground">
+                  {stats?.stats.pending || 0} referrals are waiting for their first payment. 
+                  Once they subscribe, you'll earn $5 per referral!
+                </p>
               </div>
             </div>
           </CardContent>
