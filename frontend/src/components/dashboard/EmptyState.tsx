@@ -130,6 +130,35 @@ const EmptyState: React.FC<Props> = ({ onNewConversation, onNewMeeting }) => {
           >
             Transform your meetings with AI-powered real-time coaching and intelligent conversation insights.
           </motion.p>
+          
+          {/* Platform Compatibility */}
+          <motion.div
+            className="mt-8"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.5 }}
+          >
+            <p className="text-muted-foreground text-base mb-4">
+              Works seamlessly with your favorite meeting platforms
+            </p>
+            <div className="flex items-center justify-center gap-8">
+              <img
+                src="/platform-logos/meet.png"
+                alt="Google Meet"
+                className="h-8 w-auto opacity-70 hover:opacity-100 transition-opacity"
+              />
+              <img
+                src="/platform-logos/zoom.png"
+                alt="Zoom"
+                className="h-8 w-auto opacity-70 hover:opacity-100 transition-opacity"
+              />
+              <img
+                src="/platform-logos/teams.png"
+                alt="Microsoft Teams"
+                className="h-8 w-auto opacity-70 hover:opacity-100 transition-opacity"
+              />
+            </div>
+          </motion.div>
         </div>
         
         {/* Action buttons */}
@@ -137,7 +166,7 @@ const EmptyState: React.FC<Props> = ({ onNewConversation, onNewMeeting }) => {
           className="flex flex-col sm:flex-row gap-4 mt-10 items-center"
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.5 }}
+          transition={{ delay: 0.6 }}
         >
           {onNewMeeting ? (
             <NewConversationButton

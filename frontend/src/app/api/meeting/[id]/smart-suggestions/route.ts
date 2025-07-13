@@ -68,6 +68,7 @@ export async function POST(
       meetingType = 'meeting',
       meetingTitle = '',
       context = '',
+      aiInstructions = null,
       stage = 'discussion',
       participantMe = 'You',
       sessionOwner = null
@@ -76,18 +77,24 @@ export async function POST(
     console.log('🔄 Generating smart suggestions for:', {
       meetingId,
       transcriptLength: transcript.length,
+      isRecentTranscript: transcript.includes('[Earlier conversation:'),
       stage,
       meetingType,
-      hasSummary: !!summary
+      hasSummary: !!summary,
+      hasAiInstructions: !!aiInstructions,
+      recentMessagesCount: transcript.split('\n').filter((line: string) => line.trim()).length
     });
 
     // Build context for AI
-    const fullTranscript = transcript; // Use full transcript as requested
+    // Note: 'transcript' already contains windowed recent messages from frontend (last 30 messages)
+    const fullTranscript = transcript;
     const summaryContext = summary ? `
-Current meeting summary:
+📊 REAL-TIME MEETING SUMMARY:
 - TL;DR: ${summary.tldr || 'In progress'}
-- Key Points: ${(summary.keyPoints || []).slice(0, 3).join(', ')}
-- Action Items: ${(summary.actionItems || []).slice(0, 3).join(', ')}
+- Key Points: ${(summary.keyPoints || []).slice(0, 5).join('; ')}
+- Action Items: ${(summary.actionItems || []).slice(0, 5).join('; ')}
+- Decisions Made: ${(summary.decisions || []).slice(0, 3).join('; ')}
+- Open Questions: ${(summary.questions || []).slice(0, 3).join('; ')}
 ` : '';
 
     // Build session owner context
@@ -111,17 +118,32 @@ Meeting Context:
 - Title: ${meetingTitle}
 - Stage: ${stage}
 - Context: ${context}
+${aiInstructions ? `\n📋 MEETING AGENDA/OBJECTIVES:\n${aiInstructions}\n` : ''}
 
 Primary participant (the person seeking advice): ${participantMe}
+
 ${summaryContext}
 
-Full Transcript:
+IMPORTANT CONTEXT: The transcript below contains the MOST RECENT messages from the conversation (last 30 messages). Your suggestions must be based on what's happening RIGHT NOW, especially focusing on the last 5-10 exchanges.
+
+Recent Conversation:
 ${fullTranscript}
 
-Generate 4-5 contextual suggestions that would help the user navigate this meeting effectively. Each suggestion should be:
-1. Specific to the current conversation 
-2. Actionable (something they can do right now)
-3. Valuable (moves the meeting forward)
+Generate 4-5 highly contextual suggestions based on the IMMEDIATE conversation. Each suggestion must:
+1. Reference specific topics, names, or points from the RECENT messages (especially the last 5-10)
+2. Be immediately actionable - something they can say or do in the next few moments
+3. Address the current flow and momentum of the conversation
+4. Help navigate what's happening RIGHT NOW, not general meeting advice
+${aiInstructions ? '5. Align with the meeting agenda/objectives when relevant' : ''}
+${summary ? '6. Consider the real-time summary to identify gaps or important follow-ups' : ''}
+
+Prioritize:
+- Unresolved questions or concerns from the last few exchanges
+- Topics that were just introduced but not fully explored
+- Opportunities to clarify or expand on recent points
+- Natural next steps based on what was just discussed
+${aiInstructions ? '- Progress toward meeting objectives stated in the agenda' : ''}
+${summary ? '- Action items or decisions that need clarification' : ''}
 
 Return ONLY a JSON array with this format:
 [
@@ -135,14 +157,14 @@ Return ONLY a JSON array with this format:
 ]
 
 Categories:
-- follow_up: Following up on something mentioned
-- action_item: Concrete next steps to discuss
-- insight: Analyze what's happening
-- question: Good questions to ask
+- follow_up: Direct follow-up to something just mentioned
+- action_item: Immediate next steps based on recent discussion
+- insight: Analysis of current dynamics or recent exchanges
+- question: Clarifying questions about points just raised
 
-Focus on what's actually happening in the conversation, not generic advice.`;
+CRITICAL: Generic suggestions will be rejected. Every suggestion must clearly relate to specific content from the recent messages.`;
 
-    const styleGuide = `\n\nSTYLE GUIDELINES:\n- Address ${participantMe} directly (use first-person suggestions, e.g., \"Alex, can you...\").\n- Be concrete and action-oriented: assign owners, timelines, deliverables.\n- Where helpful, incorporate specific numbers or dates from the conversation.\n- Keep \"text\" under 40 characters but sharp and engaging (e.g., \"Summarize & anchor timeline\").\n- Ensure \"prompt\" is a full sentence the user can click to send as-is.\n- Avoid filler words and generic business jargon.\n- Maintain the same JSON format exactly.`;
+    const styleGuide = `\n\nSTYLE GUIDELINES:\n- Address ${participantMe} directly (use first-person suggestions, e.g., \"Alex, can you...\").\n- Be concrete and action-oriented: assign owners, timelines, deliverables.\n- ALWAYS reference specific details from the RECENT conversation (last 5-10 messages).\n- Where helpful, incorporate specific numbers, dates, or names just mentioned.\n- Keep \"text\" under 40 characters but sharp and engaging (e.g., \"Follow up on Sarah's budget concern\").\n- Ensure \"prompt\" is a full sentence that references the recent context (e.g., \"How should I address Sarah's concern about the Q3 budget allocation she just mentioned?\").\n- Avoid filler words and generic business jargon.\n- Each suggestion should feel like a natural continuation of what JUST happened.\n- Maintain the same JSON format exactly.`;
 
     const finalPrompt = `${systemPrompt}${styleGuide}`;
 

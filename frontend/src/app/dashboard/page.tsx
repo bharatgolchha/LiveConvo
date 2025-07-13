@@ -18,7 +18,6 @@ import {
   ChevronDownIcon,
   TrashIcon,
   XCircleIcon,
-  LinkIcon
 } from '@heroicons/react/24/outline';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
@@ -27,11 +26,12 @@ import { useTheme } from '@/contexts/ThemeContext';
 import ProtectedRoute from '@/components/auth/ProtectedRoute';
 import { useAuth } from '@/contexts/AuthContext';
 import { useDashboardDataWithFallback } from '@/lib/hooks/useDashboardDataWithFallback';
-import { useSessionThreads } from '@/lib/hooks/useSessionThreads';
+// Removed useSessionThreads import - no longer needed for grouped view
 import { useSessionData } from '@/lib/hooks/useSessionData';
 import { useDebounce } from '@/lib/utils/debounce';
 import type { Session } from '@/lib/hooks/useSessions';
 import { defaultStats } from '@/lib/hooks/useUserStats';
+import { useUpcomingMeetings } from '@/lib/hooks/useUpcomingMeetings';
 import { useRealtimeBotStatus } from '@/lib/hooks/useRealtimeBotStatus';
 import { DeleteConfirmationModal } from '@/components/ui/DeleteConfirmationModal';
 import { PricingModal } from '@/components/ui/PricingModal';
@@ -39,7 +39,7 @@ import { SettingsPanel } from '@/components/settings/SettingsPanel';
 import { ConversationListDate } from '@/components/ui/ConversationDateIndicator';
 import { LoadingModal } from '@/components/ui/LoadingModal';
 import type { ConversationConfig } from '@/types/app';
-import { ConversationThread } from '@/components/dashboard/ConversationThread';
+// Removed ConversationThread import - no longer needed for grouped view
 import { Pagination } from '@/components/ui/Pagination';
 import dynamic from 'next/dynamic';
 
@@ -102,7 +102,7 @@ const DashboardPage: React.FC = () => {
   const [isNavigating, setIsNavigating] = useState(false);
   const [navigationSessionTitle, setNavigationSessionTitle] = useState('');
   const [isNewSession, setIsNewSession] = useState(false);
-  const [groupByThread, setGroupByThread] = useState(false); // Changed to false for default list view
+  // Removed groupByThread state - always use list view
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(20); // Number of items per page
 
@@ -179,8 +179,7 @@ const DashboardPage: React.FC = () => {
     ? 'team' 
     : 'free';
 
-  // Get thread grouping for sessions
-  const { enhancedSessions, threads, standaloneSessions, isGrouped } = useSessionThreads(sessions, groupByThread);
+  // Removed thread grouping - always use list view
 
   // Get auth session for API calls
   const { session: authSession } = useAuth();
@@ -229,24 +228,9 @@ const DashboardPage: React.FC = () => {
 
   // For paginated data, we use the current sessions directly since filtering is done server-side
   const filtered = useMemo(() => {
-    if (isGrouped) {
-      // For grouped view, we still need to filter locally since threading is client-side
-      const filteredThreads = threads.filter(() => {
-        // Server-side filtering handles status and search, so we just return the threads
-        return true;
-      });
-      
-      const filteredStandalone = standaloneSessions.filter(() => {
-        // Server-side filtering handles status and search, so we just return the sessions
-        return true;
-      });
-      
-      return { threads: filteredThreads, standalone: filteredStandalone };
-    } else {
-      // For list view, use original sessions directly (server-side filtered) to avoid duplicates
-      return { sessions: sessions };
-    }
-  }, [isGrouped, threads, standaloneSessions, sessions]);
+    // Always use list view with original sessions (server-side filtered)
+    return { sessions: sessions };
+  }, [sessions]);
   
   // Use totalCount from API response for pagination
   // Always use the API's totalCount for accurate pagination
@@ -460,21 +444,12 @@ const DashboardPage: React.FC = () => {
   };
 
   const handleSelectAll = () => {
-    const allSessionIds = () => {
-      if (isGrouped) {
-        const threadSessionIds = filtered.threads?.flatMap(thread => thread.sessions.map(s => s.id)) || [];
-        const standaloneSessionIds = filtered.standalone?.map(s => s.id) || [];
-        return [...threadSessionIds, ...standaloneSessionIds];
-      } else {
-        return filtered.sessions?.map(s => s.id) || [];
-      }
-    };
+    const allSessionIds = filtered.sessions?.map(s => s.id) || [];
     
-    const allIds = allSessionIds();
-    if (selectedSessions.size === allIds.length) {
+    if (selectedSessions.size === allSessionIds.length) {
       setSelectedSessions(new Set());
     } else {
-      setSelectedSessions(new Set(allIds));
+      setSelectedSessions(new Set(allSessionIds));
     }
   };
 
@@ -543,6 +518,9 @@ const DashboardPage: React.FC = () => {
 
   const activeSessions = sessions.filter(s => s.status === 'active');
   const hasAnySessions = sessions.length > 0;
+
+  // Get upcoming meetings data
+  const { count: upcomingMeetingsCount, todayCount: todayMeetingsCount, hasCalendarConnection: hasCalendar } = useUpcomingMeetings();
 
   // Additional debug logging
   console.log('Dashboard render check:', {
@@ -700,9 +678,15 @@ const DashboardPage: React.FC = () => {
                   <div>
                     <h1 className="text-2xl font-bold mb-2 text-foreground">Welcome back, {currentUser.name}!</h1>
                     <p className="text-muted-foreground">
-                      {activeSessions.length > 0 
-                        ? `You have ${activeSessions.length} active meeting${activeSessions.length === 1 ? '' : 's'}`
-                        : 'Ready to start a new meeting?'}
+                      {hasCalendar && upcomingMeetingsCount > 0 ? (
+                        todayMeetingsCount > 0 
+                          ? `You have ${todayMeetingsCount} meeting${todayMeetingsCount === 1 ? '' : 's'} today${upcomingMeetingsCount > todayMeetingsCount ? ` and ${upcomingMeetingsCount - todayMeetingsCount} more this week` : ''}`
+                          : `You have ${upcomingMeetingsCount} upcoming meeting${upcomingMeetingsCount === 1 ? '' : 's'} this week`
+                      ) : activeSessions.length > 0 ? (
+                        `You have ${activeSessions.length} active meeting${activeSessions.length === 1 ? '' : 's'}`
+                      ) : (
+                        'Ready to start a new meeting?'
+                      )}
                     </p>
                   </div>
                   <NewConversationButton 
@@ -726,7 +710,7 @@ const DashboardPage: React.FC = () => {
                   setActivePath('conversations'); // Return to conversations view
                 }}
               />
-            ) : !hasAnySessions && activePath !== 'archive' ? (
+            ) : !hasAnySessions && activePath !== 'archive' && !searchQuery ? (
               <EmptyState onNewConversation={handleNewConversation} onNewMeeting={handleNewMeeting} />
             ) : (
               <div className="flex flex-col flex-1">
@@ -807,13 +791,6 @@ const DashboardPage: React.FC = () => {
                         
                         {selectedSessions.size === 0 && (
                           <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                            <button
-                              onClick={() => setGroupByThread(!groupByThread)}
-                              className="flex items-center gap-1.5 px-2 py-1 hover:bg-muted/50 rounded transition-colors"
-                            >
-                              <LinkIcon className="w-3.5 h-3.5" />
-                              {groupByThread ? 'Grouped' : 'List View'}
-                            </button>
                             <span className="flex items-center gap-2">
                               <div className="w-2 h-2 rounded-full bg-app-success"></div>
                               Active ({activeSessions.length})
@@ -829,58 +806,20 @@ const DashboardPage: React.FC = () => {
 
                     {/* Meeting List */}
                     <div className="flex-1 p-4 space-y-3">
-                      {isGrouped ? (
-                        <>
-                          {/* Render Threads */}
-                          {filtered.threads?.map((thread) => (
-                            <ConversationThread
-                              key={`thread-${thread.id}`}
-                              thread={thread}
-                              isSelected={thread.sessions.every(s => selectedSessions.has(s.id))}
-                              onSelectThread={(sessionIds) => {
-                                sessionIds.forEach(id => handleSessionSelect(id));
-                              }}
-                              selectedSessions={selectedSessions}
-                              onSelectSession={handleSessionSelect}
-                              onResume={handleResumeSession}
-                              onViewSummary={handleViewSummary}
-                              onArchive={handleArchiveSession}
-                              onDelete={handleDeleteSession}
-                              onCreateFollowUp={handleCreateFollowUp}
-                            />
-                          ))}
-                          
-                          {/* Render Standalone Sessions */}
-                          {filtered.standalone?.map((session) => (
-                            <ConversationInboxItem
-                              key={`standalone-session-${session.id}`}
-                              session={session}
-                              isSelected={selectedSessions.has(session.id)}
-                              onClick={() => handleSessionSelect(session.id)}
-                              onResume={handleResumeSession}
-                              onViewSummary={handleViewSummary}
-                              onArchive={handleArchiveSession}
-                              onDelete={handleDeleteSession}
-                              onCreateFollowUp={handleCreateFollowUp}
-                            />
-                          ))}
-                        </>
-                      ) : (
-                        /* Render Regular Session List */
-                        filtered.sessions?.map((session) => (
-                          <ConversationInboxItem
-                            key={`session-${session.id}`}
-                            session={session}
-                            isSelected={selectedSessions.has(session.id)}
-                            onClick={() => handleSessionSelect(session.id)}
-                            onResume={handleResumeSession}
-                            onViewSummary={handleViewSummary}
-                            onArchive={handleArchiveSession}
-                            onDelete={handleDeleteSession}
-                            onCreateFollowUp={handleCreateFollowUp}
-                          />
-                        ))
-                      )}
+                      {/* Always render as list view */}
+                      {filtered.sessions?.map((session) => (
+                        <ConversationInboxItem
+                          key={`session-${session.id}`}
+                          session={session}
+                          isSelected={selectedSessions.has(session.id)}
+                          onClick={() => handleSessionSelect(session.id)}
+                          onResume={handleResumeSession}
+                          onViewSummary={handleViewSummary}
+                          onArchive={handleArchiveSession}
+                          onDelete={handleDeleteSession}
+                          onCreateFollowUp={handleCreateFollowUp}
+                        />
+                      ))}
                     </div>
 
                     {/* Pagination */}
@@ -922,8 +861,12 @@ const DashboardPage: React.FC = () => {
                       ) : (
                         <>
                           <MagnifyingGlassIcon className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
-                          <h3 className="text-lg font-medium text-foreground mb-2">No meetings found</h3>
-                          <p className="text-muted-foreground mb-6">Try adjusting your search terms or start a new meeting.</p>
+                          <h3 className="text-lg font-medium text-foreground mb-2">No results found</h3>
+                          <p className="text-muted-foreground mb-6">
+                            {searchQuery 
+                              ? `No meetings match your search for "${searchQuery}"`
+                              : "Try adjusting your search terms or start a new meeting."}
+                          </p>
                           <Button
                             onClick={handleNewConversation}
                             className="bg-primary hover:bg-primary/90 text-primary-foreground"

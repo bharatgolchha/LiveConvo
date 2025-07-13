@@ -47,7 +47,7 @@ export function useRealtimeSummary({
   conversationType = 'general',
   isRecording,
   isPaused = false,
-  refreshIntervalMs = 45000,
+  refreshIntervalMs = 90000,
   session,
   participantMe,
   participantThem
@@ -104,10 +104,10 @@ export function useRealtimeSummary({
       return;
     }
     
-    // Don't generate too frequently (minimum 30 seconds between calls unless forced)
+    // Don't generate too frequently (minimum 60 seconds between calls unless forced)
     const now = Date.now();
-    if (!force && lastRefreshTime.current > 0 && (now - lastRefreshTime.current) < 30000) {
-      console.log('❌ Summary: Skipping - too frequent (30s limit)');
+    if (!force && lastRefreshTime.current > 0 && (now - lastRefreshTime.current) < 60000) {
+      console.log('❌ Summary: Skipping - too frequent (60s limit)');
       return;
     }
     
@@ -127,11 +127,11 @@ export function useRealtimeSummary({
       return;
     }
 
-    // Check if we have enough new content (15 new lines OR significant word increase OR force)
+    // Check if we have enough new content (25 new lines OR significant word increase OR force)
     const newLinesSinceLastUpdate = transcriptLines.length - lastTranscriptLineCount.current;
     const newWordsSinceLastUpdate = transcriptWords - lastTranscriptLength.current;
-    if (!force && newLinesSinceLastUpdate < 15 && newWordsSinceLastUpdate < 30) {
-      console.log(`❌ Summary: Not enough new content (${newLinesSinceLastUpdate} new lines, ${newWordsSinceLastUpdate} new words, need 15 lines or 30 words)`);
+    if (!force && newLinesSinceLastUpdate < 25 && newWordsSinceLastUpdate < 50) {
+      console.log(`❌ Summary: Not enough new content (${newLinesSinceLastUpdate} new lines, ${newWordsSinceLastUpdate} new words, need 25 lines or 50 words)`);
       return;
     }
 
@@ -271,8 +271,8 @@ export function useRealtimeSummary({
         const newLinesSinceLastUpdate = transcriptLines.length - lastTranscriptLineCount.current;
         const newWordsSinceLastUpdate = transcriptWords - lastTranscriptLength.current;
         
-        // Trigger if we have 15+ new lines OR 30+ new words
-        if (newLinesSinceLastUpdate >= 15 || newWordsSinceLastUpdate >= 30) {
+        // Trigger if we have 25+ new lines OR 50+ new words
+        if (newLinesSinceLastUpdate >= 25 || newWordsSinceLastUpdate >= 50) {
           console.log(`🚀 Auto-triggering summary update: ${newLinesSinceLastUpdate} new lines, ${newWordsSinceLastUpdate} new words`);
           generateSummary();
         }
