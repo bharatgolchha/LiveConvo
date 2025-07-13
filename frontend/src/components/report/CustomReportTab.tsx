@@ -218,23 +218,23 @@ export function CustomReportTab({
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="bg-card border border-border rounded-lg p-6">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center">
-              <Sparkles className="w-5 h-5 text-primary" />
+      {/* Header - Only show when not in shared mode */}
+      {!sharedToken && (
+        <div className="bg-card border border-border rounded-lg p-6">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center">
+                <Sparkles className="w-5 h-5 text-primary" />
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold text-foreground">
+                  Custom Reports
+                </h3>
+                <p className="text-sm text-muted-foreground">
+                  AI-powered reports tailored to your needs
+                </p>
+              </div>
             </div>
-            <div>
-              <h3 className="text-lg font-semibold text-foreground">
-                Custom Reports
-              </h3>
-              <p className="text-sm text-muted-foreground">
-                AI-powered reports tailored to your needs
-              </p>
-            </div>
-          </div>
-          {!sharedToken && (
             <Button
               onClick={() => setIsModalOpen(true)}
               className="flex items-center gap-2"
@@ -242,9 +242,9 @@ export function CustomReportTab({
               <Plus className="w-4 h-4" />
               Generate Report
             </Button>
-          )}
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Error Display */}
       {error && (
