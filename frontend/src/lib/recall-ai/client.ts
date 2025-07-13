@@ -119,7 +119,7 @@ export class RecallAIClient {
     
     const requestBody = {
       meeting_url: params.meetingUrl,
-      bot_name: params.botName || 'LivePrompt Assistant',
+      bot_name: params.botName || 'LivePrompt',
       metadata: baseMetadata,
       recording_config: {
         transcript: {

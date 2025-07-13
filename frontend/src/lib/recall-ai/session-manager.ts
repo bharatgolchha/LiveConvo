@@ -83,11 +83,17 @@ export class RecallSessionManager {
       let bot;
       let lastError;
       
+      // Extract first name from full name for bot name
+      const firstName = (sessionData as any)?.users?.full_name?.split(' ')[0] || 'Your';
+      const botName = `${firstName}'s LivePrompt`;
+      console.log(`🤖 Setting bot name to: ${botName} (from full name: ${(sessionData as any)?.users?.full_name})`);
+      
       for (let attempt = 0; attempt <= retryCount; attempt++) {
         try {
           bot = await this.recallClient.createBot({
             sessionId,
             meetingUrl,
+            botName,
             transcriptionProvider: streamingProvider as 'deepgram' | 'assembly_ai' | 'speechmatics',
             metadata,
           });
@@ -199,11 +205,11 @@ export class RecallSessionManager {
         if (successStates.includes(latestStatusCode)) {
           console.log('✅ Bot successfully joined the meeting - Status:', latestStatusCode);
           
-          // Update session with success
+          // Update session with success - store the actual status
           await supabase
             .from('sessions')
             .update({
-              recall_bot_status: 'in_call',
+              recall_bot_status: latestStatusCode,
               recall_bot_error: null,
             })
             .eq('id', sessionId);
@@ -398,10 +404,15 @@ export class RecallSessionManager {
       });
       console.log('📊 Final metadata object:', metadata);
       
+      // Extract first name from full name for bot name
+      const firstName = (existingSession as any)?.users?.full_name?.split(' ')[0] || 'Your';
+      const botName = `${firstName}'s LivePrompt`;
+      console.log(`🤖 Setting bot name to: ${botName} (from full name: ${(existingSession as any)?.users?.full_name})`);
+      
       bot = await this.recallClient.createBot({
         meetingUrl: meetingUrl,
         sessionId: sessionId,
-        botName: "LivePrompt Assistant",
+        botName: botName,
         transcriptionProvider: streamingProvider as 'deepgram' | 'assembly_ai' | 'speechmatics',
         metadata,
       });

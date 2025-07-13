@@ -85,11 +85,22 @@ export async function POST(
       );
     }
 
-    console.log('🔄 Ending meeting:', { sessionId, status: session.status, botId: session.recall_bot_id });
+    console.log('🔄 Ending meeting:', { 
+      sessionId, 
+      status: session.status, 
+      botId: session.recall_bot_id,
+      botStatus: session.recall_bot_status 
+    });
 
     // Step 1: Stop the bot if it's active
     let botStopped = false;
-    const activeBotStatuses = ['in_call', 'joining', 'recording', 'in_call_recording', 'in_call_not_recording'];
+    const activeBotStatuses = ['in_call', 'joining', 'recording', 'in_call_recording', 'in_call_not_recording', 'in_waiting_room', 'joining_call'];
+    console.log('🤖 Bot status check:', {
+      hasBot: !!session.recall_bot_id,
+      currentStatus: session.recall_bot_status,
+      isActive: activeBotStatuses.includes(session.recall_bot_status)
+    });
+    
     if (session.recall_bot_id && activeBotStatuses.includes(session.recall_bot_status)) {
       try {
         console.log('🤖 Stopping bot:', session.recall_bot_id);
