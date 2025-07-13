@@ -57,6 +57,7 @@ export function useDashboardData(): DashboardDataHookReturn {
   const [currentFilters, setCurrentFilters] = useState<DashboardFilters>({});
   const abortControllerRef = useRef<AbortController | null>(null);
   const hasFetchedRef = useRef(false);
+  const fetchDashboardDataRef = useRef<((filters?: DashboardFilters) => Promise<void>) | null>(null);
 
   /**
    * Fetch all dashboard data in a single request
@@ -188,6 +189,9 @@ export function useDashboardData(): DashboardDataHookReturn {
     }
   }, [user, authLoading, session, setSessionExpiredMessage]);
 
+  // Update the ref whenever fetchDashboardData changes
+  fetchDashboardDataRef.current = fetchDashboardData;
+
   /**
    * Update a session (optimistic update)
    */
@@ -219,7 +223,9 @@ export function useDashboardData(): DashboardDataHookReturn {
 
       if (!response.ok) {
         // Revert optimistic update on error
-        await fetchDashboardData(currentFilters);
+        if (fetchDashboardDataRef.current) {
+          await fetchDashboardDataRef.current(currentFilters);
+        }
         const errorData = await response.json();
         throw new Error(errorData.error || errorData.message || 'Failed to update session');
       }
@@ -233,7 +239,7 @@ export function useDashboardData(): DashboardDataHookReturn {
       console.error('Session update error:', err);
       return null;
     }
-  }, [user, authLoading, session, data, fetchDashboardData, currentFilters]);
+  }, [user, authLoading, session, data, currentFilters]); // Remove fetchDashboardData to prevent circular dependency
 
   /**
    * Delete a session (optimistic update)
@@ -268,7 +274,9 @@ export function useDashboardData(): DashboardDataHookReturn {
 
       if (!response.ok) {
         // Revert optimistic update on error
-        await fetchDashboardData(currentFilters);
+        if (fetchDashboardDataRef.current) {
+          await fetchDashboardDataRef.current(currentFilters);
+        }
         const errorData = await response.json();
         throw new Error(errorData.error || errorData.message || 'Failed to delete session');
       }
@@ -281,21 +289,25 @@ export function useDashboardData(): DashboardDataHookReturn {
       console.error('Session delete error:', err);
       return false;
     }
-  }, [user, authLoading, session, data, fetchDashboardData, currentFilters]);
+  }, [user, authLoading, session, data, currentFilters]); // Remove fetchDashboardData to prevent circular dependency
 
   /**
    * Refresh data with current filters
    */
   const refreshData = useCallback(async () => {
-    await fetchDashboardData(currentFilters);
-  }, [fetchDashboardData, currentFilters]);
+    if (fetchDashboardDataRef.current) {
+      await fetchDashboardDataRef.current(currentFilters);
+    }
+  }, [currentFilters]); // Remove fetchDashboardData to prevent circular dependency
 
   // Initial fetch on mount with pagination-friendly limit
   useEffect(() => {
     if (user && session && !authLoading && !hasFetchedRef.current) {
       console.log('Dashboard: Initial data fetch triggered');
       hasFetchedRef.current = true;
-      fetchDashboardData({ limit: 20, offset: 0 });
+      if (fetchDashboardDataRef.current) {
+        fetchDashboardDataRef.current({ limit: 20, offset: 0 });
+      }
     } else if (!user && !authLoading) {
       console.log('Dashboard: No user, clearing data');
       setData(null);
@@ -303,7 +315,7 @@ export function useDashboardData(): DashboardDataHookReturn {
       setError(null);
       hasFetchedRef.current = false;
     }
-  }, [user?.id, authLoading, session?.access_token, fetchDashboardData]); // Add all dependencies
+  }, [user?.id, authLoading, session?.access_token]); // Remove fetchDashboardData to prevent circular dependency
 
   // Cleanup abort controller on unmount
   useEffect(() => {
