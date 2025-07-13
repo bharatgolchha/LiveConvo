@@ -24,4 +24,9 @@ logs/
 
 # Temporary files
 tmp/
-temp/ 
+temp/
+
+# Database backups (prevent large files in git)
+**/database_backups/
+*.sql
+!**/migrations/*.sql 
