@@ -104,6 +104,7 @@ interface TabbedReportProps {
         long_term?: string[];
       };
     };
+    customReports?: any[];
   };
   activeTab: string;
   setActiveTab: (tab: string) => void;

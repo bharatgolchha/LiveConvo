@@ -92,9 +92,9 @@ export async function GET(
     });
     
     // Fetch related data separately to avoid relationship conflicts
-    let transcripts = [];
-    let summaries = [];
-    let customReports = [];
+    let transcripts: any[] = [];
+    let summaries: any[] = [];
+    let customReports: any[] = [];
     
     if (session) {
       // Fetch transcripts
@@ -137,14 +137,15 @@ export async function GET(
       }
     }
     
-    // Attach the fetched data to session object
-    if (session) {
-      session.transcripts = transcripts;
-      session.summaries = summaries;
-      session.customReports = customReports;
-    }
+    // Create session data with fetched data
+    const sessionData = session ? {
+      ...session,
+      transcripts,
+      summaries,
+      customReports
+    } : null;
 
-    if (!session || sessionError) {
+    if (!session || sessionError || !sessionData) {
       return NextResponse.json(
         { error: 'Report not found' },
         { status: 404 }
@@ -159,7 +160,7 @@ export async function GET(
       .single();
 
     // Use the sharedTabs from earlier
-    const summary = session.summaries?.[0];
+    const summary = sessionData?.summaries?.[0];
     
     // Parse structured notes
     let structuredNotes: any = {};
@@ -175,15 +176,15 @@ export async function GET(
     const uniqueSpeakers = new Set<string>();
     
     // Add session participants if they exist
-    if (session.participant_me && session.participant_me !== 'You') {
-      uniqueSpeakers.add(session.participant_me);
+    if (sessionData?.participant_me && sessionData.participant_me !== 'You') {
+      uniqueSpeakers.add(sessionData.participant_me);
     }
-    if (session.participant_them && session.participant_them !== 'Participant' && session.participant_them !== 'Participants') {
-      uniqueSpeakers.add(session.participant_them);
+    if (sessionData?.participant_them && sessionData.participant_them !== 'Participant' && sessionData.participant_them !== 'Participants') {
+      uniqueSpeakers.add(sessionData.participant_them);
     }
     
     // Add speakers from transcripts
-    session.transcripts?.forEach((t: any) => {
+    sessionData?.transcripts?.forEach((t: any) => {
       if (t.speaker && t.speaker.trim() !== '') {
         uniqueSpeakers.add(t.speaker);
       }
@@ -199,17 +200,17 @@ export async function GET(
       }));
 
     // Calculate word count and speaking time analytics
-    const wordCount = session.total_words_spoken || 
-                     (session.transcripts?.reduce((total: number, t: any) => 
+    const wordCount = sessionData?.total_words_spoken || 
+                     (sessionData?.transcripts?.reduce((total: number, t: any) => 
                        total + (t.content?.split(' ').length || 0), 0) || 0);
 
     // Calculate speaking time from transcript data
     const speakingTime = (() => {
-      if (!session.transcripts?.length) {
+      if (!sessionData?.transcripts?.length) {
         return { me: 50, them: 50 };
       }
       
-      const speakingStats = session.transcripts.reduce((stats: Record<string, number>, transcript: any) => {
+      const speakingStats = sessionData.transcripts.reduce((stats: Record<string, number>, transcript: any) => {
         const speaker = transcript.speaker;
         const wordCount = transcript.content?.split(' ').length || 0;
         
@@ -230,7 +231,7 @@ export async function GET(
         const speaker2Percentage = 100 - speaker1Percentage;
         
         // Determine which speaker is "me" vs "them" based on session participant data
-        const participantMeName = session.participant_me || 'You';
+        const participantMeName = sessionData.participant_me || 'You';
         const meIsFirstSpeaker = speaker1 === participantMeName;
         return {
           me: meIsFirstSpeaker ? speaker1Percentage : speaker2Percentage,
@@ -243,23 +244,23 @@ export async function GET(
 
     // Build filtered report data
     const filteredReport = {
-      id: session.id,
-      title: session.title,
-      type: session.conversation_type,
-      duration: session.recording_duration_seconds,
+      id: sessionData.id,
+      title: sessionData.title,
+      type: sessionData.conversation_type,
+      duration: sessionData.recording_duration_seconds,
       wordCount: wordCount,
       speakingTime: speakingTime,
       participants: {
-        me: session.participant_me || 'Participant 1',
-        them: session.participant_them || 'Participant 2'
+        me: sessionData.participant_me || 'Participant 1',
+        them: sessionData.participant_them || 'Participant 2'
       },
       participantsList: participantsList,
-      createdAt: session.created_at,
+      createdAt: sessionData.created_at,
       sharedBy: userData?.full_name || 'Anonymous',
       shareMessage: shareRecord.message,
       expiresAt: shareRecord.expires_at,
       allowedTabs: sharedTabs,
-      recall_recording_url: sharedTabs.includes('transcript') ? session.recall_recording_url : null,
+      recall_recording_url: sharedTabs.includes('transcript') ? sessionData.recall_recording_url : null,
       summary: {
         // Always include basic info
         tldr: sharedTabs.includes('overview') ? summary?.tldr : null,
@@ -304,7 +305,7 @@ export async function GET(
         follow_up_strategy: sharedTabs.includes('followup') ? structuredNotes.follow_up_strategy : null,
       },
       // Include custom reports if custom tab is shared
-      customReports: sharedTabs.includes('custom') ? session.customReports : []
+      customReports: sharedTabs.includes('custom') ? sessionData.customReports : []
     };
 
     return NextResponse.json({

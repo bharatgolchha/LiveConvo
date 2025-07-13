@@ -303,7 +303,7 @@ export default function ReferralsPage() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
-                {stats?.stats.total_referrals > 0 
+                {stats?.stats && stats.stats.total_referrals > 0 
                   ? Math.round((stats.stats.completed / stats.stats.total_referrals) * 100) 
                   : 0}%
               </div>
@@ -411,7 +411,7 @@ export default function ReferralsPage() {
                   <div className="flex items-center gap-2">
                     <span className="text-sm font-bold">{stats?.stats.pending || 0}</span>
                     <span className="text-xs text-muted-foreground">
-                      ({stats?.stats.total_referrals > 0 
+                      ({stats?.stats && stats.stats.total_referrals > 0 
                         ? Math.round((stats.stats.pending / stats.stats.total_referrals) * 100) 
                         : 0}%)
                     </span>
@@ -421,7 +421,7 @@ export default function ReferralsPage() {
                   <div 
                     className="bg-yellow-500 h-2 rounded-full transition-all duration-500"
                     style={{ 
-                      width: `${stats?.stats.total_referrals > 0 
+                      width: `${stats?.stats && stats.stats.total_referrals > 0 
                         ? (stats.stats.pending / stats.stats.total_referrals) * 100 
                         : 0}%` 
                     }}
@@ -438,7 +438,7 @@ export default function ReferralsPage() {
                   <div className="flex items-center gap-2">
                     <span className="text-sm font-bold">{stats?.stats.completed || 0}</span>
                     <span className="text-xs text-muted-foreground">
-                      ({stats?.stats.total_referrals > 0 
+                      ({stats?.stats && stats.stats.total_referrals > 0 
                         ? Math.round((stats.stats.completed / stats.stats.total_referrals) * 100) 
                         : 0}%)
                     </span>
@@ -448,7 +448,7 @@ export default function ReferralsPage() {
                   <div 
                     className="bg-green-500 h-2 rounded-full transition-all duration-500"
                     style={{ 
-                      width: `${stats?.stats.total_referrals > 0 
+                      width: `${stats?.stats && stats.stats.total_referrals > 0 
                         ? (stats.stats.completed / stats.stats.total_referrals) * 100 
                         : 0}%` 
                     }}

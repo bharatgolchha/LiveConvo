@@ -39,10 +39,10 @@ export async function GET(request: NextRequest) {
         .eq('id', user.id)
         .single();
       
-      if (userData?.referred_by_user_id && userData.referrer) {
+      if (userData?.referred_by_user_id && userData.referrer && Array.isArray(userData.referrer) && userData.referrer.length > 0) {
         return NextResponse.json({
           hasReferral: true,
-          referralCode: userData.referrer.referral_code,
+          referralCode: userData.referrer[0].referral_code,
           referrerId: userData.referred_by_user_id
         });
       }
