@@ -74,8 +74,17 @@ export function MeetingActions() {
         platform: meeting.platform,
       };
 
+      // Convert TranscriptMessage[] to TranscriptLine[] format
+      const transcriptLines = transcript.map(msg => ({
+        id: msg.id,
+        text: msg.text,
+        speaker: msg.displayName || msg.speaker,
+        timestamp: msg.timestamp,
+        confidence: msg.confidence,
+      }));
+
       const { content, filename, mimeType } = exportTranscript(
-        transcript,
+        transcriptLines,
         metadata,
         exportOptions
       );

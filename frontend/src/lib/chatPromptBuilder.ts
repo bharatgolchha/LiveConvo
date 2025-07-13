@@ -209,10 +209,27 @@ export function buildChatMessages(
     ? [{ role: 'system' as const, content: contextPieces.join(' | ') }]
     : [];
 
-  // 3. Transcript snippet – last ~1500 chars
+  // 3. Full transcript or intelligently truncated
   const transcriptSnippet = transcript?.trim();
-  const transcriptMsg = transcriptSnippet
-    ? [{ role: 'system' as const, content: `###T\n${transcriptSnippet.slice(-transcriptCharLimit)}` }]
+  let transcriptContent = '';
+  
+  if (transcriptSnippet) {
+    if (transcriptSnippet.length <= transcriptCharLimit) {
+      // Use full transcript if within limit
+      transcriptContent = transcriptSnippet;
+    } else {
+      // For very long transcripts, take recent portion but preserve important context
+      const recentPortion = transcriptSnippet.slice(-Math.floor(transcriptCharLimit * 0.8));
+      const lines = recentPortion.split('\n');
+      // Find the first complete speaker line to avoid cutting mid-sentence
+      const firstCompleteLineIndex = lines.findIndex(line => line.match(/^\[.*?\]\s*.*?:/));
+      const cleanStart = firstCompleteLineIndex > 0 ? lines.slice(firstCompleteLineIndex).join('\n') : recentPortion;
+      transcriptContent = `[...earlier conversation truncated...]\n\n${cleanStart}`;
+    }
+  }
+  
+  const transcriptMsg = transcriptContent
+    ? [{ role: 'system' as const, content: `###TRANSCRIPT\n${transcriptContent}` }]
     : [];
 
   // 4. Assemble messages

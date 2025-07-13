@@ -457,17 +457,6 @@ export async function POST(request: NextRequest) {
     let runningSummary = summary?.tldr || '';
     let effectiveTranscript = transcript;
 
-    if (transcript.length > 3500) {
-      // Split transcript: keep tail for context, summarize the rest.
-      const overflowChunk = transcript.slice(0, transcript.length - 3500);
-      effectiveTranscript = transcript.slice(-3500);
-      try {
-        runningSummary = await updateRunningSummary(runningSummary, overflowChunk);
-      } catch (e) {
-        console.error('Running summary update failed:', e);
-      }
-    }
-
     // Debug log chat history being received
     console.log('🔍 Chat API - Received chat history:', {
       chatHistoryLength: chatHistory.length,
@@ -482,7 +471,7 @@ export async function POST(request: NextRequest) {
       runningSummary,
       finalPersonalContext || undefined,
       enhancedTextContext || undefined,
-      4000, // transcript tail
+      50000, // much larger transcript limit to include full conversation
       participantMe,
       participantThem
     );
@@ -714,7 +703,7 @@ ${getCurrentDateContext()}
 ${sessionOwnerSection}${aiInstructionsSection}
 CURRENT SITUATION: ${modeDescriptor}${meetingContextSection}
 Conversation Stage: ${stage}
-${transcript ? `Recent Context: ${transcript.slice(-500)}` : ''}
+${transcript ? `Conversation Transcript: ${transcript}` : ''}
 
 YOUR RESPONSE FORMAT:
 You must ALWAYS respond with a JSON object containing two fields:

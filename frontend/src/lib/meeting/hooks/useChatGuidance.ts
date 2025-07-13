@@ -33,10 +33,15 @@ export function useChatGuidance() {
           conversationType: meeting.type,
           context: meeting.context,
           personalContext: personalContext || undefined,
-          recentTranscript: transcript.slice(-20).map(t => ({
+          transcript: transcript.map(t => ({
             speaker: t.speaker,
-            text: t.text
-          }))
+            text: t.text,
+            timestamp: t.timestamp
+          })).map(t => {
+            const timestamp = new Date(t.timestamp).toLocaleTimeString('en-US', { hour12: false });
+            const speaker = t.speaker || 'Participant';
+            return `[${timestamp}] ${speaker}: ${t.text}`;
+          }).join('\n\n')
         })
       });
 

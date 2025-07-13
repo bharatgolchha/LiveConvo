@@ -340,27 +340,14 @@ export const EnhancedAIChat = forwardRef<EnhancedAIChatRef>((props, ref) => {
     setIsTyping(true);
 
     try {
-      // Build formatted transcript (last 5000 chars to avoid token limits)
+      // Build formatted transcript (full conversation)
       let transcriptText = '';
       if (transcript.length > 0) {
-        // Take last portion of transcript to stay within limits
-        const maxLines = 100;
-        let startIdx = Math.max(0, transcript.length - maxLines);
-        
-                 // Try different chunk sizes to fit within character limit
-         for (; startIdx < transcript.length; startIdx += 10) {
-           const formattedTranscript = transcript.slice(startIdx).reduce((acc, msg, idx) => {
-             const timestamp = new Date(msg.timestamp).toLocaleTimeString('en-US', { hour12: false });
-             const speaker = msg.displayName || msg.speaker || 'Participant';
-             return [...acc, `[${timestamp}] ${speaker}: ${msg.text}`];
-           }, [] as string[]);
-           
-           const testTranscript = formattedTranscript.join('\n\n');
-           if (testTranscript.length <= 5000 || startIdx === 0) {
-             transcriptText = testTranscript;
-             break;
-           }
-         }
+        transcriptText = transcript.map(msg => {
+          const timestamp = new Date(msg.timestamp).toLocaleTimeString('en-US', { hour12: false });
+          const speaker = msg.displayName || msg.speaker || 'Participant';
+          return `[${timestamp}] ${speaker}: ${msg.text}`;
+        }).join('\n\n');
       }
 
       // Debug log to ensure context is being passed
