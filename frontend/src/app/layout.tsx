@@ -76,6 +76,7 @@ export const metadata: Metadata = {
         type: 'image/png',
       },
     ],
+    shortcut: '/favicon.ico',
     apple: [
       {
         url: '/apple-touch-icon.png',
@@ -143,6 +144,17 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
+      <head>
+        <link rel="shortcut icon" href="/favicon.ico" />
+        <link rel="icon" type="image/x-icon" href="/favicon.ico" />
+        <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png" />
+        <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
+        <link rel="icon" type="image/png" sizes="48x48" href="/favicon-48x48.png" />
+        <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+        <link rel="manifest" href="/site.webmanifest" />
+        <meta name="msapplication-TileColor" content="#0B3D2E" />
+        <meta name="theme-color" content="#0B3D2E" />
+      </head>
       {/* Google Analytics 4 */}
       <Script
         src="https://www.googletagmanager.com/gtag/js?id=G-YYPP67HS2H"
