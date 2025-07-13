@@ -1,14 +1,10 @@
 'use client';
 
-import React, { useState } from 'react';
-import { ArrowDownTrayIcon, XMarkIcon } from '@heroicons/react/24/outline';
-
-export interface ExportOptions {
-  format: 'markdown' | 'text' | 'json';
-  includeTimestamps: boolean;
-  includeSpeakers: boolean;
-  includeMetadata: boolean;
-}
+import { Dialog, Transition } from '@headlessui/react';
+import { Fragment, useState } from 'react';
+import { ArrowDownTrayIcon, DocumentTextIcon } from '@heroicons/react/24/outline';
+import { Button } from '@/components/ui/Button';
+import type { ExportOptions } from '@/lib/meeting/utils/transcript-export';
 
 interface ExportTranscriptModalProps {
   isOpen: boolean;
@@ -37,144 +33,160 @@ export function ExportTranscriptModal({
     });
   };
 
-  if (!isOpen) return null;
+  const formatOptions = [
+    { value: 'markdown', label: 'Markdown (.md)', icon: DocumentTextIcon },
+    { value: 'text', label: 'Plain Text (.txt)', icon: DocumentTextIcon },
+    { value: 'json', label: 'JSON (.json)', icon: DocumentTextIcon },
+  ];
 
   return (
-    <>
-      {/* Backdrop */}
-      <div 
-        className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[1400]"
-        onClick={onClose}
-      />
-      
-      {/* Modal */}
-      <div className="fixed inset-0 flex items-center justify-center p-4 z-[1500]">
-        <div className="bg-white dark:bg-gray-900 rounded-lg shadow-xl max-w-md w-full p-6">
-          {/* Header */}
-          <div className="flex items-center justify-between mb-6">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900/20 rounded-lg flex items-center justify-center">
-                <ArrowDownTrayIcon className="w-5 h-5 text-blue-600 dark:text-blue-400" />
-              </div>
-              <div>
-                <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
-                  Export Transcript
-                </h2>
-                <p className="text-sm text-gray-500 dark:text-gray-400">
-                  Choose your export format and options
-                </p>
-              </div>
-            </div>
-            <button
-              onClick={onClose}
-              className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
-            >
-              <XMarkIcon className="w-5 h-5 text-gray-400" />
-            </button>
-          </div>
+    <Transition appear show={isOpen} as={Fragment}>
+      <Dialog as="div" className="relative z-50" onClose={onClose}>
+        <Transition.Child
+          as={Fragment}
+          enter="ease-out duration-300"
+          enterFrom="opacity-0"
+          enterTo="opacity-100"
+          leave="ease-in duration-200"
+          leaveFrom="opacity-100"
+          leaveTo="opacity-0"
+        >
+          <div className="fixed inset-0 bg-black/70 backdrop-blur-sm" />
+        </Transition.Child>
 
-          {/* Format Selection */}
-          <div className="mb-6">
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
-              Export Format
-            </label>
-            <div className="space-y-2">
-              {[
-                { value: 'markdown', label: 'Markdown (.md)' },
-                { value: 'text', label: 'Plain Text (.txt)' },
-                { value: 'json', label: 'JSON (.json)' }
-              ].map((option) => (
-                <label
-                  key={option.value}
-                  className="flex items-center gap-3 p-3 border border-gray-200 dark:border-gray-700 rounded-lg cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
-                >
-                  <input
-                    type="radio"
-                    name="format"
-                    value={option.value}
-                    checked={format === option.value}
-                    onChange={(e) => setFormat(e.target.value as ExportOptions['format'])}
-                    className="text-blue-600"
-                  />
-                  <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
-                    {option.label}
-                  </span>
-                </label>
-              ))}
-            </div>
-          </div>
-
-          {/* Options */}
-          <div className="mb-6">
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
-              Include Options
-            </label>
-            <div className="space-y-3">
-              <label className="flex items-center gap-3">
-                <input
-                  type="checkbox"
-                  checked={includeTimestamps}
-                  onChange={(e) => setIncludeTimestamps(e.target.checked)}
-                  className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                />
-                <span className="text-sm text-gray-700 dark:text-gray-300">
-                  Include timestamps
-                </span>
-              </label>
-              <label className="flex items-center gap-3">
-                <input
-                  type="checkbox"
-                  checked={includeSpeakers}
-                  onChange={(e) => setIncludeSpeakers(e.target.checked)}
-                  className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                />
-                <span className="text-sm text-gray-700 dark:text-gray-300">
-                  Include speaker names
-                </span>
-              </label>
-              <label className="flex items-center gap-3">
-                <input
-                  type="checkbox"
-                  checked={includeMetadata}
-                  onChange={(e) => setIncludeMetadata(e.target.checked)}
-                  className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                />
-                <span className="text-sm text-gray-700 dark:text-gray-300">
-                  Include meeting metadata
-                </span>
-              </label>
-            </div>
-          </div>
-
-          {/* Actions */}
-          <div className="flex gap-3 justify-end">
-            <button
-              onClick={onClose}
-              disabled={isExporting}
-              className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors disabled:opacity-50"
+        <div className="fixed inset-0 overflow-y-auto">
+          <div className="flex min-h-full items-center justify-center p-4 text-center">
+            <Transition.Child
+              as={Fragment}
+              enter="ease-out duration-300"
+              enterFrom="opacity-0 scale-95"
+              enterTo="opacity-100 scale-100"
+              leave="ease-in duration-200"
+              leaveFrom="opacity-100 scale-100"
+              leaveTo="opacity-0 scale-95"
             >
-              Cancel
-            </button>
-            <button
-              onClick={handleExport}
-              disabled={isExporting}
-              className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors disabled:opacity-50 flex items-center gap-2"
-            >
-              {isExporting ? (
-                <>
-                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                  Exporting...
-                </>
-              ) : (
-                <>
-                  <ArrowDownTrayIcon className="w-4 h-4" />
-                  Export
-                </>
-              )}
-            </button>
+              <Dialog.Panel className="w-full max-w-lg transform overflow-hidden rounded-2xl bg-white dark:bg-gray-900 p-6 text-left align-middle shadow-xl transition-all">
+                <div className="flex items-center gap-4 mb-4">
+                  <div className="flex-shrink-0 w-12 h-12 rounded-full bg-blue-100 dark:bg-blue-900/20 flex items-center justify-center">
+                    <ArrowDownTrayIcon className="h-6 w-6 text-blue-600 dark:text-blue-500" />
+                  </div>
+                  <div className="flex-1">
+                    <Dialog.Title
+                      as="h3"
+                      className="text-lg font-semibold leading-6 text-gray-900 dark:text-gray-100"
+                    >
+                      Export Transcript
+                    </Dialog.Title>
+                    <p className="text-sm text-gray-600 dark:text-gray-400 mt-0.5">
+                      Choose your export format and options
+                    </p>
+                  </div>
+                </div>
+
+                <div className="mt-6 space-y-6">
+                  {/* Format Selection */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
+                      Export Format
+                    </label>
+                    <div className="space-y-2">
+                      {formatOptions.map((option) => (
+                        <label
+                          key={option.value}
+                          className="flex items-center gap-3 p-3 border rounded-lg cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+                        >
+                          <input
+                            type="radio"
+                            name="format"
+                            value={option.value}
+                            checked={format === option.value}
+                            onChange={(e) => setFormat(e.target.value as ExportOptions['format'])}
+                            className="text-blue-600"
+                          />
+                          <option.icon className="h-5 w-5 text-gray-500" />
+                          <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                            {option.label}
+                          </span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Options */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
+                      Include Options
+                    </label>
+                    <div className="space-y-3">
+                      <label className="flex items-center gap-3">
+                        <input
+                          type="checkbox"
+                          checked={includeTimestamps}
+                          onChange={(e) => setIncludeTimestamps(e.target.checked)}
+                          className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                        />
+                        <span className="text-sm text-gray-700 dark:text-gray-300">
+                          Include timestamps
+                        </span>
+                      </label>
+                      <label className="flex items-center gap-3">
+                        <input
+                          type="checkbox"
+                          checked={includeSpeakers}
+                          onChange={(e) => setIncludeSpeakers(e.target.checked)}
+                          className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                        />
+                        <span className="text-sm text-gray-700 dark:text-gray-300">
+                          Include speaker names
+                        </span>
+                      </label>
+                      <label className="flex items-center gap-3">
+                        <input
+                          type="checkbox"
+                          checked={includeMetadata}
+                          onChange={(e) => setIncludeMetadata(e.target.checked)}
+                          className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                        />
+                        <span className="text-sm text-gray-700 dark:text-gray-300">
+                          Include meeting metadata
+                        </span>
+                      </label>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-6 flex gap-3 justify-end">
+                  <Button
+                    variant="outline"
+                    onClick={onClose}
+                    disabled={isExporting}
+                    className="min-w-[100px]"
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    onClick={handleExport}
+                    disabled={isExporting}
+                    className="min-w-[120px]"
+                  >
+                    {isExporting ? (
+                      <div className="flex items-center gap-2">
+                        <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                        Exporting...
+                      </div>
+                    ) : (
+                      <>
+                        <ArrowDownTrayIcon className="h-4 w-4 mr-1.5" />
+                        Export
+                      </>
+                    )}
+                  </Button>
+                </div>
+              </Dialog.Panel>
+            </Transition.Child>
           </div>
         </div>
-      </div>
-    </>
+      </Dialog>
+    </Transition>
   );
-} 
+}
