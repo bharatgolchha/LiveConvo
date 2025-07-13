@@ -1,3 +1,5 @@
+'use client';
+
 import React, { useState } from 'react';
 import { 
   PhoneXMarkIcon, 
@@ -14,13 +16,20 @@ import { useEndMeeting } from '@/lib/meeting/hooks/useEndMeeting';
 import { MeetingSettingsModal } from '@/components/meeting/settings/MeetingSettingsModal';
 import { EndMeetingStatus } from '@/components/meeting/common/EndMeetingStatus';
 import { EndMeetingModal } from '../modals/EndMeetingModal';
+import { ExportTranscriptModal } from '../modals/ExportTranscriptModal';
+import { exportTranscript, downloadFile, type ExportOptions } from '@/lib/meeting/utils/transcript-export';
+import { toast } from 'sonner';
 
 export function MeetingActions() {
-  const { meeting, botStatus } = useMeetingContext();
+  const { meeting, botStatus, transcript } = useMeetingContext();
   const router = useRouter();
   const [showMenu, setShowMenu] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [showEndModal, setShowEndModal] = useState(false);
+  const [showExportModal, setShowExportModal] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
+
+  console.log('MeetingActions render:', { showExportModal, isExporting, meeting: !!meeting, transcriptCount: transcript?.length || 0 });
   
   const { 
     endMeeting, 
@@ -36,10 +45,50 @@ export function MeetingActions() {
     endMeeting(meeting.id, meeting.title);
   };
 
-  const handleExport = () => {
-    // TODO: Implement export functionality
-    alert('Export feature coming soon!');
+  const handleExportClick = () => {
+    console.log('Export button clicked', { meeting: !!meeting, transcript: transcript?.length || 0 });
+    
+    // Force modal open for testing
     setShowMenu(false);
+    console.log('Setting showExportModal to true');
+    setShowExportModal(true);
+    
+    // Check transcript after modal is opened
+    if (!meeting || !transcript || transcript.length === 0) {
+      console.log('No transcript available:', { meeting: !!meeting, transcriptLength: transcript?.length || 0 });
+      toast.error('No transcript available to export');
+      return;
+    }
+  };
+
+  const handleExport = async (exportOptions: ExportOptions) => {
+    if (!meeting || !transcript) return;
+
+    setIsExporting(true);
+
+    try {
+      const metadata = {
+        title: meeting.title,
+        date: new Date(meeting.createdAt),
+        duration: meeting.recordingDurationSeconds,
+        platform: meeting.platform,
+      };
+
+      const { content, filename, mimeType } = exportTranscript(
+        transcript,
+        metadata,
+        exportOptions
+      );
+
+      downloadFile(content, filename, mimeType);
+      toast.success('Transcript exported successfully');
+      setShowExportModal(false);
+    } catch (error) {
+      console.error('Export error:', error);
+      toast.error('Failed to export transcript');
+    } finally {
+      setIsExporting(false);
+    }
   };
 
   const handleShare = () => {
@@ -95,7 +144,7 @@ export function MeetingActions() {
                     <span>Share Meeting</span>
                   </button>
                   <button
-                    onClick={handleExport}
+                    onClick={handleExportClick}
                     className="flex w-full items-center gap-3 px-4 py-2 text-sm hover:bg-muted/50 transition-colors"
                   >
                     <ArrowDownTrayIcon className="w-4 h-4" />
@@ -158,7 +207,7 @@ export function MeetingActions() {
                   <span>Share Meeting</span>
                 </button>
                 <button
-                  onClick={handleExport}
+                  onClick={handleExportClick}
                   className="flex w-full items-center gap-3 px-4 py-2 text-sm hover:bg-muted/50 transition-colors"
                 >
                   <ArrowDownTrayIcon className="w-4 h-4" />
@@ -217,6 +266,14 @@ export function MeetingActions() {
       />
 
       <MeetingSettingsModal isOpen={showSettings} onClose={() => setShowSettings(false)} />
+      
+      {/* Export Transcript Modal */}
+      <ExportTranscriptModal
+        isOpen={showExportModal}
+        onClose={() => setShowExportModal(false)}
+        onExport={handleExport}
+        isExporting={isExporting}
+      />
       
       {/* End Meeting Modal */}
       <EndMeetingModal
