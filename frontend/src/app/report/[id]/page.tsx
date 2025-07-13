@@ -629,21 +629,6 @@ export default function MeetingReportPage() {
             finalizationProgress={finalizationProgress}
           />
 
-          {/* Quick Actions */}
-          <div className="mt-12 flex justify-center">
-            <div className="flex items-center gap-4">
-              {report.recordingUrl && (
-                <Button onClick={() => window.open(report.recordingUrl, '_blank')} variant="outline">
-                  <PlayCircle className="w-4 h-4 mr-2" />
-                  Watch Recording
-                </Button>
-              )}
-              <Button onClick={handleShare}>
-                <Share className="w-4 h-4 mr-2" />
-                Share Report
-              </Button>
-            </div>
-          </div>
 
           {/* Share Modal */}
           {report && (

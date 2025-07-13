@@ -7,6 +7,7 @@ export async function GET(
 ) {
   try {
     const { token } = await params;
+    console.log('Fetching shared report with token:', token);
 
     if (!token) {
       return NextResponse.json(
@@ -28,7 +29,19 @@ export async function GET(
       .eq('share_token', token)
       .single();
 
+    console.log('Share record lookup result:', {
+      found: !!shareRecord,
+      error: shareError,
+      shareData: shareRecord
+    });
+
     if (!shareRecord || shareError) {
+      console.error('Share record not found:', {
+        token,
+        error: shareError,
+        errorCode: shareError?.code,
+        errorMessage: shareError?.message
+      });
       return NextResponse.json(
         { error: 'Share link not found or expired' },
         { status: 404 }
@@ -51,8 +64,11 @@ export async function GET(
         last_accessed_at: new Date().toISOString()
       })
       .eq('id', shareRecord.id);
+    
+    // Get shared tabs from the share record
+    const sharedTabs = shareRecord.shared_tabs || [];
 
-    // Get session data with transcripts for analytics
+    // Get session data first
     const { data: session, error: sessionError } = await supabase
       .from('sessions')
       .select(`
@@ -64,12 +80,36 @@ export async function GET(
         participant_me,
         participant_them,
         total_words_spoken,
-        recall_recording_url,
-        transcripts (
-          speaker,
-          content
-        ),
-        summaries (
+        recall_recording_url
+      `)
+      .eq('id', shareRecord.session_id)
+      .single();
+    
+    console.log('Session lookup result:', {
+      found: !!session,
+      error: sessionError,
+      sessionId: shareRecord.session_id
+    });
+    
+    // Fetch related data separately to avoid relationship conflicts
+    let transcripts = [];
+    let summaries = [];
+    let customReports = [];
+    
+    if (session) {
+      // Fetch transcripts
+      const { data: transcriptData } = await supabase
+        .from('transcripts')
+        .select('speaker, content')
+        .eq('session_id', shareRecord.session_id)
+        .order('sequence_number', { ascending: true });
+      
+      if (transcriptData) transcripts = transcriptData;
+      
+      // Fetch summaries
+      const { data: summaryData } = await supabase
+        .from('summaries')
+        .select(`
           id,
           tldr,
           key_decisions,
@@ -77,10 +117,32 @@ export async function GET(
           follow_up_questions,
           conversation_highlights,
           structured_notes
-        )
-      `)
-      .eq('id', shareRecord.session_id)
-      .single();
+        `)
+        .eq('session_id', shareRecord.session_id)
+        .order('created_at', { ascending: false })
+        .limit(1);
+      
+      if (summaryData) summaries = summaryData;
+      
+      // Fetch custom reports if custom tab is shared
+      if (sharedTabs.includes('custom')) {
+        const { data: customReportData } = await supabase
+          .from('custom_reports')
+          .select('*')
+          .eq('session_id', shareRecord.session_id)
+          .order('created_at', { ascending: false });
+        
+        if (customReportData) customReports = customReportData;
+        console.log('Custom reports found:', customReports.length);
+      }
+    }
+    
+    // Attach the fetched data to session object
+    if (session) {
+      session.transcripts = transcripts;
+      session.summaries = summaries;
+      session.customReports = customReports;
+    }
 
     if (!session || sessionError) {
       return NextResponse.json(
@@ -96,8 +158,7 @@ export async function GET(
       .eq('id', shareRecord.user_id)
       .single();
 
-    // Filter data based on shared tabs
-    const sharedTabs = shareRecord.shared_tabs || [];
+    // Use the sharedTabs from earlier
     const summary = session.summaries?.[0];
     
     // Parse structured notes
@@ -241,7 +302,9 @@ export async function GET(
         templates: sharedTabs.includes('followup') ? structuredNotes.templates : null,
         riskAssessment: sharedTabs.includes('followup') ? structuredNotes.risk_assessment : null,
         follow_up_strategy: sharedTabs.includes('followup') ? structuredNotes.follow_up_strategy : null,
-      }
+      },
+      // Include custom reports if custom tab is shared
+      customReports: sharedTabs.includes('custom') ? session.customReports : []
     };
 
     return NextResponse.json({

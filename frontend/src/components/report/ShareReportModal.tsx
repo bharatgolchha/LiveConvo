@@ -33,7 +33,8 @@ import {
   Mail,
   Send,
   MessageSquare,
-  Users
+  Users,
+  Sparkles
 } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 
@@ -52,6 +53,7 @@ interface ShareSettings {
     analytics: boolean;
     followup: boolean;
     transcript: boolean;
+    custom: boolean;
   };
   expiration: string;
   message: string;
@@ -75,6 +77,7 @@ const TAB_INFO = [
   { id: 'analytics', label: 'Analytics & Performance', icon: BarChart3, description: 'Meeting metrics and effectiveness scores' },
   { id: 'followup', label: 'Follow-up & Next Steps', icon: Calendar, description: 'Next meeting prep and follow-up content' },
   { id: 'transcript', label: 'Transcript', icon: MessageSquare, description: 'Full conversation transcript and recording' },
+  { id: 'custom', label: 'Custom Report', icon: Sparkles, description: 'AI-powered custom report generation' },
 ];
 
 export function ShareReportModal({ isOpen, onClose, reportId, reportTitle }: ShareReportModalProps) {
@@ -87,6 +90,7 @@ export function ShareReportModal({ isOpen, onClose, reportId, reportTitle }: Sha
       analytics: false,
       followup: false,
       transcript: false,
+      custom: false,
     },
     expiration: '7days',
     message: '',
@@ -149,6 +153,19 @@ export function ShareReportModal({ isOpen, onClose, reportId, reportTitle }: Sha
         .filter(([_, enabled]) => enabled)
         .map(([tabId]) => tabId);
 
+      console.log('Generating share link for reportId:', reportId);
+      console.log('Auth session:', session);
+      console.log('Selected tabs:', selectedTabs);
+      console.log('Full request body:', {
+        sessionId: reportId,
+        sharedTabs: selectedTabs,
+        expiresIn: shareSettings.expiration,
+        message: shareSettings.message,
+        emailRecipients: shareSettings.sendEmail ? shareSettings.emailRecipients : undefined,
+        shareWithParticipants: shareSettings.shareWithParticipants,
+        excludedEmails: shareSettings.excludedEmails,
+      });
+
       const headers: HeadersInit = {
         'Content-Type': 'application/json',
       };
@@ -172,7 +189,11 @@ export function ShareReportModal({ isOpen, onClose, reportId, reportTitle }: Sha
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to create share link');
+        console.error('Share link generation failed:', errorData);
+        const errorMessage = errorData.details 
+          ? `${errorData.error}: ${errorData.details}`
+          : errorData.error || 'Failed to create share link';
+        throw new Error(errorMessage);
       }
 
       const { shareUrl, emailsSent: emailsSentResponse } = await response.json();

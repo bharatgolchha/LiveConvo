@@ -9,7 +9,8 @@ export enum AIAction {
   CHECKLIST = 'checklist',
   SMART_NOTES = 'smart_notes',
   SMART_SUGGESTIONS = 'smart_suggestions',
-  INITIAL_PROMPTS = 'initial_prompts'
+  INITIAL_PROMPTS = 'initial_prompts',
+  CUSTOM_REPORT = 'custom_report'
 }
 
 export interface AIActionInfo {
@@ -73,6 +74,12 @@ export const AI_ACTIONS: AIActionInfo[] = [
     displayName: 'Initial Prompts',
     description: 'Conversation starter suggestions',
     recommendedModels: ['google/gemini-2.5-flash', 'openai/gpt-4o-mini']
+  },
+  {
+    key: AIAction.CUSTOM_REPORT,
+    displayName: 'Custom Report Generation',
+    description: 'AI-powered custom report generation from meeting data',
+    recommendedModels: ['google/gemini-2.5-flash', 'google/gemini-pro', 'openai/gpt-4o']
   }
 ];
 

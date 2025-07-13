@@ -17,12 +17,14 @@ import {
   Zap,
   Filter,
   Search,
-  X
+  X,
+  Sparkles
 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { EnhancedReportSection } from './EnhancedReportSection';
 import { ReportGenerationProgress } from './ReportGenerationProgress';
 import { TranscriptTab } from './TranscriptTab';
+import { CustomReportTab } from './CustomReportTab';
 import {
   Select,
   SelectContent,
@@ -123,7 +125,8 @@ export function TabbedReport({ report, activeTab, setActiveTab, handleManualFina
     { id: 'actions', label: 'Action Items', icon: Target },
     { id: 'analytics', label: 'Analytics & Performance', icon: BarChart3 },
     { id: 'followup', label: 'Follow-up & Next Steps', icon: Calendar },
-    { id: 'transcript', label: 'Transcript', icon: MessageSquare }
+    { id: 'transcript', label: 'Transcript', icon: MessageSquare },
+    { id: 'custom', label: 'Custom Report', icon: Sparkles }
   ];
 
   // Action items filtering state
@@ -1132,6 +1135,15 @@ export function TabbedReport({ report, activeTab, setActiveTab, handleManualFina
         {/* Transcript Tab */}
         {activeTab === 'transcript' && (
           <TranscriptTab sessionId={report.id} sharedToken={sharedToken} />
+        )}
+        
+        {/* Custom Report Tab */}
+        {activeTab === 'custom' && report.id && (
+          <CustomReportTab 
+            sessionId={report.id} 
+            sharedToken={sharedToken}
+            customReports={report.customReports}
+          />
         )}
       </div>
     </>

@@ -50,6 +50,7 @@ interface PricingPlan {
 interface PricingModalProps {
   isOpen: boolean;
   onClose: () => void;
+  reason?: string;
 }
 
 const featureLabels = {
@@ -64,7 +65,7 @@ const featureLabels = {
   hasTeamCollaboration: 'Team collaboration'
 };
 
-export const PricingModal: React.FC<PricingModalProps> = ({ isOpen, onClose }) => {
+export const PricingModal: React.FC<PricingModalProps> = ({ isOpen, onClose, reason }) => {
   const [plans, setPlans] = useState<PricingPlan[]>([]);
   const [billingPeriod, setBillingPeriod] = useState<'monthly' | 'yearly'>('monthly');
   const [loading, setLoading] = useState(true);
@@ -81,6 +82,7 @@ export const PricingModal: React.FC<PricingModalProps> = ({ isOpen, onClose }) =
       fetchPricingPlans();
       fetchUserPlan();
       fetchCreditBalance();
+      checkExistingReferral();
       
       // Check for referral code in URL
       const urlReferralCode = searchParams.get('ref');
@@ -140,6 +142,33 @@ export const PricingModal: React.FC<PricingModalProps> = ({ isOpen, onClose }) =
       }
     } catch (error) {
       console.error('Error fetching credit balance:', error);
+    }
+  };
+
+  const checkExistingReferral = async () => {
+    if (!session?.user?.id) return;
+    
+    try {
+      // Check if user has an existing referral relationship
+      const response = await fetch('/api/referrals/check-existing', {
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`
+        }
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        if (data.hasReferral && data.referralCode) {
+          // User was referred, automatically apply the discount
+          setReferralCode(data.referralCode);
+          setReferralDiscount({ 
+            valid: true, 
+            message: '10% referral discount automatically applied!' 
+          });
+        }
+      }
+    } catch (error) {
+      console.error('Error checking existing referral:', error);
     }
   };
 
@@ -215,7 +244,8 @@ export const PricingModal: React.FC<PricingModalProps> = ({ isOpen, onClose }) =
         return;
       }
 
-      // Create checkout session with our new API
+      // Create checkout session with our API proxy
+      // This will handle the production edge function call server-side
       const response = await fetch('/api/checkout/create-session', {
         method: 'POST',
         headers: {
@@ -230,17 +260,57 @@ export const PricingModal: React.FC<PricingModalProps> = ({ isOpen, onClose }) =
       });
 
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+        let errorData: any = { error: 'Unknown error' };
+        let responseText = '';
+        
+        try {
+          // First, try to get the response as text
+          responseText = await response.text();
+          console.log('Raw error response:', responseText);
+          console.log('Response status:', response.status);
+          console.log('Response headers:', Object.fromEntries(response.headers.entries()));
+          
+          // Then try to parse it as JSON
+          if (responseText) {
+            errorData = JSON.parse(responseText);
+          }
+        } catch (parseError) {
+          console.error('Error parsing response:', parseError);
+          console.error('Response text was:', responseText);
+          
+          // If it's HTML (likely a 404 or server error page)
+          if (responseText && (responseText.includes('<!DOCTYPE') || responseText.includes('<html'))) {
+            errorData = { 
+              error: `Server error (${response.status}): Edge function may not be deployed`,
+              isHtml: true,
+              status: response.status
+            };
+          } else {
+            errorData = { 
+              error: responseText || `HTTP ${response.status} error`,
+              status: response.status
+            };
+          }
+        }
+        
+        console.error('Checkout error:', errorData);
+        console.error('Response status:', response.status);
+        console.error('Response headers:', Object.fromEntries(response.headers.entries()));
         
         if (errorData.error && errorData.error.includes('STRIPE_SECRET_KEY')) {
-          alert('Payment system is not configured. Please contact support or check the STRIPE_IMMEDIATE_FIX.md file for setup instructions.');
+          alert('Payment system is not configured on the server. Please contact support to complete the Stripe setup.');
+          return;
+        }
+        
+        if (response.status === 404) {
+          alert('The payment service is not available. The edge function may not be deployed. Please contact support.');
           return;
         }
         
         throw new Error(errorData.error || 'Failed to create checkout session');
       }
 
-      const { url, credits_available } = await response.json();
+      const { url } = await response.json();
       
       // Redirect to Stripe checkout
       window.location.href = url;
@@ -280,7 +350,7 @@ export const PricingModal: React.FC<PricingModalProps> = ({ isOpen, onClose }) =
                   Upgrade Your Plan
                 </h2>
                 <p className="text-muted-foreground text-sm">
-                  Choose the perfect plan for your needs. No hidden fees, cancel anytime.
+                  {reason || "Choose the perfect plan for your needs. No hidden fees, cancel anytime."}
                 </p>
                 {creditBalance > 0 && (
                   <div className="mt-2 inline-flex items-center gap-2 px-3 py-1.5 bg-green-500/10 text-green-600 rounded-full text-sm font-medium">

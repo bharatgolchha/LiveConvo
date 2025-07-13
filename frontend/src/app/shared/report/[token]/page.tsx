@@ -68,12 +68,26 @@ export default function SharedReportPage() {
       const response = await fetch(`/api/reports/shared/${token}`);
       
       if (!response.ok) {
+        const errorText = await response.text();
+        let errorData;
+        try {
+          errorData = JSON.parse(errorText);
+        } catch {
+          errorData = { error: errorText };
+        }
+        
+        console.error('API Error:', {
+          status: response.status,
+          statusText: response.statusText,
+          error: errorData
+        });
+        
         if (response.status === 404) {
-          throw new Error('Share link not found or has been removed');
+          throw new Error(errorData.error || 'Share link not found or has been removed');
         } else if (response.status === 410) {
-          throw new Error('This share link has expired');
+          throw new Error(errorData.error || 'This share link has expired');
         } else {
-          throw new Error('Failed to load shared report');
+          throw new Error(errorData.error || `Failed to load shared report (${response.status})`);
         }
       }
 
@@ -88,7 +102,8 @@ export default function SharedReportPage() {
           'actions': 'actions',
           'analytics': 'analytics',
           'followup': 'followup',
-          'transcript': 'transcript'
+          'transcript': 'transcript',
+          'custom': 'custom'
         };
         
         const firstAllowedTab = data.report.allowedTabs.find((tab: string) => tabMap[tab]);
@@ -169,7 +184,8 @@ export default function SharedReportPage() {
       'actions': 'actions',
       'analytics': 'analytics',
       'followup': 'followup',
-      'transcript': 'transcript'
+      'transcript': 'transcript',
+      'custom': 'custom'
     };
     
     return report.allowedTabs?.includes(tabMapping[tabId]);

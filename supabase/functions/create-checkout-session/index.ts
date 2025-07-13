@@ -47,7 +47,7 @@ serve(async (req) => {
       )
     }
 
-    const { priceId, planId, interval } = await req.json()
+    const { priceId, planId, interval, referralCode } = await req.json()
 
     if (!priceId) {
       return new Response(
@@ -56,7 +56,7 @@ serve(async (req) => {
       )
     }
 
-    console.log('Creating checkout session for:', { userId: user.id, priceId, planId, interval })
+    console.log('Creating checkout session for:', { userId: user.id, priceId, planId, interval, referralCode })
 
     // Get or create Stripe customer
     const { data: userData, error: dbError } = await supabase
@@ -114,8 +114,84 @@ serve(async (req) => {
       )
     }
 
+    // Get the origin URL with fallback
+    const origin = req.headers.get('origin') || 'https://liveprompt.ai'
+    console.log('Using origin URL:', origin)
+
+    // Handle referral code if provided
+    let discounts: any[] = []
+    let referralMetadata: any = {}
+    
+    if (referralCode) {
+      console.log('Validating referral code:', referralCode)
+      
+      // Validate the referral code
+      const { data: referrer, error: referralError } = await supabase
+        .from('users')
+        .select('id, email')
+        .eq('referral_code', referralCode)
+        .single()
+        
+      if (referralError || !referrer) {
+        console.error('Invalid referral code:', referralCode, referralError)
+        return new Response(
+          JSON.stringify({ error: 'Invalid referral code' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
+      }
+      
+      // Make sure user isn't using their own referral code
+      if (referrer.id === user.id) {
+        return new Response(
+          JSON.stringify({ error: 'You cannot use your own referral code' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
+      }
+      
+      console.log('Valid referral code from user:', referrer.email)
+      
+      // Create or retrieve a 10% discount coupon
+      const couponId = 'REFERRAL_10_PERCENT_OFF'
+      let coupon
+      
+      try {
+        // Try to retrieve existing coupon
+        coupon = await stripe.coupons.retrieve(couponId)
+        console.log('Retrieved existing referral coupon:', couponId)
+      } catch (error: any) {
+        // If coupon doesn't exist, create it
+        if (error.code === 'resource_missing') {
+          console.log('Creating new referral coupon')
+          coupon = await stripe.coupons.create({
+            id: couponId,
+            percent_off: 10,
+            duration: 'forever',
+            name: 'Referral Discount',
+            metadata: {
+              type: 'referral_discount'
+            }
+          })
+          console.log('Created new referral coupon:', coupon.id)
+        } else {
+          throw error
+        }
+      }
+      
+      // Add the coupon to discounts array
+      discounts = [{
+        coupon: couponId
+      }]
+      
+      // Add referral metadata
+      referralMetadata = {
+        referral_code: referralCode,
+        referrer_id: referrer.id,
+        referrer_email: referrer.email
+      }
+    }
+
     // Create checkout session - back to line_items which is the correct format
-    const session = await stripe.checkout.sessions.create({
+    const sessionConfig: any = {
       customer: customerId,
       payment_method_types: ['card'],
       mode: 'subscription',
@@ -123,16 +199,24 @@ serve(async (req) => {
         price: priceId,
         quantity: 1,
       }],
-      success_url: `${req.headers.get('origin')}/dashboard?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${req.headers.get('origin')}/dashboard`,
+      success_url: `${origin}/dashboard?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${origin}/dashboard`,
       subscription_data: {
         metadata: {
           user_id: user.id,
           plan_id: planId,
           interval: interval,
+          ...referralMetadata
         },
       },
-    })
+    }
+    
+    // Add discounts if we have a referral code
+    if (discounts.length > 0) {
+      sessionConfig.discounts = discounts
+    }
+    
+    const session = await stripe.checkout.sessions.create(sessionConfig)
 
     console.log('Checkout session created:', session.id)
 

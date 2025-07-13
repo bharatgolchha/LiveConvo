@@ -1,0 +1,688 @@
+import React, { useState, useEffect, useRef } from 'react';
+import { 
+  Sparkles, 
+  FileText, 
+  Loader2, 
+  Copy, 
+  Download,
+  RefreshCw,
+  Clock,
+  ChevronDown,
+  ChevronUp,
+  AlertCircle,
+  Check,
+  Wand2,
+  History,
+  Save,
+  X
+} from 'lucide-react';
+import { Button } from '@/components/ui/Button';
+import { Textarea } from '@/components/ui/textarea';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { useAuth } from '@/contexts/AuthContext';
+import ReactMarkdown from 'react-markdown';
+import { CustomReportPrompts } from './CustomReportPrompts';
+
+interface CustomReportTabProps {
+  sessionId: string;
+  sharedToken?: string;
+}
+
+interface CustomReport {
+  id: string;
+  prompt: string;
+  template: string;
+  content: string;
+  created_at: string;
+}
+
+interface ReportTemplate {
+  id: string;
+  name: string;
+  description: string;
+  prompt: string;
+}
+
+const REPORT_TEMPLATES: ReportTemplate[] = [
+  {
+    id: 'executive-brief',
+    name: 'Executive Brief',
+    description: 'High-level summary for leadership',
+    prompt: 'Create an executive brief of this meeting focusing on strategic decisions, key outcomes, and business impact. Include a clear executive summary, major decisions with rationale, financial or resource implications, and recommended next steps for leadership approval.'
+  },
+  {
+    id: 'technical-documentation',
+    name: 'Technical Documentation',
+    description: 'Detailed technical decisions and implementation details',
+    prompt: 'Generate technical documentation from this meeting including all technical decisions, architecture discussions, implementation details, technology choices with justifications, identified technical risks or challenges, and specific technical action items with owners and timelines.'
+  },
+  {
+    id: 'client-update',
+    name: 'Client Update',
+    description: 'Professional client-facing summary',
+    prompt: 'Create a professional client update email summarizing this meeting. Include project progress, completed milestones, upcoming deliverables, any challenges and mitigation strategies, key decisions that affect the client, and next steps. Use a professional, positive tone suitable for external communication.'
+  },
+  {
+    id: 'meeting-minutes',
+    name: 'Meeting Minutes',
+    description: 'Formal meeting documentation',
+    prompt: 'Generate formal meeting minutes including date/time/attendees, agenda items covered, detailed discussion points for each agenda item, all decisions made with voting results if applicable, action items with clear owners and deadlines, and items tabled for future discussion.'
+  },
+  {
+    id: 'project-status',
+    name: 'Project Status Report',
+    description: 'Progress and milestone tracking',
+    prompt: 'Create a project status report based on this meeting. Include current project phase and timeline status, completed tasks since last update, in-progress work with percentage complete, upcoming milestones and deadlines, risks and issues with mitigation plans, resource needs or constraints, and overall project health assessment.'
+  },
+  {
+    id: 'sales-followup',
+    name: 'Sales Follow-up',
+    description: 'Post-sales meeting action plan',
+    prompt: 'Generate a sales follow-up report including prospect pain points discussed, proposed solutions and their alignment to needs, objections raised and responses, buying signals observed, competitive positioning discussed, next steps in the sales process, and recommended follow-up actions with timelines.'
+  },
+  {
+    id: 'retrospective',
+    name: 'Team Retrospective',
+    description: 'Team performance and improvement insights',
+    prompt: 'Create a retrospective summary highlighting what went well, what could be improved, specific action items for improvement, team dynamics observations, process improvements suggested, lessons learned, and success metrics discussed. Focus on actionable insights for continuous improvement.'
+  },
+  {
+    id: 'custom',
+    name: 'Custom Prompt',
+    description: 'Write your own custom prompt',
+    prompt: ''
+  }
+];
+
+export function CustomReportTab({ sessionId, sharedToken }: CustomReportTabProps) {
+  const { session } = useAuth();
+  
+  console.log('CustomReportTab props:', { sessionId, sharedToken });
+  const [selectedTemplate, setSelectedTemplate] = useState<string>('custom');
+  const [customPrompt, setCustomPrompt] = useState<string>('');
+  const [generatedReport, setGeneratedReport] = useState<string>('');
+  const [reportHistory, setReportHistory] = useState<CustomReport[]>([]);
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
+  const [showPrompts, setShowPrompts] = useState(true);
+  const [showHistory, setShowHistory] = useState(false);
+  const [includeTranscript, setIncludeTranscript] = useState(true);
+  const [includeSummary, setIncludeSummary] = useState(true);
+  const [includeActionItems, setIncludeActionItems] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
+  const [currentReportSaved, setCurrentReportSaved] = useState(false);
+  const [currentPrompt, setCurrentPrompt] = useState<string>('');
+  const [currentTemplate, setCurrentTemplate] = useState<string>('');
+  const [saveSuccess, setSaveSuccess] = useState(false);
+  const reportContentRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (sessionId && !sharedToken) {
+      fetchReportHistory();
+    }
+  }, [sessionId, sharedToken]);
+
+  useEffect(() => {
+    const template = REPORT_TEMPLATES.find(t => t.id === selectedTemplate);
+    if (template && template.id !== 'custom') {
+      setCustomPrompt(template.prompt);
+    }
+  }, [selectedTemplate]);
+
+  const fetchReportHistory = async () => {
+    if (!session?.access_token) return;
+
+    try {
+      const headers: HeadersInit = {
+        'Authorization': `Bearer ${session.access_token}`
+      };
+
+      const response = await fetch(`/api/reports/${sessionId}/custom`, {
+        headers
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        console.log('Fetched report history:', data);
+        setReportHistory(data.reports || []);
+      } else {
+        console.error('Failed to fetch history:', response.status, response.statusText);
+      }
+    } catch (err) {
+      console.error('Error fetching report history:', err);
+    }
+  };
+
+  const handleGenerateReport = async () => {
+    if (!customPrompt.trim()) {
+      setError('Please enter a prompt or select a template');
+      return;
+    }
+
+    if (!sessionId) {
+      setError('Session ID is missing. Please refresh the page and try again.');
+      return;
+    }
+
+    setIsGenerating(true);
+    setError(null);
+    setGeneratedReport('');
+
+    try {
+      const headers: HeadersInit = {
+        'Content-Type': 'application/json'
+      };
+      
+      if (!sharedToken && session?.access_token) {
+        headers['Authorization'] = `Bearer ${session.access_token}`;
+      }
+
+      const response = await fetch(`/api/reports/${sessionId}/custom`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          prompt: customPrompt,
+          template: selectedTemplate,
+          includeTranscript,
+          includeSummary,
+          includeActionItems,
+          sharedToken
+        })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to generate report');
+      }
+
+      const reader = response.body?.getReader();
+      const decoder = new TextDecoder();
+      let fullContent = '';
+
+      if (reader) {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          const chunk = decoder.decode(value);
+          const lines = chunk.split('\n');
+
+          for (const line of lines) {
+            if (line.startsWith('data: ')) {
+              try {
+                const data = JSON.parse(line.slice(6));
+                if (data.content) {
+                  fullContent += data.content;
+                  setGeneratedReport(fullContent);
+                } else if (data.complete) {
+                  // Report generation complete
+                  setCurrentPrompt(customPrompt);
+                  setCurrentTemplate(selectedTemplate);
+                  setCurrentReportSaved(false); // Mark as unsaved
+                }
+              } catch (e) {
+                // Skip invalid JSON
+              }
+            }
+          }
+        }
+      }
+    } catch (err) {
+      console.error('Error generating report:', err);
+      setError(err instanceof Error ? err.message : 'Failed to generate report');
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  const handleCopyReport = async () => {
+    if (!generatedReport) return;
+
+    try {
+      await navigator.clipboard.writeText(generatedReport);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch (err) {
+      console.error('Failed to copy:', err);
+    }
+  };
+
+  const handleDownloadReport = () => {
+    if (!generatedReport) return;
+
+    const blob = new Blob([generatedReport], { type: 'text/markdown' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `custom-report-${sessionId}-${Date.now()}.md`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  const handleSelectHistoryItem = (report: CustomReport) => {
+    setSelectedTemplate(report.template);
+    setCustomPrompt(report.prompt);
+    setGeneratedReport(report.content);
+    setCurrentReportSaved(true); // This is already saved
+    setCurrentPrompt(report.prompt);
+    setCurrentTemplate(report.template);
+  };
+
+  const handleSaveReport = async () => {
+    if (!generatedReport || !session?.access_token || sharedToken) return;
+
+    setIsSaving(true);
+    setError(null);
+
+    try {
+      const headers: HeadersInit = {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${session.access_token}`
+      };
+
+      const response = await fetch(`/api/reports/${sessionId}/custom/save`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          prompt: currentPrompt,
+          template: currentTemplate,
+          content: generatedReport,
+          metadata: {
+            includeTranscript,
+            includeSummary,
+            includeActionItems
+          }
+        })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error('Save error:', errorData);
+        throw new Error(errorData.error || 'Failed to save report');
+      }
+
+      const savedData = await response.json();
+      console.log('Report saved successfully:', savedData);
+      setCurrentReportSaved(true);
+      setSaveSuccess(true);
+      setTimeout(() => setSaveSuccess(false), 3000);
+      fetchReportHistory(); // Refresh history
+    } catch (err) {
+      console.error('Error saving report:', err);
+      setError('Failed to save report. Please try again.');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleDiscardReport = () => {
+    setGeneratedReport('');
+    setCustomPrompt('');
+    setSelectedTemplate('custom');
+    setCurrentReportSaved(false);
+    setCurrentPrompt('');
+    setCurrentTemplate('');
+    setError(null);
+  };
+
+  const handlePromptSelect = (prompt: string) => {
+    setCustomPrompt(prompt);
+    setSelectedTemplate('custom');
+  };
+
+  if (!sessionId) {
+    return (
+      <div className="text-center py-12">
+        <AlertCircle className="w-16 h-16 text-destructive mx-auto mb-4" />
+        <h3 className="text-lg font-medium text-foreground mb-2">
+          Session Not Found
+        </h3>
+        <p className="text-sm text-muted-foreground">
+          Unable to load custom report. Please refresh the page and try again.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="bg-card border border-border rounded-lg p-6">
+        <div className="flex items-start justify-between mb-4">
+          <div>
+            <div className="flex items-center gap-3 mb-2">
+              <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center">
+                <Sparkles className="w-5 h-5 text-primary" />
+              </div>
+              <h3 className="text-lg font-semibold text-foreground">Custom Report Generator</h3>
+            </div>
+            <p className="text-sm text-muted-foreground">
+              Generate custom reports tailored to your specific needs using AI
+            </p>
+          </div>
+          {!sharedToken && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowHistory(!showHistory)}
+              className="flex items-center gap-2"
+            >
+              <History className="w-4 h-4" />
+              History {reportHistory.length > 0 && `(${reportHistory.length})`}
+            </Button>
+          )}
+        </div>
+
+        {/* Template Selector */}
+        <div className="space-y-4">
+          <div>
+            <label className="text-sm font-medium text-foreground mb-2 block">
+              Select a template or write custom prompt
+            </label>
+            <Select value={selectedTemplate} onValueChange={setSelectedTemplate}>
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Choose a template" />
+              </SelectTrigger>
+              <SelectContent>
+                {REPORT_TEMPLATES.map(template => (
+                  <SelectItem key={template.id} value={template.id}>
+                    <div className="flex flex-col items-start">
+                      <span className="font-medium">{template.name}</span>
+                      <span className="text-xs text-muted-foreground">{template.description}</span>
+                    </div>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Custom Prompt Input */}
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <label className="text-sm font-medium text-foreground">
+                Report generation prompt
+              </label>
+              {selectedTemplate === 'custom' && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setShowPrompts(!showPrompts)}
+                  className="text-xs"
+                >
+                  {showPrompts ? (
+                    <>
+                      <ChevronUp className="w-3 h-3 mr-1" />
+                      Hide suggestions
+                    </>
+                  ) : (
+                    <>
+                      <ChevronDown className="w-3 h-3 mr-1" />
+                      Show suggestions
+                    </>
+                  )}
+                </Button>
+              )}
+            </div>
+            
+            {showPrompts && selectedTemplate === 'custom' && (
+              <CustomReportPrompts 
+                onSelectPrompt={handlePromptSelect}
+                className="mb-3"
+              />
+            )}
+
+            <Textarea
+              value={customPrompt}
+              onChange={(e) => setCustomPrompt(e.target.value)}
+              placeholder="Describe what kind of report you want to generate..."
+              className="min-h-[120px] resize-none"
+              disabled={selectedTemplate !== 'custom'}
+            />
+            <p className="text-xs text-muted-foreground mt-2">
+              Be specific about what information you want included and how it should be formatted.
+            </p>
+          </div>
+
+          {/* Context Options */}
+          <div className="flex flex-wrap gap-4 p-3 bg-muted/30 rounded-lg">
+            <label className="flex items-center gap-2 text-sm cursor-pointer">
+              <input
+                type="checkbox"
+                checked={includeTranscript}
+                onChange={(e) => setIncludeTranscript(e.target.checked)}
+                className="rounded border-input"
+              />
+              <span>Include transcript</span>
+            </label>
+            <label className="flex items-center gap-2 text-sm cursor-pointer">
+              <input
+                type="checkbox"
+                checked={includeSummary}
+                onChange={(e) => setIncludeSummary(e.target.checked)}
+                className="rounded border-input"
+              />
+              <span>Include summary</span>
+            </label>
+            <label className="flex items-center gap-2 text-sm cursor-pointer">
+              <input
+                type="checkbox"
+                checked={includeActionItems}
+                onChange={(e) => setIncludeActionItems(e.target.checked)}
+                className="rounded border-input"
+              />
+              <span>Include action items</span>
+            </label>
+          </div>
+
+          {/* Generate Button */}
+          <div className="flex justify-end gap-2">
+            {generatedReport && (
+              <Button
+                variant="outline"
+                onClick={handleDiscardReport}
+              >
+                <RefreshCw className="w-4 h-4 mr-2" />
+                Start New Report
+              </Button>
+            )}
+            <Button
+              onClick={handleGenerateReport}
+              disabled={isGenerating || !customPrompt.trim()}
+            >
+              {isGenerating ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Generating Report...
+                </>
+              ) : (
+                <>
+                  <Wand2 className="w-4 h-4 mr-2" />
+                  Generate Report
+                </>
+              )}
+            </Button>
+          </div>
+        </div>
+      </div>
+
+      {/* Error Display */}
+      {error && (
+        <div className="p-4 bg-destructive/10 border border-destructive/20 rounded-lg">
+          <div className="flex items-start gap-3">
+            <AlertCircle className="w-5 h-5 text-destructive mt-0.5" />
+            <div>
+              <p className="font-medium text-destructive">Error</p>
+              <p className="text-sm text-muted-foreground mt-1">{error}</p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Success Message */}
+      {saveSuccess && (
+        <div className="p-4 bg-primary/10 border border-primary/20 rounded-lg">
+          <div className="flex items-start gap-3">
+            <Check className="w-5 h-5 text-primary mt-0.5" />
+            <div>
+              <p className="font-medium text-primary">Report Saved Successfully!</p>
+              <p className="text-sm text-muted-foreground mt-1">Your report has been saved to history.</p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Report History */}
+      {showHistory && !sharedToken && (
+        <div className="bg-card border border-border rounded-lg p-6">
+          <h4 className="font-medium text-foreground mb-4 flex items-center gap-2">
+            <Clock className="w-4 h-4 text-muted-foreground" />
+            Previous Reports ({reportHistory.length})
+          </h4>
+          {reportHistory.length === 0 ? (
+            <p className="text-sm text-muted-foreground text-center py-4">
+              No saved reports yet. Generate and save a report to see it here.
+            </p>
+          ) : (
+            <div className="space-y-2">
+              {reportHistory.map((report) => (
+                <button
+                  key={report.id}
+                  onClick={() => handleSelectHistoryItem(report)}
+                  className="w-full text-left p-3 bg-muted/30 hover:bg-muted/50 rounded-lg transition-colors"
+                >
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <p className="text-sm font-medium text-foreground line-clamp-2">
+                        {report.prompt}
+                      </p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        {new Date(report.created_at).toLocaleString()}
+                      </p>
+                    </div>
+                    <span className="text-xs bg-primary/10 text-primary px-2 py-1 rounded">
+                      {REPORT_TEMPLATES.find(t => t.id === report.template)?.name || 'Custom'}
+                    </span>
+                  </div>
+                </button>
+              ))}
+            </div>
+          )
+        </div>
+      )}
+
+      {/* Generated Report Display */}
+      {generatedReport && (
+        <div className="bg-card border border-border rounded-lg">
+          <div className="p-6 border-b border-border">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-secondary/10 rounded-lg flex items-center justify-center">
+                  <FileText className="w-5 h-5 text-secondary" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold text-foreground flex items-center gap-2">
+                    Generated Report
+                    {!sharedToken && !currentReportSaved && (
+                      <span className="text-xs bg-accent/20 text-accent-foreground px-2 py-1 rounded-full">
+                        Unsaved
+                      </span>
+                    )}
+                  </h3>
+                  <p className="text-sm text-muted-foreground">
+                    {new Date().toLocaleString()}
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                {!sharedToken && !currentReportSaved && (
+                  <>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleDiscardReport}
+                    >
+                      <X className="w-4 h-4 mr-2" />
+                      Discard
+                    </Button>
+                    <Button
+                      variant="primary"
+                      size="sm"
+                      onClick={handleSaveReport}
+                      disabled={isSaving}
+                    >
+                      {isSaving ? (
+                        <>
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          Saving...
+                        </>
+                      ) : (
+                        <>
+                          <Save className="w-4 h-4 mr-2" />
+                          Save Report
+                        </>
+                      )}
+                    </Button>
+                  </>
+                )}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleCopyReport}
+                >
+                  {copied ? (
+                    <>
+                      <Check className="w-4 h-4 mr-2" />
+                      Copied!
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="w-4 h-4 mr-2" />
+                      Copy
+                    </>
+                  )}
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleDownloadReport}
+                >
+                  <Download className="w-4 h-4 mr-2" />
+                  Download
+                </Button>
+              </div>
+            </div>
+          </div>
+          
+          <div 
+            ref={reportContentRef}
+            className="p-6 prose prose-sm dark:prose-invert max-w-none"
+          >
+            <ReactMarkdown>{generatedReport}</ReactMarkdown>
+          </div>
+        </div>
+      )}
+
+      {/* Empty State */}
+      {!generatedReport && !isGenerating && !error && (
+        <div className="text-center py-12">
+          <Sparkles className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
+          <h3 className="text-lg font-medium text-foreground mb-2">
+            Generate a Custom Report
+          </h3>
+          <p className="text-sm text-muted-foreground max-w-md mx-auto">
+            Select a template or write your own prompt to generate a custom report from your meeting data.
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}

@@ -253,6 +253,7 @@ export async function POST(request: NextRequest) {
 
     // Get participants from calendar event if linked
     let participants = [];
+    let finalMeetingUrl = meeting_url;
     if (calendar_event_id) {
       const { data: calendarEvent, error: calendarError } = await authClient
         .from('calendar_events')
@@ -263,8 +264,8 @@ export async function POST(request: NextRequest) {
       if (!calendarError && calendarEvent) {
         participants = calendarEvent.attendees || [];
         // Use calendar event's meeting URL if not provided
-        if (!meeting_url && calendarEvent.meeting_url) {
-          meeting_url = calendarEvent.meeting_url;
+        if (!finalMeetingUrl && calendarEvent.meeting_url) {
+          finalMeetingUrl = calendarEvent.meeting_url;
         }
       }
     }
@@ -281,8 +282,8 @@ export async function POST(request: NextRequest) {
         status: 'draft',
         participant_me: participantMe,
         participant_them: participant_them || null,
-        meeting_url: meeting_url || null,
-        meeting_platform: meeting_url ? detectMeetingPlatform(meeting_url) : null,
+        meeting_url: finalMeetingUrl || null,
+        meeting_platform: finalMeetingUrl ? detectMeetingPlatform(finalMeetingUrl) : null,
         ai_instructions: ai_instructions || null,
         participants: participants // Store participants from calendar event
       })
@@ -352,7 +353,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Meeting URL is saved, but bot creation is now manual via "Join Meeting" button
-    if (meeting_url) {
+    if (finalMeetingUrl) {
       console.log('🔗 Meeting URL saved. Bot will be created when user clicks "Join Meeting"');
     }
 

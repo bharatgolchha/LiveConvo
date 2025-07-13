@@ -10,6 +10,16 @@ export interface SubscriptionData {
       monthly: number | null;
       yearly: number | null;
     };
+    features?: {
+      hasCustomTemplates: boolean;
+      hasRealTimeGuidance: boolean;
+      hasAdvancedSummaries: boolean;
+      hasExportOptions: boolean;
+      hasEmailSummaries: boolean;
+      hasPrioritySupport: boolean;
+      hasAnalyticsDashboard: boolean;
+      hasTeamCollaboration: boolean;
+    };
   };
   subscription: {
     status: string;
@@ -33,6 +43,7 @@ export interface UseSubscriptionReturn {
   refreshSubscription: () => Promise<void>;
   isPro: boolean;
   planType: 'free' | 'pro' | 'team';
+  hasFeature: (feature: keyof NonNullable<SubscriptionData['plan']['features']>) => boolean;
 }
 
 /**
@@ -60,8 +71,11 @@ export function useSubscription(): UseSubscriptionReturn {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${session.access_token}`,
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          'Cache-Control': 'no-cache',
+          'Pragma': 'no-cache'
         },
+        cache: 'no-store',
       });
 
       if (!response.ok) {
@@ -70,6 +84,7 @@ export function useSubscription(): UseSubscriptionReturn {
       }
 
       const data: SubscriptionData = await response.json();
+      console.log('useSubscription - Fetched data:', data);
       setSubscription(data);
 
     } catch (err) {
@@ -108,6 +123,18 @@ export function useSubscription(): UseSubscriptionReturn {
   
   const isPro = planType === 'pro' || planType === 'team';
 
+  // Helper function to check if a feature is available
+  const hasFeature = (feature: keyof NonNullable<SubscriptionData['plan']['features']>): boolean => {
+    const result = subscription?.plan.features?.[feature] ?? false;
+    console.log(`hasFeature check for ${feature}:`, {
+      feature,
+      result,
+      features: subscription?.plan.features,
+      planName: subscription?.plan.name
+    });
+    return result;
+  };
+
   return {
     subscription,
     loading: loading || authLoading,
@@ -115,5 +142,6 @@ export function useSubscription(): UseSubscriptionReturn {
     refreshSubscription,
     isPro,
     planType,
+    hasFeature,
   };
 }

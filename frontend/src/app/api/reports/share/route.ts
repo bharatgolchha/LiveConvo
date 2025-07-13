@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { randomBytes } from 'crypto';
 import { sendEmail } from '@/lib/services/email/resend';
 import { generateShareReportEmail } from '@/lib/services/email/templates/shareReport';
-import { createAuthenticatedSupabaseClient } from '@/lib/supabase';
+import { createAuthenticatedSupabaseClient, createServerSupabaseClient } from '@/lib/supabase';
 
 export async function POST(request: NextRequest) {
   try {
@@ -20,6 +20,7 @@ export async function POST(request: NextRequest) {
     // Parse request body
     const body = await request.json();
     console.log('Share request body:', body);
+    console.log('Session ID from request:', body.sessionId);
     const { 
       sessionId, 
       sharedTabs, 
@@ -55,7 +56,78 @@ export async function POST(request: NextRequest) {
     
     console.log('Authenticated user:', user.id);
 
-    // Verify user owns the session and get session details for email
+    // First, let's check if the session exists at all
+    console.log('Looking up session with ID:', sessionId);
+    console.log('Using authenticated user ID:', user.id);
+    
+    // First try with authenticated client
+    const { data: sessionExists, error: checkError } = await supabase
+      .from('sessions')
+      .select('id, user_id')
+      .eq('id', sessionId)
+      .single();
+
+    console.log('Session lookup result with auth client:', {
+      found: !!sessionExists,
+      error: checkError,
+      sessionData: sessionExists
+    });
+
+    // If not found, try with service role to check if it's an RLS issue
+    if (!sessionExists && process.env.SUPABASE_SERVICE_ROLE_KEY) {
+      console.log('Trying with service role client to check RLS...');
+      try {
+        const serviceSupabase = createServerSupabaseClient();
+        const { data: serviceCheck, error: serviceError } = await serviceSupabase
+          .from('sessions')
+          .select('id, user_id')
+          .eq('id', sessionId)
+          .single();
+        
+        console.log('Service role lookup result:', {
+          found: !!serviceCheck,
+          error: serviceError,
+          sessionData: serviceCheck
+        });
+        
+        if (serviceCheck) {
+          console.error('Session exists but RLS is blocking access!', {
+            sessionUserId: serviceCheck.user_id,
+            currentUserId: user.id
+          });
+        }
+      } catch (e) {
+        console.error('Service role check failed:', e);
+      }
+    }
+
+    if (!sessionExists || checkError) {
+      console.error('Session does not exist:', {
+        sessionId,
+        error: checkError,
+        errorCode: checkError?.code,
+        errorMessage: checkError?.message
+      });
+      return NextResponse.json(
+        { error: 'Session not found', details: `Session ID ${sessionId} does not exist` },
+        { status: 404 }
+      );
+    }
+
+    // Check if user owns the session
+    if (sessionExists.user_id !== user.id) {
+      console.error('User does not own session:', {
+        sessionId,
+        sessionUserId: sessionExists.user_id,
+        currentUserId: user.id
+      });
+      return NextResponse.json(
+        { error: 'Access denied', details: 'You do not have permission to share this session' },
+        { status: 403 }
+      );
+    }
+
+    // Now get full session details for email
     const { data: session, error: sessionError } = await supabase
       .from('sessions')
       .select(`
@@ -70,25 +142,34 @@ export async function POST(request: NextRequest) {
           action_items,
           follow_up_questions,
           conversation_highlights
-        ),
-        calendar_events (
-          attendees
         )
       `)
       .eq('id', sessionId)
-      .eq('user_id', user.id)
       .single();
+    
+    // Fetch calendar events separately to avoid ambiguous relationship
+    let calendarAttendees = [];
+    if (session) {
+      const { data: calendarEvents } = await supabase
+        .from('calendar_events')
+        .select('attendees')
+        .eq('session_id', sessionId)
+        .limit(1)
+        .single();
+      
+      if (calendarEvents?.attendees) {
+        calendarAttendees = calendarEvents.attendees;
+      }
+    }
 
     if (!session || sessionError) {
-      console.error('Session lookup failed:', {
+      console.error('Failed to fetch full session details:', {
         sessionId,
-        userId: user.id,
-        error: sessionError,
-        session
+        error: sessionError
       });
       return NextResponse.json(
-        { error: 'Session not found or access denied', details: sessionError?.message },
-        { status: 404 }
+        { error: 'Failed to fetch session details', details: sessionError?.message },
+        { status: 500 }
       );
     }
 
@@ -116,7 +197,7 @@ export async function POST(request: NextRequest) {
     let allEmailRecipients = [...(emailRecipients || [])];
     if (shareWithParticipants) {
       // Get participants from session or calendar event
-      const participants = session.participants || session.calendar_events?.[0]?.attendees || [];
+      const participants = session.participants || calendarAttendees || [];
       
       // Extract unique emails, excluding the specified ones
       const participantEmails = participants
@@ -225,7 +306,7 @@ export async function POST(request: NextRequest) {
             emailSendStatus[recipientEmail] = { status: 'sent', sentAt: new Date().toISOString() };
           } catch (error) {
             console.error(`Failed to send email to ${recipientEmail}:`, error);
-            emailSendStatus[recipientEmail] = { status: 'failed', error: error.message };
+            emailSendStatus[recipientEmail] = { status: 'failed', error: error instanceof Error ? error.message : 'Unknown error' };
           }
         });
 

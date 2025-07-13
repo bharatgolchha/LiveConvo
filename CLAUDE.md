@@ -365,6 +365,55 @@ This is useful for development and testing without external services.
 - Large file uploads may timeout
 - Some UI animations may lag on slower devices
 
+## 💳 Stripe Checkout Architecture
+
+### Important: How Checkout Works
+
+**We use Supabase Edge Functions for ALL Stripe operations.** Edge functions are deployed on BOTH development and production Supabase instances.
+
+#### Checkout Flow:
+1. **Frontend (PricingModal)** → Calls `/api/checkout/create-session` 
+2. **Next.js API Route** → Forwards request to Supabase edge function
+3. **Supabase Edge Function** → `create-checkout-session` handles Stripe API calls
+
+### Architecture Details:
+
+- **Stripe keys are stored in Supabase Vault** (not in .env files)
+- **Edge functions are deployed on BOTH instances**:
+  - Development: `ucvfgfbjcrxbzppwjpuu.supabase.co`
+  - Production: `xkxjycccifwyxgtvflxz.supabase.co`
+- **Each environment uses its own Stripe keys** configured in Supabase Vault
+
+### Edge Function Endpoints:
+
+#### Development:
+- `https://ucvfgfbjcrxbzppwjpuu.supabase.co/functions/v1/create-checkout-session`
+- `https://ucvfgfbjcrxbzppwjpuu.supabase.co/functions/v1/stripe-webhooks`
+- `https://ucvfgfbjcrxbzppwjpuu.supabase.co/functions/v1/create-portal-session`
+- `https://ucvfgfbjcrxbzppwjpuu.supabase.co/functions/v1/test-stripe-config`
+
+#### Production:
+- `https://xkxjycccifwyxgtvflxz.supabase.co/functions/v1/create-checkout-session`
+- `https://xkxjycccifwyxgtvflxz.supabase.co/functions/v1/stripe-webhooks`
+- `https://xkxjycccifwyxgtvflxz.supabase.co/functions/v1/create-portal-session`
+- `https://xkxjycccifwyxgtvflxz.supabase.co/functions/v1/test-stripe-config`
+
+### If Checkout Fails:
+
+1. **Check if Stripe keys are configured in Supabase Vault**:
+   - Go to your Supabase project dashboard
+   - Navigate to Settings → Vault
+   - Add these secrets:
+     - `STRIPE_SECRET_KEY`: Your Stripe secret key
+     - `STRIPE_WEBHOOK_SECRET`: Your webhook secret
+2. **Verify edge functions are deployed and active**
+3. **Check console logs for specific error messages**
+
+### Important Notes:
+- **DO NOT add Stripe keys to .env.local files**
+- The `/api/checkout/create-session` route simply forwards requests to the edge function
+- Authentication is handled by passing the user's JWT token to the edge function
+
 ---
 
 **Note**: This guide is designed to help AI assistants understand and work with the liveprompt.ai codebase effectively. Always refer to the actual code for the most up-to-date implementation details.
