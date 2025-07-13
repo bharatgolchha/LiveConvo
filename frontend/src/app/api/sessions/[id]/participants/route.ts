@@ -23,10 +23,14 @@ export async function GET(
     
     const supabase = createAuthenticatedSupabaseClient(token);
 
-    // Get session details first
+    // Get session details with participants
     const { data: session, error: sessionError } = await supabase
       .from('sessions')
-      .select('participant_me, participant_them')
+      .select(`
+        participant_me, 
+        participant_them,
+        participants
+      `)
       .eq('id', sessionId)
       .single();
 
@@ -38,7 +42,37 @@ export async function GET(
       );
     }
 
-    // Get all unique speakers from transcripts
+    // Fetch calendar events separately to get attendees
+    let calendarAttendees = [];
+    const { data: calendarEvents } = await supabase
+      .from('calendar_events')
+      .select('attendees')
+      .eq('session_id', sessionId)
+      .limit(1)
+      .single();
+    
+    if (calendarEvents?.attendees) {
+      calendarAttendees = calendarEvents.attendees;
+    }
+
+    // First check if we have participants from session or calendar events
+    const calendarParticipants = session.participants || calendarAttendees || [];
+    
+    if (calendarParticipants.length > 0) {
+      // Use calendar participants if available
+      const participants = calendarParticipants.map((p: any) => ({
+        name: p.name || p.email || 'Unknown',
+        email: p.email,
+        initials: getInitials(p.name || p.email || 'Unknown'),
+        color: getColorForName(p.name || p.email || 'Unknown'),
+        response_status: p.response_status,
+        is_organizer: p.is_organizer
+      }));
+      
+      return NextResponse.json({ participants });
+    }
+
+    // Fallback to transcript speakers if no calendar participants
     const { data: transcripts, error: transcriptsError } = await supabase
       .from('transcripts')
       .select('speaker')
@@ -47,10 +81,6 @@ export async function GET(
 
     if (transcriptsError) {
       console.error('Transcripts fetch error:', transcriptsError);
-      return NextResponse.json(
-        { error: 'Failed to fetch participants' },
-        { status: 500 }
-      );
     }
 
     // Extract unique speakers
@@ -65,7 +95,7 @@ export async function GET(
     }
     
     // Add speakers from transcripts
-    transcripts?.forEach(t => {
+    transcripts?.forEach((t: any) => {
       if (t.speaker && t.speaker.trim() !== '') {
         uniqueSpeakers.add(t.speaker);
       }

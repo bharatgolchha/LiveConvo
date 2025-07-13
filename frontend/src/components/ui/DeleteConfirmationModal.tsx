@@ -13,6 +13,9 @@ interface DeleteConfirmationModalProps {
   description: string;
   itemName?: string;
   isLoading?: boolean;
+  confirmButtonText?: string;
+  loadingText?: string;
+  itemSubtitle?: string;
 }
 
 export const DeleteConfirmationModal: React.FC<DeleteConfirmationModalProps> = ({
@@ -22,7 +25,10 @@ export const DeleteConfirmationModal: React.FC<DeleteConfirmationModalProps> = (
   title,
   description,
   itemName,
-  isLoading = false
+  isLoading = false,
+  confirmButtonText = "Delete Conversation",
+  loadingText = "Deleting...",
+  itemSubtitle = "Will be removed from your conversations"
 }) => {
   const handleConfirm = () => {
     onConfirm();
@@ -88,7 +94,7 @@ export const DeleteConfirmationModal: React.FC<DeleteConfirmationModalProps> = (
                           {itemName}
                         </p>
                         <p className="text-xs text-muted-foreground">
-                          Will be removed from your conversations
+                          {itemSubtitle}
                         </p>
                       </div>
                     </div>
@@ -115,12 +121,12 @@ export const DeleteConfirmationModal: React.FC<DeleteConfirmationModalProps> = (
                     {isLoading ? (
                       <div className="flex items-center">
                         <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
-                        Deleting...
+                        {loadingText}
                       </div>
                     ) : (
                       <>
                         <Trash2 className="w-4 h-4 mr-2" />
-                        Delete Conversation
+                        {confirmButtonText}
                       </>
                     )}
                   </Button>

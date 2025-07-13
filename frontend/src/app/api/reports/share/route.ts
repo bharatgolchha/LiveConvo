@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { randomBytes } from 'crypto';
 import { sendEmail } from '@/lib/services/email/resend';
 import { generateShareReportEmail } from '@/lib/services/email/templates/shareReport';
-import { createAuthenticatedSupabaseClient } from '@/lib/supabase';
+import { createAuthenticatedSupabaseClient, createServerSupabaseClient } from '@/lib/supabase';
 
 export async function POST(request: NextRequest) {
   try {
@@ -20,7 +20,16 @@ export async function POST(request: NextRequest) {
     // Parse request body
     const body = await request.json();
     console.log('Share request body:', body);
-    const { sessionId, sharedTabs, expiresIn, message, emailRecipients } = body;
+    console.log('Session ID from request:', body.sessionId);
+    const { 
+      sessionId, 
+      sharedTabs, 
+      expiresIn, 
+      message, 
+      emailRecipients,
+      shareWithParticipants,
+      excludedEmails = []
+    } = body;
 
     if (!sessionId || !sharedTabs || sharedTabs.length === 0) {
       return NextResponse.json(
@@ -47,13 +56,85 @@ export async function POST(request: NextRequest) {
     
     console.log('Authenticated user:', user.id);
 
-    // Verify user owns the session and get session details for email
+    // First, let's check if the session exists at all
+    console.log('Looking up session with ID:', sessionId);
+    console.log('Using authenticated user ID:', user.id);
+    
+    // First try with authenticated client
+    const { data: sessionExists, error: checkError } = await supabase
+      .from('sessions')
+      .select('id, user_id')
+      .eq('id', sessionId)
+      .single();
+
+    console.log('Session lookup result with auth client:', {
+      found: !!sessionExists,
+      error: checkError,
+      sessionData: sessionExists
+    });
+
+    // If not found, try with service role to check if it's an RLS issue
+    if (!sessionExists && process.env.SUPABASE_SERVICE_ROLE_KEY) {
+      console.log('Trying with service role client to check RLS...');
+      try {
+        const serviceSupabase = createServerSupabaseClient();
+        const { data: serviceCheck, error: serviceError } = await serviceSupabase
+          .from('sessions')
+          .select('id, user_id')
+          .eq('id', sessionId)
+          .single();
+        
+        console.log('Service role lookup result:', {
+          found: !!serviceCheck,
+          error: serviceError,
+          sessionData: serviceCheck
+        });
+        
+        if (serviceCheck) {
+          console.error('Session exists but RLS is blocking access!', {
+            sessionUserId: serviceCheck.user_id,
+            currentUserId: user.id
+          });
+        }
+      } catch (e) {
+        console.error('Service role check failed:', e);
+      }
+    }
+
+    if (!sessionExists || checkError) {
+      console.error('Session does not exist:', {
+        sessionId,
+        error: checkError,
+        errorCode: checkError?.code,
+        errorMessage: checkError?.message
+      });
+      return NextResponse.json(
+        { error: 'Session not found', details: `Session ID ${sessionId} does not exist` },
+        { status: 404 }
+      );
+    }
+
+    // Check if user owns the session
+    if (sessionExists.user_id !== user.id) {
+      console.error('User does not own session:', {
+        sessionId,
+        sessionUserId: sessionExists.user_id,
+        currentUserId: user.id
+      });
+      return NextResponse.json(
+        { error: 'Access denied', details: 'You do not have permission to share this session' },
+        { status: 403 }
+      );
+    }
+
+    // Now get full session details for email
     const { data: session, error: sessionError } = await supabase
       .from('sessions')
       .select(`
         id, 
         user_id,
         title,
+        participants,
         summaries (
           id,
           tldr,
@@ -64,19 +145,31 @@ export async function POST(request: NextRequest) {
         )
       `)
       .eq('id', sessionId)
-      .eq('user_id', user.id)
       .single();
+    
+    // Fetch calendar events separately to avoid ambiguous relationship
+    let calendarAttendees = [];
+    if (session) {
+      const { data: calendarEvents } = await supabase
+        .from('calendar_events')
+        .select('attendees')
+        .eq('session_id', sessionId)
+        .limit(1)
+        .single();
+      
+      if (calendarEvents?.attendees) {
+        calendarAttendees = calendarEvents.attendees;
+      }
+    }
 
     if (!session || sessionError) {
-      console.error('Session lookup failed:', {
+      console.error('Failed to fetch full session details:', {
         sessionId,
-        userId: user.id,
-        error: sessionError,
-        session
+        error: sessionError
       });
       return NextResponse.json(
-        { error: 'Session not found or access denied', details: sessionError?.message },
-        { status: 404 }
+        { error: 'Failed to fetch session details', details: sessionError?.message },
+        { status: 500 }
       );
     }
 
@@ -100,6 +193,22 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // Collect participant emails if requested
+    let allEmailRecipients = [...(emailRecipients || [])];
+    if (shareWithParticipants) {
+      // Get participants from session or calendar event
+      const participants = session.participants || calendarAttendees || [];
+      
+      // Extract unique emails, excluding the specified ones
+      const participantEmails = participants
+        .filter((p: any) => p.email && !excludedEmails.includes(p.email))
+        .map((p: any) => p.email)
+        .filter((email: string) => !allEmailRecipients.includes(email)); // Avoid duplicates
+      
+      allEmailRecipients = [...allEmailRecipients, ...participantEmails];
+      console.log(`Adding ${participantEmails.length} participant emails to recipients`);
+    }
+
     // Create share record
     const { data: shareRecord, error: insertError } = await supabase
       .from('shared_reports')
@@ -109,7 +218,9 @@ export async function POST(request: NextRequest) {
         share_token: shareToken,
         shared_tabs: sharedTabs,
         message: message || null,
-        expires_at: expiresAt
+        expires_at: expiresAt,
+        share_with_participants: shareWithParticipants || false,
+        excluded_participants: excludedEmails || []
       })
       .select()
       .single();
@@ -145,7 +256,8 @@ export async function POST(request: NextRequest) {
 
     // Send emails if recipients provided
     let emailsSent = false;
-    if (emailRecipients && emailRecipients.length > 0 && process.env.RESEND_API_KEY) {
+    let emailSendStatus: Record<string, any> = {};
+    if (allEmailRecipients && allEmailRecipients.length > 0 && process.env.RESEND_API_KEY) {
       try {
         // Get user details for sender name
         const { data: userData } = await supabase
@@ -170,39 +282,54 @@ export async function POST(request: NextRequest) {
         };
 
         // Send email to each recipient
-        const emailPromises = emailRecipients.map(async (recipientEmail: string) => {
-          const { html, text } = generateShareReportEmail({
-            recipientEmail,
-            senderName,
-            reportTitle: session.title || 'Meeting Report',
-            reportUrl: shareUrl,
-            personalMessage: message,
-            summary: emailSummary,
-            sharedSections: sharedTabs,
-            expiresAt
-          });
+        const emailPromises = allEmailRecipients.map(async (recipientEmail: string) => {
+          try {
+            const { html, text } = generateShareReportEmail({
+              recipientEmail,
+              senderName,
+              reportTitle: session.title || 'Meeting Report',
+              reportUrl: shareUrl,
+              personalMessage: message,
+              summary: emailSummary,
+              sharedSections: sharedTabs,
+              expiresAt
+            });
 
-          return sendEmail({
-            to: recipientEmail,
-            subject: `${senderName} shared a meeting report with you: ${session.title || 'Meeting Report'}`,
-            html,
-            text,
-            replyTo: userData?.email
-          });
+            await sendEmail({
+              to: recipientEmail,
+              subject: `${senderName} shared a meeting report with you: ${session.title || 'Meeting Report'}`,
+              html,
+              text,
+              replyTo: userData?.email
+            });
+
+            emailSendStatus[recipientEmail] = { status: 'sent', sentAt: new Date().toISOString() };
+          } catch (error) {
+            console.error(`Failed to send email to ${recipientEmail}:`, error);
+            emailSendStatus[recipientEmail] = { status: 'failed', error: error instanceof Error ? error.message : 'Unknown error' };
+          }
         });
 
         // Send all emails in parallel
         await Promise.all(emailPromises);
-        emailsSent = true;
+        emailsSent = Object.values(emailSendStatus).some((status: any) => status.status === 'sent');
+
+        // Update share record with email send status
+        if (Object.keys(emailSendStatus).length > 0) {
+          await supabase
+            .from('shared_reports')
+            .update({ email_send_status: emailSendStatus })
+            .eq('id', shareRecord.id);
+        }
 
         // Log email notifications
-        const emailLogs = emailRecipients.map((email: string) => ({
+        const emailLogs = allEmailRecipients.map((email: string) => ({
           session_id: sessionId,
           user_id: user.id,
           email_type: 'share_report',
           recipient_email: email,
-          status: 'sent',
-          sent_at: new Date().toISOString()
+          status: emailSendStatus[email]?.status || 'sent',
+          sent_at: emailSendStatus[email]?.sentAt || new Date().toISOString()
         }));
 
         await supabase

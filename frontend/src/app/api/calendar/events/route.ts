@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createServerSupabaseClient } from '@/lib/supabase';
 import { UpcomingMeeting } from '@/types/calendar';
 
+// Simple in-memory cache for calendar events
+const eventsCache = new Map<string, { data: any; timestamp: number }>();
+const CACHE_DURATION = 30 * 1000; // 30 seconds
+
 export async function GET(request: NextRequest) {
   try {
     const supabase = createServerSupabaseClient();
@@ -29,6 +33,13 @@ export async function GET(request: NextRequest) {
       days = 7;
     } else if (filter === 'all') {
       days = 30; // Show 30 days ahead for 'all' filter
+    }
+
+    // Check cache first
+    const cacheKey = `events_${user.id}_${filter || days}`;
+    const cached = eventsCache.get(cacheKey);
+    if (cached && Date.now() - cached.timestamp < CACHE_DURATION) {
+      return NextResponse.json({ meetings: cached.data });
     }
 
     // Call the stored function to get upcoming meetings
@@ -86,9 +97,13 @@ export async function GET(request: NextRequest) {
         return startTime >= today && startTime < tomorrow;
       });
 
+      // Cache the result
+      eventsCache.set(cacheKey, { data: todayMeetings, timestamp: Date.now() });
       return NextResponse.json({ meetings: todayMeetings });
     }
 
+    // Cache the result
+    eventsCache.set(cacheKey, { data: upcomingMeetings, timestamp: Date.now() });
     return NextResponse.json({ meetings: upcomingMeetings });
   } catch (error) {
     console.error('Error in calendar events:', error);

@@ -3,6 +3,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { ExclamationTriangleIcon, ArrowUpCircleIcon, XMarkIcon } from '@heroicons/react/24/outline';
 import { useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
+import { useSubscriptionLimits } from '@/lib/hooks/useSubscriptionLimits';
+import { PricingModal } from '@/components/ui/PricingModal';
 
 interface UsageWarningBannerProps {
   monthlyMinutesUsed?: number;
@@ -19,17 +21,25 @@ export function UsageWarningBanner({
 }: UsageWarningBannerProps) {
   const router = useRouter();
   const [isDismissed, setIsDismissed] = React.useState(false);
+  const [showPricingModal, setShowPricingModal] = React.useState(false);
+  const { limits, loading } = useSubscriptionLimits();
   
-  // Don't show if no usage data or already dismissed
-  if (!monthlyMinutesLimit || isDismissed) return null;
+  // Use limits from hook if available, otherwise fall back to props
+  const audioHoursUsed = limits?.audioHours.used ?? (monthlyMinutesUsed / 60);
+  const audioHoursLimit = limits?.audioHours.limit ?? (monthlyMinutesLimit / 60);
+  const isUnlimited = limits?.audioHours.isUnlimited ?? false;
+  const isAtLimit = limits?.audioHours.isAtLimit ?? (minutesRemaining <= 0);
+  const isNearLimit = limits?.audioHours.isNearLimit ?? false;
+  const percentage = limits?.audioHours.percentage ?? ((monthlyMinutesUsed / monthlyMinutesLimit) * 100);
   
-  const usagePercentage = (monthlyMinutesUsed / monthlyMinutesLimit) * 100;
-  const isAtLimit = minutesRemaining <= 0;
-  const isNearLimit = usagePercentage >= 90;
-  const isApproachingLimit = usagePercentage >= 80;
+  // Don't show if loading, dismissed, or no limit
+  if (loading || isDismissed || isUnlimited || (!limits && !monthlyMinutesLimit)) return null;
   
   // Only show warning when approaching, near, or at limit
-  if (!isApproachingLimit) return null;
+  const shouldShow = isAtLimit || isNearLimit || percentage >= 80;
+  if (!shouldShow) return null;
+  
+  const isApproachingLimit = percentage >= 80 && !isNearLimit && !isAtLimit;
   
   const handleDismiss = () => {
     setIsDismissed(true);
@@ -77,10 +87,10 @@ export function UsageWarningBanner({
                     : "text-blue-900 dark:text-blue-100"
                 )}>
                   {isAtLimit 
-                    ? "Bot Recording Limit Reached" 
+                    ? "Recording Limit Reached" 
                     : isNearLimit 
-                    ? "Nearly Out of Bot Minutes"
-                    : "Approaching Bot Minutes Limit"}
+                    ? "Nearly Out of Recording Hours"
+                    : "Approaching Recording Limit"}
                 </h3>
                 <p className={cn(
                   "text-sm mt-1",
@@ -91,12 +101,12 @@ export function UsageWarningBanner({
                     : "text-blue-700 dark:text-blue-300"
                 )}>
                   {isAtLimit 
-                    ? `You've used all ${monthlyMinutesLimit} bot minutes this month. Upgrade to continue recording meetings.`
-                    : `You've used ${monthlyMinutesUsed} of your ${monthlyMinutesLimit} monthly bot minutes (${Math.round(usagePercentage)}%). ${minutesRemaining} minutes remaining.`}
+                    ? `You've used all ${audioHoursLimit} recording hours this month. Upgrade to continue recording meetings.`
+                    : `You've used ${audioHoursUsed.toFixed(1)} of your ${audioHoursLimit} monthly recording hours (${Math.round(percentage)}%). ${limits?.audioHours.remaining?.toFixed(1) || (minutesRemaining / 60).toFixed(1)} hours remaining.`}
                 </p>
                 <div className="flex items-center gap-4 mt-3">
                   <button
-                    onClick={() => router.push('/pricing')}
+                    onClick={() => setShowPricingModal(true)}
                     className={cn(
                       "inline-flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors",
                       isAtLimit 
@@ -143,6 +153,18 @@ export function UsageWarningBanner({
           </div>
         </div>
       </motion.div>
+      
+      <PricingModal
+        isOpen={showPricingModal}
+        onClose={() => setShowPricingModal(false)}
+        reason={
+          isAtLimit
+            ? "You've reached your monthly recording limit. Upgrade to Pro for unlimited recording hours."
+            : isNearLimit
+            ? "You're running low on recording hours. Upgrade to Pro for unlimited recording."
+            : "You're approaching your monthly limit. Upgrade to Pro for unlimited recording hours."
+        }
+      />
     </AnimatePresence>
   );
 }

@@ -80,8 +80,9 @@ export function useMeetingSession(meetingId: string) {
           recallRecordingStatus: data.recall_recording_status,
           recallRecordingExpiresAt: data.recall_recording_expires_at,
           recallRecordingId: data.recall_recording_id,
-          sessionOwner: data.sessionOwner || null
-        };
+          sessionOwner: data.sessionOwner || null,
+          ai_instructions: data.ai_instructions || null
+        } as Meeting & { ai_instructions?: string | null };
 
         setLocalMeeting(meeting);
         setMeeting(meeting);

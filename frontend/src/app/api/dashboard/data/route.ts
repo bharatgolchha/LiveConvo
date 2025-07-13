@@ -45,11 +45,26 @@ export async function GET(request: NextRequest) {
     const serviceClient = createServerSupabaseClient();
     const { data: userData, error: userError } = await serviceClient
       .from('users')
-      .select('current_organization_id, full_name')
+      .select('current_organization_id, full_name, has_completed_onboarding')
       .eq('id', user.id)
       .single();
 
-    if (userError || !userData?.current_organization_id) {
+    if (userError) {
+      console.error('Error fetching user data:', userError);
+      // If user doesn't exist, they need to complete onboarding
+      if (userError.code === 'PGRST116') {
+        return NextResponse.json(
+          { error: 'Setup required', message: 'Please complete onboarding first' },
+          { status: 400 }
+        );
+      }
+      return NextResponse.json(
+        { error: 'Database error', message: 'Failed to fetch user data' },
+        { status: 500 }
+      );
+    }
+
+    if (!userData?.current_organization_id || !userData?.has_completed_onboarding) {
       return NextResponse.json(
         { error: 'Setup required', message: 'Please complete onboarding first' },
         { status: 400 }

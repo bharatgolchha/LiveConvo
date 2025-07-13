@@ -19,6 +19,8 @@ import {
   CreditCardIcon,
   CalendarIcon
 } from '@heroicons/react/24/outline';
+import { Gift } from 'lucide-react';
+import { ReferralWidget } from '@/components/referrals/ReferralWidget';
 
 interface SettingsPanelProps {
   onSessionsDeleted?: () => void;
@@ -192,10 +194,14 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ onSessionsDeleted 
       </div>
 
       <Tabs defaultValue="subscription" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-7">
+        <TabsList className="grid w-full grid-cols-8">
           <TabsTrigger value="subscription" className="flex items-center gap-2">
             <CreditCardIcon className="w-4 h-4" />
             <span className="hidden sm:inline">Billing</span>
+          </TabsTrigger>
+          <TabsTrigger value="referrals" className="flex items-center gap-2">
+            <Gift className="w-4 h-4" />
+            <span className="hidden sm:inline">Referrals</span>
           </TabsTrigger>
           <TabsTrigger value="personal" className="flex items-center gap-2">
             <DocumentTextIcon className="w-4 h-4" />
@@ -226,6 +232,32 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ onSessionsDeleted 
         {/* Subscription Tab */}
         <TabsContent value="subscription" className="space-y-4">
           <SubscriptionManager />
+        </TabsContent>
+
+        {/* Referrals Tab */}
+        <TabsContent value="referrals" className="space-y-4">
+          <div className="space-y-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-2xl font-semibold">Referral Program</h2>
+                <p className="text-muted-foreground mt-1">
+                  Earn $5 for each friend who subscribes. Your friends get 10% off!
+                </p>
+              </div>
+              <Button
+                variant="outline"
+                onClick={() => window.location.href = '/dashboard/referrals'}
+                className="flex items-center gap-2"
+              >
+                View Full Dashboard
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M7 7h10v10" />
+                  <path d="M7 17 17 7" />
+                </svg>
+              </Button>
+            </div>
+            <ReferralWidget />
+          </div>
         </TabsContent>
 
         {/* Personal Context Tab */}

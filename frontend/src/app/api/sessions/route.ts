@@ -205,7 +205,8 @@ export async function POST(request: NextRequest) {
       participant_me,
       participant_them,
       meeting_url, // New field for Recall.ai integration
-      ai_instructions // Custom AI behavior instructions
+      ai_instructions, // Custom AI behavior instructions
+      calendar_event_id // Calendar event ID to link and get participants from
     } = body;
     console.log('🔗 Meeting URL received:', meeting_url);
 
@@ -250,6 +251,25 @@ export async function POST(request: NextRequest) {
     // Set participant_me to user's full name if not provided
     const participantMe = participant_me || userData?.full_name || user.email?.split('@')[0] || 'Host';
 
+    // Get participants from calendar event if linked
+    let participants = [];
+    let finalMeetingUrl = meeting_url;
+    if (calendar_event_id) {
+      const { data: calendarEvent, error: calendarError } = await authClient
+        .from('calendar_events')
+        .select('attendees, meeting_url')
+        .eq('id', calendar_event_id)
+        .single();
+      
+      if (!calendarError && calendarEvent) {
+        participants = calendarEvent.attendees || [];
+        // Use calendar event's meeting URL if not provided
+        if (!finalMeetingUrl && calendarEvent.meeting_url) {
+          finalMeetingUrl = calendarEvent.meeting_url;
+        }
+      }
+    }
+
     // Create the session using authenticated client
     const { data: session, error: sessionError } = await authClient
       .from('sessions')
@@ -262,9 +282,10 @@ export async function POST(request: NextRequest) {
         status: 'draft',
         participant_me: participantMe,
         participant_them: participant_them || null,
-        meeting_url: meeting_url || null,
-        meeting_platform: meeting_url ? detectMeetingPlatform(meeting_url) : null,
-        ai_instructions: ai_instructions || null
+        meeting_url: finalMeetingUrl || null,
+        meeting_platform: finalMeetingUrl ? detectMeetingPlatform(finalMeetingUrl) : null,
+        ai_instructions: ai_instructions || null,
+        participants: participants // Store participants from calendar event
       })
       .select()
       .single();
@@ -275,6 +296,19 @@ export async function POST(request: NextRequest) {
         { error: 'Database error', message: sessionError.message },
         { status: 500 }
       );
+    }
+
+    // Update calendar event to link it to this session
+    if (calendar_event_id && session) {
+      const { error: updateError } = await authClient
+        .from('calendar_events')
+        .update({ session_id: session.id })
+        .eq('id', calendar_event_id);
+      
+      if (updateError) {
+        console.error('Error linking calendar event to session:', updateError);
+        // Don't fail the request, session is created successfully
+      }
     }
 
     // If context data is provided, save it
@@ -319,7 +353,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Meeting URL is saved, but bot creation is now manual via "Join Meeting" button
-    if (meeting_url) {
+    if (finalMeetingUrl) {
       console.log('🔗 Meeting URL saved. Bot will be created when user clicks "Join Meeting"');
     }
 

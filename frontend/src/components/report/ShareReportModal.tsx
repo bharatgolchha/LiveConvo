@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import {
   Dialog,
@@ -32,8 +32,11 @@ import {
   AlertCircle,
   Mail,
   Send,
-  MessageSquare
+  MessageSquare,
+  Users,
+  Sparkles
 } from 'lucide-react';
+import { Switch } from '@/components/ui/switch';
 
 interface ShareReportModalProps {
   isOpen: boolean;
@@ -50,11 +53,21 @@ interface ShareSettings {
     analytics: boolean;
     followup: boolean;
     transcript: boolean;
+    custom: boolean;
   };
   expiration: string;
   message: string;
   sendEmail: boolean;
   emailRecipients: string[];
+  shareWithParticipants: boolean;
+  excludedEmails: string[];
+}
+
+interface Participant {
+  name: string;
+  email?: string;
+  response_status?: string;
+  is_organizer?: boolean;
 }
 
 const TAB_INFO = [
@@ -64,6 +77,7 @@ const TAB_INFO = [
   { id: 'analytics', label: 'Analytics & Performance', icon: BarChart3, description: 'Meeting metrics and effectiveness scores' },
   { id: 'followup', label: 'Follow-up & Next Steps', icon: Calendar, description: 'Next meeting prep and follow-up content' },
   { id: 'transcript', label: 'Transcript', icon: MessageSquare, description: 'Full conversation transcript and recording' },
+  { id: 'custom', label: 'Custom Report', icon: Sparkles, description: 'AI-powered custom report generation' },
 ];
 
 export function ShareReportModal({ isOpen, onClose, reportId, reportTitle }: ShareReportModalProps) {
@@ -76,16 +90,51 @@ export function ShareReportModal({ isOpen, onClose, reportId, reportTitle }: Sha
       analytics: false,
       followup: false,
       transcript: false,
+      custom: false,
     },
     expiration: '7days',
     message: '',
     sendEmail: false,
     emailRecipients: [],
+    shareWithParticipants: false,
+    excludedEmails: [],
   });
   const [isGenerating, setIsGenerating] = useState(false);
   const [shareLink, setShareLink] = useState('');
   const [copied, setCopied] = useState(false);
   const [emailsSent, setEmailsSent] = useState(false);
+  const [participants, setParticipants] = useState<Participant[]>([]);
+  const [loadingParticipants, setLoadingParticipants] = useState(false);
+
+  // Fetch participants when modal opens
+  useEffect(() => {
+    if (isOpen && reportId) {
+      fetchParticipants();
+    }
+  }, [isOpen, reportId]);
+
+  const fetchParticipants = async () => {
+    setLoadingParticipants(true);
+    try {
+      const headers: HeadersInit = { 'Content-Type': 'application/json' };
+      if (session?.access_token) {
+        headers['Authorization'] = `Bearer ${session.access_token}`;
+      }
+
+      const response = await fetch(`/api/sessions/${reportId}/participants`, { headers });
+      
+      if (response.ok) {
+        const data = await response.json();
+        // Filter out participants without email
+        const participantsWithEmail = data.participants.filter((p: any) => p.email);
+        setParticipants(participantsWithEmail);
+      }
+    } catch (error) {
+      console.error('Error fetching participants:', error);
+    } finally {
+      setLoadingParticipants(false);
+    }
+  };
 
   const handleTabToggle = (tabId: string) => {
     setShareSettings(prev => ({
@@ -104,6 +153,19 @@ export function ShareReportModal({ isOpen, onClose, reportId, reportTitle }: Sha
         .filter(([_, enabled]) => enabled)
         .map(([tabId]) => tabId);
 
+      console.log('Generating share link for reportId:', reportId);
+      console.log('Auth session:', session);
+      console.log('Selected tabs:', selectedTabs);
+      console.log('Full request body:', {
+        sessionId: reportId,
+        sharedTabs: selectedTabs,
+        expiresIn: shareSettings.expiration,
+        message: shareSettings.message,
+        emailRecipients: shareSettings.sendEmail ? shareSettings.emailRecipients : undefined,
+        shareWithParticipants: shareSettings.shareWithParticipants,
+        excludedEmails: shareSettings.excludedEmails,
+      });
+
       const headers: HeadersInit = {
         'Content-Type': 'application/json',
       };
@@ -120,12 +182,18 @@ export function ShareReportModal({ isOpen, onClose, reportId, reportTitle }: Sha
           expiresIn: shareSettings.expiration,
           message: shareSettings.message,
           emailRecipients: shareSettings.sendEmail ? shareSettings.emailRecipients : undefined,
+          shareWithParticipants: shareSettings.shareWithParticipants,
+          excludedEmails: shareSettings.excludedEmails,
         }),
       });
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to create share link');
+        console.error('Share link generation failed:', errorData);
+        const errorMessage = errorData.details 
+          ? `${errorData.error}: ${errorData.details}`
+          : errorData.error || 'Failed to create share link';
+        throw new Error(errorMessage);
       }
 
       const { shareUrl, emailsSent: emailsSentResponse } = await response.json();
@@ -254,16 +322,77 @@ export function ShareReportModal({ isOpen, onClose, reportId, reportTitle }: Sha
                 </div>
                 
                 {shareSettings.sendEmail && (
-                  <div className="space-y-1.5 mt-3">
-                    <EmailTagInput
-                      value={shareSettings.emailRecipients}
-                      onChange={(emails) => 
-                        setShareSettings(prev => ({ ...prev, emailRecipients: emails }))
-                      }
-                      placeholder="Enter email addresses (press Enter or comma to add)"
-                      className="w-full"
-                      maxEmails={10}
-                    />
+                  <div className="space-y-3 mt-3">
+                    {/* Send to participants option */}
+                    {participants.length > 0 && (
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <Label 
+                            htmlFor="shareWithParticipants" 
+                            className="text-sm font-medium cursor-pointer flex items-center gap-1.5"
+                          >
+                            <Users className="w-3.5 h-3.5 text-muted-foreground" />
+                            Send to meeting participants
+                          </Label>
+                          <Switch
+                            id="shareWithParticipants"
+                            checked={shareSettings.shareWithParticipants}
+                            onCheckedChange={(checked) => 
+                              setShareSettings(prev => ({ ...prev, shareWithParticipants: checked }))
+                            }
+                          />
+                        </div>
+                        
+                        {shareSettings.shareWithParticipants && (
+                          <div className="space-y-2 pl-5">
+                            <p className="text-xs text-muted-foreground">
+                              Email will be sent to {participants.filter(p => !shareSettings.excludedEmails.includes(p.email!)).length} participant{participants.filter(p => !shareSettings.excludedEmails.includes(p.email!)).length !== 1 ? 's' : ''}
+                            </p>
+                            <div className="space-y-1 max-h-32 overflow-y-auto">
+                              {participants.map((participant, idx) => (
+                                <div key={idx} className="flex items-center gap-2 text-xs">
+                                  <Checkbox
+                                    checked={!shareSettings.excludedEmails.includes(participant.email!)}
+                                    onCheckedChange={(checked) => {
+                                      if (!checked) {
+                                        setShareSettings(prev => ({
+                                          ...prev,
+                                          excludedEmails: [...prev.excludedEmails, participant.email!]
+                                        }));
+                                      } else {
+                                        setShareSettings(prev => ({
+                                          ...prev,
+                                          excludedEmails: prev.excludedEmails.filter(e => e !== participant.email)
+                                        }));
+                                      }
+                                    }}
+                                    className="h-3 w-3"
+                                  />
+                                  <span className="text-muted-foreground">
+                                    {participant.name} {participant.email && `(${participant.email})`}
+                                  </span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                    
+                    {/* Manual email input */}
+                    <div className="space-y-1.5">
+                      <Label className="text-xs text-muted-foreground">Additional recipients</Label>
+                      <EmailTagInput
+                        value={shareSettings.emailRecipients}
+                        onChange={(emails) => 
+                          setShareSettings(prev => ({ ...prev, emailRecipients: emails }))
+                        }
+                        placeholder="Enter email addresses (press Enter or comma to add)"
+                        className="w-full"
+                        maxEmails={10}
+                      />
+                    </div>
+                    
                     <p className="text-xs text-muted-foreground pl-1">
                       Recipients will receive the summary and share link
                     </p>
@@ -281,7 +410,10 @@ export function ShareReportModal({ isOpen, onClose, reportId, reportTitle }: Sha
                   disabled={
                     selectedCount === 0 || 
                     isGenerating || 
-                    (shareSettings.sendEmail && shareSettings.emailRecipients.length === 0)
+                    (shareSettings.sendEmail && 
+                      shareSettings.emailRecipients.length === 0 && 
+                      (!shareSettings.shareWithParticipants || participants.filter(p => !shareSettings.excludedEmails.includes(p.email!)).length === 0)
+                    )
                   }
                   size="sm"
                 >

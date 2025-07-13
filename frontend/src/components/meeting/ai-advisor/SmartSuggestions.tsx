@@ -17,6 +17,10 @@ import { useMeetingContext } from '@/lib/meeting/context/MeetingContext';
 import { supabase } from '@/lib/supabase';
 import { toast } from 'sonner';
 
+// Constants for transcript window management
+const TRANSCRIPT_WINDOW_SIZE = 40; // Number of recent messages to include
+const UPDATE_FREQUENCY = 25; // Update suggestions every N new messages
+
 interface SuggestionChip {
   text: string;
   prompt: string;
@@ -41,11 +45,21 @@ export function SmartSuggestions() {
   const [lastUpdateLength, setLastUpdateLength] = useState(0);
   const [error, setError] = useState<string | null>(null);
 
+  // Generate suggestions on page load if transcript exists
+  useEffect(() => {
+    // Only run once when we have transcript and bot is ready
+    if (transcript.length > 0 && botStatus?.status === 'in_call' && lastUpdateLength === 0) {
+      console.log('🚀 Generating initial suggestions on page load');
+      generateSuggestions();
+      setLastUpdateLength(transcript.length);
+    }
+  }, [transcript.length, botStatus?.status]); // Re-run when these change
+
   // Generate suggestions based on transcript changes
   useEffect(() => {
     const shouldUpdate = transcript.length > 0 && 
                         transcript.length !== lastUpdateLength &&
-                        transcript.length % 15 === 0; // Update every 15 new messages
+                        transcript.length % UPDATE_FREQUENCY === 0; // Update every N new messages
 
     if (shouldUpdate && botStatus?.status === 'in_call') {
       generateSuggestions();
@@ -60,13 +74,23 @@ export function SmartSuggestions() {
     setError(null);
     
     try {
-      // Build full transcript for context (entire conversation)
-      const fullTranscript = transcript.map(t => 
+      // Use sliding window for recent transcript
+      const recentMessages = transcript.slice(-TRANSCRIPT_WINDOW_SIZE);
+      const recentTranscript = recentMessages.map(t => 
         `${t.displayName || t.speaker}: ${t.text}`
       ).join('\n');
 
+      // Add context about earlier conversation if needed
+      const historicalContext = transcript.length > TRANSCRIPT_WINDOW_SIZE 
+        ? `\n[Earlier conversation: ${transcript.length - TRANSCRIPT_WINDOW_SIZE} previous messages not shown for brevity]` 
+        : '';
+
+      const transcriptForSuggestions = recentTranscript + historicalContext;
+
       console.log('🔍 Generating suggestions with:', {
-        transcriptLength: transcript.length,
+        totalTranscriptLength: transcript.length,
+        recentMessagesCount: recentMessages.length,
+        hasHistoricalContext: transcript.length > TRANSCRIPT_WINDOW_SIZE,
         meetingType: meeting?.type,
         stage: getConversationStage()
       });
@@ -85,11 +109,12 @@ export function SmartSuggestions() {
         method: 'POST',
         headers: authHeaders,
         body: JSON.stringify({
-          transcript: fullTranscript,
+          transcript: transcriptForSuggestions,
           summary: summary || null,
           meetingType: meeting?.type || 'team_meeting',
           meetingTitle: meeting?.title,
           context: meeting?.context,
+          aiInstructions: (meeting as any)?.ai_instructions || null,
           stage: getConversationStage(),
           participantMe: meeting?.participantMe || 'You',
           sessionOwner: meeting?.sessionOwner

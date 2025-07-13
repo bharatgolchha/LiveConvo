@@ -732,7 +732,12 @@ Example format:
 }
 
 RESPONSE GUIDELINES:
-- Keep your response concise (under 100 words unless more detail is needed)
+- Be concise and focused - provide enough detail to be helpful without being verbose
+- Use proper markdown formatting for better readability:
+  • Use **bold** for emphasis
+  • Use bullet points or numbered lists for multiple items
+  • Use code formatting (backticks) for technical terms when appropriate
+  • Structure longer responses with headers (##) if needed
 - Be conversational and practical, not formal
 - Reference specific things from the transcript when relevant
 - Give actionable advice based on the current situation

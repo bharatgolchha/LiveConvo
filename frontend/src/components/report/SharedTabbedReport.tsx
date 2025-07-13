@@ -5,7 +5,8 @@ import {
   Target,
   BarChart3,
   Calendar,
-  MessageSquare
+  MessageSquare,
+  Sparkles
 } from 'lucide-react';
 import { TabbedReport } from './TabbedReport';
 
@@ -23,7 +24,8 @@ const ALL_TABS = [
   { id: 'actions', label: 'Action Items', icon: Target },
   { id: 'analytics', label: 'Analytics & Performance', icon: BarChart3 },
   { id: 'followup', label: 'Follow-up & Next Steps', icon: Calendar },
-  { id: 'transcript', label: 'Transcript', icon: MessageSquare }
+  { id: 'transcript', label: 'Transcript', icon: MessageSquare },
+  { id: 'custom', label: 'Custom Report', icon: Sparkles }
 ];
 
 export function SharedTabbedReport({ report, activeTab, setActiveTab, allowedTabs, sharedToken }: SharedTabbedReportProps) {

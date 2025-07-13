@@ -1,7 +1,7 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
+import { useState, useEffect, Suspense } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { Button } from "@/components/ui/Button"
 import { Input } from "@/components/ui/input"
@@ -14,7 +14,7 @@ import { AuthLayout } from '@/components/auth/AuthLayout'
 import { GoogleAuthButton } from '@/components/auth/GoogleAuthButton'
 import { EmailAuthToggle, BackToGoogleButton } from '@/components/auth/EmailAuthToggle'
 
-export default function SignUpPage() {
+function SignUpPageContent() {
   const [fullName, setFullName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -25,14 +25,32 @@ export default function SignUpPage() {
   const [loading, setLoading] = useState(false)
   const [agreedToTerms, setAgreedToTerms] = useState(false)
   const [isEmailMode, setIsEmailMode] = useState(false)
+  const [referralCode, setReferralCode] = useState('')
   const { signUp, signInWithGoogle, user } = useAuth()
   const router = useRouter()
+  const searchParams = useSearchParams()
 
   useEffect(() => {
     if (user) {
       router.push('/dashboard')
     }
   }, [user, router])
+
+  useEffect(() => {
+    // Check URL params for referral code
+    const refFromUrl = searchParams.get('ref')
+    if (refFromUrl) {
+      setReferralCode(refFromUrl)
+      // Store in localStorage for persistence
+      localStorage.setItem('ref_code', refFromUrl)
+    } else {
+      // Check localStorage for referral code
+      const storedRef = localStorage.getItem('ref_code')
+      if (storedRef) {
+        setReferralCode(storedRef)
+      }
+    }
+  }, [searchParams])
 
   const handleEmailSignUp = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -55,7 +73,7 @@ export default function SignUpPage() {
     setLoading(true)
     setError(null)
 
-    const { error } = await signUp(email, password, fullName)
+    const { error } = await signUp(email, password, fullName, referralCode || undefined)
     
     if (error) {
       setError(error.message)
@@ -269,5 +287,13 @@ export default function SignUpPage() {
         </Link>
       </p>
     </AuthLayout>
+  )
+}
+
+export default function SignUpPage() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <SignUpPageContent />
+    </Suspense>
   )
 }

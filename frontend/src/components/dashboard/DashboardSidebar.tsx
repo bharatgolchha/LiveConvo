@@ -4,7 +4,7 @@ import {
   ArchiveBoxIcon,
   Cog6ToothIcon,
 } from '@heroicons/react/24/outline';
-import { Crown } from 'lucide-react';
+import { Crown, Gift } from 'lucide-react';
 import { PricingModal } from '@/components/ui/PricingModal';
 
 export interface UsageStats {
@@ -103,6 +103,24 @@ const DashboardSidebar: React.FC<DashboardSidebarProps> = ({ usageStats, activeP
 
       {/* Bottom section with usage stats and upgrade button */}
       <div className="mt-auto">
+        {/* Refer and Earn Button */}
+        <div className="px-4 pb-3">
+          <button
+            onClick={() => onNavigate('referrals')}
+            className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-left transition-colors ${
+              activePath === 'referrals' ? 'bg-primary/10 text-primary font-medium' : 'text-muted-foreground hover:bg-muted/50'
+            }`}
+          >
+            <div className="flex items-center space-x-2">
+              <Gift className="w-5 h-5" />
+              <span className="text-sm font-medium">Refer and Earn</span>
+            </div>
+            <span className="text-xs bg-green-500/20 text-green-600 rounded-full px-2 py-0.5">
+              $5
+            </span>
+          </button>
+        </div>
+
         {/* Usage Stats - Now includes bot minutes */}
         <div className="px-4 py-3 border-t border-border">
           <div className="space-y-2">

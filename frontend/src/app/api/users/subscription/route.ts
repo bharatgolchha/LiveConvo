@@ -39,7 +39,8 @@ export async function GET(request: NextRequest) {
     }
 
     // Debug log to see the structure
-    console.log('Subscription data:', JSON.stringify(subscriptionData, null, 2));
+    console.log('Subscription data for user:', user.email);
+    console.log('Raw subscription data:', JSON.stringify(subscriptionData, null, 2));
 
     // Plan data is already included in the view, no need to fetch separately
 
@@ -73,6 +74,16 @@ export async function GET(request: NextRequest) {
           pricing: {
             monthly: null,
             yearly: null,
+          },
+          features: {
+            hasCustomTemplates: false,
+            hasRealTimeGuidance: true,
+            hasAdvancedSummaries: false,
+            hasExportOptions: false,
+            hasEmailSummaries: false,
+            hasPrioritySupport: false,
+            hasAnalyticsDashboard: false,
+            hasTeamCollaboration: false,
           }
         },
         subscription: {
@@ -201,6 +212,9 @@ export async function GET(request: NextRequest) {
       billingInterval = diffDays > 300 ? 'year' : 'month';
     }
 
+    console.log('Building response for user:', user.email);
+    console.log('has_custom_templates from DB:', subscriptionData.has_custom_templates);
+    
     const response = {
       plan: {
         name: subscriptionData.plan_name || 'individual_free',
@@ -208,6 +222,16 @@ export async function GET(request: NextRequest) {
         pricing: {
           monthly: subscriptionData.price_monthly ? parseFloat(subscriptionData.price_monthly) : null,
           yearly: subscriptionData.price_yearly ? parseFloat(subscriptionData.price_yearly) : null,
+        },
+        features: {
+          hasCustomTemplates: subscriptionData.has_custom_templates || false,
+          hasRealTimeGuidance: subscriptionData.has_real_time_guidance || false,
+          hasAdvancedSummaries: subscriptionData.has_advanced_summaries || false,
+          hasExportOptions: subscriptionData.has_export_options || false,
+          hasEmailSummaries: subscriptionData.has_email_summaries || false,
+          hasPrioritySupport: subscriptionData.has_priority_support || false,
+          hasAnalyticsDashboard: subscriptionData.has_analytics_dashboard || false,
+          hasTeamCollaboration: subscriptionData.has_team_collaboration || false,
         }
       },
       subscription: {
@@ -224,6 +248,9 @@ export async function GET(request: NextRequest) {
         limitSessions: subscriptionData.max_sessions_per_month,
       }
     };
+    
+    console.log('API Response for user:', user.email);
+    console.log('Features being returned:', response.plan.features);
 
     return NextResponse.json(response, {
       headers: {
