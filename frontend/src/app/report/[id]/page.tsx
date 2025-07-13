@@ -292,10 +292,11 @@ export default function MeetingReportPage() {
 
       // Map effectiveness metrics with proper field names
       const effectivenessMetrics = parsedStructuredNotes.effectiveness_metrics || {};
+      const effectivenessScore = parsedStructuredNotes.effectiveness_score;
       const effectiveness = {
-        overall: effectivenessMetrics.overall_success || effectivenessMetrics.objective_achievement || (summaryData ? 75 : 0),
-        communication: effectivenessMetrics.communication_clarity || (summaryData ? 80 : 0),
-        goalAchievement: effectivenessMetrics.objective_achievement || effectivenessMetrics.agenda_alignment || (summaryData ? 70 : 0)
+        overall: effectivenessScore?.overall || effectivenessMetrics.overall_success || effectivenessMetrics.objective_achievement || 0,
+        communication: effectivenessScore?.breakdown?.clarity || effectivenessMetrics.communication_clarity || 0,
+        goalAchievement: effectivenessScore?.breakdown?.objectives || effectivenessMetrics.objective_achievement || effectivenessMetrics.agenda_alignment || 0
       };
 
       const reportData: MeetingReport = {
@@ -605,12 +606,6 @@ export default function MeetingReportPage() {
                     Share
                   </Button>
                   <ReportExportMenu report={report} />
-                </div>
-                <div className="flex items-center gap-2 text-sm">
-                  <span className="text-muted-foreground">Effectiveness:</span>
-                  <span className={`font-bold ${getEffectivenessColor(report.summary.effectiveness.overall)}`}>
-                    {report.summary.effectiveness.overall}%
-                  </span>
                 </div>
               </div>
             </div>
