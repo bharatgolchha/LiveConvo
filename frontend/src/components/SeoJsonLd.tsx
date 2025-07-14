@@ -30,6 +30,16 @@ const SeoJsonLd: React.FC = () => {
           contactType: 'customer support',
           availableLanguage: ['English'],
         },
+        founder: {
+          '@type': 'Person',
+          name: 'Bharat Golchha',
+        },
+        foundingDate: '2024',
+        numberOfEmployees: {
+          '@type': 'QuantitativeValue',
+          minValue: 1,
+          maxValue: 50,
+        },
       },
       {
         '@type': 'WebSite',
@@ -54,13 +64,42 @@ const SeoJsonLd: React.FC = () => {
         '@id': 'https://liveprompt.ai/#software',
         name: 'liveprompt.ai',
         applicationCategory: 'BusinessApplication',
+        applicationSubCategory: 'Sales Enablement Software',
         operatingSystem: 'Web Browser',
-        offers: {
-          '@type': 'Offer',
-          price: '0',
-          priceCurrency: 'USD',
-          description: '14-day free trial',
-        },
+        offers: [
+          {
+            '@type': 'Offer',
+            name: 'Free Plan',
+            price: '0',
+            priceCurrency: 'USD',
+            description: '60 minutes/month free forever',
+            eligibleQuantity: {
+              '@type': 'QuantitativeValue',
+              value: 60,
+              unitText: 'minutes per month'
+            }
+          },
+          {
+            '@type': 'Offer',
+            name: 'Pro Plan',
+            price: '29',
+            priceCurrency: 'USD',
+            description: '100 hours/month with advanced features',
+            priceValidUntil: '2025-12-31',
+            eligibleQuantity: {
+              '@type': 'QuantitativeValue',
+              value: 6000,
+              unitText: 'minutes per month'
+            }
+          },
+          {
+            '@type': 'AggregateOffer',
+            name: 'Enterprise Plan',
+            priceCurrency: 'USD',
+            description: 'Custom pricing for teams',
+            offerCount: 1
+          }
+        ],
         aggregateRating: {
           '@type': 'AggregateRating',
           ratingValue: '4.8',
@@ -68,15 +107,70 @@ const SeoJsonLd: React.FC = () => {
           bestRating: '5',
           worstRating: '1',
         },
+        review: [
+          {
+            '@type': 'Review',
+            reviewRating: {
+              '@type': 'Rating',
+              ratingValue: '5',
+              bestRating: '5'
+            },
+            author: {
+              '@type': 'Person',
+              name: 'Sarah Chen'
+            },
+            reviewBody: 'Onboarding new reps now takes days, not months. They can see exactly how top performers handle objections in real-time.'
+          },
+          {
+            '@type': 'Review',
+            reviewRating: {
+              '@type': 'Rating',
+              ratingValue: '5',
+              bestRating: '5'
+            },
+            author: {
+              '@type': 'Person',
+              name: 'Marcus Johnson'
+            },
+            reviewBody: 'I catch inconsistencies I would have missed before. The AI suggestions for behavioral questions are game-changing.'
+          }
+        ],
         featureList: [
           'Real-time AI conversation coaching',
-          'Automated meeting summaries',
-          'CRM integration',
-          'Works with Zoom, Google Meet, Teams',
-          'Objection handling prompts',
-          'Interview assistance',
-          'SOC 2 compliant',
+          'Live transcription with speaker identification',
+          'Automated meeting summaries and action items',
+          'CRM integration (Salesforce, HubSpot)',
+          'Works with Zoom, Google Meet, Microsoft Teams',
+          'AI-powered objection handling',
+          'Interview assistance and behavioral questions',
+          'Previous conversation context',
+          'SOC 2 Type II compliant',
+          'GDPR compliant',
+          'End-to-end encryption',
+          'Zero data retention policy',
+          '<2 second response time',
+          'Meeting bot for automatic recording',
+          'Export to PDF/Word/Email',
+          'Team analytics dashboard'
         ],
+        screenshot: [
+          {
+            '@type': 'ImageObject',
+            url: 'https://ucvfgfbjcrxbzppwjpuu.supabase.co/storage/v1/object/public/images/Screenshots/1.png',
+            caption: 'Live transcription interface'
+          },
+          {
+            '@type': 'ImageObject',
+            url: 'https://ucvfgfbjcrxbzppwjpuu.supabase.co/storage/v1/object/public/images/Screenshots/2.png',
+            caption: 'AI guidance panel'
+          }
+        ],
+        softwareVersion: '2.0',
+        datePublished: '2024-01-15',
+        dateModified: '2025-01-14',
+        provider: {
+          '@id': 'https://liveprompt.ai/#organization'
+        }
       },
       {
         '@type': 'BreadcrumbList',
@@ -143,6 +237,77 @@ const SeoJsonLd: React.FC = () => {
             },
           },
         ],
+      },
+      {
+        '@type': 'HowTo',
+        '@id': 'https://liveprompt.ai/#howto',
+        name: 'How to use liveprompt.ai for better sales calls',
+        description: 'Simple 3-step process to transform your conversations with AI coaching',
+        image: {
+          '@type': 'ImageObject',
+          url: 'https://liveprompt.ai/og-image.png'
+        },
+        totalTime: 'PT2M',
+        estimatedCost: {
+          '@type': 'MonetaryAmount',
+          currency: 'USD',
+          value: '0'
+        },
+        supply: [],
+        tool: [],
+        step: [
+          {
+            '@type': 'HowToStep',
+            name: 'Connect',
+            text: 'Works instantly with Zoom, Meet, Teams - no downloads or plugins required. Just open liveprompt.ai in your browser alongside your video call.',
+            image: {
+              '@type': 'ImageObject',
+              url: 'https://ucvfgfbjcrxbzppwjpuu.supabase.co/storage/v1/object/public/images/Screenshots/1.png'
+            }
+          },
+          {
+            '@type': 'HowToStep',
+            name: 'Converse',
+            text: 'AI listens and provides real-time coaching only you can see. Get perfect responses, objection handling, and next questions suggested instantly.',
+            image: {
+              '@type': 'ImageObject',
+              url: 'https://ucvfgfbjcrxbzppwjpuu.supabase.co/storage/v1/object/public/images/Screenshots/2.png'
+            }
+          },
+          {
+            '@type': 'HowToStep',
+            name: 'Close',
+            text: 'Get action items and CRM-ready summaries automatically. All meeting notes, commitments, and next steps captured and formatted for you.',
+            image: {
+              '@type': 'ImageObject',
+              url: 'https://ucvfgfbjcrxbzppwjpuu.supabase.co/storage/v1/object/public/images/Screenshots/4.png'
+            }
+          }
+        ]
+      },
+      {
+        '@type': 'Product',
+        '@id': 'https://liveprompt.ai/#product',
+        name: 'liveprompt.ai Pro',
+        description: 'Professional AI conversation coaching for sales teams',
+        brand: {
+          '@id': 'https://liveprompt.ai/#organization'
+        },
+        offers: {
+          '@type': 'Offer',
+          price: '29',
+          priceCurrency: 'USD',
+          priceValidUntil: '2025-12-31',
+          availability: 'https://schema.org/InStock',
+          seller: {
+            '@id': 'https://liveprompt.ai/#organization'
+          }
+        },
+        aggregateRating: {
+          '@type': 'AggregateRating',
+          ratingValue: '4.8',
+          reviewCount: '523'
+        }
       },
     ],
   };

@@ -1,0 +1,19 @@
+# Logo Image Placeholder
+
+This is a placeholder for the logo.png file.
+
+## Specifications:
+- Dimensions: 512x512px
+- Format: PNG with transparent background
+- Content: liveprompt.ai logo (square version)
+
+## Usage:
+- Structured data (Organization schema)
+- PWA app icon
+- Social media profiles
+
+## Note:
+You can use the existing android-chrome-512x512.png as logo.png temporarily:
+cp android-chrome-512x512.png logo.png
+
+To create proper logo: Export a 512x512 version of your logo from your design files.

@@ -37,12 +37,12 @@ const poppins = Poppins({
 
 export const metadata: Metadata = {
   metadataBase: new URL('https://liveprompt.ai'),
-  title: "liveprompt.ai - AI-Powered Real-Time Conversation Intelligence | Sales Coaching & Meeting Assistant",
-  description: "Get instant AI guidance during sales calls, interviews, and client meetings. Real-time coaching, automated summaries, and actionable insights. Works with Zoom, Google Meet, Teams. Try free for 14 days.",
-  keywords: "AI conversation intelligence, real-time sales coaching, meeting assistant, AI call assistant, sales enablement software, conversation analytics, interview assistant, automated meeting notes, CRM integration, objection handling AI",
+  title: "AI Sales Coach - Real-Time Meeting Assistant | liveprompt",
+  description: "Close 35% more deals with AI-powered real-time conversation coaching. Works with Zoom, Meet, Teams. Start free.",
+  keywords: "AI sales coach, real-time meeting assistant, conversation intelligence, live transcription, AI meeting notes, sales call coaching, interview assistant, zoom AI assistant, google meet AI, teams AI coach, sales enablement AI, recruiting AI tool, client success platform",
   authors: [{ name: "liveprompt.ai" }],
-  creator: "NexGenAI LLC",
-  publisher: "NexGenAI LLC",
+  creator: "InnoventuresAI Inc.",
+  publisher: "InnoventuresAI Inc.",
   robots: {
     index: true,
     follow: true,
@@ -102,9 +102,9 @@ export const metadata: Metadata = {
     canonical: 'https://liveprompt.ai/',
   },
   openGraph: {
-    title: 'liveprompt.ai - AI-Powered Real-Time Conversation Intelligence',
+    title: 'Turn Every Conversation into Conversion with AI | liveprompt',
     description:
-      'Get instant AI guidance during sales calls, interviews, and meetings. Real-time coaching that helps you close more deals. Works with Zoom, Google Meet, Teams. Try free.',
+      'Your AI teammate joins meetings, remembers everything, and delivers perfect responses in real-time. Close 35% more deals. Start free.',
     url: 'https://liveprompt.ai/',
     siteName: 'liveprompt.ai',
     images: [
@@ -112,7 +112,7 @@ export const metadata: Metadata = {
         url: '/og-image.png',
         width: 1200,
         height: 630,
-        alt: 'liveprompt.ai - AI conversation intelligence platform',
+        alt: 'liveprompt.ai - Turn conversations into conversions with AI-powered real-time coaching',
       },
     ],
     locale: 'en_US',
@@ -120,9 +120,9 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'liveprompt.ai - AI-Powered Conversation Intelligence',
+    title: 'AI Sales Coach - Real-Time Meeting Assistant | liveprompt',
     description:
-      'Real-time AI coaching for sales calls & meetings. Get instant guidance, automated summaries, and close more deals. Try free for 14 days.',
+      'Join 500+ sales leaders using AI to close 35% more deals. Real-time coaching, perfect responses, instant summaries. Start free.',
     creator: '@livepromptai',
     site: '@livepromptai',
     images: ['/og-image.png'],

@@ -301,14 +301,14 @@ export default function LandingPage() {
               transition={{ duration: 0.6 }}
               className="text-center"
             >
-              <h3 className="text-2xl font-semibold mb-8 text-foreground">
+              <h2 className="text-2xl font-semibold mb-8 text-foreground">
                 Works seamlessly with your favorite platforms
-              </h3>
+              </h2>
               <div className="flex justify-center items-center gap-8 md:gap-12 flex-wrap">
                 <div className="group cursor-pointer transition-transform hover:scale-110">
                   <Image
                     src="/platform-logos/zoom.png"
-                    alt="Zoom"
+                    alt="Zoom integration - liveprompt.ai works seamlessly with Zoom meetings"
                     width={100}
                     height={35}
                     className="object-contain opacity-60 group-hover:opacity-100 transition-opacity duration-300 filter grayscale group-hover:grayscale-0"
@@ -317,7 +317,7 @@ export default function LandingPage() {
                 <div className="group cursor-pointer transition-transform hover:scale-110">
                   <Image
                     src="/platform-logos/meet.png"
-                    alt="Google Meet"
+                    alt="Google Meet integration - Real-time AI coaching for Google Meet calls"
                     width={100}
                     height={35}
                     className="object-contain opacity-60 group-hover:opacity-100 transition-opacity duration-300 filter grayscale group-hover:grayscale-0"
@@ -326,7 +326,7 @@ export default function LandingPage() {
                 <div className="group cursor-pointer transition-transform hover:scale-110">
                   <Image
                     src="/platform-logos/teams.png"
-                    alt="Microsoft Teams"
+                    alt="Microsoft Teams integration - AI-powered conversation assistant for Teams meetings"
                     width={100}
                     height={35}
                     className="object-contain opacity-60 group-hover:opacity-100 transition-opacity duration-300 filter grayscale group-hover:grayscale-0"
@@ -420,7 +420,7 @@ export default function LandingPage() {
                 >
                   <Image 
                     src={productTabs[activeTab].image}
-                    alt={`${productTabs[activeTab].name} feature screenshot`}
+                    alt={`liveprompt.ai ${productTabs[activeTab].name} feature - ${productTabs[activeTab].description}`}
                     width={1400}
                     height={900}
                     className="w-full h-auto"
@@ -1260,7 +1260,7 @@ export default function LandingPage() {
                 <div className="flex items-center gap-2 mb-4">
                   <Image 
                     src="https://ucvfgfbjcrxbzppwjpuu.supabase.co/storage/v1/object/public/images//DarkMode2.png"
-                    alt="liveprompt.ai"
+                    alt="liveprompt.ai logo - AI-powered real-time conversation intelligence platform"
                     width={150}
                     height={32}
                     className="object-contain"
@@ -1279,7 +1279,7 @@ export default function LandingPage() {
               </div>
               
               <div>
-                <h4 className="font-semibold mb-4 text-foreground">Product</h4>
+                <h3 className="font-semibold mb-4 text-foreground">Product</h3>
                 <ul className="space-y-2">
                   <li><Link href="/pricing" className="text-muted-foreground hover:text-foreground transition-colors">Pricing</Link></li>
                   <li><Link href="/auth/login" className="text-muted-foreground hover:text-foreground transition-colors">Sign In</Link></li>
@@ -1288,7 +1288,7 @@ export default function LandingPage() {
               </div>
               
               <div>
-                <h4 className="font-semibold mb-4 text-foreground">Company</h4>
+                <h3 className="font-semibold mb-4 text-foreground">Company</h3>
                 <ul className="space-y-2">
                   <li><Link href="/terms" className="text-muted-foreground hover:text-foreground transition-colors">Terms</Link></li>
                   <li><Link href="/privacy" className="text-muted-foreground hover:text-foreground transition-colors">Privacy</Link></li>

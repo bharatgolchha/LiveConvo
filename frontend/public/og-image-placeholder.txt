@@ -1,0 +1,21 @@
+# Open Graph Image Placeholder
+
+This is a placeholder for the og-image.png file.
+
+## Specifications:
+- Dimensions: 1200x630px
+- Format: PNG
+- Content: Should include:
+  - liveprompt.ai logo
+  - Tagline: "Turn Every Conversation into Conversion"
+  - Subtext: "AI-powered real-time conversation coaching"
+  - Visual elements representing AI assistance
+  - Brand colors: Green (#16a34a) accent on dark background
+
+## Design Tips:
+- Keep text large and readable
+- High contrast for social media visibility
+- Include brand elements
+- Show product value proposition
+
+To create: Use design tools like Canva, Figma, or Adobe to create og-image.png with these specifications.
