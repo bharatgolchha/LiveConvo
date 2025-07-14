@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Download,
@@ -39,7 +39,6 @@ export function CustomReportExportMenu({
   const [isOpen, setIsOpen] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   const [exportProgress, setExportProgress] = useState<string | null>(null);
-  const buttonRef = useRef<HTMLButtonElement>(null);
 
   const exportOptions = [
     {
@@ -123,7 +122,6 @@ export function CustomReportExportMenu({
   return (
     <div className={`relative ${className}`}>
       <Button
-        ref={buttonRef}
         variant="outline"
         size="sm"
         onClick={() => setIsOpen(!isOpen)}

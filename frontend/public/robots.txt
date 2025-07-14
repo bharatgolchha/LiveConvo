@@ -1,6 +1,16 @@
 # *
 User-agent: *
 Allow: /
+Disallow: /admin/
+Disallow: /api/
+Disallow: /auth/
+Disallow: /test-
+Disallow: /dashboard/
+Disallow: /conversation/
+Disallow: /summary/
+Disallow: /session/
+Disallow: /onboarding/
+Disallow: /settings/
 
 # Host
 Host: https://liveprompt.ai

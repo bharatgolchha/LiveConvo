@@ -16,13 +16,14 @@ const howItWorksMap: Record<string, HowItWorksData> = {
 }
 
 interface PageProps {
-  params: {
+  params: Promise<{
     'use-case': string
-  }
+  }>
 }
 
-export default function HowItWorksPage({ params }: PageProps) {
-  const useCase = params['use-case']
+export default async function HowItWorksPage({ params }: PageProps) {
+  const resolvedParams = await params
+  const useCase = resolvedParams['use-case']
   const data = howItWorksMap[useCase]
   
   if (!data) {
