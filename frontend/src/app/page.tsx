@@ -126,40 +126,79 @@ export default function LandingPage() {
 
         {/* Hero Section - Simplified */}
         <section 
-          className="relative min-h-screen flex items-center justify-center px-4 sm:px-6 lg:px-8 bg-cover bg-center bg-no-repeat"
+          className="relative min-h-screen bg-cover bg-center bg-no-repeat pt-32"
           style={{
             backgroundImage: 'url(https://ucvfgfbjcrxbzppwjpuu.supabase.co/storage/v1/object/public/images//ChatGPT%20Image%20Jul%207,%202025,%2008_58_51%20AM.png)'
           }}
         >
           {/* Dark overlay for better text readability */}
           <div className="absolute inset-0 bg-background/40" />
-          <div className="max-w-4xl mx-auto text-center relative z-10">
+          <div className="relative z-10">
+            <div className="max-w-4xl mx-auto text-center px-6 sm:px-8 lg:px-12">
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full mb-6 bg-app-success/10 border border-app-success/30">
               <span className="text-sm font-medium text-app-success">#1 AI Teammate</span>
             </div>
             
-            <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold mb-6 tracking-tight text-foreground">
-              Turn Every Conversation
-              <br />
+            <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold mb-8 leading-[1.1] tracking-[-0.02em] px-4">
               <span 
-                className="relative inline-block text-5xl sm:text-6xl lg:text-7xl"
+                className="block mb-2"
                 style={{
-                  fontFamily: "'Raleway', 'Montserrat', 'Helvetica Neue', sans-serif",
-                  fontWeight: '200',
-                  background: 'linear-gradient(135deg, #16a34a 0%, #22d3ee 50%, #16a34a 100%)',
+                  fontFamily: "'Inter', 'SF Pro Display', -apple-system, sans-serif",
+                  fontWeight: '700',
+                  background: 'linear-gradient(180deg, #ffffff 0%, #e4e4e7 100%)',
                   WebkitBackgroundClip: 'text',
                   WebkitTextFillColor: 'transparent',
                   backgroundClip: 'text',
-                  textShadow: '0 0 40px rgba(22, 163, 74, 0.5)',
-                  letterSpacing: '0.04em'
+                  textShadow: '0 2px 20px rgba(255, 255, 255, 0.1)',
+                  letterSpacing: '-0.02em',
+                  paddingBottom: '0.1em'
                 }}
               >
-                into Conversion
+                AI That Elevates
+              </span>
+              <span 
+                className="relative inline-block text-5xl sm:text-6xl lg:text-7xl"
+                style={{
+                  fontFamily: "'Inter', 'SF Pro Display', -apple-system, sans-serif",
+                  fontWeight: '800',
+                  background: 'linear-gradient(135deg, #22d3ee 0%, #16a34a 25%, #22d3ee 50%, #16a34a 75%, #22d3ee 100%)',
+                  backgroundSize: '200% 200%',
+                  animation: 'gradient-shift 8s ease infinite',
+                  WebkitBackgroundClip: 'text',
+                  WebkitTextFillColor: 'transparent',
+                  backgroundClip: 'text',
+                  filter: 'drop-shadow(0 4px 24px rgba(34, 211, 238, 0.3))',
+                  letterSpacing: '-0.03em',
+                  lineHeight: '0.95',
+                  paddingBottom: '0.1em',
+                  display: 'inline-block'
+                }}
+              >
+                Every Conversation
               </span>
             </h1>
             
-            <p className="text-xl mb-8 max-w-2xl mx-auto text-muted-foreground">
-              Your AI joins meetings • Remembers everything • Responds instantly
+            <style jsx>{`
+              @keyframes gradient-shift {
+                0% { background-position: 0% 50%; }
+                50% { background-position: 100% 50%; }
+                100% { background-position: 0% 50%; }
+              }
+            `}</style>
+            
+            <p className="text-lg sm:text-xl lg:text-xl mb-8 max-w-2xl mx-auto font-medium"
+               style={{
+                 fontFamily: "'Inter', -apple-system, sans-serif",
+                 color: 'rgba(255, 255, 255, 0.8)',
+                 letterSpacing: '0.01em',
+                 lineHeight: '1.5'
+               }}
+            >
+              <span className="text-app-success">Joins every call</span>
+              <span className="mx-3 text-muted-foreground/60">•</span>
+              <span className="text-app-info">Captures every word</span>
+              <span className="mx-3 text-muted-foreground/60">•</span>
+              <span className="text-app-success-light">Delivers instant insight</span>
             </p>
             
             <div className="mb-8 flex flex-col sm:flex-row items-center justify-center gap-4">
@@ -177,7 +216,7 @@ export default function LandingPage() {
               <LandingAuthSection variant="hero" />
             </div>
 
-            <div className="flex items-center justify-center gap-6 text-sm text-muted-foreground">
+            <div className="flex items-center justify-center gap-6 text-sm text-muted-foreground mb-16">
               <span className="flex items-center gap-2">
                 <Shield className="w-4 h-4" />
                 SOC 2 Compliant
@@ -187,6 +226,33 @@ export default function LandingPage() {
                 &lt;2s Response Time
               </span>
             </div>
+            </div>
+            
+            {/* Hero Screenshot - Below Content */}
+            <motion.div
+              initial={{ opacity: 0, y: 30 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.8, delay: 0.3 }}
+              className="relative mt-8 px-4 sm:px-6 lg:px-8 pb-12"
+            >
+              <div className="relative rounded-2xl overflow-hidden shadow-2xl max-w-6xl mx-auto">
+                <Image
+                  src="https://ucvfgfbjcrxbzppwjpuu.supabase.co/storage/v1/object/public/images//scr111.png"
+                  alt="liveprompt.ai platform interface showing real-time AI conversation assistance"
+                  width={1200}
+                  height={800}
+                  className="w-full h-auto"
+                  priority
+                />
+                {/* Gradient overlay at bottom */}
+                <div 
+                  className="absolute bottom-0 left-0 right-0 h-48 pointer-events-none"
+                  style={{
+                    background: 'linear-gradient(to top, rgba(9, 9, 11, 1) 0%, rgba(9, 9, 11, 0.8) 20%, rgba(9, 9, 11, 0) 100%)'
+                  }}
+                />
+              </div>
+            </motion.div>
           </div>
         </section>
 
