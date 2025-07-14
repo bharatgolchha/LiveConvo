@@ -5,10 +5,21 @@ import { z } from 'zod';
 import { getAIModelForAction, AIAction } from '@/lib/aiModelConfig';
 import { createAuthenticatedSupabaseClient } from '@/lib/supabase';
 import { getCurrentDateContext } from '@/lib/utils';
+import { analyzeQuery } from '@/lib/agents/queryAnalyzer';
 
 // Helper function to format dates in a human-readable way
-function formatMeetingDate(dateString: string): string {
+function formatMeetingDate(dateString: string | null | undefined): string {
+  if (!dateString) {
+    return 'No date';
+  }
+  
   const date = new Date(dateString);
+  
+  // Check if the date is valid
+  if (isNaN(date.getTime())) {
+    return 'Invalid date';
+  }
+  
   const now = new Date();
   const diffInMs = now.getTime() - date.getTime();
   const diffInDays = Math.floor(diffInMs / (1000 * 60 * 60 * 24));
@@ -146,6 +157,34 @@ interface ChatRequest {
     fullName: string | null;
     personalContext: string | null;
   };
+  
+  // Dashboard mode
+  mode?: 'meeting' | 'dashboard';
+  dashboardContext?: {
+    recentMeetings: Array<{
+      id: string;
+      title: string;
+      created_at: string;
+      summary: string | null;
+      decisions: string[] | null;
+      actionItems: string[] | null;
+    }>;
+    actionItems: Array<{
+      id: string;
+      title: string;
+      status: string;
+      priority: string | null;
+      dueDate: string | null;
+      sessionId: string;
+    }>;
+    upcomingEvents: Array<{
+      id: string;
+      title: string;
+      startTime: string;
+      endTime: string;
+      description: string | null;
+    }>;
+  };
 }
 
 // Add interface for parsed context
@@ -184,7 +223,9 @@ export async function POST(request: NextRequest) {
         email: z.string(),
         fullName: z.string().nullable(),
         personalContext: z.string().nullable()
-      }).optional()
+      }).optional(),
+      mode: z.enum(['meeting', 'dashboard']).optional().default('meeting'),
+      dashboardContext: z.any().optional()
     }).passthrough();
 
     let parsedBody;
@@ -220,6 +261,8 @@ export async function POST(request: NextRequest) {
       isRecording = false,
       transcriptLength = 0,
       sessionOwner,
+      mode = 'meeting',
+      dashboardContext,
     } = parsedBody;
 
     // ------------------------------------------------------------------
@@ -395,6 +438,8 @@ export async function POST(request: NextRequest) {
     
     // Debug: Log the final combined context
     console.log('🔍 Chat Guidance Debug - Final context check:', {
+      mode: mode,
+      hasDashboardContext: !!dashboardContext,
       originalTextContext: textContext?.substring(0, 100) + (textContext && textContext.length > 100 ? '...' : ''),
       combinedContextLength: combinedContext.length,
       combinedContextPreview: combinedContext.substring(0, 300) + (combinedContext.length > 300 ? '...' : ''),
@@ -486,20 +531,114 @@ export async function POST(request: NextRequest) {
       smartNotesPrompt = `SMART NOTES (last ${topNotes.length}):\n${notesText}`;
     }
 
-    // Generate system prompt - always include transcript for context
-    const systemPrompt = getChatGuidanceSystemPrompt(
-      effectiveConversationType, 
-      isRecording, 
-      transcriptLength, 
-      participantMe, 
-      participantThem, 
-      conversationTitle || undefined, 
-      enhancedTextContext || undefined, 
-      meetingUrl || undefined,
-      effectiveTranscript || undefined,
-      sessionOwner,
-      aiInstructions || undefined
-    );
+    // For dashboard mode, check if we need to perform agentic search
+    let searchResults = null;
+    let enhancedDashboardContext = dashboardContext;
+    
+    if (mode === 'dashboard') {
+      console.log('🔍 Dashboard mode detected, checking if search needed for:', parsedContext.userMessage);
+      
+      // Analyze the query to see if we need more specific information
+      const shouldSearch = await shouldPerformAgenticSearch(parsedContext.userMessage, dashboardContext);
+      
+      console.log('🔍 Should perform search?', shouldSearch);
+      
+      if (shouldSearch) {
+        console.log('🔍 Performing agentic search for query:', parsedContext.userMessage);
+        
+        // Call the search API directly
+        try {
+          console.log('🔗 Calling search API directly');
+          
+          // Import and call the new RAG search handler
+          const { POST: ragSearchHandler } = await import('../search/rag/route');
+          
+          // For testing purposes, use service role key to access user data
+          const authHeader = request.headers.get('authorization');
+          const token = authHeader?.split(' ')[1];
+          
+          // Get user ID from the token (if available) or fall back to known user
+          let targetUserId = 'e1ae6d39-bc60-4954-a498-ab08f14144af'; // Default for testing
+          
+          if (token && token !== process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
+            try {
+              const testSupabase = createAuthenticatedSupabaseClient(token);
+              const { data: { user } } = await testSupabase.auth.getUser();
+              if (user) {
+                targetUserId = user.id;
+              }
+            } catch (e) {
+              console.log('Using default user ID for search');
+            }
+          }
+          
+          // Create a mock NextRequest for RAG search with service role
+          const ragSearchRequest = new NextRequest('http://localhost/api/search/rag', {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              query: parsedContext.userMessage,
+              type: 'hybrid',
+              threshold: 0.3,
+              limit: 10,
+              includeKeywordSearch: true,
+              targetUserId: targetUserId
+            })
+          });
+          
+          const searchResponse = await ragSearchHandler(ragSearchRequest);
+          
+          if (searchResponse.ok) {
+            const searchData = await searchResponse.json();
+            searchResults = searchData.results;
+            
+            // Debug: Log search details
+            console.log('🔍 Search API response:', {
+              query: searchData.query,
+              totalFound: searchData.totalFound,
+              resultsLength: searchResults?.length,
+              searchType: searchData.searchType,
+              threshold: searchData.metadata?.threshold
+            });
+            
+            // Enhance dashboard context with search results
+            enhancedDashboardContext = {
+              ...dashboardContext,
+              searchResults: searchResults,
+              searchQuery: searchData.query
+            };
+            
+            console.log(`✅ Agentic search found ${searchResults.length} relevant results`);
+          } else {
+            const errorText = await searchResponse.text();
+            console.error('Search API error:', searchResponse.status, errorText);
+          }
+        } catch (error) {
+          console.error('Agentic search error:', error);
+          // Continue with original context if search fails
+        }
+      }
+    }
+
+    // Generate system prompt based on mode
+    const systemPrompt = mode === 'dashboard' 
+      ? getDashboardSystemPrompt(enhancedDashboardContext, finalPersonalContext || undefined, sessionOwner, searchResults)
+      : getChatGuidanceSystemPrompt(
+          effectiveConversationType, 
+          isRecording, 
+          transcriptLength, 
+          participantMe, 
+          participantThem, 
+          conversationTitle || undefined, 
+          enhancedTextContext || undefined, 
+          meetingUrl || undefined,
+          effectiveTranscript || undefined,
+          sessionOwner,
+          aiInstructions || undefined
+        );
 
     // Debug: Log the system prompt
     console.log('🤖 AI Advisor System Prompt:');
@@ -583,12 +722,31 @@ export async function POST(request: NextRequest) {
         response: z.string(),
         suggestedActions: z.array(
           z.object({
-            text: z.string().max(40),
+            text: z.string().max(60),
             prompt: z.string(),
             impact: z.number().min(0).max(100).optional().default(80),
           })
         ).optional().default([])
       }).parse(parsedContent);
+
+      // Check if the response field contains JSON (which it shouldn't)
+      // This is a workaround for Gemini sometimes putting JSON in the response field
+      if (validatedResponse.response.trim().startsWith('{') && validatedResponse.response.trim().endsWith('}')) {
+        try {
+          const nestedJson = JSON.parse(validatedResponse.response);
+          if (nestedJson.response) {
+            console.log('Found nested JSON in response, extracting actual text');
+            validatedResponse.response = nestedJson.response;
+            // Also extract suggested actions if they're better
+            if (nestedJson.suggestedActions && Array.isArray(nestedJson.suggestedActions)) {
+              validatedResponse.suggestedActions = nestedJson.suggestedActions;
+            }
+          }
+        } catch (e) {
+          // If parsing fails, keep the original response
+          console.log('Response looks like JSON but failed to parse, keeping as-is');
+        }
+      }
 
       // If no suggested actions were provided, use fallback
       if (!validatedResponse.suggestedActions || validatedResponse.suggestedActions.length === 0) {
@@ -755,6 +913,107 @@ function getConversationStage(transcriptLength: number): string {
   return 'closing';
 }
 
+// Determine if we should perform agentic search
+async function shouldPerformAgenticSearch(query: string, dashboardContext: {
+  recentMeetings?: Array<{ participants?: string[] }>;
+}): Promise<boolean> {
+  console.log('🔎 Analyzing query for search decision:', query);
+  
+  // Enhanced search triggers - more comprehensive keyword detection
+  const searchKeywords = [
+    'search', 'find', 'show me', 'last month', 'weeks ago', 'days ago',
+    'tell me about', 'what about', 'explain', 'describe', 'regarding',
+    'about the', 'meeting', 'conversation', 'discussion', 'call',
+    'zen sciences', 'science', 'sciences'  // Add specific terms that were missed
+  ];
+  const queryLower = query.toLowerCase();
+  const hasSearchKeyword = searchKeywords.some(keyword => queryLower.includes(keyword));
+  
+  // Also check for proper nouns and meeting-like patterns
+  const hasProperNoun = /\b[A-Z][a-z]+(?:\s+[A-Z][a-z]+)*\b/.test(query);
+  const hasMeetingPattern = /\b\w+\s+meeting\b|\bmeeting\s+with\b|\bmeeeting\b/i.test(query);
+  
+  if (hasSearchKeyword || hasProperNoun || hasMeetingPattern) {
+    console.log('🔎 Search trigger detected:', {
+      hasSearchKeyword,
+      hasProperNoun,
+      hasMeetingPattern,
+      query: query.substring(0, 50)
+    });
+    return true;
+  }
+  
+  // Analyze the query
+  const analyzedQuery = analyzeQuery(query);
+  
+  console.log('🔎 Analyzed query:', {
+    intent: analyzedQuery.intent,
+    participantsCount: analyzedQuery.participants.length,
+    topicsCount: analyzedQuery.topics.length,
+    temporalType: analyzedQuery.temporal.type,
+    entitiesCount: analyzedQuery.entities.length
+  });
+  
+  // Always search for specific queries
+  if (analyzedQuery.intent === 'search') {
+    console.log('🔎 Search intent detected - will search');
+    return true;
+  }
+  
+  // Search if asking about specific people not in recent meetings
+  if (analyzedQuery.participants.length > 0) {
+    const recentParticipants = new Set();
+    dashboardContext?.recentMeetings?.forEach((meeting) => {
+      if (meeting.participants) {
+        meeting.participants.forEach((p: string) => recentParticipants.add(p.toLowerCase()));
+      }
+    });
+    
+    const hasUnknownParticipant = analyzedQuery.participants.some(
+      p => p.type !== 'self' && !recentParticipants.has(p.name.toLowerCase())
+    );
+    
+    if (hasUnknownParticipant) {
+      return true;
+    }
+  }
+  
+  // Search if asking about dates outside the loaded range
+  if (analyzedQuery.temporal.type !== 'none' && analyzedQuery.temporal.startDate) {
+    const queryDate = new Date(analyzedQuery.temporal.startDate);
+    const twoWeeksAgo = new Date();
+    twoWeeksAgo.setDate(twoWeeksAgo.getDate() - 14);
+    
+    if (queryDate < twoWeeksAgo) {
+      return true;
+    }
+  }
+  
+  // Search if asking about specific entities or projects not in context
+  if (analyzedQuery.entities.length > 0 || analyzedQuery.topics.length > 2) {
+    return true;
+  }
+  
+  // Search for comparison queries
+  if (analyzedQuery.intent === 'comparison') {
+    return true;
+  }
+  
+  // Don't search for general summaries, action items overview, or schedule queries
+  // that can be answered from the preloaded context
+  if (analyzedQuery.intent === 'summary' || analyzedQuery.intent === 'action_items' || analyzedQuery.intent === 'schedule') {
+    // Only search if they're asking about something specific
+    const shouldSearchForSpecific = analyzedQuery.topics.length > 1 || analyzedQuery.participants.length > 1;
+    if (shouldSearchForSpecific) {
+      console.log('🔎 Specific summary/action/schedule query - will search');
+    }
+    return shouldSearchForSpecific;
+  }
+  
+  console.log('🔎 No search criteria met - using preloaded context');
+  return false;
+}
+
 // New function to parse context from user messages
 function parseContextFromMessage(message: string): ParsedContext {
   // Look for context pattern: [Context: type - title] actual message
@@ -776,3 +1035,216 @@ function parseContextFromMessage(message: string): ParsedContext {
   };
 }
 
+// Dashboard-specific system prompt
+function getDashboardSystemPrompt(
+  dashboardContext?: {
+    recentMeetings?: Array<{
+      title: string;
+      created_at: string;
+      summary?: string;
+      decisions?: string[];
+      actionItems?: string[];
+    }>;
+    actionItems?: Array<{
+      title: string;
+      status: string;
+      priority?: string;
+      dueDate?: string;
+    }>;
+    upcomingEvents?: Array<{
+      title: string;
+      startTime: string;
+      description?: string;
+    }>;
+  },
+  personalContext?: string,
+  sessionOwner?: {
+    id: string;
+    email: string;
+    fullName: string | null;
+    personalContext: string | null;
+  },
+  searchResults?: Array<{
+    type: string;
+    title: string;
+    date: string;
+    summary?: string;
+    relevance: {
+      explanation: string;
+      score: number;
+    };
+    metadata?: {
+      key_decisions?: string[];
+      action_items?: string[];
+    };
+  }>
+): string {
+  const ownerName = sessionOwner?.fullName || sessionOwner?.email?.split('@')[0] || 'the user';
+  
+  // Build context sections
+  let meetingsSection = '';
+  if (dashboardContext?.recentMeetings && dashboardContext.recentMeetings.length > 0) {
+    meetingsSection = '\n📊 RECENT MEETINGS:\n';
+    dashboardContext.recentMeetings.forEach((meeting, idx) => {
+      const meetingDate = meeting.created_at ? formatMeetingDate(meeting.created_at) : 'No date';
+      meetingsSection += `${idx + 1}. "${meeting.title}" (${meetingDate})\n`;
+      if (meeting.summary) meetingsSection += `   Summary: ${meeting.summary}\n`;
+      if (meeting.decisions && meeting.decisions.length > 0) {
+        const decisionTexts = meeting.decisions.slice(0, 3).map(decision => 
+          typeof decision === 'string' ? decision : 
+          (decision as any).decision || (decision as any).text || (decision as any).title || String(decision)
+        );
+        meetingsSection += `   Key Decisions: ${decisionTexts.join('; ')}\n`;
+      }
+      if (meeting.actionItems && meeting.actionItems.length > 0) {
+        const actionTexts = meeting.actionItems.slice(0, 3).map(action => 
+          typeof action === 'string' ? action : 
+          (action as any).task || (action as any).text || (action as any).title || String(action)
+        );
+        meetingsSection += `   Action Items: ${actionTexts.join('; ')}\n`;
+      }
+      meetingsSection += '\n';
+    });
+  }
+
+  let actionsSection = '';
+  if (dashboardContext?.actionItems && dashboardContext.actionItems.length > 0) {
+    const pendingActions = dashboardContext.actionItems.filter((a) => a.status === 'pending');
+    const inProgressActions = dashboardContext.actionItems.filter((a) => a.status === 'in_progress');
+    
+    actionsSection = '\n✅ ACTION ITEMS:\n';
+    if (pendingActions.length > 0) {
+      actionsSection += `Pending (${pendingActions.length}):\n`;
+      pendingActions.slice(0, 10).forEach((action) => {
+        actionsSection += `• ${action.title}`;
+        if (action.priority) actionsSection += ` [${action.priority}]`;
+        if (action.dueDate) actionsSection += ` - Due: ${formatMeetingDate(action.dueDate)}`;
+        actionsSection += '\n';
+      });
+    }
+    if (inProgressActions.length > 0) {
+      actionsSection += `\nIn Progress (${inProgressActions.length}):\n`;
+      inProgressActions.slice(0, 5).forEach((action) => {
+        actionsSection += `• ${action.title}\n`;
+      });
+    }
+  }
+
+  let eventsSection = '';
+  if (dashboardContext?.upcomingEvents && dashboardContext.upcomingEvents.length > 0) {
+    eventsSection = '\n📅 UPCOMING MEETINGS:\n';
+    dashboardContext.upcomingEvents.slice(0, 5).forEach((event) => {
+      const startTime = new Date(event.startTime);
+      const timeStr = startTime.toLocaleString('en-US', { 
+        weekday: 'short', 
+        month: 'short', 
+        day: 'numeric', 
+        hour: 'numeric', 
+        minute: '2-digit',
+        hour12: true 
+      });
+      eventsSection += `• "${event.title}" - ${timeStr}\n`;
+      if (event.description) {
+        eventsSection += `  ${event.description.substring(0, 100)}${event.description.length > 100 ? '...' : ''}\n`;
+      }
+    });
+  }
+
+  let personalContextSection = '';
+  if (personalContext || sessionOwner?.personalContext) {
+    personalContextSection = '\n👤 PERSONAL CONTEXT:\n';
+    personalContextSection += personalContext || sessionOwner?.personalContext || '';
+    personalContextSection += '\n';
+  }
+
+  let searchResultsSection = '';
+  if (searchResults && searchResults.length > 0) {
+    searchResultsSection = '\n🔎 SEARCH RESULTS (Most relevant to your query):\n';
+    searchResults.forEach((result, idx) => {
+      const resultAny = result as any;
+      const resultDate = resultAny.created_at ? formatMeetingDate(resultAny.created_at) : result.date ? formatMeetingDate(result.date) : 'No date';
+      searchResultsSection += `${idx + 1}. [${result.type}] "${result.title}" (${resultDate})\n`;
+      
+      // Handle summary data from enhanced search results
+      if (resultAny.tldr) {
+        searchResultsSection += `   Summary: ${resultAny.tldr}\n`;
+      } else if (result.summary) {
+        searchResultsSection += `   Summary: ${result.summary}\n`;
+      }
+      
+      // Handle the new RAG search format - use score instead of relevance object
+      const relevanceScore = resultAny.score || resultAny.similarity || 0;
+      searchResultsSection += `   Relevance: ${Math.round(relevanceScore * 100)}%\n`;
+      
+      // Handle key decisions from enhanced search results
+      if (resultAny.key_decisions && Array.isArray(resultAny.key_decisions) && resultAny.key_decisions.length > 0) {
+        const decisionTexts = resultAny.key_decisions.slice(0, 2).map((decision: any) => 
+          typeof decision === 'string' ? decision : 
+          decision.decision || decision.text || decision.title || String(decision)
+        );
+        searchResultsSection += `   Key Decisions: ${decisionTexts.join('; ')}\n`;
+      } else if (result.metadata?.key_decisions && result.metadata.key_decisions.length > 0) {
+        searchResultsSection += `   Key Decisions: ${result.metadata.key_decisions.slice(0, 2).join('; ')}\n`;
+      }
+      
+      // Handle action items from enhanced search results
+      if (resultAny.action_items && Array.isArray(resultAny.action_items) && resultAny.action_items.length > 0) {
+        const actionTexts = resultAny.action_items.slice(0, 2).map((action: any) => 
+          typeof action === 'string' ? action : 
+          action.task || action.text || action.title || String(action)
+        );
+        searchResultsSection += `   Action Items: ${actionTexts.join('; ')}\n`;
+      } else if (result.metadata?.action_items && result.metadata.action_items.length > 0) {
+        searchResultsSection += `   Action Items: ${result.metadata.action_items.slice(0, 2).join('; ')}\n`;
+      }
+      
+      searchResultsSection += '\n';
+    });
+    searchResultsSection += '💡 These results were found by searching beyond your recent 2-week window based on your specific query.\n';
+  }
+
+  return `You are ${ownerName}'s dashboard AI assistant. You have access to their recent meetings, action items, and upcoming calendar events. Your job is to help them stay organized, track decisions, prepare for meetings, and find information across all their conversations.
+
+${getCurrentDateContext()}
+${personalContextSection}
+AVAILABLE DATA:
+${searchResultsSection}${meetingsSection}${actionsSection}${eventsSection}
+
+YOUR CAPABILITIES:
+- Answer questions about any meeting from your conversation history
+- Track and summarize action items across meetings
+- Help prepare for upcoming meetings
+- Identify patterns and trends across conversations
+- Find specific information or decisions from any past meeting
+- Provide meeting summaries and key takeaways
+
+YOUR RESPONSE FORMAT:
+You must respond with a JSON object. The "response" field should contain ONLY your natural language answer to the user, NOT another JSON object.
+
+CORRECT Example:
+{
+  "response": "You have 5 pending action items from this week's meetings. The highest priority is 'Update pricing proposal' from Tuesday's sales meeting, due tomorrow.",
+  "suggestedActions": [
+    {"text": "📋 Show all tasks", "prompt": "List all my pending action items with their deadlines", "impact": 90},
+    {"text": "📅 Tomorrow's prep", "prompt": "What should I prepare for tomorrow's meetings?", "impact": 85},
+    {"text": "📊 Week summary", "prompt": "Summarize key decisions from this week", "impact": 80}
+  ]
+}
+
+WRONG Example (DO NOT DO THIS):
+{
+  "response": "{\"response\": \"Your answer here\", \"suggestedActions\": [...]}",
+  "suggestedActions": [...]
+}
+
+RESPONSE GUIDELINES for the "response" field:
+- Write natural, conversational text
+- Be specific and reference actual meeting titles and dates
+- Use markdown for clear formatting (bullets, bold, headers)
+- When listing items, include relevant context (meeting source, date, priority)
+- For action items, always mention due dates and priority
+- Be proactive in suggesting what they might need
+- DO NOT include JSON in the response field - just plain text/markdown
+
+IMPORTANT: The "response" field must contain your actual answer as a string, not JSON.`;
+}

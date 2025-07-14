@@ -58,6 +58,7 @@
     "next-auth": "^4.24.11",
     "next-sitemap": "^4.2.3",
     "node-fetch": "^2.7.0",
+    "openai": "^5.9.0",
     "pdf-parse": "^1.1.1",
     "postcss": "^8.5.3",
     "qrcode": "^1.5.4",

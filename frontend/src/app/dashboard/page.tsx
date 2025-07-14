@@ -41,6 +41,8 @@ import { LoadingModal } from '@/components/ui/LoadingModal';
 import type { ConversationConfig } from '@/types/app';
 // Removed ConversationThread import - no longer needed for grouped view
 import { Pagination } from '@/components/ui/Pagination';
+import { DashboardChatProvider } from '@/contexts/DashboardChatContext';
+import { DashboardChatbot } from '@/components/dashboard/DashboardChatbot';
 import dynamic from 'next/dynamic';
 
 // Dynamically load smaller components to reduce initial bundle size
@@ -632,12 +634,13 @@ const DashboardPage: React.FC = () => {
   }
 
   return (
-    <div className="h-screen bg-background flex flex-col">
-      <DashboardHeader 
-        user={currentUser} 
-        onSearch={handleSearch}
-        onNavigateToSettings={() => setActivePath('settings')}
-      />
+    <DashboardChatProvider>
+      <div className="h-screen bg-background flex flex-col">
+        <DashboardHeader 
+          user={currentUser} 
+          onSearch={handleSearch}
+          onNavigateToSettings={() => setActivePath('settings')}
+        />
       
       {/* Usage Warning Banner */}
       {userStats && (
@@ -938,7 +941,11 @@ const DashboardPage: React.FC = () => {
         description={isNewSession ? "Setting up your session" : "Please wait a moment"}
         isNewSession={isNewSession}
       />
+
+      {/* Dashboard Chatbot */}
+      <DashboardChatbot />
     </div>
+    </DashboardChatProvider>
   );
 };
 
