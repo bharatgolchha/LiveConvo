@@ -5,9 +5,14 @@ import {
   ChevronDown,
   FileText,
   File,
-  CheckCircle
+  CheckCircle,
+  Share2,
+  ArrowRight
 } from 'lucide-react';
 import { exportReportToPDF, exportReportToDocx } from '@/lib/services/export';
+import { ExportModal } from '@/components/integrations/ExportModal';
+import { getExportService } from '@/lib/integrations/export-service';
+import { useParams } from 'next/navigation';
 
 interface ReportExportMenuProps {
   report: any; // Full report object from report page
@@ -19,7 +24,26 @@ export function ReportExportMenu({ report, className = '', disabled = false }: R
   const [isOpen, setIsOpen] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   const [exportProgress, setExportProgress] = useState<string | null>(null);
+  const [showIntegrations, setShowIntegrations] = useState(false);
+  const [activeIntegrations, setActiveIntegrations] = useState<any[]>([]);
   const buttonRef = useRef<HTMLButtonElement>(null);
+  const params = useParams();
+
+  // Load integrations on mount
+  useEffect(() => {
+    loadIntegrations();
+  }, []);
+
+  const loadIntegrations = async () => {
+    try {
+      const exportService = getExportService();
+      await exportService.loadUserIntegrations('');
+      const active = exportService.getActiveIntegrations();
+      setActiveIntegrations(active);
+    } catch (error) {
+      console.error('Failed to load integrations:', error);
+    }
+  };
 
   const exportOptions = [
     {
@@ -170,6 +194,31 @@ export function ReportExportMenu({ report, className = '', disabled = false }: R
                   </button>
                 );
               })}
+              
+              {/* Divider */}
+              <div className="my-2 border-t border-border" />
+              
+              {/* Integration Export Button */}
+              <button
+                onClick={() => {
+                  setIsOpen(false);
+                  setShowIntegrations(true);
+                }}
+                className="w-full flex items-center gap-3 p-3 rounded-lg hover:bg-muted/50 transition-colors cursor-pointer"
+              >
+                <div className="p-2 rounded-lg bg-purple-50 dark:bg-purple-950/20">
+                  <Share2 className="w-5 h-5 text-purple-600" />
+                </div>
+                <div className="flex-1 text-left">
+                  <div className="font-medium text-foreground">
+                    Export to Integrations
+                  </div>
+                  <div className="text-sm text-muted-foreground">
+                    Slack, HubSpot, Salesforce & more
+                  </div>
+                </div>
+                <ArrowRight className="w-4 h-4 text-muted-foreground" />
+              </button>
             </div>
             
             <div className="p-4 border-t border-border bg-muted/30">
@@ -187,6 +236,30 @@ export function ReportExportMenu({ report, className = '', disabled = false }: R
         <div
           className="fixed inset-0 z-[9998]"
           onClick={() => setIsOpen(false)}
+        />
+      )}
+      
+      {/* Integration Export Modal */}
+      {showIntegrations && (
+        <ExportModal
+          report={report}
+          summary={report.summary}
+          sessionId={params.id as string}
+          onClose={() => setShowIntegrations(false)}
+          onExportStart={() => {
+            setIsExporting(true);
+            setExportProgress('Exporting to integrations...');
+          }}
+          onExportComplete={(success) => {
+            setIsExporting(false);
+            setExportProgress(success ? 'Export successful!' : 'Export failed');
+            setTimeout(() => {
+              setExportProgress(null);
+              setShowIntegrations(false);
+            }, 3000);
+          }}
+          activeIntegrations={activeIntegrations}
+          onIntegrationsUpdate={loadIntegrations}
         />
       )}
     </div>
