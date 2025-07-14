@@ -186,10 +186,6 @@ export default function LandingPage() {
                 <Clock className="w-4 h-4" />
                 &lt;2s Response Time
               </span>
-              <span className="flex items-center gap-2">
-                <Users className="w-4 h-4" />
-                Join 500+ sales leaders closing 35% more deals
-              </span>
             </div>
           </div>
         </section>
