@@ -45,6 +45,7 @@ import type {
 interface TabbedReportProps {
   report: {
     id?: string;
+    title?: string;
     duration: number;
     participants: {
       me: string;
@@ -1144,6 +1145,7 @@ export function TabbedReport({ report, activeTab, setActiveTab, handleManualFina
             sessionId={report.id} 
             sharedToken={sharedToken}
             customReports={report.customReports}
+            sessionTitle={report.title}
           />
         )}
       </div>

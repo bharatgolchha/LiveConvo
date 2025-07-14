@@ -30,7 +30,6 @@ import { ThemeToggle } from '@/components/ui/ThemeToggle';
 import { ShareReportModal } from '@/components/report/ShareReportModal';
 import { CollaborationPanel } from '@/components/collaboration/CollaborationPanel';
 import { ParticipantsList } from '@/components/report/ParticipantsList';
-import { ReportExportMenu } from '@/components/report/ReportExportMenu';
 import type {
   EmailDraft,
   RiskAssessment,
@@ -605,7 +604,6 @@ export default function MeetingReportPage() {
                     <Share className="w-3 h-3 mr-1.5" />
                     Share
                   </Button>
-                  <ReportExportMenu report={report} />
                 </div>
               </div>
             </div>

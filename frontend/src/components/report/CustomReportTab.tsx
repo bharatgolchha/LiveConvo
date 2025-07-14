@@ -8,7 +8,6 @@ import {
   Plus,
   ChevronRight,
   Eye,
-  Download,
   Copy,
   Check,
   Trash2,
@@ -21,11 +20,13 @@ import { CustomReportModal } from "./CustomReportModal";
 import { DeleteConfirmationModal } from "@/components/ui/DeleteConfirmationModal";
 import { useSubscription } from "@/lib/hooks/useSubscription";
 import { UpgradeCTA } from "@/components/subscription/UpgradeCTA";
+import { CustomReportExportMenu } from "./CustomReportExportMenu";
 
 interface CustomReportTabProps {
   sessionId: string;
   sharedToken?: string;
   customReports?: CustomReport[];
+  sessionTitle?: string;
 }
 
 interface CustomReport {
@@ -42,6 +43,7 @@ export function CustomReportTab({
   sessionId,
   sharedToken,
   customReports,
+  sessionTitle,
 }: CustomReportTabProps) {
   const { session } = useAuth();
   const { subscription, hasFeature, loading: subscriptionLoading } = useSubscription();
@@ -118,20 +120,6 @@ export function CustomReportTab({
     }
   };
 
-  const handleDownloadReport = (report: CustomReport) => {
-    const content = report.generated_content || '';
-    const blob = new Blob([content], { type: "text/markdown" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    // Use first 50 chars of prompt as filename if no title
-    const filename = report.prompt.slice(0, 50).replace(/[^a-z0-9]/gi, '-').toLowerCase();
-    a.download = `custom-report-${filename}-${Date.now()}.md`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-  };
 
   const handleDeleteReport = async () => {
     if (!reportToDelete || !session?.access_token) return;
@@ -329,14 +317,11 @@ export function CustomReportTab({
                             </>
                           )}
                         </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleDownloadReport(report)}
-                        >
-                          <Download className="w-4 h-4 mr-2" />
-                          Download
-                        </Button>
+                        <CustomReportExportMenu
+                          report={report}
+                          sessionTitle={sessionTitle}
+                          disabled={false}
+                        />
                         {!sharedToken && (
                           <Button
                             variant="outline"

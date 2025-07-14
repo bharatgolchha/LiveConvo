@@ -3,4 +3,5 @@ export * from './pdfExport';
 export * from './docxExport';
 export * from './notionExport';
 export * from './reportPdfExport';
-export * from './reportDocxExport'; 
+export * from './reportDocxExport';
+export * from './customReportExport'; 
