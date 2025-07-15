@@ -3,6 +3,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
+import { useTheme } from '@/contexts/ThemeContext';
 import { Button } from '@/components/ui/Button';
 import { ThemeToggle } from '@/components/ui/ThemeToggle';
 import { 
@@ -15,6 +16,7 @@ import {
 
 export function SharedReportHeader() {
   const { user, signOut } = useAuth();
+  const { theme } = useTheme();
   const router = useRouter();
 
   const handleSignOut = async () => {
@@ -29,7 +31,10 @@ export function SharedReportHeader() {
           {/* Logo and Brand */}
           <Link href="/" className="flex items-center gap-2 group">
             <Image 
-              src="https://ucvfgfbjcrxbzppwjpuu.supabase.co/storage/v1/object/public/images//DarkMode2.png"
+              src={theme === 'dark' 
+                ? "https://ucvfgfbjcrxbzppwjpuu.supabase.co/storage/v1/object/public/images//DarkMode2.png"
+                : "https://ucvfgfbjcrxbzppwjpuu.supabase.co/storage/v1/object/public/images//LightMode2.png"
+              }
               alt="liveprompt.ai - AI-powered conversation intelligence platform"
               width={140}
               height={32}

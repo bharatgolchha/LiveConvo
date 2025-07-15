@@ -365,7 +365,7 @@ export class RecallAIClient {
   detectMeetingPlatform(url: string): 'zoom' | 'google_meet' | 'teams' | null {
     if (url.includes('zoom.us')) return 'zoom';
     if (url.includes('meet.google.com')) return 'google_meet';
-    if (url.includes('teams.microsoft.com')) return 'teams';
+    if (url.includes('teams.microsoft.com') || url.includes('teams.live.com')) return 'teams';
     return null;
   }
 }

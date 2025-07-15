@@ -30,6 +30,15 @@ import { ThemeToggle } from '@/components/ui/ThemeToggle';
 import { ShareReportModal } from '@/components/report/ShareReportModal';
 import { CollaborationPanel } from '@/components/collaboration/CollaborationPanel';
 import { ParticipantsList } from '@/components/report/ParticipantsList';
+import Link from 'next/link';
+import Image from 'next/image';
+import { 
+  Home,
+  LogOut,
+  Sparkles,
+  ChevronRight,
+  UserPlus
+} from 'lucide-react';
 import type {
   EmailDraft,
   RiskAssessment,
@@ -107,7 +116,7 @@ export default function MeetingReportPage() {
   const params = useParams();
   const router = useRouter();
   const meetingId = params.id as string;
-  const { user, session } = useAuth();
+  const { user, session, signOut } = useAuth();
   const { theme } = useTheme();
   
   const [report, setReport] = useState<MeetingReport | null>(null);
@@ -555,56 +564,137 @@ export default function MeetingReportPage() {
     return config;
   };
 
+  const handleSignOut = async () => {
+    await signOut();
+    router.push('/');
+  };
+
   return (
     <div className="min-h-screen bg-background">
+      {/* Header */}
+      <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+        <div className="container mx-auto px-4">
+          <div className="flex h-16 items-center justify-between">
+            {/* Logo and Brand */}
+            <Link href="/" className="flex items-center gap-2 group">
+              <Image 
+                src={theme === 'dark' 
+                  ? "https://ucvfgfbjcrxbzppwjpuu.supabase.co/storage/v1/object/public/images//DarkMode2.png"
+                  : "https://ucvfgfbjcrxbzppwjpuu.supabase.co/storage/v1/object/public/images//LightMode2.png"
+                }
+                alt="liveprompt.ai - AI-powered conversation intelligence platform"
+                width={140}
+                height={32}
+                className="object-contain transition-transform group-hover:scale-105"
+              />
+              <span className="hidden sm:inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs bg-primary/10 border border-primary/30 text-primary">
+                <Sparkles className="w-3 h-3" />
+                Meeting Report
+              </span>
+            </Link>
+
+            {/* Right Side Actions */}
+            <div className="flex items-center gap-3">
+              <ThemeToggle className="h-9 w-9" />
+              
+              {user ? (
+                // Authenticated User Actions
+                <>
+                  <Button
+                    onClick={() => router.push('/dashboard')}
+                    variant="ghost"
+                    size="sm"
+                    className="hidden sm:flex items-center gap-2"
+                  >
+                    <Home className="w-4 h-4" />
+                    Dashboard
+                  </Button>
+                  <Button
+                    onClick={handleSignOut}
+                    variant="outline"
+                    size="sm"
+                    className="flex items-center gap-2"
+                  >
+                    <LogOut className="w-4 h-4" />
+                    <span className="hidden sm:inline">Sign Out</span>
+                  </Button>
+                </>
+              ) : (
+                // Guest Actions
+                <>
+                  <Link href="/auth/login">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="hidden sm:flex items-center gap-2"
+                    >
+                      Sign In
+                    </Button>
+                  </Link>
+                  <Link href="/auth/signup">
+                    <Button
+                      variant="primary"
+                      size="sm"
+                      className="flex items-center gap-2 shadow-lg hover:shadow-xl transition-all"
+                    >
+                      <UserPlus className="w-4 h-4" />
+                      <span>Get Started Free</span>
+                      <ChevronRight className="w-3 h-3" />
+                    </Button>
+                  </Link>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      </header>
+
       <div className="container mx-auto px-4 py-6">
         <div className="max-w-6xl mx-auto">
-          {/* Enhanced Header */}
+          {/* Report Header */}
           <div className="mb-6">
-            {/* Top Row - Back button and Title */}
+            {/* Top Row - Title and Actions */}
             <div className="flex items-start justify-between mb-4">
-              <div className="flex items-start gap-3">
-                <button
-                  onClick={() => router.back()}
-                  className="mt-1 p-2 hover:bg-muted rounded-lg transition-colors group"
-                >
-                  <ArrowLeft className="w-5 h-5 text-muted-foreground group-hover:text-foreground transition-colors" />
-                </button>
-                <div className="flex-1">
-                  <h1 className="text-2xl font-bold text-foreground mb-2">
-                    {report.title}
-                  </h1>
-                  <div className="flex items-center gap-3 flex-wrap">
-                    <span className={`px-3 py-1 text-xs font-medium rounded-full border ${getMeetingTypeBadge(report.type).color}`}>
-                      {getMeetingTypeBadge(report.type).label}
-                    </span>
-                    <span className="text-sm text-muted-foreground flex items-center gap-1">
-                      <Clock className="w-3 h-3" />
-                      {formatDuration(report.duration)}
-                    </span>
-                    <span className="text-sm text-muted-foreground">
-                      {formatDate(report.startedAt)}
-                    </span>
-                  </div>
-                  <div className="mt-3">
-                    <ParticipantsList 
-                      sessionId={meetingId} 
-                      fallbackParticipants={report.participants}
-                    />
-                  </div>
+              <div className="flex-1">
+                <h1 className="text-2xl font-bold text-foreground mb-2">
+                  {report.title}
+                </h1>
+                <div className="flex items-center gap-3 flex-wrap">
+                  <span className={`px-3 py-1 text-xs font-medium rounded-full border ${getMeetingTypeBadge(report.type).color}`}>
+                    {getMeetingTypeBadge(report.type).label}
+                  </span>
+                  <span className="text-sm text-muted-foreground flex items-center gap-1">
+                    <Clock className="w-3 h-3" />
+                    {formatDuration(report.duration)}
+                  </span>
+                  <span className="text-sm text-muted-foreground">
+                    {formatDate(report.startedAt)}
+                  </span>
+                </div>
+                <div className="mt-3">
+                  <ParticipantsList 
+                    sessionId={meetingId} 
+                    fallbackParticipants={report.participants}
+                  />
                 </div>
               </div>
               
-              {/* Action Buttons and Effectiveness */}
-              <div className="flex flex-col items-end gap-3">
-                <div className="flex items-center gap-2">
-                  <ThemeToggle className="h-8 w-8" />
-                  <div className="w-px h-6 bg-border" />
-                  <Button onClick={handleShare} variant="outline" size="sm" className="h-8">
-                    <Share className="w-3 h-3 mr-1.5" />
-                    Share
-                  </Button>
-                </div>
+              {/* Action Buttons */}
+              <div className="flex items-center gap-2">
+                <Button 
+                  onClick={() => router.push(`/meeting/${meetingId}`)} 
+                  variant="ghost" 
+                  size="sm" 
+                  className="h-8"
+                  title="View conversation details"
+                >
+                  <MessageSquare className="w-3 h-3 mr-1.5" />
+                  View Conversation
+                </Button>
+                <Button onClick={handleShare} variant="outline" size="sm" className="h-8">
+                  <Share className="w-3 h-3 mr-1.5" />
+                  Share
+                </Button>
               </div>
             </div>
             

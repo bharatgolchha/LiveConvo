@@ -157,28 +157,28 @@ export function ParticipantsList({ sessionId, fallbackParticipants }: Participan
   }
 
   return (
-    <div className="flex items-start gap-3">
-      <div className="flex items-center gap-1.5 text-sm text-muted-foreground mt-1">
+    <div className="flex items-center gap-3">
+      <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
         <Users className="w-4 h-4" />
         <span className="font-medium">Participants:</span>
       </div>
-      <div className="flex items-center gap-2 flex-wrap">
+      <div className="flex items-center gap-1.5 flex-wrap">
         {participants.map((participant, index) => (
           <div
             key={index}
-            className="group flex items-center gap-2 px-3 py-1.5 bg-muted/50 dark:bg-muted/30 border border-border hover:border-primary/50 rounded-full transition-all duration-200 hover:shadow-sm cursor-default"
+            className="group flex items-center gap-1.5 px-2.5 py-1 bg-muted/50 dark:bg-muted/30 border border-border hover:border-primary/50 rounded-full transition-all duration-200 hover:shadow-sm cursor-default"
             title={participant.name}
           >
             <div
-              className={`w-7 h-7 ${participant.color} ${getTextColorForBg(participant.color)} rounded-full flex items-center justify-center text-xs font-bold shadow-sm ring-2 ring-white dark:ring-background transition-transform duration-200 group-hover:scale-110`}
+              className={`w-6 h-6 ${participant.color} ${getTextColorForBg(participant.color)} rounded-full flex items-center justify-center text-[10px] font-bold shadow-sm ring-2 ring-white dark:ring-background transition-transform duration-200 group-hover:scale-110`}
             >
               {participant.initials}
             </div>
-            <span className="text-sm text-foreground font-medium">{participant.name}</span>
+            <span className="text-xs text-foreground font-medium">{participant.name}</span>
           </div>
         ))}
         {participants.length > 3 && (
-          <div className="text-xs text-muted-foreground mt-0.5">
+          <div className="text-xs text-muted-foreground">
             ({participants.length} {participants.length === 1 ? 'person' : 'people'})
           </div>
         )}

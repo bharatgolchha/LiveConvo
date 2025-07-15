@@ -84,8 +84,8 @@ export const AI_ACTIONS: AIActionInfo[] = [
   },
   {
     key: AIAction.DASHBOARD_CHAT,
-    displayName: 'Dashboard AI Chat',
-    description: 'Dashboard assistant for searching meetings and managing tasks',
+    displayName: 'AI Wizard',
+    description: 'AI Wizard - Dashboard assistant for searching meetings and managing tasks',
     recommendedModels: ['google/gemini-2.5-flash', 'openai/gpt-4o-mini']
   }
 ];

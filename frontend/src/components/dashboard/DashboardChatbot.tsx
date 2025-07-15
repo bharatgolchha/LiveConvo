@@ -14,13 +14,15 @@ import {
   CheckCircleIcon,
   ExclamationCircleIcon,
   MagnifyingGlassIcon,
-  DocumentTextIcon
+  DocumentTextIcon,
+  ArrowsPointingOutIcon,
+  ArrowsPointingInIcon,
+  TrashIcon
 } from '@heroicons/react/24/outline';
 import { ChartBarIcon } from '@heroicons/react/24/solid';
 import ReactMarkdown from 'react-markdown';
 import { useDashboardChat } from '@/contexts/DashboardChatContext';
 import { useAuth } from '@/contexts/AuthContext';
-import { Button } from '@/components/ui/Button';
 import { supabase } from '@/lib/supabase';
 
 interface ChatMessage {
@@ -45,6 +47,7 @@ export function DashboardChatbot() {
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const [isMinimized, setIsMinimized] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
   const [dynamicSuggestions, setDynamicSuggestions] = useState<SuggestedAction[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -82,7 +85,7 @@ export function DashboardChatbot() {
   useEffect(() => {
     if (messages.length === 0) {
       const userName = user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'there';
-      let welcomeContent = `👋 Hi ${userName}! I'm your intelligent dashboard assistant with advanced search capabilities. I can help you with:\n\n• 🔍 **Smart Search**: I can search beyond the recent 2 weeks when you ask about specific people, dates, or topics\n• 📊 **Meeting Analysis**: Review recent meetings and key decisions\n• ✅ **Action Tracking**: Monitor action items across all your meetings\n• 📅 **Meeting Prep**: Get ready for upcoming meetings with context\n• 🎯 **Deep Insights**: Find specific information from any past conversation\n\nTry asking me something like:\n- "Search for meetings about product roadmap"\n- "Find all meetings with Sarah last month"\n- "Show me action items from Q4 2024"\n\nWhat would you like to know?`;
+      let welcomeContent = `👋 Hi ${userName}! I'm your AI Wizard. I can help you:\n\n• 🔍 **Search** meetings & conversations\n• 📊 **Analyze** decisions & insights\n• ✅ **Track** action items & tasks\n• 📅 **Prepare** for upcoming meetings\n\nTry: "Find meetings with Sarah" or "Show Q4 action items"\n\nWhat would you like to know?`;
       
       if (contextError) {
         welcomeContent += `\n\n⚠️ Note: I'm currently having trouble accessing some of your data. I can still help answer your questions!`;
@@ -356,34 +359,101 @@ export function DashboardChatbot() {
   }
 
   return (
-    <AnimatePresence>
-      {isExpanded && (
-        <motion.div
-          initial={{ opacity: 0, y: 20, scale: 0.95 }}
-          animate={{ opacity: 1, y: 0, scale: 1 }}
-          exit={{ opacity: 0, y: 20, scale: 0.95 }}
-          className={`fixed bottom-6 right-6 bg-gradient-to-b from-card to-card/95 backdrop-blur-lg border border-border/60 rounded-2xl shadow-2xl z-50 ${
-            isMinimized ? 'w-96 h-14' : 'w-[480px] h-[700px]'
-          } flex flex-col overflow-hidden ring-1 ring-primary/20`}
-        >
+    <>
+      {/* Modal backdrop */}
+      <AnimatePresence>
+        {isFullscreen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-background/80 backdrop-blur-sm z-40"
+            onClick={() => setIsFullscreen(false)}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* Chat widget */}
+      <AnimatePresence>
+        {isExpanded && (
+          <motion.div
+            initial={{ opacity: 0, y: 20, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 20, scale: 0.95 }}
+            className={`fixed ${
+              isFullscreen 
+                ? 'inset-4 md:inset-8 lg:inset-16 xl:inset-24 max-w-6xl max-h-[90vh] mx-auto' 
+                : 'bottom-6 right-6 w-[480px] h-[700px]'
+            } bg-gradient-to-b from-card to-card/95 backdrop-blur-lg border border-border/60 rounded-2xl shadow-2xl z-50 ${
+              isMinimized && !isFullscreen ? 'w-96 h-14' : ''
+            } flex flex-col overflow-hidden ring-1 ring-primary/20 transition-all duration-300`}
+          >
           {/* Header */}
           <div className="flex items-center justify-between px-5 py-4 border-b border-border bg-gradient-to-r from-primary/10 to-primary/5 backdrop-blur-sm">
             <div className="flex items-center gap-3">
               <div className="w-9 h-9 rounded-full bg-gradient-to-br from-primary to-primary/80 flex items-center justify-center shadow-lg shadow-primary/20">
                 <SparklesIcon className="w-5 h-5 text-primary-foreground" />
               </div>
-              <span className="font-semibold text-base">Dashboard Assistant</span>
+              <span className="font-semibold text-base">AI Wizard</span>
             </div>
             <div className="flex items-center gap-1">
+              {!isMinimized && messages.length > 1 && (
+                <button
+                  onClick={() => {
+                    if (confirm('Are you sure you want to clear all messages?')) {
+                      setMessages([]);
+                      setDynamicSuggestions([]);
+                      localStorage.removeItem('dashboardChatState');
+                      // Re-add welcome message
+                      const userName = user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'there';
+                      let welcomeContent = `👋 Hi ${userName}! I'm your AI Wizard. I can help you:\n\n• 🔍 **Search** meetings & conversations\n• 📊 **Analyze** decisions & insights\n• ✅ **Track** action items & tasks\n• 📅 **Prepare** for upcoming meetings\n\nTry: "Find meetings with Sarah" or "Show Q4 action items"\n\nWhat would you like to know?`;
+                      if (contextError) {
+                        welcomeContent += `\n\n⚠️ Note: I'm currently having trouble accessing some of your data. I can still help answer your questions!`;
+                      }
+                      setMessages([{
+                        id: 'welcome',
+                        role: 'system',
+                        content: welcomeContent,
+                        timestamp: new Date().toISOString()
+                      }]);
+                    }
+                  }}
+                  className="p-1 hover:bg-muted rounded-md transition-colors text-muted-foreground hover:text-foreground"
+                  title="Clear chat"
+                >
+                  <TrashIcon className="w-4 h-4" />
+                </button>
+              )}
+              {!isMinimized && (
+                <button
+                  onClick={() => {
+                    setIsFullscreen(!isFullscreen);
+                    if (isMinimized) setIsMinimized(false);
+                  }}
+                  className="p-1 hover:bg-muted rounded-md transition-colors"
+                  title={isFullscreen ? "Exit fullscreen" : "Expand to fullscreen"}
+                >
+                  {isFullscreen ? (
+                    <ArrowsPointingInIcon className="w-4 h-4" />
+                  ) : (
+                    <ArrowsPointingOutIcon className="w-4 h-4" />
+                  )}
+                </button>
+              )}
               <button
                 onClick={() => setIsMinimized(!isMinimized)}
                 className="p-1 hover:bg-muted rounded-md transition-colors"
+                title={isMinimized ? "Expand" : "Minimize"}
               >
                 <ChevronDownIcon className={`w-4 h-4 transition-transform ${isMinimized ? 'rotate-180' : ''}`} />
               </button>
               <button
-                onClick={() => setIsExpanded(false)}
+                onClick={() => {
+                  setIsExpanded(false);
+                  setIsFullscreen(false);
+                }}
                 className="p-1 hover:bg-muted rounded-md transition-colors"
+                title="Close"
               >
                 <XMarkIcon className="w-4 h-4" />
               </button>
@@ -394,7 +464,7 @@ export function DashboardChatbot() {
             <>
               {/* Messages */}
               <div className="flex-1 overflow-y-auto">
-                <div className="p-4 space-y-4">
+                <div className={`${isFullscreen ? 'p-8 max-w-4xl mx-auto' : 'p-4'} space-y-4`}>
                   <AnimatePresence>
                     {messages.map((message) => (
                       <motion.div
@@ -507,9 +577,10 @@ export function DashboardChatbot() {
 
               {/* Smart Suggestions */}
               {((messages.length === 1 && !isTyping) || (dynamicSuggestions.length > 0 && !isTyping)) && (
-                <div className="px-4 pb-2">
-                  <div className="text-xs text-muted-foreground mb-2">Suggested questions:</div>
-                  <div className="space-y-1">
+                <div className={`${isFullscreen ? 'px-8 pb-4' : 'px-4 pb-2'}`}>
+                  <div className={`${isFullscreen ? 'max-w-4xl mx-auto' : ''}`}>
+                    <div className="text-xs text-muted-foreground mb-2">Suggested questions:</div>
+                    <div className="space-y-1">
                     {(dynamicSuggestions.length > 0 ? dynamicSuggestions : getSmartSuggestions()).map((suggestion, index) => (
                       <button
                         key={index}
@@ -529,13 +600,14 @@ export function DashboardChatbot() {
                         )}
                       </button>
                     ))}
+                    </div>
                   </div>
                 </div>
               )}
 
               {/* Input */}
-              <div className="flex-shrink-0 p-5 border-t border-border bg-gradient-to-t from-muted/30 to-transparent">
-                <form onSubmit={handleSubmit} className="flex gap-2">
+              <div className={`flex-shrink-0 ${isFullscreen ? 'p-8' : 'p-5'} border-t border-border bg-gradient-to-t from-muted/30 to-transparent`}>
+                <form onSubmit={handleSubmit} className={`flex gap-2 ${isFullscreen ? 'max-w-4xl mx-auto' : ''}`}>
                   <input
                     ref={inputRef}
                     type="text"
@@ -557,7 +629,8 @@ export function DashboardChatbot() {
             </>
           )}
         </motion.div>
-      )}
-    </AnimatePresence>
+        )}
+      </AnimatePresence>
+    </>
   );
 }

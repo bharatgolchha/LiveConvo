@@ -6,21 +6,48 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    console.log('📡 GET /api/meeting/[id] - Request received');
+    
+    // Debug environment variables
+    console.log('🔧 Environment check:', {
+      NEXT_PUBLIC_SUPABASE_URL: !!process.env.NEXT_PUBLIC_SUPABASE_URL,
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+      SUPABASE_SERVICE_ROLE_KEY: !!process.env.SUPABASE_SERVICE_ROLE_KEY,
+      NODE_ENV: process.env.NODE_ENV
+    });
+    
     // Get auth token from request headers
     const authHeader = req.headers.get('authorization');
     const token = authHeader?.split(' ')[1];
 
+    console.log('🔐 Auth header present:', !!authHeader);
+    console.log('🔑 Token extracted:', !!token);
+
     if (!token) {
+      console.error('❌ No authorization token provided');
       return NextResponse.json(
         { error: 'No authorization token provided' },
         { status: 401 }
       );
     }
 
-    const supabase = createAuthenticatedSupabaseClient(token);
+    let supabase;
+    try {
+      supabase = createAuthenticatedSupabaseClient(token);
+    } catch (clientError) {
+      console.error('❌ Failed to create Supabase client:', clientError);
+      return NextResponse.json(
+        { error: 'Failed to create database client', details: clientError instanceof Error ? clientError.message : 'Unknown error' },
+        { status: 500 }
+      );
+    }
+    
     const { data: { user }, error: authError } = await supabase.auth.getUser();
 
+    console.log('👤 Auth check - User found:', !!user, 'Error:', authError?.message);
+
     if (authError || !user) {
+      console.error('❌ Authentication failed:', authError?.message);
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 }
@@ -29,9 +56,36 @@ export async function GET(
 
     // Await params
     const { id } = await params;
+    console.log('🆔 Meeting ID:', id);
 
     // Note: We don't need to filter by user_id explicitly because RLS will handle it
     // The RLS policy checks that organization_id matches user's current_organization_id
+    
+    // First, try to get the session without the users join to isolate the issue
+    const { data: sessionCheck, error: sessionCheckError } = await supabase
+      .from('sessions')
+      .select('id, user_id')
+      .eq('id', id)
+      .single();
+    
+    if (sessionCheckError) {
+      console.error('Session check error:', {
+        error: sessionCheckError.message,
+        code: sessionCheckError.code,
+        sessionId: id,
+        userId: user.id
+      });
+    }
+    
+    console.log('Session check result:', {
+      found: !!sessionCheck,
+      sessionUserId: sessionCheck?.user_id,
+      currentUserId: user.id,
+      sessionId: id
+    });
+    
+    // Now try the full query
+    // Note: Using the foreign key column name syntax for the join
     const { data: session, error } = await supabase
       .from('sessions')
       .select(`
@@ -55,8 +109,66 @@ export async function GET(
         details: error.details,
         hint: error.hint,
         sessionId: id,
-        userId: user.id
+        userId: user.id,
+        errorMessage: error.message,
+        fullError: JSON.stringify(error)
       });
+      
+      // If the error is related to the users join, try without it
+      if (error.message?.includes('users') || error.message?.includes('sessions_user_id_fkey') || error.code === 'PGRST116') {
+        console.log('Retrying without users join...');
+        const { data: sessionWithoutUsers, error: retryError } = await supabase
+          .from('sessions')
+          .select(`
+            *,
+            meeting_metadata (*),
+            session_context (text_context, context_metadata)
+          `)
+          .eq('id', id)
+          .single();
+          
+        if (!retryError && sessionWithoutUsers) {
+          console.log('Query succeeded without users join, fetching user separately');
+          
+          // Handle context properly
+          let contextValue: string | null = null;
+          if (Array.isArray(sessionWithoutUsers.session_context)) {
+            contextValue = sessionWithoutUsers.session_context[0]?.text_context || null;
+          } else if (sessionWithoutUsers.session_context && typeof sessionWithoutUsers.session_context === 'object') {
+            // @ts-ignore
+            contextValue = sessionWithoutUsers.session_context.text_context || null;
+          }
+          
+          // Try to get user data separately
+          let sessionOwner = null;
+          if (sessionWithoutUsers.user_id) {
+            const { data: userData } = await supabase
+              .from('users')
+              .select('id, email, full_name, personal_context')
+              .eq('id', sessionWithoutUsers.user_id)
+              .single();
+              
+            if (userData) {
+              sessionOwner = {
+                id: userData.id,
+                email: userData.email,
+                fullName: userData.full_name,
+                personalContext: userData.personal_context
+              };
+            }
+          }
+          
+          // Return session with or without user details
+          return NextResponse.json({ 
+            meeting: {
+              ...sessionWithoutUsers,
+              context: contextValue,
+              sessionOwner
+            }
+          });
+        }
+      }
+      
       return NextResponse.json(
         { error: 'Database query failed', details: error.message },
         { status: 500 }
@@ -102,11 +214,20 @@ export async function GET(
       }
     });
   } catch (error) {
-    console.error('Get meeting error:', {
+    console.error('❌ GET /api/meeting/[id] - Unhandled error:', {
       error: error instanceof Error ? error.message : 'Unknown error',
       stack: error instanceof Error ? error.stack : undefined,
-      type: typeof error
+      type: typeof error,
+      fullError: error
     });
+    
+    // Log the specific error details
+    if (error instanceof Error) {
+      console.error('Error name:', error.name);
+      console.error('Error message:', error.message);
+      console.error('Error stack:', error.stack);
+    }
+    
     return NextResponse.json(
       { 
         error: 'Internal server error',
