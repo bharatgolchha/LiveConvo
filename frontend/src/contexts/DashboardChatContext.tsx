@@ -80,7 +80,7 @@ export function DashboardChatProvider({ children }: DashboardChatProviderProps) 
       twoWeeksAgo.setDate(twoWeeksAgo.getDate() - 14);
 
       // Fetch recent meeting summaries (last 2 weeks)
-      let meetingsData = [];
+      let meetingsData: Meeting[] = [];
       try {
         const { data, error: meetingsError } = await supabase
           .from('summaries')
@@ -111,7 +111,7 @@ export function DashboardChatProvider({ children }: DashboardChatProviderProps) 
       }
 
       // Fetch action items from prep_checklist table
-      let actionsData = [];
+      let actionsData: any[] = [];
       try {
         // First try prep_checklist table
         const { data: checklistData, error: checklistError } = await supabase

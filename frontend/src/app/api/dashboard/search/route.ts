@@ -153,14 +153,20 @@ async function executeSearchStrategy(
       // Search meetings/summaries
       const meetingResults = await searchMeetings(supabase, userId, strategy);
       for (const meeting of meetingResults) {
-        const relevance = planner.calculateRelevance(meeting, analyzedQuery, strategy);
+        const relevance = planner.calculateRelevance({
+          created_at: meeting.created_at,
+          title: meeting.title,
+          tldr: meeting.tldr || undefined,
+          participant_me: meeting.participant_me,
+          participant_them: meeting.participant_them
+        }, analyzedQuery, strategy);
         results.push({
           id: `meeting_${meeting.id}`,
           type: 'meeting',
           title: meeting.title || 'Untitled Meeting',
           summary: meeting.tldr || undefined,
           date: meeting.created_at,
-          participants: [meeting.participant_me, meeting.participant_them].filter(Boolean),
+          participants: [meeting.participant_me, meeting.participant_them].filter((p): p is string => Boolean(p)),
           relevance: {
             score: relevance.score,
             explanation: relevance.explanation
@@ -178,14 +184,20 @@ async function executeSearchStrategy(
       // Special handling for participant-based search
       const participantResults = await searchByParticipants(supabase, userId, strategy);
       for (const meeting of participantResults) {
-        const relevance = planner.calculateRelevance(meeting, analyzedQuery, strategy);
+        const relevance = planner.calculateRelevance({
+          created_at: meeting.created_at,
+          title: meeting.title,
+          tldr: meeting.tldr || undefined,
+          participant_me: meeting.participant_me,
+          participant_them: meeting.participant_them
+        }, analyzedQuery, strategy);
         results.push({
           id: `meeting_${meeting.id}`,
           type: 'meeting',
           title: meeting.title || 'Untitled Meeting',
           summary: meeting.tldr || undefined,
           date: meeting.created_at,
-          participants: [meeting.participant_me, meeting.participant_them].filter(Boolean),
+          participants: [meeting.participant_me, meeting.participant_them].filter((p): p is string => Boolean(p)),
           relevance: {
             score: relevance.score,
             explanation: relevance.explanation
@@ -207,7 +219,7 @@ async function executeSearchStrategy(
       results.push({
         id: `action_${action.id}`,
         type: 'action_item',
-        title: action.text || action.title,
+        title: action.text || action.title || 'Untitled Action',
         date: action.created_at,
         relevance: {
           score: relevance.score * 0.9, // Slightly lower weight for action items
@@ -226,14 +238,19 @@ async function executeSearchStrategy(
       strategy.filters.keywords?.some((k: string) => k.toLowerCase().includes('meeting') || k.toLowerCase().includes('calendar'))) {
     const eventResults = await searchCalendarEvents(supabase, userId, strategy);
     for (const event of eventResults) {
-      const relevance = planner.calculateRelevance(event, analyzedQuery, strategy);
+      const relevance = planner.calculateRelevance({
+        created_at: event.start_time,
+        title: event.title,
+        summary: event.description || undefined,
+        attendees: event.attendees?.map((a) => a.email || a.name).filter((p): p is string => Boolean(p))
+      }, analyzedQuery, strategy);
       results.push({
         id: `event_${event.id}`,
         type: 'calendar_event',
         title: event.title,
         summary: event.description || undefined,
         date: event.start_time,
-        participants: event.attendees?.map((a) => a.email || a.name).filter(Boolean),
+        participants: event.attendees?.map((a) => a.email || a.name).filter((p): p is string => Boolean(p)),
         relevance: {
           score: relevance.score,
           explanation: relevance.explanation

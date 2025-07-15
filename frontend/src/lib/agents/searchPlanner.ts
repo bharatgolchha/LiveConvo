@@ -418,7 +418,7 @@ export class SearchPlanner {
         result.participant_me,
         result.participant_them,
         ...(result.attendees || [])
-      ].filter(Boolean).map(p => p.toLowerCase());
+      ].filter((p): p is string => Boolean(p)).map(p => p.toLowerCase());
       
       let participantMatches = 0;
       analyzedQuery.participants.forEach(participant => {

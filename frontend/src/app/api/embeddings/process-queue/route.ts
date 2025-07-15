@@ -1,142 +1,236 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createAuthenticatedSupabaseClient } from '@/lib/supabase';
-import OpenAI from 'openai';
+import { createClient } from '@supabase/supabase-js';
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+const PRODUCTION_SUPABASE_URL = 'https://xkxjycccifwyxgtvflxz.supabase.co';
 
-async function generateEmbedding(text: string): Promise<number[]> {
-  const response = await openai.embeddings.create({
-    model: 'text-embedding-3-small',
-    input: text,
-    encoding_format: 'float',
+// For production processing, we'll need to use a service role key
+// This should be set as an environment variable
+const PRODUCTION_SERVICE_KEY = process.env.PRODUCTION_SUPABASE_SERVICE_KEY!;
+
+if (!PRODUCTION_SERVICE_KEY) {
+  console.warn('PRODUCTION_SUPABASE_SERVICE_KEY not set - embedding processing will not work');
+}
+
+const supabase = createClient(PRODUCTION_SUPABASE_URL, PRODUCTION_SERVICE_KEY);
+
+interface QueueItem {
+  id: string;
+  table_name: string;
+  record_id: string;
+  content: string;
+  embedding_column: string;
+  user_id: string;
+  status: string;
+  created_at: string;
+}
+
+async function generateEmbedding(content: string): Promise<number[]> {
+  const response = await fetch('https://api.openai.com/v1/embeddings', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      input: content,
+      model: 'text-embedding-3-small',
+      dimensions: 1536,
+    }),
   });
 
-  return response.data[0].embedding;
+  if (!response.ok) {
+    throw new Error(`OpenAI API error: ${response.status} ${response.statusText}`);
+  }
+
+  const data = await response.json();
+  return data.data[0].embedding;
+}
+
+async function updateRecordWithEmbedding(
+  tableName: string,
+  recordId: string,
+  embeddingColumn: string,
+  embedding: number[]
+): Promise<void> {
+  const { error } = await supabase
+    .from(tableName)
+    .update({
+      [embeddingColumn]: `[${embedding.join(',')}]`,
+      embedding_generated_at: new Date().toISOString(),
+    })
+    .eq('id', recordId);
+
+  if (error) {
+    throw new Error(`Database update error: ${error.message}`);
+  }
+}
+
+async function markQueueItemComplete(queueId: string): Promise<void> {
+  const { error } = await supabase
+    .from('embedding_queue')
+    .update({
+      status: 'completed',
+      processed_at: new Date().toISOString(),
+      error_message: null,
+    })
+    .eq('id', queueId);
+
+  if (error) {
+    throw new Error(`Queue update error: ${error.message}`);
+  }
+}
+
+async function markQueueItemFailed(queueId: string, errorMessage: string): Promise<void> {
+  const { error } = await supabase
+    .from('embedding_queue')
+    .update({
+      status: 'failed',
+      processed_at: new Date().toISOString(),
+      error_message: errorMessage,
+    })
+    .eq('id', queueId);
+
+  if (error) {
+    console.error(`Failed to mark queue item as failed: ${error.message}`);
+  }
+}
+
+async function getQueueItems(limit: number = 10): Promise<QueueItem[]> {
+  const { data, error } = await supabase
+    .from('embedding_queue')
+    .select('*')
+    .eq('status', 'pending')
+    .order('created_at', { ascending: true })
+    .limit(limit);
+
+  if (error) {
+    throw new Error(`Failed to fetch queue items: ${error.message}`);
+  }
+
+  return data || [];
+}
+
+async function processQueueItem(item: QueueItem): Promise<{ success: boolean; error?: string }> {
+  try {
+    console.log(`Processing ${item.table_name} record ${item.record_id}...`);
+    
+    // Generate embedding
+    const embedding = await generateEmbedding(item.content);
+    console.log(`Generated embedding with ${embedding.length} dimensions`);
+
+    // Update the record with the embedding
+    await updateRecordWithEmbedding(
+      item.table_name,
+      item.record_id,
+      item.embedding_column,
+      embedding
+    );
+
+    // Mark queue item as complete
+    await markQueueItemComplete(item.id);
+    
+    console.log(`✅ Completed ${item.table_name} record ${item.record_id}`);
+    return { success: true };
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    console.error(`❌ Failed ${item.table_name} record ${item.record_id}: ${errorMessage}`);
+    
+    await markQueueItemFailed(item.id, errorMessage);
+    return { success: false, error: errorMessage };
+  }
 }
 
 export async function POST(request: NextRequest) {
   try {
-    // This endpoint should be called by a cron job or background task
-    // For now, we'll just use basic auth
-    const authHeader = request.headers.get('authorization');
-    const token = authHeader?.split(' ')[1];
+    if (!PRODUCTION_SERVICE_KEY) {
+      return NextResponse.json(
+        { error: 'Production service key not configured' },
+        { status: 500 }
+      );
+    }
+
+    const { batchSize = 5 } = await request.json().catch(() => ({}));
+
+    // Get queue items
+    const items = await getQueueItems(batchSize);
     
-    if (!token) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    const supabase = createAuthenticatedSupabaseClient(token);
-    
-    // Get current user (for admin purposes)
-    const { data: { user }, error: userError } = await supabase.auth.getUser();
-    if (userError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    const { batchSize = 10 } = await request.json();
-
-    // Get pending embedding requests
-    const { data: queueItems, error: queueError } = await supabase
-      .from('embedding_queue')
-      .select('*')
-      .eq('status', 'pending')
-      .order('created_at')
-      .limit(batchSize);
-
-    if (queueError) {
-      return NextResponse.json({ error: 'Failed to fetch queue items' }, { status: 500 });
-    }
-
-    if (!queueItems || queueItems.length === 0) {
-      return NextResponse.json({ 
-        message: 'No pending embedding requests',
+    if (items.length === 0) {
+      return NextResponse.json({
+        message: 'No items in queue',
         processed: 0,
-        errors: 0 
+        errors: 0,
       });
     }
 
-    let processed = 0;
-    let errors = 0;
+    console.log(`Processing batch of ${items.length} items...`);
 
-    for (const item of queueItems) {
-      try {
-        // Mark as processing
-        await supabase
-          .from('embedding_queue')
-          .update({ status: 'processing' })
-          .eq('id', item.id);
+    // Process items
+    const results = await Promise.allSettled(
+      items.map(item => processQueueItem(item))
+    );
 
-        // Generate embedding
-        const embedding = await generateEmbedding(item.content);
+    const successful = results.filter(
+      (r): r is PromiseFulfilledResult<{ success: boolean }> => 
+        r.status === 'fulfilled' && r.value.success
+    ).length;
 
-        // Update the target table
-        if (item.table_name === 'sessions') {
-          const { error: updateError } = await supabase
-            .from('sessions')
-            .update({
-              title_embedding: embedding,
-              embedding_generated_at: new Date().toISOString()
-            })
-            .eq('id', item.record_id);
-
-          if (updateError) {
-            throw new Error(`Failed to update session: ${updateError.message}`);
-          }
-        } else if (item.table_name === 'summaries') {
-          const { error: updateError } = await supabase
-            .from('summaries')
-            .update({
-              content_embedding: embedding,
-              embedding_generated_at: new Date().toISOString()
-            })
-            .eq('id', item.record_id);
-
-          if (updateError) {
-            throw new Error(`Failed to update summary: ${updateError.message}`);
-          }
-        }
-
-        // Mark as completed
-        await supabase
-          .from('embedding_queue')
-          .update({ 
-            status: 'completed',
-            processed_at: new Date().toISOString()
-          })
-          .eq('id', item.id);
-
-        processed++;
-
-      } catch (error) {
-        console.error(`Error processing embedding for ${item.id}:`, error);
-        
-        // Mark as failed
-        await supabase
-          .from('embedding_queue')
-          .update({ 
-            status: 'failed',
-            error_message: error instanceof Error ? error.message : 'Unknown error',
-            processed_at: new Date().toISOString()
-          })
-          .eq('id', item.id);
-
-        errors++;
-      }
-    }
+    const errors = results.length - successful;
 
     return NextResponse.json({
-      message: `Processed ${processed} embeddings, ${errors} errors`,
-      processed,
+      message: `Processed ${items.length} items`,
+      processed: items.length,
+      successful,
       errors,
-      batchSize
+      results: results.map((r, i) => ({
+        item_id: items[i].id,
+        table: items[i].table_name,
+        record_id: items[i].record_id,
+        success: r.status === 'fulfilled' && r.value.success,
+        error: r.status === 'rejected' ? r.reason : 
+               (r.status === 'fulfilled' && !r.value.success ? r.value.error : undefined)
+      }))
     });
 
   } catch (error) {
-    console.error('Queue processing error:', error);
+    console.error('Error processing embedding queue:', error);
     return NextResponse.json(
       { error: 'Failed to process embedding queue' },
+      { status: 500 }
+    );
+  }
+}
+
+export async function GET() {
+  try {
+    // Get queue status
+    const { data: queueStatus, error } = await supabase
+      .from('embedding_queue')
+      .select('table_name, status')
+      .then(({ data, error }) => {
+        if (error) throw error;
+        
+        const summary = data?.reduce((acc, item) => {
+          const key = `${item.table_name}_${item.status}`;
+          acc[key] = (acc[key] || 0) + 1;
+          return acc;
+        }, {} as Record<string, number>) || {};
+        
+        return { data: summary, error: null };
+      });
+
+    if (error) {
+      throw error;
+    }
+
+    return NextResponse.json({
+      message: 'Embedding queue status',
+      status: queueStatus,
+    });
+
+  } catch (error) {
+    console.error('Error getting queue status:', error);
+    return NextResponse.json(
+      { error: 'Failed to get queue status' },
       { status: 500 }
     );
   }
