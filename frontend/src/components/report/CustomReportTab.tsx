@@ -342,7 +342,22 @@ export function CustomReportTab({
                         )}
                       </div>
                       <div className="prose prose-sm dark:prose-invert max-w-none">
-                        <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                        <ReactMarkdown 
+                          remarkPlugins={[remarkGfm]}
+                          components={{
+                            a: ({href, children, ...props}: any) => (
+                              <a 
+                                href={href} 
+                                target="_blank" 
+                                rel="noopener noreferrer"
+                                className="text-primary hover:text-primary/80 underline"
+                                {...props}
+                              >
+                                {children}
+                              </a>
+                            )
+                          }}
+                        >
                           {report.generated_content || 'No content available'}
                         </ReactMarkdown>
                       </div>

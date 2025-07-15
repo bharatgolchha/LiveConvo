@@ -303,10 +303,11 @@ export function DashboardChatbot() {
       recentMeetings: recentMeetings.slice(0, 10).map(m => ({
         id: m.id,
         title: m.title,
-        date: m.created_at,
+        created_at: m.created_at,
         summary: m.tldr,
         decisions: m.key_decisions?.slice(0, 3),
-        actionItems: m.action_items?.slice(0, 3)
+        actionItems: m.action_items?.slice(0, 3),
+        url: `/report/${m.session_id}`
       })),
       actionItems: actionItems.slice(0, 20).map(a => ({
         id: a.id,
@@ -436,7 +437,23 @@ export function DashboardChatbot() {
                               : 'bg-gradient-to-r from-muted to-muted/80 text-foreground border border-border/30'
                           }`}>
                             <div className="whitespace-pre-wrap break-words">
-                              <ReactMarkdown>{message.content}</ReactMarkdown>
+                              <ReactMarkdown
+                                components={{
+                                  a: ({href, children, ...props}: any) => (
+                                    <a 
+                                      href={href} 
+                                      target="_blank" 
+                                      rel="noopener noreferrer"
+                                      className="text-primary hover:text-primary/80 underline"
+                                      {...props}
+                                    >
+                                      {children}
+                                    </a>
+                                  )
+                                }}
+                              >
+                                {message.content}
+                              </ReactMarkdown>
                             </div>
                           </div>
                           
@@ -503,11 +520,13 @@ export function DashboardChatbot() {
                         className="w-full text-left px-3 py-2 bg-muted/50 hover:bg-muted rounded-lg text-xs transition-colors flex items-center justify-between group"
                       >
                         <span className="truncate">{suggestion.text}</span>
-                        {'impact' in suggestion && suggestion.impact ? (
+                        {'impact' in suggestion && typeof suggestion.impact === 'number' ? (
                           <span className="text-xs text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity">
                             {suggestion.impact}%
                           </span>
-                        ) : null}
+                        ) : (
+                          <span />
+                        )}
                       </button>
                     ))}
                   </div>

@@ -94,10 +94,10 @@ export async function GET(request: NextRequest) {
     ]);
 
     // Extract data from Promise.allSettled results
-    let meetingsData = [];
-    let actionsData = [];
-    let eventsData = [];
-    let userData = null;
+    let meetingsData: any[] = [];
+    let actionsData: any[] = [];
+    let eventsData: any[] = [];
+    let userData: any = null;
 
     if (meetingsResult.status === 'fulfilled' && meetingsResult.value.data) {
       meetingsData = meetingsResult.value.data;

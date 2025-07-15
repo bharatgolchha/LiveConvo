@@ -567,7 +567,23 @@ export const EnhancedAIChat = forwardRef<EnhancedAIChatRef>((props, ref) => {
                         : 'bg-muted text-foreground'
                     }`}>
                       <div className="text-sm leading-relaxed whitespace-pre-wrap break-words">
-                        <ReactMarkdown>{message.content}</ReactMarkdown>
+                        <ReactMarkdown
+                          components={{
+                            a: ({href, children, ...props}: any) => (
+                              <a 
+                                href={href} 
+                                target="_blank" 
+                                rel="noopener noreferrer"
+                                className="text-primary hover:text-primary/80 underline"
+                                {...props}
+                              >
+                                {children}
+                              </a>
+                            )
+                          }}
+                        >
+                          {message.content}
+                        </ReactMarkdown>
                       </div>
                     </div>
                     

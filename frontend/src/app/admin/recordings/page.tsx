@@ -249,7 +249,7 @@ export default function AdminRecordingsPage() {
                       <Button
                         size="sm"
                         variant="outline"
-                        onClick={() => router.push(`/summary/${session.id}`)}
+                        onClick={() => router.push(`/report/${session.id}`)}
                         className="gap-2"
                       >
                         <ExternalLink className="h-3 w-3" />

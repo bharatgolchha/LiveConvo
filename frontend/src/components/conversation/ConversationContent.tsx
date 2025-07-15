@@ -1106,6 +1106,17 @@ export const ConversationContent: React.FC<ConversationContentProps> = ({
                           h3: ({ children }) => <h3 className="text-sm font-semibold text-cyan-800 dark:text-cyan-200 mt-3 mb-1 first:mt-0">{children}</h3>,
                           code: ({ children }) => <code className="px-1 py-0.5 rounded text-xs font-mono bg-cyan-100 dark:bg-cyan-900 text-cyan-800 dark:text-cyan-200">{children}</code>,
                           blockquote: ({ children }) => <blockquote className="border-l-4 border-cyan-400 pl-4 my-2 italic text-cyan-800 dark:text-cyan-200">{children}</blockquote>,
+                          a: ({href, children, ...props}: any) => (
+                            <a 
+                              href={href} 
+                              target="_blank" 
+                              rel="noopener noreferrer"
+                              className="text-cyan-600 dark:text-cyan-400 hover:text-cyan-800 dark:hover:text-cyan-200 underline"
+                              {...props}
+                            >
+                              {children}
+                            </a>
+                          )
                         }}
                       >
                         {topicSummary}
