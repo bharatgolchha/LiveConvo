@@ -404,7 +404,7 @@ export default function LandingPage() {
 
         {/* Product Screenshot with Tabs */}
         <section className="py-20 px-4 sm:px-6 lg:px-8">
-          <div className="max-w-7xl mx-auto">
+          <div className="max-w-5xl mx-auto">
             {/* Tab Navigation */}
             <motion.div
               initial={{ opacity: 0, y: -20 }}
@@ -483,9 +483,9 @@ export default function LandingPage() {
                   <Image 
                     src={productTabs[activeTab].image}
                     alt={`liveprompt.ai ${productTabs[activeTab].name} feature - ${productTabs[activeTab].description}`}
-                    width={1400}
-                    height={900}
-                    className="w-full h-auto"
+                    width={1000}
+                    height={643}
+                    className="w-full h-auto max-w-[1000px] mx-auto"
                     priority
                   />
                   <div className="absolute bottom-0 left-0 right-0 p-8 bg-gradient-to-t from-card/90 to-transparent">
