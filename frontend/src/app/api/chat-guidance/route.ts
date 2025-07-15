@@ -168,6 +168,7 @@ interface ChatRequest {
       summary: string | null;
       decisions: string[] | null;
       actionItems: string[] | null;
+      url?: string;
     }>;
     actionItems: Array<{
       id: string;
@@ -521,7 +522,10 @@ export async function POST(request: NextRequest) {
       participantThem
     );
 
-    const defaultModel = await getAIModelForAction(AIAction.CHAT_GUIDANCE);
+    // Use different model based on mode
+    const defaultModel = await getAIModelForAction(
+      mode === 'dashboard' ? AIAction.DASHBOARD_CHAT : AIAction.CHAT_GUIDANCE
+    );
 
     // Build smart notes context if provided
     let smartNotesPrompt = '';
@@ -1087,7 +1091,8 @@ function getDashboardSystemPrompt(
     meetingsSection = '\n📊 RECENT MEETINGS:\n';
     dashboardContext.recentMeetings.forEach((meeting, idx) => {
       const meetingDate = meeting.created_at ? formatMeetingDate(meeting.created_at) : 'No date';
-      meetingsSection += `${idx + 1}. "${meeting.title}" (${meetingDate})\n`;
+      const meetingLink = (meeting as any).url ? `[${meeting.title}](${ (meeting as any).url})` : `"${meeting.title}"`;
+      meetingsSection += `${idx + 1}. ${meetingLink} (${meetingDate})\n`;
       if (meeting.summary) meetingsSection += `   Summary: ${meeting.summary}\n`;
       if (meeting.decisions && meeting.decisions.length > 0) {
         const decisionTexts = meeting.decisions.slice(0, 3).map(decision => 
@@ -1241,6 +1246,7 @@ RESPONSE GUIDELINES for the "response" field:
 - Write natural, conversational text
 - Be specific and reference actual meeting titles and dates
 - Use markdown for clear formatting (bullets, bold, headers)
+- When referencing meetings, ALWAYS use the markdown links provided in the context (e.g., [Meeting Title](url))
 - When listing items, include relevant context (meeting source, date, priority)
 - For action items, always mention due dates and priority
 - Be proactive in suggesting what they might need

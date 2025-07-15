@@ -10,7 +10,8 @@ export enum AIAction {
   SMART_NOTES = 'smart_notes',
   SMART_SUGGESTIONS = 'smart_suggestions',
   INITIAL_PROMPTS = 'initial_prompts',
-  CUSTOM_REPORT = 'custom_report'
+  CUSTOM_REPORT = 'custom_report',
+  DASHBOARD_CHAT = 'dashboard_chat'
 }
 
 export interface AIActionInfo {
@@ -80,6 +81,12 @@ export const AI_ACTIONS: AIActionInfo[] = [
     displayName: 'Custom Report Generation',
     description: 'AI-powered custom report generation from meeting data',
     recommendedModels: ['google/gemini-2.5-flash', 'google/gemini-pro', 'openai/gpt-4o']
+  },
+  {
+    key: AIAction.DASHBOARD_CHAT,
+    displayName: 'Dashboard AI Chat',
+    description: 'Dashboard assistant for searching meetings and managing tasks',
+    recommendedModels: ['google/gemini-2.5-flash', 'openai/gpt-4o-mini']
   }
 ];
 
