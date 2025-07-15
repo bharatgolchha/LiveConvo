@@ -43,23 +43,16 @@ interface PricingPlan {
     hasAnalyticsDashboard: boolean;
     hasTeamCollaboration: boolean;
   };
+  stripe: {
+    monthlyPriceId: string | null;
+    yearlyPriceId: string | null;
+  };
   display: {
     isFeatured: boolean;
     sortOrder: number;
   };
 }
 
-const featureLabels = {
-  hasRealTimeGuidance: 'Real-time AI guidance',
-  hasAdvancedSummaries: 'Advanced summaries',
-  hasExportOptions: 'Export to multiple formats',
-  hasEmailSummaries: 'Email summaries',
-  hasApiAccess: 'API access',
-  hasCustomTemplates: 'Custom templates',
-  hasPrioritySupport: 'Priority support',
-  hasAnalyticsDashboard: 'Analytics dashboard',
-  hasTeamCollaboration: 'Team collaboration'
-};
 
 export default function PricingPage() {
   const [plans, setPlans] = useState<PricingPlan[]>([]);
@@ -149,12 +142,109 @@ export default function PricingPage() {
     return Math.round(savings);
   };
 
-  const handleSelectPlan = (plan: PricingPlan) => {
+  const handleSelectPlan = async (plan: PricingPlan) => {
     if (plan.slug === 'individual_free') {
       router.push('/auth/signup');
-    } else if (plan.slug === 'org_enterprise') {
+      return;
+    }
+    
+    if (plan.slug === 'org_enterprise') {
       router.push('/contact');
-    } else {
+      return;
+    }
+
+    // For Pro plan - initiate Stripe checkout
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        router.push(`/auth/signup?plan=${plan.slug}&billing=${billingPeriod}`);
+        return;
+      }
+
+      // Get the appropriate price ID based on billing period
+      const priceId = billingPeriod === 'monthly' 
+        ? plan.stripe?.monthlyPriceId 
+        : plan.stripe?.yearlyPriceId;
+
+      if (!priceId) {
+        console.error('No price ID found for plan:', plan.slug);
+        return;
+      }
+
+      // Create checkout session with our API proxy
+      // This will handle the production edge function call server-side
+      const response = await fetch('/api/checkout/create-session', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`
+        },
+        body: JSON.stringify({
+          priceId: priceId,
+          billingCycle: billingPeriod
+        })
+      });
+
+      if (!response.ok) {
+        let errorData: any = { error: 'Unknown error' };
+        let responseText = '';
+        
+        try {
+          // First, try to get the response as text
+          responseText = await response.text();
+          console.log('Raw error response:', responseText);
+          console.log('Response status:', response.status);
+          console.log('Response headers:', Object.fromEntries(response.headers.entries()));
+          
+          // Then try to parse it as JSON
+          if (responseText) {
+            errorData = JSON.parse(responseText);
+          }
+        } catch (parseError) {
+          console.error('Error parsing response:', parseError);
+          console.error('Response text was:', responseText);
+          
+          // If it's HTML (likely a 404 or server error page)
+          if (responseText && (responseText.includes('<!DOCTYPE') || responseText.includes('<html'))) {
+            errorData = { 
+              error: `Server error (${response.status}): Edge function may not be deployed`,
+              isHtml: true,
+              status: response.status
+            };
+          } else {
+            errorData = { 
+              error: responseText || `HTTP ${response.status} error`,
+              status: response.status
+            };
+          }
+        }
+        
+        console.error('Checkout error:', errorData);
+        console.error('Response status:', response.status);
+        console.error('Response headers:', Object.fromEntries(response.headers.entries()));
+        
+        if (errorData.error && errorData.error.includes('STRIPE_SECRET_KEY')) {
+          alert('Payment system is not configured on the server. Please contact support to complete the Stripe setup.');
+          return;
+        }
+        
+        if (response.status === 404) {
+          alert('The payment service is not available. The edge function may not be deployed. Please contact support.');
+          return;
+        }
+        
+        throw new Error(errorData.error || 'Failed to create checkout session');
+      }
+
+      const { url } = await response.json();
+      
+      // Redirect to Stripe checkout
+      window.location.href = url;
+      
+    } catch (error: any) {
+      console.error('Error creating checkout session:', error);
+      
+      // Fallback to signup page
       router.push(`/auth/signup?plan=${plan.slug}&billing=${billingPeriod}`);
     }
   };
@@ -374,63 +464,43 @@ export default function PricingPage() {
                     )}
                   </div>
 
-                  {/* Limits */}
-                  <div className="mb-6 p-4 rounded-lg bg-muted/30 space-y-3">
-                    <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
-                        <Check className="w-4 h-4 text-primary" />
-                      </div>
-                      <span className="text-sm font-medium">
+
+                  {/* Key Features - Show only top features like in the modal */}
+                  <div className="space-y-3 mb-8">
+                    <div className="flex items-center gap-3 text-sm">
+                      <Check className="w-4 h-4 text-primary flex-shrink-0" />
+                      <span className="transition-colors group-hover:text-primary">
                         {plan.limits.monthlyAudioHours
                           ? plan.limits.monthlyAudioHours < 1 
                             ? `${plan.limits.monthlyAudioHours * 60} minutes/month`
-                            : `${plan.limits.monthlyAudioHours} ${plan.limits.monthlyAudioHours === 1 ? 'hour' : 'hours'}/month`
-                          : 'Unlimited audio hours'}
+                            : `${plan.limits.monthlyAudioHours} hours/month`
+                          : 'Unlimited hours'}
                       </span>
                     </div>
-                    <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
-                        <Check className="w-4 h-4 text-primary" />
-                      </div>
-                      <span className="text-sm font-medium">
+                    <div className="flex items-center gap-3 text-sm">
+                      <Check className="w-4 h-4 text-primary flex-shrink-0" />
+                      <span className="transition-colors group-hover:text-primary">
                         {plan.limits.maxSessionsPerMonth
                           ? `${plan.limits.maxSessionsPerMonth} sessions/month`
                           : 'Unlimited sessions'}
                       </span>
                     </div>
-                    {plan.type === 'organization' && (
-                      <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
-                          <Check className="w-4 h-4 text-primary" />
-                        </div>
-                        <span className="text-sm font-medium">
-                          {plan.limits.maxOrganizationMembers
-                            ? `Up to ${plan.limits.maxOrganizationMembers} team members`
-                            : 'Unlimited team members'}
+                    {plan.features.hasRealTimeGuidance && (
+                      <div className="flex items-center gap-3 text-sm">
+                        <Check className="w-4 h-4 text-primary flex-shrink-0" />
+                        <span className="transition-colors group-hover:text-primary">
+                          Real-time AI guidance
                         </span>
                       </div>
                     )}
-                  </div>
-
-                  {/* Features */}
-                  <div className="space-y-3 mb-8">
-                    {Object.entries(plan.features).map(([key, value]) => {
-                      const label = featureLabels[key as keyof typeof featureLabels];
-                      if (!label) return null;
-                      
-                      return (
-                        <div key={key} className="flex items-center gap-3 text-sm group">
-                          {value ? (
-                            <Check className="w-4 h-4 text-primary flex-shrink-0" />
-                          ) : (
-                            <X className="w-4 h-4 text-muted-foreground/30 flex-shrink-0" />
-                          )}
-                          <span className={`transition-colors ${value ? 'group-hover:text-primary' : 'text-muted-foreground/60'}`}>
-                            {label}
-                          </span>
-                        </div>
-                      );
-                    })}
+                    {plan.features.hasAdvancedSummaries && (
+                      <div className="flex items-center gap-3 text-sm">
+                        <Check className="w-4 h-4 text-primary flex-shrink-0" />
+                        <span className="transition-colors group-hover:text-primary">
+                          Advanced summaries
+                        </span>
+                      </div>
+                    )}
                   </div>
 
                   <Button

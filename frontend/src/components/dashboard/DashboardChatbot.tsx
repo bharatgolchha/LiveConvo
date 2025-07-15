@@ -6,6 +6,7 @@ import {
   ChatBubbleLeftRightIcon,
   XMarkIcon,
   ChevronDownIcon,
+  ChevronUpIcon,
   SparklesIcon,
   PaperAirplaneIcon,
   ClockIcon,
@@ -50,6 +51,7 @@ export function DashboardChatbot() {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [dynamicSuggestions, setDynamicSuggestions] = useState<SuggestedAction[]>([]);
   const [isSearching, setIsSearching] = useState(false);
+  const [showSuggestions, setShowSuggestions] = useState(true);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -579,28 +581,50 @@ export function DashboardChatbot() {
               {((messages.length === 1 && !isTyping) || (dynamicSuggestions.length > 0 && !isTyping)) && (
                 <div className={`${isFullscreen ? 'px-8 pb-4' : 'px-4 pb-2'}`}>
                   <div className={`${isFullscreen ? 'max-w-4xl mx-auto' : ''}`}>
-                    <div className="text-xs text-muted-foreground mb-2">Suggested questions:</div>
-                    <div className="space-y-1">
-                    {(dynamicSuggestions.length > 0 ? dynamicSuggestions : getSmartSuggestions()).map((suggestion, index) => (
+                    <div className="flex items-center justify-between mb-2">
                       <button
-                        key={index}
-                        onClick={() => {
-                          handleSuggestionClick(suggestion.prompt);
-                          setDynamicSuggestions([]); // Clear dynamic suggestions after use
-                        }}
-                        className="w-full text-left px-3 py-2 bg-muted/50 hover:bg-muted rounded-lg text-xs transition-colors flex items-center justify-between group"
+                        onClick={() => setShowSuggestions(!showSuggestions)}
+                        className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
                       >
-                        <span className="truncate">{suggestion.text}</span>
-                        {'impact' in suggestion && typeof suggestion.impact === 'number' ? (
-                          <span className="text-xs text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity">
-                            {suggestion.impact}%
-                          </span>
+                        <span>Suggested questions</span>
+                        {showSuggestions ? (
+                          <ChevronDownIcon className="w-3 h-3" />
                         ) : (
-                          <span />
+                          <ChevronUpIcon className="w-3 h-3" />
                         )}
                       </button>
-                    ))}
                     </div>
+                    <AnimatePresence>
+                      {showSuggestions && (
+                        <motion.div
+                          initial={{ height: 0, opacity: 0 }}
+                          animate={{ height: 'auto', opacity: 1 }}
+                          exit={{ height: 0, opacity: 0 }}
+                          transition={{ duration: 0.2 }}
+                          className="space-y-1 overflow-hidden"
+                        >
+                          {(dynamicSuggestions.length > 0 ? dynamicSuggestions : getSmartSuggestions()).map((suggestion, index) => (
+                            <button
+                              key={index}
+                              onClick={() => {
+                                handleSuggestionClick(suggestion.prompt);
+                                setDynamicSuggestions([]); // Clear dynamic suggestions after use
+                              }}
+                              className="w-full text-left px-3 py-2 bg-muted/50 hover:bg-muted rounded-lg text-xs transition-colors flex items-center justify-between group"
+                            >
+                              <span className="truncate">{suggestion.text}</span>
+                              {'impact' in suggestion && typeof suggestion.impact === 'number' ? (
+                                <span className="text-xs text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity">
+                                  {suggestion.impact}%
+                                </span>
+                              ) : (
+                                <span />
+                              )}
+                            </button>
+                          ))}
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
                   </div>
                 </div>
               )}
