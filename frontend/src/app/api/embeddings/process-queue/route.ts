@@ -5,13 +5,20 @@ const PRODUCTION_SUPABASE_URL = 'https://xkxjycccifwyxgtvflxz.supabase.co';
 
 // For production processing, we'll need to use a service role key
 // This should be set as an environment variable
-const PRODUCTION_SERVICE_KEY = process.env.PRODUCTION_SUPABASE_SERVICE_KEY!;
+const PRODUCTION_SERVICE_KEY = process.env.PRODUCTION_SUPABASE_SERVICE_KEY;
 
-if (!PRODUCTION_SERVICE_KEY) {
-  console.warn('PRODUCTION_SUPABASE_SERVICE_KEY not set - embedding processing will not work');
+// Initialize Supabase client lazily to avoid build-time errors
+let supabase: ReturnType<typeof createClient> | null = null;
+
+function getSupabaseClient() {
+  if (!supabase) {
+    if (!PRODUCTION_SERVICE_KEY) {
+      throw new Error('PRODUCTION_SUPABASE_SERVICE_KEY not set - embedding processing will not work');
+    }
+    supabase = createClient(PRODUCTION_SUPABASE_URL, PRODUCTION_SERVICE_KEY);
+  }
+  return supabase;
 }
-
-const supabase = createClient(PRODUCTION_SUPABASE_URL, PRODUCTION_SERVICE_KEY);
 
 interface QueueItem {
   id: string;
@@ -52,7 +59,7 @@ async function updateRecordWithEmbedding(
   embeddingColumn: string,
   embedding: number[]
 ): Promise<void> {
-  const { error } = await supabase
+  const { error } = await getSupabaseClient()
     .from(tableName)
     .update({
       [embeddingColumn]: `[${embedding.join(',')}]`,
@@ -66,7 +73,7 @@ async function updateRecordWithEmbedding(
 }
 
 async function markQueueItemComplete(queueId: string): Promise<void> {
-  const { error } = await supabase
+  const { error } = await getSupabaseClient()
     .from('embedding_queue')
     .update({
       status: 'completed',
@@ -81,7 +88,7 @@ async function markQueueItemComplete(queueId: string): Promise<void> {
 }
 
 async function markQueueItemFailed(queueId: string, errorMessage: string): Promise<void> {
-  const { error } = await supabase
+  const { error } = await getSupabaseClient()
     .from('embedding_queue')
     .update({
       status: 'failed',
@@ -96,7 +103,7 @@ async function markQueueItemFailed(queueId: string, errorMessage: string): Promi
 }
 
 async function getQueueItems(limit: number = 10): Promise<QueueItem[]> {
-  const { data, error } = await supabase
+  const { data, error } = await getSupabaseClient()
     .from('embedding_queue')
     .select('*')
     .eq('status', 'pending')
@@ -107,7 +114,7 @@ async function getQueueItems(limit: number = 10): Promise<QueueItem[]> {
     throw new Error(`Failed to fetch queue items: ${error.message}`);
   }
 
-  return data || [];
+  return (data as unknown as QueueItem[]) || [];
 }
 
 async function processQueueItem(item: QueueItem): Promise<{ success: boolean; error?: string }> {
@@ -203,7 +210,7 @@ export async function POST(request: NextRequest) {
 export async function GET() {
   try {
     // Get queue status
-    const { data: queueStatus, error } = await supabase
+    const { data: queueStatus, error } = await getSupabaseClient()
       .from('embedding_queue')
       .select('table_name, status')
       .then(({ data, error }) => {
