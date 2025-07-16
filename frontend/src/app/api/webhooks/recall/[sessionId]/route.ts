@@ -821,6 +821,12 @@ async function handleTranscriptData(sessionId: string, eventData: TranscriptData
     return;
   }
   
+  // Validate participant data
+  if (!data.participant) {
+    console.error('Participant data missing in transcript:', { sessionId, isPartial });
+    return;
+  }
+  
   // Get session to find participant names and owner info
   const { data: session, error: sessionError } = await supabase
     .from('sessions')
