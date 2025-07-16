@@ -658,7 +658,7 @@ const DashboardPage: React.FC = () => {
       {/* Mobile Sidebar Overlay */}
       {isSidebarOpen && (
         <div 
-          className="fixed inset-0 bg-black/50 z-40 lg:hidden"
+          className="fixed inset-0 bg-black/50 z-30 lg:hidden"
           onClick={() => setIsSidebarOpen(false)}
         />
       )}
@@ -666,7 +666,7 @@ const DashboardPage: React.FC = () => {
       <div className="flex flex-1 overflow-hidden relative">
         {/* Sidebar - Mobile Drawer */}
         <div className={`
-          fixed lg:relative inset-y-0 left-0 z-50 w-64 transform transition-transform duration-300 ease-in-out bg-card
+          fixed lg:relative inset-y-0 left-0 z-40 w-64 transform transition-transform duration-300 ease-in-out bg-card
           ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
         `}>
           <DashboardSidebar 
@@ -975,7 +975,7 @@ const DashboardPage: React.FC = () => {
       
       {/* Mobile Meetings Drawer */}
       {showMobileMeetings && (
-        <div className="xl:hidden fixed inset-0 z-40">
+        <div className="xl:hidden fixed inset-0 z-30">
           <div 
             className="absolute inset-0 bg-black/50"
             onClick={() => setShowMobileMeetings(false)}

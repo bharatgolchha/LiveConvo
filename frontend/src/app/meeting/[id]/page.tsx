@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
+import { SparklesIcon, ChatBubbleLeftRightIcon, XMarkIcon } from '@heroicons/react/24/outline';
 import { MeetingProvider } from '@/lib/meeting/context/MeetingContext';
 import { MeetingHeader } from '@/components/meeting/header/MeetingHeader';
 import { ConversationTabs } from '@/components/meeting/conversation/ConversationTabs';
@@ -15,6 +16,7 @@ import { GlowingLoader } from '@/components/meeting/common/GlowingLoader';
 import { ErrorBoundary } from '@/components/meeting/common/ErrorBoundary';
 import { MeetingDebugInfo } from '@/components/meeting/debug/MeetingDebugInfo';
 import ProtectedRoute from '@/components/auth/ProtectedRoute';
+import { useIsMobile } from '@/lib/hooks/useMediaQuery';
 
 function MeetingPageContent() {
   const params = useParams();
@@ -25,6 +27,8 @@ function MeetingPageContent() {
   const [leftPanelWidth, setLeftPanelWidth] = useState(60);
   const [isDragging, setIsDragging] = useState(false);
   const [isAIAdvisorMinimized, setIsAIAdvisorMinimized] = useState(false);
+  const [mobileView, setMobileView] = useState<'conversation' | 'ai'>('conversation');
+  const isMobile = useIsMobile();
   
   // Enable real-time sync for meeting updates
   useMeetingRealtimeSync(meetingId);
@@ -90,37 +94,85 @@ function MeetingPageContent() {
       <MeetingHeader />
       
       {/* Main Content */}
-      <div className="flex-1 flex overflow-hidden">
-        {/* Left Panel - Conversation */}
-        <div 
-          className="flex-1 flex flex-col border-r border-border overflow-hidden"
-          style={{ width: `${effectiveLeftWidth}%` }}
-        >
-          <ConversationTabs />
-        </div>
-        
-        {/* Resize Handle */}
-        {!isAIAdvisorMinimized && (
-        <div
-          className={`w-1 bg-border hover:bg-primary/50 cursor-col-resize transition-colors ${
-            isDragging ? 'bg-primary' : ''
-          }`}
-          onMouseDown={handleMouseDown}
-          title="Drag to resize panels"
-        />
-        )}
-        
-        {/* Right Panel - AI Advisor */}
-        <div 
-          className="flex-shrink-0 overflow-hidden"
-          style={{ width: `${rightPanelWidth}%` }}
-        >
-          <AIAdvisorPanel 
-            isMinimized={isAIAdvisorMinimized}
-            onMinimizedChange={setIsAIAdvisorMinimized}
+      {isMobile ? (
+        // Mobile Layout
+        <>
+          <div className="flex-1 flex flex-col overflow-hidden" style={{ paddingBottom: '88px' }}>
+            {mobileView === 'conversation' ? (
+              <ConversationTabs />
+            ) : (
+              <div className="flex-1 overflow-hidden">
+                <AIAdvisorPanel 
+                  isMinimized={false}
+                  onMinimizedChange={() => {}}
+                  isMobile={true}
+                />
+              </div>
+            )}
+          </div>
+          
+          {/* Mobile Toggle Buttons */}
+          <div className="fixed bottom-0 left-0 right-0 z-20 p-4 bg-background/95 backdrop-blur-sm border-t border-border">
+            <div className="flex gap-2">
+            <button
+              onClick={() => setMobileView('conversation')}
+              className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-lg font-medium transition-all ${
+                mobileView === 'conversation'
+                  ? 'bg-primary text-primary-foreground shadow-lg'
+                  : 'bg-card border border-border text-muted-foreground'
+              }`}
+            >
+              <ChatBubbleLeftRightIcon className="w-5 h-5" />
+              <span>Conversation</span>
+            </button>
+            <button
+              onClick={() => setMobileView('ai')}
+              className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-lg font-medium transition-all ${
+                mobileView === 'ai'
+                  ? 'bg-primary text-primary-foreground shadow-lg'
+                  : 'bg-card border border-border text-muted-foreground'
+              }`}
+            >
+              <SparklesIcon className="w-5 h-5" />
+              <span>AI Advisor</span>
+            </button>
+            </div>
+          </div>
+        </>
+      ) : (
+        // Desktop Layout
+        <div className="flex-1 flex overflow-hidden">
+          {/* Left Panel - Conversation */}
+          <div 
+            className="flex-1 flex flex-col border-r border-border overflow-hidden"
+            style={{ width: `${effectiveLeftWidth}%` }}
+          >
+            <ConversationTabs />
+          </div>
+          
+          {/* Resize Handle */}
+          {!isAIAdvisorMinimized && (
+          <div
+            className={`w-1 bg-border hover:bg-primary/50 cursor-col-resize transition-colors ${
+              isDragging ? 'bg-primary' : ''
+            }`}
+            onMouseDown={handleMouseDown}
+            title="Drag to resize panels"
           />
+          )}
+          
+          {/* Right Panel - AI Advisor */}
+          <div 
+            className="flex-shrink-0 overflow-hidden"
+            style={{ width: `${rightPanelWidth}%` }}
+          >
+            <AIAdvisorPanel 
+              isMinimized={isAIAdvisorMinimized}
+              onMinimizedChange={setIsAIAdvisorMinimized}
+            />
+          </div>
         </div>
-      </div>
+      )}
       
       {/* Debug Info (Development Only) */}
       <MeetingDebugInfo />

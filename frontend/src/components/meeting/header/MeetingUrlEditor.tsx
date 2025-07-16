@@ -3,6 +3,7 @@ import { PencilIcon, CheckIcon, XMarkIcon, LinkIcon, PlusIcon } from '@heroicons
 import { useMeetingContext } from '@/lib/meeting/context/MeetingContext';
 import { supabase } from '@/lib/supabase';
 import { detectMeetingPlatform } from '@/lib/meeting/utils/platform-detector';
+import { useIsMobile } from '@/lib/hooks/useMediaQuery';
 
 export function MeetingUrlEditor() {
   const { meeting, setMeeting, botStatus } = useMeetingContext();
@@ -10,6 +11,7 @@ export function MeetingUrlEditor() {
   const [newUrl, setNewUrl] = useState(meeting?.meetingUrl || '');
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const isMobile = useIsMobile();
 
   if (!meeting) return null;
 
@@ -129,14 +131,14 @@ export function MeetingUrlEditor() {
         {canEdit ? (
           <button
             onClick={handleStartEditing}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-primary text-primary-foreground hover:bg-primary/90 rounded-lg transition-all font-medium"
+            className={`flex items-center gap-1.5 ${isMobile ? 'px-2 py-1' : 'px-3 py-1.5'} text-sm bg-primary text-primary-foreground hover:bg-primary/90 rounded-lg transition-all font-medium`}
             title="Add meeting URL"
           >
-            <PlusIcon className="w-4 h-4" />
-            <span>Add meeting link</span>
+            <PlusIcon className={isMobile ? "w-3 h-3" : "w-4 h-4"} />
+            <span className={isMobile ? "text-xs" : ""}>Add meeting link</span>
           </button>
         ) : (
-          <span className="text-sm text-muted-foreground">No meeting link</span>
+          <span className={`${isMobile ? 'text-xs' : 'text-sm'} text-muted-foreground`}>No meeting link</span>
         )}
       </div>
     );
@@ -149,7 +151,7 @@ export function MeetingUrlEditor() {
         href={meeting.meetingUrl}
         target="_blank"
         rel="noopener noreferrer"
-        className="text-sm text-muted-foreground hover:text-foreground transition-colors truncate max-w-xs"
+        className={`${isMobile ? 'text-xs' : 'text-sm'} text-muted-foreground hover:text-foreground transition-colors truncate ${isMobile ? 'max-w-[180px]' : 'max-w-xs'}`}
         title={meeting.meetingUrl}
       >
         {meeting.meetingUrl}

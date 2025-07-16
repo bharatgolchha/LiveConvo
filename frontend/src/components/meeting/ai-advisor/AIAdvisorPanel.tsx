@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useMeetingContext } from '@/lib/meeting/context/MeetingContext';
+import { useIsMobile } from '@/lib/hooks/useMediaQuery';
 import { EnhancedAIChat, EnhancedAIChatRef } from './EnhancedAIChat';
 import { SmartSuggestions } from './SmartSuggestions';
 import { MeetingInsights } from './MeetingInsights';
@@ -25,13 +26,16 @@ interface AIAdvisorPanelProps {
 
 export function AIAdvisorPanel({ 
   isMinimized: externalIsMinimized = false, 
-  onMinimizedChange 
-}: AIAdvisorPanelProps) {
+  onMinimizedChange,
+  isMobile: isMobileProp 
+}: AIAdvisorPanelProps & { isMobile?: boolean }) {
   const { botStatus, transcript, meeting, addSmartNote } = useMeetingContext();
   const [activeTab, setActiveTab] = useState<TabType>('chat');
   const [internalIsMinimized, setInternalIsMinimized] = useState(false);
   const [autoSwitched, setAutoSwitched] = useState(false);
   const chatRef = useRef<EnhancedAIChatRef>(null);
+  const isMobileDetected = useIsMobile();
+  const isMobile = isMobileProp ?? isMobileDetected;
   
   // Use external state if provided, otherwise use internal state
   const isMinimized = onMinimizedChange ? externalIsMinimized : internalIsMinimized;
@@ -161,7 +165,7 @@ export function AIAdvisorPanel({
   };
 
   return (
-    <div className="h-full w-full flex flex-col bg-card border-l border-border transition-all duration-300">
+    <div className={`${isMobile ? 'h-full' : 'h-full'} w-full flex flex-col bg-card ${isMobile ? '' : 'border-l'} border-border transition-all duration-300`}>
       {/* Header */}
       <div className="flex-shrink-0 p-4 border-b border-border bg-card/50 backdrop-blur-sm">
         <div className="flex items-center justify-between">
@@ -189,11 +193,12 @@ export function AIAdvisorPanel({
                 <TrashIcon className="w-4 h-4" />
               </button>
             )}
-            <button
-              onClick={() => setIsMinimized(!isMinimized)}
-              className="p-1.5 hover:bg-muted rounded-md transition-colors"
-              title={isMinimized ? 'Expand' : 'Minimize'}
-            >
+            {!isMobile && (
+              <button
+                onClick={() => setIsMinimized(!isMinimized)}
+                className="p-1.5 hover:bg-muted rounded-md transition-colors"
+                title={isMinimized ? 'Expand' : 'Minimize'}
+              >
               <motion.div
                 animate={{ rotate: isMinimized ? 180 : 0 }}
                 transition={{ duration: 0.2 }}
@@ -202,7 +207,8 @@ export function AIAdvisorPanel({
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                 </svg>
               </motion.div>
-            </button>
+              </button>
+            )}
           </div>
         </div>
 

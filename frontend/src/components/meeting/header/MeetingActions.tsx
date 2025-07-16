@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import { useIsMobile } from '@/lib/hooks/useMediaQuery';
 import { 
   PhoneXMarkIcon, 
   EllipsisVerticalIcon,
@@ -26,6 +27,7 @@ export function MeetingActions() {
   const [showSettings, setShowSettings] = useState(false);
   const [showEndModal, setShowEndModal] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
+  const isMobile = useIsMobile();
 
   console.log('MeetingActions render:', { isExporting, meeting: !!meeting, transcriptCount: transcript?.length || 0 });
   
@@ -149,6 +151,119 @@ export function MeetingActions() {
 
   const isActive = botStatus?.status === 'in_call';
   const isCompleted = meeting?.status === 'completed';
+  
+  // Mobile-specific render
+  if (isMobile) {
+    return (
+      <div className="flex items-center gap-1">
+        {/* End Meeting Button - Direct access on mobile */}
+        {!isCompleted && (
+          <button
+            onClick={() => setShowEndModal(true)}
+            disabled={isEnding}
+            className={`flex items-center gap-1 px-2 py-1 rounded transition-all text-xs font-medium ${
+              endingSuccess
+                ? 'bg-green-600 text-white'
+                : isEnding
+                ? 'bg-red-600/70 text-white'
+                : 'bg-red-600 hover:bg-red-700 text-white'
+            }`}
+            title={isEnding ? endingStep : "End meeting"}
+          >
+            {endingSuccess ? (
+              <>
+                <CheckCircleIcon className="w-3 h-3" />
+                <span>Done</span>
+              </>
+            ) : isEnding ? (
+              <>
+                <div className="w-3 h-3 border border-white border-t-transparent rounded-full animate-spin" />
+                <span>Ending...</span>
+              </>
+            ) : (
+              <>
+                <PhoneXMarkIcon className="w-3 h-3" />
+                <span>End</span>
+              </>
+            )}
+          </button>
+        )}
+        
+        {/* Menu button for other actions */}
+        <button
+          className="p-1.5 hover:bg-muted/70 rounded-lg transition-colors text-muted-foreground hover:text-foreground"
+          onClick={() => setShowMenu(!showMenu)}
+          title="More actions"
+          disabled={isEnding}
+        >
+          <EllipsisVerticalIcon className="w-5 h-5" />
+        </button>
+        
+        {showMenu && !isEnding && (
+          <>
+            {/* Backdrop to close menu */}
+            <div 
+              className="fixed inset-0 z-[900]" 
+              onClick={() => setShowMenu(false)}
+            />
+            <div className="fixed top-12 right-2 w-56 bg-card border border-border rounded-lg shadow-lg z-[1200]">
+              <div className="py-1">
+                <button
+                  onClick={() => {
+                    setShowMenu(false);
+                    handleShare();
+                  }}
+                  className="flex w-full items-center gap-3 px-4 py-2.5 text-sm hover:bg-muted/50 transition-colors"
+                >
+                  <ShareIcon className="w-4 h-4" />
+                  <span>Share</span>
+                </button>
+                
+                <button
+                  onClick={() => {
+                    setShowMenu(false);
+                    handleExportClick();
+                  }}
+                  className="flex w-full items-center gap-3 px-4 py-2.5 text-sm hover:bg-muted/50 transition-colors"
+                  disabled={isExporting}
+                >
+                  <ArrowDownTrayIcon className="w-4 h-4" />
+                  <span>{isExporting ? 'Exporting...' : 'Export'}</span>
+                </button>
+                
+                <button
+                  onClick={() => {
+                    setShowMenu(false);
+                    setShowSettings(true);
+                  }}
+                  className="flex w-full items-center gap-3 px-4 py-2.5 text-sm hover:bg-muted/50 transition-colors"
+                >
+                  <CogIcon className="w-4 h-4" />
+                  <span>Settings</span>
+                </button>
+              </div>
+            </div>
+          </>
+        )}
+        
+        {/* Modals */}
+        <MeetingSettingsModal isOpen={showSettings} onClose={() => setShowSettings(false)} />
+        <EndMeetingModal
+          isOpen={showEndModal}
+          onClose={() => setShowEndModal(false)}
+          onConfirm={handleEndMeeting}
+          isLoading={isEnding}
+          meetingTitle={meeting?.title}
+        />
+        <EndMeetingStatus
+          isVisible={isEnding && !!endingStep}
+          step={endingStep}
+          isSuccess={endingSuccess}
+          error={error}
+        />
+      </div>
+    );
+  }
 
   // Don't show end button if meeting is already completed
   if (isCompleted) {
@@ -203,16 +318,6 @@ export function MeetingActions() {
             </>
           )}
         </div>
-
-        {/* View Report button for completed meetings */}
-        <button
-          onClick={() => router.push(`/report/${meeting?.id}`)}
-          className="flex items-center gap-2 px-3 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors font-medium"
-          title="View meeting report"
-        >
-          <CheckCircleIcon className="w-4 h-4" />
-          <span className="text-sm">View Report</span>
-        </button>
 
         <MeetingSettingsModal isOpen={showSettings} onClose={() => setShowSettings(false)} />
       </div>

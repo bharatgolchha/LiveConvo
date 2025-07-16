@@ -353,7 +353,7 @@ export function DashboardChatbot() {
         whileHover={{ scale: 1.1 }}
         whileTap={{ scale: 0.95 }}
         onClick={() => setIsExpanded(true)}
-        className="fixed bottom-6 right-6 w-16 h-16 bg-gradient-to-br from-primary to-primary/80 text-primary-foreground rounded-full shadow-2xl shadow-primary/30 flex items-center justify-center hover:from-primary hover:to-primary/70 transition-all z-50 ring-2 ring-background"
+        className="fixed bottom-6 right-6 w-16 h-16 bg-gradient-to-br from-primary to-primary/80 text-primary-foreground rounded-full shadow-2xl shadow-primary/30 flex items-center justify-center hover:from-primary hover:to-primary/70 transition-all z-[100] ring-2 ring-background"
       >
         <ChatBubbleLeftRightIcon className="w-7 h-7" />
       </motion.button>
@@ -369,7 +369,7 @@ export function DashboardChatbot() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-background/80 backdrop-blur-sm z-40"
+            className="fixed inset-0 bg-background/80 backdrop-blur-sm z-[90]"
             onClick={() => setIsFullscreen(false)}
           />
         )}
@@ -386,7 +386,7 @@ export function DashboardChatbot() {
               isFullscreen 
                 ? 'inset-4 md:inset-8 lg:inset-16 xl:inset-24 max-w-6xl max-h-[90vh] mx-auto' 
                 : 'bottom-6 right-6 w-[480px] h-[700px]'
-            } bg-gradient-to-b from-card to-card/95 backdrop-blur-lg border border-border/60 rounded-2xl shadow-2xl z-50 ${
+            } bg-gradient-to-b from-card to-card/95 backdrop-blur-lg border border-border/60 rounded-2xl shadow-2xl z-[100] ${
               isMinimized && !isFullscreen ? 'w-96 h-14' : ''
             } flex flex-col overflow-hidden ring-1 ring-primary/20 transition-all duration-300`}
           >

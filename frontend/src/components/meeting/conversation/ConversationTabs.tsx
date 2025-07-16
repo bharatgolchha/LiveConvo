@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useRef, useEffect } from 'react';
 import { motion } from 'framer-motion';
+import { useIsMobile } from '@/lib/hooks/useMediaQuery';
 import { 
   ChatBubbleLeftRightIcon, 
   DocumentTextIcon,
@@ -51,12 +52,26 @@ const tabs = [
 
 export function ConversationTabs() {
   const { activeTab, setActiveTab, meeting, linkedConversations } = useMeetingContext();
+  const isMobile = useIsMobile();
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const activeTabRef = useRef<HTMLButtonElement>(null);
+  
+  // Scroll to active tab on mobile
+  useEffect(() => {
+    if (isMobile && activeTabRef.current && scrollContainerRef.current) {
+      activeTabRef.current.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+    }
+  }, [activeTab, isMobile]);
 
   return (
     <div className="flex flex-col h-full">
       {/* Tab Navigation */}
       <div className="border-b border-border bg-card/50">
-        <div className="flex">
+        <div 
+          ref={scrollContainerRef}
+          className={`flex ${isMobile ? 'overflow-x-auto scrollbar-hide' : ''}`}
+          style={isMobile ? { WebkitOverflowScrolling: 'touch' } : {}}
+        >
           {tabs.map((tab) => {
             const isActive = activeTab === tab.id;
             const Icon = tab.icon;
@@ -70,15 +85,16 @@ export function ConversationTabs() {
             return (
               <button
                 key={tab.id}
+                ref={isActive ? activeTabRef : null}
                 onClick={() => setActiveTab(tab.id)}
-                className={`relative flex items-center gap-2 px-6 py-4 transition-all ${
+                className={`relative flex items-center gap-1.5 sm:gap-2 px-3 sm:px-6 py-3 sm:py-4 transition-all whitespace-nowrap ${
                   isActive 
                     ? 'text-foreground' 
                     : 'text-muted-foreground hover:text-foreground'
                 }`}
               >
-                <Icon className="w-5 h-5" />
-                <span className="font-medium">{tab.label}</span>
+                <Icon className="w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0" />
+                <span className="text-sm sm:text-base font-medium">{isMobile && tab.id === 'transcript' ? 'Transcript' : tab.label}</span>
                 
                 {showBadge && (
                   <span className="ml-1 px-1.5 py-0.5 text-xs bg-primary text-primary-foreground rounded-full">

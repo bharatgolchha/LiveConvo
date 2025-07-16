@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useIsMobile } from '@/lib/hooks/useMediaQuery';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   CheckCircleIcon, 
@@ -27,6 +28,7 @@ export function MeetingBotControl() {
   const [error, setError] = useState<React.ReactNode>(null);
   const [showUpgradePrompt, setShowUpgradePrompt] = useState(false);
   const [showStopModal, setShowStopModal] = useState(false);
+  const isMobile = useIsMobile();
   
   // Get bot usage data
   const { stats, loading: usageLoading, refetch: refetchUsage } = useBotUsage(undefined, false);
@@ -367,14 +369,16 @@ export function MeetingBotControl() {
                 <Loader2 className="w-4 h-4 animate-spin text-blue-600 dark:text-blue-400" />
                 <span className="text-sm font-medium text-blue-700 dark:text-blue-400">{joiningMessage}</span>
               </div>
-              <button
-                onClick={handleCancelBot}
-                disabled={isStopping}
-                className="px-2 py-1 text-xs text-muted-foreground hover:text-foreground hover:bg-muted/50 rounded transition-colors"
-                title="Cancel"
-              >
-                Cancel
-              </button>
+              {!isMobile && (
+                <button
+                  onClick={handleCancelBot}
+                  disabled={isStopping}
+                  className="px-2 py-1 text-xs text-muted-foreground hover:text-foreground hover:bg-muted/50 rounded transition-colors"
+                  title="Cancel"
+                >
+                  Cancel
+                </button>
+              )}
             </div>
           )
         };
@@ -388,14 +392,16 @@ export function MeetingBotControl() {
                 <Loader2 className="w-4 h-4 animate-spin text-amber-600 dark:text-amber-400" />
                 <span className="text-sm font-medium text-amber-700 dark:text-amber-400">Waiting for host approval...</span>
               </div>
-              <button
-                onClick={handleCancelBot}
-                disabled={isStopping}
-                className="px-2 py-1 text-xs text-muted-foreground hover:text-foreground hover:bg-muted/50 rounded transition-colors"
-                title="Cancel"
-              >
-                Cancel
-              </button>
+              {!isMobile && (
+                <button
+                  onClick={handleCancelBot}
+                  disabled={isStopping}
+                  className="px-2 py-1 text-xs text-muted-foreground hover:text-foreground hover:bg-muted/50 rounded transition-colors"
+                  title="Cancel"
+                >
+                  Cancel
+                </button>
+              )}
             </div>
           )
         };
@@ -403,7 +409,14 @@ export function MeetingBotControl() {
       case 'in_call':
         return {
           showStartButton: false,
-          statusElement: (
+          statusElement: isMobile ? (
+            // On mobile, just show recording status
+            <div className="flex items-center gap-2 px-3 py-1.5 bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800/30 rounded-lg">
+              <div className="w-2 h-2 bg-red-600 rounded-full animate-pulse" />
+              <span className="text-xs font-medium text-red-700 dark:text-red-400">Recording</span>
+            </div>
+          ) : (
+            // On desktop, show stop button
             <button
               onClick={() => setShowStopModal(true)}
               disabled={isStopping}
@@ -521,7 +534,8 @@ export function MeetingBotControl() {
             }}
             disabled={isStarting || !meeting?.meetingUrl || usageLoading}
             className={cn(
-              "flex items-center gap-2 px-4 py-2 rounded-lg transition-all font-medium",
+              "flex items-center gap-2 rounded-lg transition-all font-medium",
+              isMobile ? "px-3 py-1.5" : "px-4 py-2",
               isOutOfMinutes 
                 ? "bg-muted hover:bg-muted/80 text-muted-foreground cursor-not-allowed" 
                 : "bg-primary hover:bg-primary/90 text-primary-foreground",
@@ -536,8 +550,8 @@ export function MeetingBotControl() {
             ) : (
               <PlayCircleIcon className="w-4 h-4" />
             )}
-            <span className="text-sm">
-              {isOutOfMinutes ? "No Minutes Left" : "Start Recording"}
+            <span className={isMobile ? "text-xs" : "text-sm"}>
+              {isOutOfMinutes ? "No Minutes" : isMobile ? "Record" : "Start Recording"}
             </span>
           </button>
         </div>
