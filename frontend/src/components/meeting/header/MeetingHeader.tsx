@@ -30,7 +30,7 @@ export function MeetingHeader() {
   if (!meeting) return null;
 
   // Determine meeting state based on both bot status and meeting status
-  const isActive = botStatus?.status === 'in_call' || botStatus?.status === 'recording';
+  const isActive = botStatus?.status === 'in_call' || botStatus?.detailedStatus === 'recording';
   const isCompleted = meeting.status === 'completed' || botStatus?.status === 'completed';
   
   // If bot status is null but meeting is completed, it's completed
