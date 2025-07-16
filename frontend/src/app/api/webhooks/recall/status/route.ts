@@ -298,6 +298,26 @@ export async function POST(request: NextRequest) {
     const statusCode = botEvent.data.data.code;
     const timestamp = botEvent.data.data.updated_at || new Date().toISOString();
     
+    // Check for duplicate webhook events
+    const webhookHash = `${botId}-${botEvent.event}-${timestamp}`;
+    const { data: existingWebhook } = await supabase
+      .from('webhook_logs')
+      .select('id')
+      .eq('webhook_type', 'bot_status')
+      .eq('event_type', botEvent.event)
+      .eq('bot_id', botId)
+      .eq('created_at', timestamp)
+      .single();
+      
+    if (existingWebhook) {
+      console.log(`⚠️ Duplicate webhook event detected for bot ${botId}, event ${botEvent.event} at ${timestamp}`);
+      return NextResponse.json({ 
+        success: true, 
+        message: 'Duplicate webhook event, skipped processing',
+        duplicate: true
+      });
+    }
+    
     // Log webhook event for debugging
     await supabase.from('webhook_logs').insert({
       webhook_type: 'bot_status',
@@ -537,6 +557,12 @@ async function handleBotCompleted(
     
   if (!botUsage) {
     console.error(`❌ No bot usage record found for ${botId}`);
+    return;
+  }
+  
+  // Check if already completed to prevent duplicate processing
+  if (botUsage.status === 'completed' && botUsage.recording_ended_at) {
+    console.log(`✅ Bot ${botId} already completed, skipping duplicate processing`);
     return;
   }
   

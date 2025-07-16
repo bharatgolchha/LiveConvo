@@ -58,7 +58,10 @@ export function useSummary(sessionId: string) {
         
         setSummary(summary)
       } catch (err) {
-        console.error('Error fetching summary:', err)
+        // Only log non-404 errors
+        if (err instanceof Error && !err.message.includes('404')) {
+          console.error('Error fetching summary:', err)
+        }
         setError(err instanceof Error ? err.message : 'Failed to fetch summary')
       } finally {
         setLoading(false)

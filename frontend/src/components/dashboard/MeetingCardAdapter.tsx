@@ -12,14 +12,14 @@ interface MeetingCardAdapterProps {
   onReport: (id: string) => void
 }
 
-export function MeetingCardAdapter({
+export const MeetingCardAdapter = React.memo(({
   session,
   selected,
   onSelect,
   onOpen,
   onFollowUp,
   onReport,
-}: MeetingCardAdapterProps) {
+}: MeetingCardAdapterProps) => {
   // Fetch summary data for completed sessions that likely have summaries
   const shouldFetchSummary = session.status === 'completed' && 
                             session.recording_duration_seconds && 
@@ -178,4 +178,15 @@ export function MeetingCardAdapter({
   }, [session, selected, onSelect, onOpen, onFollowUp, onReport, summary, summaryLoading])
   
   return <MeetingCard {...mappedProps} />
-}
+}, (prevProps, nextProps) => {
+  // Custom comparison to prevent re-renders for identical data
+  return (
+    prevProps.session.id === nextProps.session.id &&
+    prevProps.session.status === nextProps.session.status &&
+    prevProps.session.recall_bot_status === nextProps.session.recall_bot_status &&
+    prevProps.session.recording_duration_seconds === nextProps.session.recording_duration_seconds &&
+    prevProps.session.bot_recording_minutes === nextProps.session.bot_recording_minutes &&
+    prevProps.session.updated_at === nextProps.session.updated_at &&
+    prevProps.selected === nextProps.selected
+  )
+})

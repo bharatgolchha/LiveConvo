@@ -35,7 +35,7 @@ import { useDebounce } from '@/lib/utils/debounce';
 import type { Session } from '@/lib/hooks/useSessions';
 import { defaultStats } from '@/lib/hooks/useUserStats';
 import { useUpcomingMeetings } from '@/lib/hooks/useUpcomingMeetings';
-import { useRealtimeDashboard } from '@/lib/hooks/useRealtimeDashboard';
+import { useRealtimeSessionsFinal } from '@/lib/hooks/useRealtimeSessionsFinal';
 import { useAutoRefresh } from '@/lib/hooks/useAutoRefresh';
 import { DeleteConfirmationModal } from '@/components/ui/DeleteConfirmationModal';
 import { PricingModal } from '@/components/ui/PricingModal';
@@ -149,31 +149,22 @@ const DashboardPage: React.FC = () => {
     }
   }, [userStats]);
 
-  // Unified real-time dashboard updates
-  const { isConnected: realtimeConnected } = useRealtimeDashboard({
-    onSessionInsert: (newSession) => {
-      console.log('🆕 Real-time new session:', newSession);
-      // Add the new session to local state
-      addSession(newSession);
-    },
-    onSessionUpdate: (updatedSession) => {
-      console.log('🔄 Real-time session update:', updatedSession);
-      // Update the session in local state
-      updateSession(updatedSession.id, updatedSession);
-    },
-    onSessionDelete: (sessionId) => {
-      console.log('🗑️ Real-time session delete:', sessionId);
-      // Remove the session from local state
-      removeSession(sessionId);
-    },
-    onBotStatusUpdate: (update) => {
-      console.log('🤖 Real-time bot status update:', update);
-      // Update the session in local state
-      updateSession(update.session_id, {
-        recall_bot_status: update.status as Session['recall_bot_status'],
-        recall_bot_id: update.bot_id,
-        updated_at: update.updated_at
-      });
+  // Use the final real-time approach with dedicated client
+  const { isConnected: realtimeConnected } = useRealtimeSessionsFinal({
+    onChange: (session, eventType) => {
+      console.log(`📡 Real-time ${eventType}:`, session.id);
+      
+      switch (eventType) {
+        case 'INSERT':
+          addSession(session);
+          break;
+        case 'UPDATE':
+          updateSession(session.id, session);
+          break;
+        case 'DELETE':
+          removeSession(session.id);
+          break;
+      }
     }
   });
 
@@ -670,6 +661,7 @@ const DashboardPage: React.FC = () => {
           onSearch={handleSearch}
           onNavigateToSettings={() => setActivePath('settings')}
           onMenuClick={() => setIsSidebarOpen(!isSidebarOpen)}
+          realtimeConnected={realtimeConnected}
         />
       
       {/* Usage Warning Banner */}
@@ -1040,6 +1032,9 @@ const DashboardPage: React.FC = () => {
 
       {/* Dashboard Chatbot */}
       <DashboardChatbot />
+      
+      
+
     </div>
     </DashboardChatProvider>
   );

@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { ClockIcon, ExclamationTriangleIcon } from '@heroicons/react/24/outline';
 import { useBotUsage } from '@/lib/meeting/hooks/useBotUsage';
@@ -14,10 +14,22 @@ interface BotMinutesIndicatorProps {
 export function BotMinutesIndicator({ className, compact = false }: BotMinutesIndicatorProps) {
   const { user } = useAuth();
   const { stats, loading, refetch } = useBotUsage(undefined, false); // Current month only
+  const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   // Subscribe to real-time updates for bot usage
   useEffect(() => {
     if (!user?.id) return;
+
+    // Debounced refetch function to prevent rapid updates
+    const debouncedRefetch = () => {
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
+      }
+      debounceTimerRef.current = setTimeout(() => {
+        console.log('Debounced refetch triggered');
+        refetch();
+      }, 1000); // Wait 1 second after last update before refetching
+    };
 
     const channel = supabase
       .channel(`bot-usage-${user.id}`)
@@ -31,8 +43,8 @@ export function BotMinutesIndicator({ className, compact = false }: BotMinutesIn
         },
         (payload) => {
           console.log('Bot usage update:', payload);
-          // Refetch usage data when tracking changes
-          refetch();
+          // Use debounced refetch to prevent rapid updates
+          debouncedRefetch();
         }
       )
       .on(
@@ -45,13 +57,16 @@ export function BotMinutesIndicator({ className, compact = false }: BotMinutesIn
         },
         (payload) => {
           console.log('Monthly usage cache update:', payload);
-          // Refetch when monthly cache updates
-          refetch();
+          // Use debounced refetch to prevent rapid updates
+          debouncedRefetch();
         }
       )
       .subscribe();
 
     return () => {
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
+      }
       supabase.removeChannel(channel);
     };
   }, [user?.id, refetch]);

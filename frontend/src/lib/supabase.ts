@@ -35,6 +35,20 @@ export const supabase = createClient(
     },
     db: {
       schema: 'public'
+    },
+    realtime: {
+      params: {
+        eventsPerSecond: 10
+      },
+      heartbeatIntervalMs: 30000,
+      reconnectAfterMs: (tries: number) => {
+        // Reconnect with exponential backoff, max 10 seconds
+        const delay = Math.min(1000 * Math.pow(2, tries), 10000)
+        console.log(`🔄 Realtime reconnect attempt ${tries}, waiting ${delay}ms`)
+        return delay
+      },
+      timeout: 30000, // 30 second timeout for connections
+      log_level: process.env.NODE_ENV === 'development' ? 'debug' : 'error'
     }
   }
 )

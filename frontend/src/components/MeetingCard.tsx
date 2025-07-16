@@ -45,7 +45,7 @@ const statusDotClasses: Record<string, string> = {
   Live: 'animate-ping',
 }
 
-export function MeetingCard({
+export const MeetingCard = React.memo(({
   id,
   title,
   meetingType,
@@ -63,7 +63,7 @@ export function MeetingCard({
   onOpen,
   onFollowUp,
   onReport,
-}: MeetingCardProps) {
+}: MeetingCardProps) => {
   const [tldrExpanded, setTldrExpanded] = useState(false)
 
   // Helper function to get participant initials for avatar
@@ -413,4 +413,4 @@ export function MeetingCard({
       </div>
     </div>
   )
-}
+})

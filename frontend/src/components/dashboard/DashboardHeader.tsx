@@ -29,9 +29,10 @@ interface DashboardHeaderProps {
   onSearch: (query: string) => void;
   onNavigateToSettings: () => void;
   onMenuClick?: () => void;
+  realtimeConnected?: boolean;
 }
 
-const DashboardHeader: React.FC<DashboardHeaderProps> = ({ user, onSearch, onNavigateToSettings, onMenuClick }) => {
+const DashboardHeader: React.FC<DashboardHeaderProps> = ({ user, onSearch, onNavigateToSettings, onMenuClick, realtimeConnected }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [isMobileSearchOpen, setIsMobileSearchOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
@@ -137,9 +138,22 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({ user, onSearch, onNav
           <div className="relative user-menu-container">
             <button
               onClick={() => setUserMenuOpen(!userMenuOpen)}
-              className="flex items-center space-x-2 p-2 rounded-lg hover:bg-accent transition-colors"
+              className="flex items-center space-x-2 p-2 rounded-lg hover:bg-accent transition-colors relative"
             >
-              <UserCircleIcon className="w-6 h-6 sm:w-8 sm:h-8 text-muted-foreground" />
+              <div className="relative">
+                <UserCircleIcon className="w-6 h-6 sm:w-8 sm:h-8 text-muted-foreground" />
+                {/* Real-time status indicator */}
+                <div 
+                  className={`absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full border-2 border-background ${
+                    realtimeConnected === undefined 
+                      ? 'hidden' 
+                      : realtimeConnected 
+                      ? 'bg-green-500' 
+                      : 'bg-red-500'
+                  }`}
+                  title={realtimeConnected ? 'Real-time connected' : 'Real-time disconnected'}
+                />
+              </div>
               <div className="hidden sm:block text-left">
                 <p className="text-sm font-medium text-foreground">{user.name}</p>
                 <p className="text-xs text-muted-foreground capitalize">{user.plan} Plan</p>
