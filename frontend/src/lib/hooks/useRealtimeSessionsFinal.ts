@@ -77,7 +77,7 @@ export function useRealtimeSessionsFinal({
             (payload: RealtimePostgresChangesPayload<Session>) => {
               const session = (payload.new || payload.old) as Session;
               
-              if (session && session.user_id === user.id) {
+              if (session) {
                 console.log(`📨 Session ${payload.eventType}:`, session.id);
                 
                 if (payload.eventType === 'INSERT' && payload.new) {

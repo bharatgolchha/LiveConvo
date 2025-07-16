@@ -56,8 +56,7 @@ export function useMeetingRealtimeSync(meetingId: string) {
                 setBotStatus(null);
               } else {
                 setBotStatus({
-                  status: updates.recall_bot_status,
-                  lastUpdated: new Date().toISOString()
+                  status: updates.recall_bot_status
                 });
               }
             }

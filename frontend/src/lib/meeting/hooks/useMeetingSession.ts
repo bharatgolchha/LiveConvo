@@ -90,8 +90,7 @@ export function useMeetingSession(meetingId: string) {
         // Initialize bot status based on recall_bot_status
         if (data.recall_bot_status) {
           setBotStatus({
-            status: data.recall_bot_status,
-            lastUpdated: new Date().toISOString()
+            status: data.recall_bot_status
           });
         } else {
           setBotStatus(null);

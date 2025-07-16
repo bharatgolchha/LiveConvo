@@ -48,7 +48,7 @@ export const supabase = createClient(
         return delay
       },
       timeout: 30000, // 30 second timeout for connections
-      log_level: process.env.NODE_ENV === 'development' ? 'debug' : 'error'
+      log_level: process.env.NODE_ENV === 'development' ? 'info' : 'error'
     }
   }
 )
