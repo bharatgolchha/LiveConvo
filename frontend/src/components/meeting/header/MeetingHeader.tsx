@@ -29,8 +29,14 @@ export function MeetingHeader() {
 
   if (!meeting) return null;
 
-  const isActive = botStatus?.status === 'in_call';
-  const isCompleted = meeting.status === 'completed';
+  // Determine meeting state based on both bot status and meeting status
+  const isActive = botStatus?.status === 'in_call' || botStatus?.status === 'recording';
+  const isCompleted = meeting.status === 'completed' || botStatus?.status === 'completed';
+  
+  // If bot status is null but meeting is completed, it's completed
+  // If bot status is null and meeting is not completed, it's ready to start
+  const finalIsActive = botStatus === null ? false : isActive;
+  const finalIsCompleted = botStatus === null ? meeting.status === 'completed' : isCompleted;
   const hasUrl = meeting.meetingUrl && meeting.meetingUrl.trim();
 
   const getPlatformLogo = () => {
@@ -130,12 +136,12 @@ export function MeetingHeader() {
                   )}
                   
                   {/* Recording Status */}
-                  {isActive ? (
+                  {finalIsActive ? (
                     <div className="flex items-center gap-1 px-2 py-1 bg-destructive/10 border border-destructive/20 rounded">
                       <div className="w-2 h-2 bg-destructive rounded-full animate-pulse" />
                       <span className="text-xs font-medium text-destructive">LIVE</span>
                     </div>
-                  ) : isCompleted ? (
+                  ) : finalIsCompleted ? (
                     <div className="flex items-center gap-1 px-2 py-1 bg-primary/10 border border-primary/20 rounded">
                       <VideoCameraIcon className="w-3 h-3 text-primary" />
                       <span className="text-xs font-medium text-primary">DONE</span>
@@ -149,7 +155,7 @@ export function MeetingHeader() {
                 </div>
                 
                 {/* Bot Control or View Report for mobile */}
-                {isCompleted ? (
+                {finalIsCompleted ? (
                   <button
                     onClick={() => router.push(`/report/${meeting?.id}`)}
                     className="flex items-center gap-1 px-2 py-1 bg-green-600 hover:bg-green-700 text-white rounded transition-colors"
@@ -213,7 +219,7 @@ export function MeetingHeader() {
                     )}
                   </div>
                   {/* Live Recording Indicator */}
-                  {isActive && (
+                  {finalIsActive && (
                     <div className="absolute -top-1 -right-1">
                       <div className="w-4 h-4 bg-red-500 rounded-full animate-pulse border-2 border-background">
                         <div className="w-full h-full bg-red-400 rounded-full animate-ping opacity-75" />
@@ -270,14 +276,14 @@ export function MeetingHeader() {
             >
               {/* Recording Status */}
               <div className="flex items-center">
-              {isActive ? (
+              {finalIsActive ? (
                 <div className="flex items-center gap-2 px-3 sm:px-4 py-2 sm:py-2.5 bg-destructive/10 border border-destructive/20 rounded-xl shadow-sm">
                   <div className="w-2.5 h-2.5 bg-destructive rounded-full animate-pulse" />
                   <span className="text-xs sm:text-sm font-semibold text-destructive">
                     LIVE
                   </span>
                 </div>
-              ) : isCompleted ? (
+              ) : finalIsCompleted ? (
                 <div className="flex items-center gap-2 sm:gap-3 px-3 sm:px-4 py-2 sm:py-2.5 bg-primary/10 border border-primary/20 rounded-xl shadow-sm">
                   <VideoCameraIcon className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-primary" />
                   <span className="text-xs sm:text-sm font-semibold text-primary">
@@ -286,7 +292,7 @@ export function MeetingHeader() {
                   <div className="w-px h-4 bg-primary/30" />
                   <MeetingTimer 
                     isActive={false}
-                    isCompleted={isCompleted}
+                    isCompleted={finalIsCompleted}
                     meetingDurationSeconds={meeting.recordingDurationSeconds}
                   />
                 </div>
@@ -303,7 +309,7 @@ export function MeetingHeader() {
               {/* Bot Control or View Report - Only for desktop */}
               {!isMobile && (
                 <div className="flex items-center gap-3">
-                  {isCompleted ? (
+                  {finalIsCompleted ? (
                     <button
                       onClick={() => router.push(`/report/${meeting?.id}`)}
                       className="flex items-center gap-2 px-3 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors font-medium"

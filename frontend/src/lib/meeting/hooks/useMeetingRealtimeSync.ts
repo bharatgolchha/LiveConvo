@@ -3,7 +3,7 @@ import { supabase } from '@/lib/supabase';
 import { useMeetingContext } from '../context/MeetingContext';
 
 export function useMeetingRealtimeSync(meetingId: string) {
-  const { meeting, setMeeting } = useMeetingContext();
+  const { meeting, setMeeting, setBotStatus } = useMeetingContext();
 
   useEffect(() => {
     if (!meetingId) return;
@@ -35,6 +35,31 @@ export function useMeetingRealtimeSync(meetingId: string) {
                 ...meeting,
                 botId: updates.recall_bot_id
               });
+            }
+            
+            // If status was updated to completed, clear bot status
+            if (updates.status === 'completed') {
+              console.log('✅ Meeting completed, clearing bot status');
+              setBotStatus(null);
+              if (meeting) {
+                setMeeting({
+                  ...meeting,
+                  status: 'completed'
+                });
+              }
+            }
+            
+            // If recall_bot_status was updated, update bot status
+            if (updates.recall_bot_status !== undefined) {
+              console.log('🤖 Bot status updated:', updates.recall_bot_status);
+              if (updates.recall_bot_status === null) {
+                setBotStatus(null);
+              } else {
+                setBotStatus({
+                  status: updates.recall_bot_status,
+                  lastUpdated: new Date().toISOString()
+                });
+              }
             }
           }
         }

@@ -4,7 +4,7 @@ import { useMeetingContext } from '../context/MeetingContext';
 import { useAuth } from '@/contexts/AuthContext';
 
 export function useMeetingSession(meetingId: string) {
-  const { setMeeting } = useMeetingContext();
+  const { setMeeting, setBotStatus } = useMeetingContext();
   const { session: authSession } = useAuth();
   const [meeting, setLocalMeeting] = useState<Meeting | null>(null);
   const [loading, setLoading] = useState(true);
@@ -86,6 +86,16 @@ export function useMeetingSession(meetingId: string) {
 
         setLocalMeeting(meeting);
         setMeeting(meeting);
+        
+        // Initialize bot status based on recall_bot_status
+        if (data.recall_bot_status) {
+          setBotStatus({
+            status: data.recall_bot_status,
+            lastUpdated: new Date().toISOString()
+          });
+        } else {
+          setBotStatus(null);
+        }
       } catch (err) {
         console.error('Error fetching meeting:', err);
         setError(err as Error);

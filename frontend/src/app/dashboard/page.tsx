@@ -20,6 +20,7 @@ import {
   XCircleIcon,
   CalendarIcon,
   Bars3Icon,
+  ArrowPathIcon,
 } from '@heroicons/react/24/outline';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
@@ -34,7 +35,8 @@ import { useDebounce } from '@/lib/utils/debounce';
 import type { Session } from '@/lib/hooks/useSessions';
 import { defaultStats } from '@/lib/hooks/useUserStats';
 import { useUpcomingMeetings } from '@/lib/hooks/useUpcomingMeetings';
-import { useRealtimeBotStatus } from '@/lib/hooks/useRealtimeBotStatus';
+import { useRealtimeDashboard } from '@/lib/hooks/useRealtimeDashboard';
+import { useAutoRefresh } from '@/lib/hooks/useAutoRefresh';
 import { DeleteConfirmationModal } from '@/components/ui/DeleteConfirmationModal';
 import { PricingModal } from '@/components/ui/PricingModal';
 import { SettingsPanel } from '@/components/settings/SettingsPanel';
@@ -55,6 +57,7 @@ const CalendarConnectionBanner = dynamic(() => import('@/components/calendar/Cal
 
 // Newly extracted components (loaded lazily to reduce initial JS)
 const ConversationInboxItem = dynamic(() => import('@/components/dashboard/ConversationInboxItem'));
+const MeetingCardAdapter = dynamic(() => import('@/components/dashboard/MeetingCardAdapter').then(mod => ({ default: mod.MeetingCardAdapter })));
 const EmptyState = dynamic(() => import('@/components/dashboard/EmptyState'));
 const NewConversationModal = dynamic(() => import('@/components/dashboard/NewConversationModal'));
 const ContextUploadWidget = dynamic(() => import('@/components/dashboard/ContextUploadWidget'));
@@ -119,7 +122,9 @@ const DashboardPage: React.FC = () => {
     fetchDashboardData,
     updateSession,
     deleteSession,
-    refreshData
+    refreshData,
+    addSession,
+    removeSession
   } = useDashboardDataWithFallback();
   
   // Extract data from dashboard response
@@ -144,10 +149,25 @@ const DashboardPage: React.FC = () => {
     }
   }, [userStats]);
 
-  // Real-time bot status updates
-  useRealtimeBotStatus({
-    onStatusUpdate: (update) => {
-      console.log('🔄 Real-time bot status update:', update);
+  // Unified real-time dashboard updates
+  const { isConnected: realtimeConnected } = useRealtimeDashboard({
+    onSessionInsert: (newSession) => {
+      console.log('🆕 Real-time new session:', newSession);
+      // Add the new session to local state
+      addSession(newSession);
+    },
+    onSessionUpdate: (updatedSession) => {
+      console.log('🔄 Real-time session update:', updatedSession);
+      // Update the session in local state
+      updateSession(updatedSession.id, updatedSession);
+    },
+    onSessionDelete: (sessionId) => {
+      console.log('🗑️ Real-time session delete:', sessionId);
+      // Remove the session from local state
+      removeSession(sessionId);
+    },
+    onBotStatusUpdate: (update) => {
+      console.log('🤖 Real-time bot status update:', update);
       // Update the session in local state
       updateSession(update.session_id, {
         recall_bot_status: update.status as Session['recall_bot_status'],
@@ -156,6 +176,20 @@ const DashboardPage: React.FC = () => {
       });
     }
   });
+
+  // Auto-refresh fallback when real-time is not connected
+  useAutoRefresh({
+    onRefresh: refreshData,
+    interval: 30000, // Refresh every 30 seconds
+    enabled: !realtimeConnected && !dataLoading // Only enable when real-time is down and not already loading
+  });
+
+  // Show a small notification when using fallback mode
+  React.useEffect(() => {
+    if (!realtimeConnected && sessions.length > 0) {
+      console.log('ℹ️ Real-time updates unavailable - using auto-refresh mode (30s intervals)');
+    }
+  }, [realtimeConnected, sessions.length]);
 
   // Debug logging
   React.useEffect(() => {
@@ -527,14 +561,6 @@ const DashboardPage: React.FC = () => {
   // Get upcoming meetings data
   const { count: upcomingMeetingsCount, todayCount: todayMeetingsCount, hasCalendarConnection: hasCalendar } = useUpcomingMeetings();
 
-  // Additional debug logging
-  console.log('Dashboard render check:', {
-    hasAnySessions,
-    sessionsLength: sessions.length,
-    dashboardData: !!dashboardData,
-    sessionsLoading,
-    sessionsError
-  });
 
   const handleCreateFollowUp = async (originalSession: Session) => {
     try {
@@ -654,6 +680,7 @@ const DashboardPage: React.FC = () => {
           minutesRemaining={userStats.minutesRemaining}
         />
       )}
+      
       
       {/* Mobile Sidebar Overlay */}
       {isSidebarOpen && (
@@ -830,19 +857,32 @@ const DashboardPage: React.FC = () => {
                     {/* Meeting List */}
                     <div className="flex-1 p-3 sm:p-4 space-y-2 sm:space-y-3">
                       {/* Always render as list view */}
-                      {filtered.sessions?.map((session) => (
-                        <ConversationInboxItem
+                      {sessions?.map((session) => (
+                        <MeetingCardAdapter
                           key={`session-${session.id}`}
                           session={session}
-                          isSelected={selectedSessions.has(session.id)}
-                          onClick={() => handleSessionSelect(session.id)}
-                          onResume={handleResumeSession}
-                          onViewSummary={handleViewSummary}
-                          onArchive={handleArchiveSession}
-                          onDelete={handleDeleteSession}
-                          onCreateFollowUp={handleCreateFollowUp}
+                          selected={selectedSessions.has(session.id)}
+                          onSelect={(id, checked) => {
+                            if (checked) {
+                              setSelectedSessions(prev => new Set([...prev, id]))
+                            } else {
+                              setSelectedSessions(prev => {
+                                const newSet = new Set(prev)
+                                newSet.delete(id)
+                                return newSet
+                              })
+                            }
+                          }}
+                          onOpen={handleResumeSession}
+                          onFollowUp={(id) => {
+                            const session = sessions.find(s => s.id === id)
+                            if (session) {
+                              handleCreateFollowUp(session)
+                            }
+                          }}
+                          onReport={handleViewSummary}
                         />
-                      ))}
+                      )) || <div>No sessions found</div>}
                     </div>
 
                     {/* Pagination */}

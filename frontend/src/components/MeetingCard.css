@@ -1,0 +1,26 @@
+/* Grid areas for responsive layout */
+@supports (display: grid) {
+  .grid-areas-\[left_body_right\] {
+    grid-template-areas: "left body right";
+  }
+  
+  .grid-areas-\[left_body_right\] > :nth-child(1) {
+    grid-area: left;
+  }
+  
+  .grid-areas-\[left_body_right\] > :nth-child(2) {
+    grid-area: body;
+  }
+  
+  .grid-areas-\[left_body_right\] > :nth-child(3) {
+    grid-area: right;
+  }
+}
+
+/* Custom line clamp for 3 lines */
+.line-clamp-3 {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  overflow: hidden;
+}

@@ -40,6 +40,8 @@ export interface DashboardDataHookReturn {
   updateSession: (id: string, updates: Partial<Session>) => Promise<Session | null>;
   deleteSession: (id: string, hard?: boolean) => Promise<boolean>;
   refreshData: () => Promise<void>;
+  addSession: (session: Session) => void;
+  removeSession: (sessionId: string) => void;
 }
 
 // Request deduplication
@@ -317,6 +319,45 @@ export function useDashboardData(): DashboardDataHookReturn {
     }
   }, [user?.id, authLoading, session?.access_token]); // Remove fetchDashboardData to prevent circular dependency
 
+  /**
+   * Add a new session to the local state (for real-time inserts)
+   */
+  const addSession = useCallback((session: Session) => {
+    setData(prev => {
+      if (!prev) return prev;
+      
+      // Check if session already exists to avoid duplicates
+      const exists = prev.sessions.some(s => s.id === session.id);
+      if (exists) return prev;
+      
+      // Add the new session at the beginning of the list
+      return {
+        ...prev,
+        sessions: [session, ...prev.sessions],
+        total_count: prev.total_count + 1
+      };
+    });
+  }, []);
+
+  /**
+   * Remove a session from local state (for real-time deletes)
+   */
+  const removeSession = useCallback((sessionId: string) => {
+    setData(prev => {
+      if (!prev) return prev;
+      
+      // Check if session exists
+      const exists = prev.sessions.some(s => s.id === sessionId);
+      if (!exists) return prev;
+      
+      return {
+        ...prev,
+        sessions: prev.sessions.filter(s => s.id !== sessionId),
+        total_count: Math.max(0, prev.total_count - 1)
+      };
+    });
+  }, []);
+
   // Cleanup abort controller on unmount
   useEffect(() => {
     return () => {
@@ -334,5 +375,7 @@ export function useDashboardData(): DashboardDataHookReturn {
     updateSession,
     deleteSession,
     refreshData,
+    addSession,
+    removeSession,
   };
 }
