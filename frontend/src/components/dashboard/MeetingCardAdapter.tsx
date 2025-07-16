@@ -185,7 +185,6 @@ export const MeetingCardAdapter = React.memo(({
     prevProps.session.status === nextProps.session.status &&
     prevProps.session.recall_bot_status === nextProps.session.recall_bot_status &&
     prevProps.session.recording_duration_seconds === nextProps.session.recording_duration_seconds &&
-    prevProps.session.bot_recording_minutes === nextProps.session.bot_recording_minutes &&
     prevProps.session.updated_at === nextProps.session.updated_at &&
     prevProps.selected === nextProps.selected
   )
