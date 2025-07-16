@@ -3,6 +3,7 @@ import {
   MicrophoneIcon,
   ArchiveBoxIcon,
   Cog6ToothIcon,
+  XMarkIcon,
 } from '@heroicons/react/24/outline';
 import { Crown, Gift } from 'lucide-react';
 import { PricingModal } from '@/components/ui/PricingModal';
@@ -28,9 +29,10 @@ interface DashboardSidebarProps {
   activePath: string;
   onNavigate: (path: string) => void;
   currentUser: { plan: 'free' | 'pro' | 'team'; };
+  onCloseMobile?: () => void;
 }
 
-const DashboardSidebar: React.FC<DashboardSidebarProps> = ({ usageStats, activePath, onNavigate, currentUser }) => {
+const DashboardSidebar: React.FC<DashboardSidebarProps> = ({ usageStats, activePath, onNavigate, currentUser, onCloseMobile }) => {
   // Debug: Log the usageStats to see what's being passed
   React.useEffect(() => {
     console.log('📊 DashboardSidebar usageStats:', {
@@ -77,7 +79,20 @@ const DashboardSidebar: React.FC<DashboardSidebarProps> = ({ usageStats, activeP
   const [isPricingOpen, setIsPricingOpen] = useState(false);
 
   return (
-    <aside className="w-64 bg-card border-r border-border flex flex-col">
+    <aside className="w-64 h-full bg-card border-r border-border flex flex-col">
+      {/* Mobile Header with Close Button */}
+      {onCloseMobile && (
+        <div className="lg:hidden flex items-center justify-between p-4 border-b border-border">
+          <h2 className="text-lg font-semibold">Menu</h2>
+          <button
+            onClick={onCloseMobile}
+            className="p-2 rounded-lg hover:bg-accent transition-colors"
+            aria-label="Close menu"
+          >
+            <XMarkIcon className="w-5 h-5 text-muted-foreground" />
+          </button>
+        </div>
+      )}
       {/* Navigation */}
       <nav className="flex-1 px-4 py-6 space-y-2">
         {navItems.map((item) => (

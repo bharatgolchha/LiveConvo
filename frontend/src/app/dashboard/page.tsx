@@ -18,6 +18,8 @@ import {
   ChevronDownIcon,
   TrashIcon,
   XCircleIcon,
+  CalendarIcon,
+  Bars3Icon,
 } from '@heroicons/react/24/outline';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
@@ -89,6 +91,7 @@ const DashboardPage: React.FC = () => {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [showMobileMeetings, setShowMobileMeetings] = useState(false);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   
   // Read 'tab' query parameter to set initial active path
   const tabParam = searchParams.get('tab');
@@ -635,11 +638,12 @@ const DashboardPage: React.FC = () => {
 
   return (
     <DashboardChatProvider>
-      <div className="h-screen bg-background flex flex-col">
+      <div className="h-screen bg-background flex flex-col relative overflow-hidden">
         <DashboardHeader 
           user={currentUser} 
           onSearch={handleSearch}
           onNavigateToSettings={() => setActivePath('settings')}
+          onMenuClick={() => setIsSidebarOpen(!isSidebarOpen)}
         />
       
       {/* Usage Warning Banner */}
@@ -651,36 +655,52 @@ const DashboardPage: React.FC = () => {
         />
       )}
       
-      <div className="flex flex-1 overflow-hidden">
-        <DashboardSidebar 
-          usageStats={userStats || defaultStats}
-          activePath={activePath}
-          onNavigate={(path) => {
-            if (path === 'pricing') {
-              setIsPricingModalOpen(true);
-            } else if (path === 'referrals') {
-              router.push('/dashboard/referrals');
-            } else {
-              setActivePath(path);
-            }
-          }}
-          currentUser={currentUser}
+      {/* Mobile Sidebar Overlay */}
+      {isSidebarOpen && (
+        <div 
+          className="fixed inset-0 bg-black/50 z-40 lg:hidden"
+          onClick={() => setIsSidebarOpen(false)}
         />
+      )}
+      
+      <div className="flex flex-1 overflow-hidden relative">
+        {/* Sidebar - Mobile Drawer */}
+        <div className={`
+          fixed lg:relative inset-y-0 left-0 z-50 w-64 transform transition-transform duration-300 ease-in-out bg-card
+          ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
+        `}>
+          <DashboardSidebar 
+            usageStats={userStats || defaultStats}
+            activePath={activePath}
+            onNavigate={(path) => {
+              setIsSidebarOpen(false); // Close sidebar on mobile after navigation
+              if (path === 'pricing') {
+                setIsPricingModalOpen(true);
+              } else if (path === 'referrals') {
+                router.push('/dashboard/referrals');
+              } else {
+                setActivePath(path);
+              }
+            }}
+            currentUser={currentUser}
+            onCloseMobile={() => setIsSidebarOpen(false)}
+          />
+        </div>
         
         <main className="flex-1 overflow-hidden flex">
           {/* Main content area */}
-          <div className="flex-1 p-6 flex flex-col overflow-auto">
+          <div className="flex-1 p-4 sm:p-6 flex flex-col overflow-auto">
             {/* Hero Section */}
             {hasAnySessions && activePath !== 'settings' && activePath !== 'referrals' && (
               <motion.div 
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="bg-card border border-border rounded-lg p-6 mb-6 shadow-sm"
+                className="bg-card border border-border rounded-lg p-4 sm:p-6 mb-4 sm:mb-6 shadow-sm"
               >
                 <div className="flex items-center justify-between">
                   <div>
-                    <h1 className="text-2xl font-bold mb-2 text-foreground">Welcome back, {currentUser.name}!</h1>
-                    <p className="text-muted-foreground">
+                    <h1 className="text-lg sm:text-2xl font-bold mb-2 text-foreground">Welcome back, {currentUser.name}!</h1>
+                    <p className="text-sm sm:text-base text-muted-foreground">
                       {hasCalendar && upcomingMeetingsCount > 0 ? (
                         todayMeetingsCount > 0 
                           ? `You have ${todayMeetingsCount} meeting${todayMeetingsCount === 1 ? '' : 's'} today${upcomingMeetingsCount > todayMeetingsCount ? ` and ${upcomingMeetingsCount - todayMeetingsCount} more this week` : ''}`
@@ -738,7 +758,7 @@ const DashboardPage: React.FC = () => {
                     className="bg-card rounded-lg shadow-sm border border-border overflow-hidden flex flex-col flex-1"
                   >
                     {/* List Header */}
-                    <div className="px-6 py-3 bg-muted/30 border-b border-border">
+                    <div className="px-3 sm:px-6 py-2 sm:py-3 bg-muted/30 border-b border-border">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-4">
                           {/* Select All Checkbox */}
@@ -808,7 +828,7 @@ const DashboardPage: React.FC = () => {
                     </div>
 
                     {/* Meeting List */}
-                    <div className="flex-1 p-4 space-y-3">
+                    <div className="flex-1 p-3 sm:p-4 space-y-2 sm:space-y-3">
                       {/* Always render as list view */}
                       {filtered.sessions?.map((session) => (
                         <ConversationInboxItem
@@ -887,7 +907,7 @@ const DashboardPage: React.FC = () => {
           </div>
           
           {/* Upcoming Meetings Sidebar - Desktop */}
-          <UpcomingMeetingsSidebar className="hidden lg:flex" />
+          <UpcomingMeetingsSidebar className="hidden xl:flex" />
         </main>
       </div>
 
@@ -941,6 +961,42 @@ const DashboardPage: React.FC = () => {
         description={isNewSession ? "Setting up your session" : "Please wait a moment"}
         isNewSession={isNewSession}
       />
+
+      {/* Mobile Meetings Toggle Button */}
+      {hasAnySessions && (
+        <button
+          onClick={() => setShowMobileMeetings(!showMobileMeetings)}
+          className="xl:hidden fixed bottom-28 right-6 z-30 bg-primary text-primary-foreground rounded-full p-3 shadow-lg"
+          aria-label="View upcoming meetings"
+        >
+          <CalendarIcon className="h-5 w-5" />
+        </button>
+      )}
+      
+      {/* Mobile Meetings Drawer */}
+      {showMobileMeetings && (
+        <div className="xl:hidden fixed inset-0 z-40">
+          <div 
+            className="absolute inset-0 bg-black/50"
+            onClick={() => setShowMobileMeetings(false)}
+          />
+          <div className="absolute bottom-0 left-0 right-0 bg-background rounded-t-xl max-h-[80vh] overflow-hidden">
+            <div className="flex items-center justify-between p-4 border-b border-border">
+              <h3 className="text-lg font-semibold">Upcoming Meetings</h3>
+              <button
+                onClick={() => setShowMobileMeetings(false)}
+                className="p-2 rounded-lg hover:bg-accent transition-colors"
+                aria-label="Close"
+              >
+                <XCircleIcon className="w-5 h-5" />
+              </button>
+            </div>
+            <UpcomingMeetingsSidebar 
+              className="flex h-full"
+            />
+          </div>
+        </div>
+      )}
 
       {/* Dashboard Chatbot */}
       <DashboardChatbot />

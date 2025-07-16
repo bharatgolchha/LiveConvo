@@ -277,7 +277,7 @@ const ConversationInboxItem: React.FC<Props> = ({
               <VideoCameraIcon className="w-4 h-4 text-primary flex-shrink-0" />
             )}
             
-            <h3 className="text-sm font-medium text-foreground truncate flex-1">
+            <h3 className="text-xs sm:text-sm font-medium text-foreground truncate flex-1">
               {session.title || 'Untitled Session'}
             </h3>
           </div>
@@ -295,7 +295,7 @@ const ConversationInboxItem: React.FC<Props> = ({
 
         {/* Right: Time */}
         <div className="flex items-center gap-2 flex-shrink-0">
-          <span className="text-xs text-muted-foreground">
+          <span className="text-xs text-muted-foreground whitespace-nowrap">
             {formatDistanceToNow(new Date(session.updated_at), { addSuffix: true })}
           </span>
         </div>
@@ -328,8 +328,8 @@ const ConversationInboxItem: React.FC<Props> = ({
               )}
             </div>
             
-            {/* Participant Names (truncated for small screens) */}
-            <div className="flex items-center gap-1 text-xs text-muted-foreground min-w-0 ml-2">
+            {/* Participant Names (hidden on mobile) */}
+            <div className="hidden sm:flex items-center gap-1 text-xs text-muted-foreground min-w-0 ml-2">
               <span className="truncate">
                 {displayParticipants.join(', ')}
                 {remainingCount > 0 && `, +${remainingCount} more`}
@@ -448,8 +448,8 @@ const ConversationInboxItem: React.FC<Props> = ({
           )}
         </div>
 
-        {/* Right: Action Buttons */}
-        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-150">
+        {/* Right: Action Buttons - Always visible on mobile */}
+        <div className="flex items-center gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity duration-150">
           {/* Primary Action */}
           {session.status === 'active' && (
             <button

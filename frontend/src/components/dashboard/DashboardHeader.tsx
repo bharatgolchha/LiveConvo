@@ -8,6 +8,8 @@ import {
   Cog6ToothIcon,
   ArrowRightOnRectangleIcon,
   QuestionMarkCircleIcon,
+  Bars3Icon,
+  XMarkIcon,
 } from '@heroicons/react/24/outline';
 import { ThemeToggle } from '@/components/ui/ThemeToggle';
 import { useTheme } from '@/contexts/ThemeContext';
@@ -26,10 +28,12 @@ interface DashboardHeaderProps {
   user: DashboardUser;
   onSearch: (query: string) => void;
   onNavigateToSettings: () => void;
+  onMenuClick?: () => void;
 }
 
-const DashboardHeader: React.FC<DashboardHeaderProps> = ({ user, onSearch, onNavigateToSettings }) => {
+const DashboardHeader: React.FC<DashboardHeaderProps> = ({ user, onSearch, onNavigateToSettings, onMenuClick }) => {
   const [searchQuery, setSearchQuery] = useState('');
+  const [isMobileSearchOpen, setIsMobileSearchOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const { signOut } = useAuth();
   const { resolvedTheme } = useTheme();
@@ -65,8 +69,18 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({ user, onSearch, onNav
       className="relative z-40 bg-card/95 backdrop-blur-sm border-b border-border px-6 py-4"
     >
       <div className="flex items-center justify-between">
-        {/* Logo */}
-        <div className="flex items-center space-x-4">
+        {/* Logo and Menu */}
+        <div className="flex items-center space-x-2 sm:space-x-4">
+          {/* Mobile Menu Button */}
+          {onMenuClick && (
+            <button
+              onClick={onMenuClick}
+              className="lg:hidden p-2 rounded-lg hover:bg-accent transition-colors"
+              aria-label="Toggle menu"
+            >
+              <Bars3Icon className="w-6 h-6 text-muted-foreground" />
+            </button>
+          )}
           <img
             src={
               resolvedTheme === 'dark'
@@ -74,12 +88,12 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({ user, onSearch, onNav
                 : 'https://ucvfgfbjcrxbzppwjpuu.supabase.co/storage/v1/object/public/images//LightMode2.png'
             }
             alt="liveprompt.ai"
-            className="h-8 w-auto object-contain"
+            className="h-6 sm:h-8 w-auto object-contain"
           />
         </div>
 
         {/* Search Bar */}
-        <div className="flex-1 max-w-md mx-8">
+        <div className="hidden sm:block flex-1 max-w-md mx-4 lg:mx-8">
           <div className="relative">
             <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-muted-foreground" />
             <input
@@ -95,13 +109,22 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({ user, onSearch, onNav
           </div>
         </div>
 
+        {/* Mobile Search Button */}
+        <button
+          onClick={() => setIsMobileSearchOpen(!isMobileSearchOpen)}
+          className="sm:hidden p-2 rounded-lg hover:bg-accent transition-colors"
+          aria-label="Search"
+        >
+          <MagnifyingGlassIcon className="w-6 h-6 text-muted-foreground" />
+        </button>
+        
         {/* Right Actions */}
-        <div className="flex items-center space-x-4">
-          {/* Help / Intercom */}
+        <div className="flex items-center space-x-2 sm:space-x-4">
+          {/* Help / Intercom - Hidden on mobile */}
           <button
             type="button"
             onClick={showIntercom}
-            className="p-2 rounded-lg hover:bg-accent transition-colors"
+            className="hidden sm:block p-2 rounded-lg hover:bg-accent transition-colors"
             aria-label="Help & Support"
           >
             <QuestionMarkCircleIcon className="w-6 h-6 text-muted-foreground" />
@@ -116,7 +139,7 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({ user, onSearch, onNav
               onClick={() => setUserMenuOpen(!userMenuOpen)}
               className="flex items-center space-x-2 p-2 rounded-lg hover:bg-accent transition-colors"
             >
-              <UserCircleIcon className="w-8 h-8 text-muted-foreground" />
+              <UserCircleIcon className="w-6 h-6 sm:w-8 sm:h-8 text-muted-foreground" />
               <div className="hidden sm:block text-left">
                 <p className="text-sm font-medium text-foreground">{user.name}</p>
                 <p className="text-xs text-muted-foreground capitalize">{user.plan} Plan</p>
@@ -165,6 +188,43 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({ user, onSearch, onNav
           </div>
         </div>
       </div>
+      {/* Mobile Search Bar */}
+      {isMobileSearchOpen && (
+        <motion.div
+          initial={{ height: 0, opacity: 0 }}
+          animate={{ height: 'auto', opacity: 1 }}
+          exit={{ height: 0, opacity: 0 }}
+          className="sm:hidden border-t border-border"
+        >
+          <div className="p-3">
+            <div className="relative">
+              <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+              <input
+                type="text"
+                placeholder="Search conversations..."
+                value={searchQuery}
+                onChange={(e) => {
+                  setSearchQuery(e.target.value);
+                  onSearch(e.target.value);
+                }}
+                className="w-full pl-10 pr-10 py-2 border border-input rounded-lg focus:ring-2 focus:ring-app-primary focus:border-transparent bg-background text-foreground"
+                autoFocus
+              />
+              <button
+                onClick={() => {
+                  setSearchQuery('');
+                  onSearch('');
+                  setIsMobileSearchOpen(false);
+                }}
+                className="absolute right-2 top-1/2 transform -translate-y-1/2 p-1 rounded hover:bg-accent transition-colors"
+                aria-label="Clear search"
+              >
+                <XMarkIcon className="w-5 h-5 text-muted-foreground" />
+              </button>
+            </div>
+          </div>
+        </motion.div>
+      )}
     </motion.header>
   );
 };

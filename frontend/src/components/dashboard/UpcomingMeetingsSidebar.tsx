@@ -30,12 +30,14 @@ interface UpcomingMeetingsSidebarProps {
   className?: string;
   defaultOpen?: boolean;
   isMobile?: boolean;
+  onClose?: () => void;
 }
 
 export const UpcomingMeetingsSidebar: React.FC<UpcomingMeetingsSidebarProps> = ({ 
   className = '',
   defaultOpen = true,
-  isMobile = false
+  isMobile = false,
+  onClose
 }) => {
   const { session } = useAuth();
   const [isOpen, setIsOpen] = useState(defaultOpen);

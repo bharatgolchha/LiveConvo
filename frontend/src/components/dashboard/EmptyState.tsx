@@ -112,9 +112,9 @@ const EmptyState: React.FC<Props> = ({ onNewConversation, onNewMeeting }) => {
         <ConversationIllustration />
         
         {/* Content */}
-        <div className="text-center max-w-2xl space-y-6">
+        <div className="text-center max-w-2xl space-y-4 sm:space-y-6">
           <motion.h1 
-            className="text-4xl font-semibold text-foreground tracking-tight"
+            className="text-2xl sm:text-4xl font-semibold text-foreground tracking-tight"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 0.3 }}
@@ -123,7 +123,7 @@ const EmptyState: React.FC<Props> = ({ onNewConversation, onNewMeeting }) => {
           </motion.h1>
           
           <motion.p 
-            className="text-muted-foreground text-xl leading-relaxed max-w-xl mx-auto"
+            className="text-muted-foreground text-base sm:text-xl leading-relaxed max-w-xl mx-auto"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 0.4 }}
@@ -163,7 +163,7 @@ const EmptyState: React.FC<Props> = ({ onNewConversation, onNewMeeting }) => {
         
         {/* Action buttons */}
         <motion.div 
-          className="flex flex-col sm:flex-row gap-4 mt-10 items-center"
+          className="flex flex-col sm:flex-row gap-4 mt-8 sm:mt-10 items-center"
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.6 }}
