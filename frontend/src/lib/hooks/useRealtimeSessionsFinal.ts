@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
-import { getRealtimeClient } from '@/lib/supabase-realtime';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import type { Session } from './useSessions';
@@ -19,6 +18,7 @@ export function useRealtimeSessionsFinal({
   const [isConnected, setIsConnected] = useState(false);
   const channelRef = useRef<RealtimeChannel | null>(null);
   const isSubscribingRef = useRef(false);
+  const userIdRef = useRef<string | null>(null);
   
   // Stable callback ref
   const onChangeRef = useRef(onChange);
@@ -27,52 +27,46 @@ export function useRealtimeSessionsFinal({
   }, [onChange]);
 
   useEffect(() => {
-    if (!user?.id || isSubscribingRef.current) {
+    if (!user?.id) {
+      return;
+    }
+
+    // Prevent multiple subscriptions for the same user
+    if (isSubscribingRef.current && userIdRef.current === user.id) {
       return;
     }
 
     let mounted = true;
     isSubscribingRef.current = true;
+    userIdRef.current = user.id;
 
     const setupRealtime = async () => {
       try {
-        // Clean up any existing channel
+        // Clean up any existing channel first
         if (channelRef.current) {
           console.log('🧹 Cleaning up existing channel');
-          const client = getRealtimeClient();
-          client.removeChannel(channelRef.current);
+          await supabase.removeChannel(channelRef.current);
           channelRef.current = null;
+          setIsConnected(false);
         }
 
         if (!mounted) return;
 
         console.log('🎯 Setting up final realtime for user:', user.id);
 
-        // Get auth session for the real-time client
-        const { data: { session: authSession } } = await supabase.auth.getSession();
-        if (!authSession) {
-          console.error('❌ No auth session available');
-          return;
-        }
-
-        // Set the auth token on the real-time client
-        const realtimeClient = getRealtimeClient();
-        await realtimeClient.auth.setSession({
-          access_token: authSession.access_token,
-          refresh_token: authSession.refresh_token,
-        });
-
-        if (!mounted) return;
-
-        // Create channel with a simple name
-        const channel = realtimeClient
-          .channel('sessions-dashboard')
+        // Create a unique channel name to avoid conflicts
+        const channelName = `user-sessions-${user.id}-${Date.now()}`;
+        
+        // Create channel with user-specific filtering
+        const channel = supabase
+          .channel(channelName)
           .on(
             'postgres_changes',
             {
               event: '*',
               schema: 'public',
-              table: 'sessions'
+              table: 'sessions',
+              filter: `user_id=eq.${user.id}`
             },
             (payload: RealtimePostgresChangesPayload<Session>) => {
               const session = (payload.new || payload.old) as Session;
@@ -103,9 +97,11 @@ export function useRealtimeSessionsFinal({
             } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
               console.error('❌ Final subscription failed:', status);
               setIsConnected(false);
+              channelRef.current = null;
             } else if (status === 'CLOSED') {
               console.log('📪 Final subscription closed');
               setIsConnected(false);
+              channelRef.current = null;
             }
           }
         });
@@ -113,6 +109,7 @@ export function useRealtimeSessionsFinal({
       } catch (error) {
         console.error('❌ Error setting up real-time:', error);
         setIsConnected(false);
+        channelRef.current = null;
       } finally {
         isSubscribingRef.current = false;
       }
@@ -124,11 +121,12 @@ export function useRealtimeSessionsFinal({
       mounted = false;
       if (channelRef.current) {
         console.log('🧹 Cleaning up final subscription');
-        const client = getRealtimeClient();
-        client.removeChannel(channelRef.current);
+        supabase.removeChannel(channelRef.current);
         channelRef.current = null;
       }
+      setIsConnected(false);
       isSubscribingRef.current = false;
+      userIdRef.current = null;
     };
   }, [user?.id]);
 
