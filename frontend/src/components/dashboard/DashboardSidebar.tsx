@@ -6,7 +6,7 @@ import {
   XMarkIcon,
 } from '@heroicons/react/24/outline';
 import { Crown, Gift } from 'lucide-react';
-import { PricingModal } from '@/components/ui/PricingModal';
+import { useRouter } from 'next/navigation';
 
 export interface UsageStats {
   monthlyAudioHours: number;
@@ -76,7 +76,7 @@ const DashboardSidebar: React.FC<DashboardSidebarProps> = ({ usageStats, activeP
         100,
       );
 
-  const [isPricingOpen, setIsPricingOpen] = useState(false);
+  const router = useRouter();
 
   return (
     <aside className="w-64 h-full bg-card border-r border-border flex flex-col">
@@ -171,7 +171,7 @@ const DashboardSidebar: React.FC<DashboardSidebarProps> = ({ usageStats, activeP
         {currentUser.plan === 'free' && (
           <div className="px-4 pb-6">
             <button
-              onClick={() => setIsPricingOpen(true)}
+              onClick={() => router.push('/pricing')}
               className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-gradient-to-r from-primary to-primary/80 text-primary-foreground rounded-lg text-sm font-medium hover:from-primary/90 hover:to-primary disabled:opacity-50"
             >
               <Crown className="w-4 h-4" />
@@ -180,9 +180,6 @@ const DashboardSidebar: React.FC<DashboardSidebarProps> = ({ usageStats, activeP
           </div>
         )}
       </div>
-
-      {/* Pricing Modal */}
-      <PricingModal isOpen={isPricingOpen} onClose={() => setIsPricingOpen(false)} />
     </aside>
   );
 };
