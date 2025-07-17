@@ -13,7 +13,8 @@ import {
   BriefcaseIcon,
   AcademicCapIcon,
   HeartIcon,
-  SparklesIcon
+  SparklesIcon,
+  ShareIcon
 } from '@heroicons/react/24/outline';
 import { useAuth } from '@/contexts/AuthContext';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -26,6 +27,8 @@ interface SessionOption {
   recording_duration_seconds?: number;
   status?: string;
   total_words_spoken?: number;
+  user_id?: string;
+  organization_id?: string;
 }
 
 interface Props {
@@ -100,9 +103,10 @@ const conversationTypeOptions = [
  * - Show recent meetings by default
  * - Display meeting metadata (type, date, duration)
  * - Smooth animations and interactions
+ * - Shows both own and shared meetings
  */
 export function PreviousConversationsMultiSelect({ selected, setSelected }: Props) {
-  const { session: authSession } = useAuth();
+  const { session: authSession, user } = useAuth();
   const [query, setQuery] = useState('');
   const [typeFilter, setTypeFilter] = useState('');
   const [options, setOptions] = useState<SessionOption[]>([]);
@@ -145,7 +149,8 @@ export function PreviousConversationsMultiSelect({ selected, setSelected }: Prop
     try {
       const params = new URLSearchParams({ 
         limit: '10',
-        status: 'completed' // Only show completed meetings
+        status: 'completed', // Only show completed meetings
+        includeShared: 'true' // Include meetings shared with the user
       });
       
       const res = await fetch(`/api/sessions?${params.toString()}`, {
@@ -170,7 +175,8 @@ export function PreviousConversationsMultiSelect({ selected, setSelected }: Prop
     try {
       const params = new URLSearchParams({ 
         limit: '15',
-        status: 'completed' // Only show completed meetings
+        status: 'completed', // Only show completed meetings
+        includeShared: 'true' // Include meetings shared with the user
       });
       
       if (query.length >= 2) {
@@ -204,7 +210,9 @@ export function PreviousConversationsMultiSelect({ selected, setSelected }: Prop
     created_at: session.created_at,
     recording_duration_seconds: session.recording_duration_seconds,
     status: session.status,
-    total_words_spoken: session.total_words_spoken
+    total_words_spoken: session.total_words_spoken,
+    user_id: session.user_id,
+    organization_id: session.organization_id
   });
 
   const addSession = (session: SessionOption) => {
@@ -228,7 +236,7 @@ export function PreviousConversationsMultiSelect({ selected, setSelected }: Prop
       </label>
       
       <p className="text-xs text-muted-foreground">
-        Add context from previous meetings to help the AI understand background and history
+        Add context from your own or shared meetings to help the AI understand background and history
       </p>
 
       {/* Selected meetings display */}
@@ -260,7 +268,8 @@ export function PreviousConversationsMultiSelect({ selected, setSelected }: Prop
                       <div className="text-sm font-medium text-foreground truncate">
                         {session.title}
                       </div>
-                      <div className="text-xs text-muted-foreground">
+                      <div className="text-xs text-muted-foreground flex items-center gap-1">
+                        {session.user_id !== user?.id && <ShareIcon className="w-3 h-3" />}
                         {formatConversationType(session.conversation_type)} • {formatDate(session.created_at)}
                       </div>
                     </div>
@@ -376,6 +385,12 @@ export function PreviousConversationsMultiSelect({ selected, setSelected }: Prop
                           {session.title}
                         </div>
                         <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5">
+                          {session.user_id !== user?.id && (
+                            <span className="flex items-center gap-1 text-primary">
+                              <ShareIcon className="w-3 h-3" />
+                              <span>Shared</span>
+                            </span>
+                          )}
                           <span>{formatConversationType(session.conversation_type)}</span>
                           <span>•</span>
                           <span className="flex items-center gap-1">

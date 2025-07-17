@@ -31,7 +31,7 @@ export async function GET(
     // Create authenticated client for data access
     const authenticatedClient = createAuthenticatedSupabaseClient(token);
 
-    // Fetch the summary data
+    // Fetch the summary data (RLS will handle access control)
     const { data: summary, error: summaryError } = await authenticatedClient
       .from('summaries')
       .select(`
@@ -50,7 +50,6 @@ export async function GET(
         updated_at
       `)
       .eq('session_id', sessionId)
-      .eq('user_id', user.id)
       .is('deleted_at', null)
       .single();
 

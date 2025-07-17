@@ -4,6 +4,7 @@ import {
   ArchiveBoxIcon,
   Cog6ToothIcon,
   XMarkIcon,
+  ShareIcon,
 } from '@heroicons/react/24/outline';
 import { Crown, Gift } from 'lucide-react';
 import { useRouter } from 'next/navigation';
@@ -19,6 +20,7 @@ export interface UsageStats {
   activeSessions?: number;
   draftSessions?: number;
   archivedSessions?: number;
+  sharedSessions?: number;
   monthlyBotMinutesUsed?: number;
   monthlyBotMinutesLimit?: number;
   session_minutes_used?: number;
@@ -30,9 +32,10 @@ interface DashboardSidebarProps {
   onNavigate: (path: string) => void;
   currentUser: { plan: 'free' | 'pro' | 'team'; };
   onCloseMobile?: () => void;
+  sharedCount?: number;
 }
 
-const DashboardSidebar: React.FC<DashboardSidebarProps> = ({ usageStats, activePath, onNavigate, currentUser, onCloseMobile }) => {
+const DashboardSidebar: React.FC<DashboardSidebarProps> = ({ usageStats, activePath, onNavigate, currentUser, onCloseMobile, sharedCount }) => {
   // Debug: Log the usageStats to see what's being passed
   React.useEffect(() => {
     console.log('📊 DashboardSidebar usageStats:', {
@@ -64,6 +67,7 @@ const DashboardSidebar: React.FC<DashboardSidebarProps> = ({ usageStats, activeP
 
   const navItems = [
     { path: 'conversations', label: 'Meetings', icon: MicrophoneIcon, count: activeCount },
+    { path: 'shared', label: 'Shared with me', icon: ShareIcon, count: sharedCount },
     { path: 'archive', label: 'Archive', icon: ArchiveBoxIcon, count: archivedCount },
     { path: 'settings', label: 'Settings', icon: Cog6ToothIcon },
   ];

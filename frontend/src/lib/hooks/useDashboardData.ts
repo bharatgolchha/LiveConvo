@@ -30,6 +30,7 @@ export interface DashboardFilters {
   search?: string;
   limit?: number;
   offset?: number;
+  filter?: string; // Add filter field for 'shared' filter
 }
 
 export interface DashboardDataHookReturn {
@@ -108,6 +109,7 @@ export function useDashboardData(): DashboardDataHookReturn {
       if (filters.search) params.append('search', filters.search);
       if (filters.limit) params.append('limit', filters.limit.toString());
       if (filters.offset) params.append('offset', filters.offset.toString());
+      if (filters.filter) params.append('filter', filters.filter); // Add filter parameter
 
       const headers: HeadersInit = { 'Content-Type': 'application/json' };
       if (session?.access_token) {
@@ -117,7 +119,9 @@ export function useDashboardData(): DashboardDataHookReturn {
       console.log('🚀 Fetching dashboard data', {
         hasSession: !!session,
         hasToken: !!session?.access_token,
-        params: params.toString()
+        params: params.toString(),
+        filters,
+        filterParam: filters.filter
       });
 
       // Create the request promise

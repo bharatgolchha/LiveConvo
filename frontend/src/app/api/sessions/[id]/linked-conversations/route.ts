@@ -149,11 +149,11 @@ export async function POST(
     }
 
     // Verify linked sessions exist and user has access
+    // RLS will ensure user can only see sessions they have access to (own or shared)
     const { data: linkedSessions, error: linkedSessionsError } = await authClient
       .from('sessions')
       .select('id, title, conversation_type, created_at, recording_duration_seconds, status')
       .in('id', sessionIds)
-      .eq('organization_id', session.organization_id)
       .is('deleted_at', null);
 
     if (linkedSessionsError) {

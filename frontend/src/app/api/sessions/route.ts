@@ -34,6 +34,7 @@ export async function GET(request: NextRequest) {
     const offset = parseInt(searchParams.get('offset') || '0');
     const search = searchParams.get('search');
     const conversationType = searchParams.get('conversation_type');
+    const includeShared = searchParams.get('includeShared') === 'true';
 
     // Get current user from Supabase auth using the access token
     const authHeader = request.headers.get('authorization');
@@ -73,7 +74,10 @@ export async function GET(request: NextRequest) {
     // Create authenticated client with user's token for RLS
     const authClient = createAuthenticatedSupabaseClient(token);
     
-    // Build the query (filter by organization instead of just user)
+    // Check if we need to show shared meetings
+    const showSharedOnly = searchParams.get('filter') === 'shared';
+    
+    // Build the query - RLS will handle access permissions for shared meetings
     let query = authClient
       .from('sessions')
       .select(
@@ -94,13 +98,69 @@ export async function GET(request: NextRequest) {
         recall_bot_status,
         meeting_url,
         meeting_platform,
-        ai_instructions
+        ai_instructions,
+        user_id,
+        organization_id
       `,
         { count: 'exact' }
       )
-      .eq('organization_id', userData.current_organization_id)
       .is('deleted_at', null)  // Only get non-deleted sessions
       .order('created_at', { ascending: false });
+    
+    // If showing shared meetings only, filter to meetings shared with current user
+    if (showSharedOnly) {
+      // Get meetings shared with the user through shared_meetings table
+      const { data: sharedMeetingIds, error: sharedError } = await authClient
+        .from('shared_meetings')
+        .select('session_id')
+        .eq('shared_with', user.id)
+        .or('expires_at.is.null,expires_at.gt.now()');
+        
+      if (sharedError) {
+        console.error('Error fetching shared meeting IDs:', sharedError);
+      }
+      
+      const sharedIds = sharedMeetingIds?.map(sm => sm.session_id) || [];
+      
+      // Also get organization shared meetings
+      const { data: orgSharedMeetingIds, error: orgSharedError } = await authClient
+        .from('organization_shared_meetings')
+        .select('session_id')
+        .in('organization_id', [userData.current_organization_id]);
+        
+      if (orgSharedError) {
+        console.error('Error fetching org shared meeting IDs:', orgSharedError);
+      }
+      
+      const orgSharedIds = orgSharedMeetingIds?.map(osm => osm.session_id) || [];
+      
+      // Combine all shared meeting IDs
+      const allSharedIds = [...new Set([...sharedIds, ...orgSharedIds])];
+      
+      if (allSharedIds.length > 0) {
+        query = query.in('id', allSharedIds);
+      } else {
+        // No shared meetings, return empty result
+        return NextResponse.json({
+          sessions: [],
+          total_count: 0,
+          has_more: false,
+          pagination: {
+            limit,
+            offset,
+            total_count: 0,
+            has_more: false
+          }
+        });
+      }
+    } else if (includeShared) {
+      // Include both user's own meetings and shared meetings
+      // RLS will automatically handle this - we just need to not filter by organization
+      // The sessions RLS policy already includes shared meetings
+    } else {
+      // Show only user's own meetings from their organization
+      query = query.eq('organization_id', userData.current_organization_id);
+    }
 
     // Apply filters
     if (status) {

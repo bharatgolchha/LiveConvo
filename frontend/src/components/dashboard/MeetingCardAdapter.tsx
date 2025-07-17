@@ -10,6 +10,7 @@ interface MeetingCardAdapterProps {
   onOpen: (id: string) => void
   onFollowUp: (id: string) => void
   onReport: (id: string) => void
+  onShare?: (session: Session) => void
 }
 
 export const MeetingCardAdapter = React.memo(({
@@ -19,6 +20,7 @@ export const MeetingCardAdapter = React.memo(({
   onOpen,
   onFollowUp,
   onReport,
+  onShare,
 }: MeetingCardAdapterProps) => {
   // Fetch summary data for completed sessions that likely have summaries
   const shouldFetchSummary = session.status === 'completed' && 
@@ -153,10 +155,24 @@ export const MeetingCardAdapter = React.memo(({
                          session.recording_duration_seconds && 
                          session.recording_duration_seconds > 60 && // At least 1 minute of recording
                          summary?.generation_status === 'completed') // Summary is ready
+    
+    // Show share button for completed sessions that user owns
+    const canShowShare = Boolean(session.status === 'completed' && 
+                        session.recording_duration_seconds && 
+                        session.recording_duration_seconds > 60 && // At least 1 minute of recording
+                        !session.is_shared_with_me) // Don't show share for meetings shared with the user
+
+    // Get the display title
+    const displayTitle = session.title || 'Untitled Meeting'
+    
+    // Get shared by name if applicable
+    const sharedByName = session.is_shared_with_me && session.shared_by
+      ? (session.shared_by.full_name || session.shared_by.email?.split('@')[0] || 'Someone')
+      : undefined
 
     return {
       id: session.id,
-      title: session.title || 'Untitled Meeting',
+      title: displayTitle,
       meetingType: getMeetingType(session.conversation_type),
       participants: finalParticipants,
       status: getCardStatus(session.status),
@@ -168,14 +184,19 @@ export const MeetingCardAdapter = React.memo(({
       selected,
       showFollowUp: canShowFollowUp,
       showReport: canShowReport,
+      showShare: canShowShare,
       botStatus: session.recall_bot_status,
       hasParticipants,
+      isShared: session.is_shared,
+      isSharedWithMe: session.is_shared_with_me,
+      sharedByName,
       onSelect,
       onOpen,
       onFollowUp,
       onReport,
+      onShare: onShare ? () => onShare(session) : undefined,
     }
-  }, [session, selected, onSelect, onOpen, onFollowUp, onReport, summary, summaryLoading])
+  }, [session, selected, onSelect, onOpen, onFollowUp, onReport, onShare, summary, summaryLoading])
   
   return <MeetingCard {...mappedProps} />
 }, (prevProps, nextProps) => {

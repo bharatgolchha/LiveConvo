@@ -50,6 +50,7 @@ export async function GET(
     // Create authenticated client with user's token for RLS
     const authClient = createAuthenticatedSupabaseClient(token);
 
+    // First, try to get the session (RLS will handle access control)
     const { data: session, error } = await authClient
       .from('sessions')
       .select(`
@@ -85,7 +86,6 @@ export async function GET(
         recall_recording_expires_at
       `)
       .eq('id', sessionId)
-      .eq('organization_id', userData.current_organization_id)
       .is('deleted_at', null)
       .single();
 

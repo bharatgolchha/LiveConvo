@@ -21,6 +21,7 @@ import {
   CalendarIcon,
   Bars3Icon,
   ArrowPathIcon,
+  ShareIcon,
 } from '@heroicons/react/24/outline';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
@@ -47,6 +48,7 @@ import type { ConversationConfig } from '@/types/app';
 import { Pagination } from '@/components/ui/Pagination';
 import { DashboardChatProvider } from '@/contexts/DashboardChatContext';
 import { DashboardChatbot } from '@/components/dashboard/DashboardChatbot';
+import { ShareMeetingModal } from '@/components/meeting/ShareMeetingModal';
 import dynamic from 'next/dynamic';
 
 // Dynamically load smaller components to reduce initial bundle size
@@ -113,6 +115,9 @@ const DashboardPage: React.FC = () => {
   // Removed groupByThread state - always use list view
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(20); // Number of items per page
+  const [shareModalOpen, setShareModalOpen] = useState(false);
+  const [sessionToShare, setSessionToShare] = useState<Session | null>(null);
+  const [sharedMeetingsCount, setSharedMeetingsCount] = useState(0);
 
   // Get all dashboard data from unified hook
   const { 
@@ -193,6 +198,13 @@ const DashboardPage: React.FC = () => {
       });
     }
   }, [dashboardData, sessions.length, totalCount, hasMore]);
+  
+  // Update shared meetings count when filter is 'shared'
+  React.useEffect(() => {
+    if (activePath === 'shared' && totalCount !== undefined) {
+      setSharedMeetingsCount(totalCount);
+    }
+  }, [activePath, totalCount]);
 
   // Get session data management hooks
   const { 
@@ -281,10 +293,20 @@ const DashboardPage: React.FC = () => {
     });
   };
 
-  const getCurrentFilters = () => ({
-    status: activePath === 'archive' ? 'archived' : undefined,
-    search: debouncedSearchQuery || undefined,
-  });
+  const getCurrentFilters = () => {
+    const filters = {
+      status: activePath === 'archive' ? 'archived' : undefined,
+      search: debouncedSearchQuery || undefined,
+      filter: activePath === 'shared' ? 'shared' : undefined,
+    };
+    console.log('🔍 Dashboard getCurrentFilters:', {
+      activePath,
+      filters,
+      isSharedFilter: activePath === 'shared',
+      willFetchShared: filters.filter === 'shared'
+    });
+    return filters;
+  };
 
   // Update data fetching when filters change (but not pagination)
   React.useEffect(() => {
@@ -506,9 +528,20 @@ const DashboardPage: React.FC = () => {
   });
 
   const handleBulkDelete = async () => {
+    // Filter out shared meetings - can't delete meetings shared with you
+    const ownedSessions = Array.from(selectedSessions).filter(sessionId => {
+      const session = sessions.find(s => s.id === sessionId);
+      return session && !session.is_shared_with_me;
+    });
+    
+    if (ownedSessions.length === 0) {
+      alert('Cannot delete meetings that are shared with you');
+      return;
+    }
+    
     setBulkDeleteModal({
       isOpen: true,
-      count: selectedSessions.size,
+      count: ownedSessions.length,
       isLoading: false
     });
   };
@@ -519,8 +552,14 @@ const DashboardPage: React.FC = () => {
     setBulkDeleteModal(prev => ({ ...prev, isLoading: true }));
 
     try {
-      // Use Promise.all to delete all selected sessions
-      const deletePromises = Array.from(selectedSessions).map(id => deleteSession(id, true));
+      // Filter out shared meetings before deleting
+      const ownedSessions = Array.from(selectedSessions).filter(sessionId => {
+        const session = sessions.find(s => s.id === sessionId);
+        return session && !session.is_shared_with_me;
+      });
+      
+      // Use Promise.all to delete only owned sessions
+      const deletePromises = ownedSessions.map(id => deleteSession(id, true));
       const results = await Promise.all(deletePromises);
       
       const successfulDeletes = results.filter(Boolean).length;
@@ -552,6 +591,63 @@ const DashboardPage: React.FC = () => {
   // Get upcoming meetings data
   const { count: upcomingMeetingsCount, todayCount: todayMeetingsCount, hasCalendarConnection: hasCalendar } = useUpcomingMeetings();
 
+
+  const handleShareMeeting = (session: Session) => {
+    setSessionToShare(session);
+    setShareModalOpen(true);
+  };
+
+  const handleShareComplete = () => {
+    // Refresh the dashboard data to show updated sharing status
+    refreshData();
+  };
+  
+  const handleRemoveFromShared = async () => {
+    // Filter to get only shared meetings
+    const sharedMeetings = Array.from(selectedSessions).filter(sessionId => {
+      const session = sessions.find(s => s.id === sessionId);
+      return session && session.is_shared_with_me;
+    });
+    
+    if (sharedMeetings.length === 0) {
+      alert('Please select shared meetings to remove');
+      return;
+    }
+    
+    if (!confirm(`Remove ${sharedMeetings.length} meeting${sharedMeetings.length > 1 ? 's' : ''} from your shared meetings?`)) {
+      return;
+    }
+    
+    try {
+      const removePromises = sharedMeetings.map(async (sessionId) => {
+        const response = await fetch(`/api/meetings/${sessionId}/remove-share`, {
+          method: 'DELETE',
+          headers: {
+            'Authorization': `Bearer ${authSession?.access_token}`
+          }
+        });
+        
+        if (!response.ok) {
+          const error = await response.json();
+          console.error(`Failed to remove share for ${sessionId}:`, error);
+          return false;
+        }
+        return true;
+      });
+      
+      const results = await Promise.all(removePromises);
+      const successCount = results.filter(Boolean).length;
+      
+      if (successCount > 0) {
+        console.log(`Successfully removed ${successCount} shared meetings`);
+        setSelectedSessions(new Set());
+        refreshData();
+      }
+    } catch (error) {
+      console.error('Error removing shared meetings:', error);
+      alert('Failed to remove some shared meetings');
+    }
+  };
 
   const handleCreateFollowUp = async (originalSession: Session) => {
     try {
@@ -691,6 +787,7 @@ const DashboardPage: React.FC = () => {
           <DashboardSidebar 
             usageStats={userStats || defaultStats}
             activePath={activePath}
+            sharedCount={sharedMeetingsCount}
             onNavigate={(path) => {
               setIsSidebarOpen(false); // Close sidebar on mobile after navigation
               if (path === 'pricing') {
@@ -752,7 +849,7 @@ const DashboardPage: React.FC = () => {
                   setActivePath('conversations'); // Return to conversations view
                 }}
               />
-            ) : !hasAnySessions && activePath !== 'archive' && !searchQuery ? (
+            ) : !hasAnySessions && activePath !== 'archive' && activePath !== 'shared' && !searchQuery ? (
               <EmptyState onNewConversation={handleNewConversation} onNewMeeting={handleNewMeeting} />
             ) : (
               <div className="flex flex-col flex-1">
@@ -796,6 +893,8 @@ const DashboardPage: React.FC = () => {
                             ) : (
                               activePath === 'archive' 
                                 ? `Archived Meetings (${totalFilteredCount})`
+                                : activePath === 'shared'
+                                ? `Shared with Me (${totalFilteredCount})`
                                 : `Meetings (${totalFilteredCount})`
                             )}
                           </h2>
@@ -803,22 +902,35 @@ const DashboardPage: React.FC = () => {
                           {/* Bulk Actions */}
                           {selectedSessions.size > 0 && (
                             <div className="flex items-center gap-2">
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={handleBulkArchive}
-                                className="text-xs"
-                              >
-                                {activePath === 'archive' ? 'Unarchive Selected' : 'Archive Selected'}
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={handleBulkDelete}
-                                className="text-xs text-destructive"
-                              >
-                                Delete Selected
-                              </Button>
+                              {activePath === 'shared' ? (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={handleRemoveFromShared}
+                                  className="text-xs"
+                                >
+                                  Remove from Shared
+                                </Button>
+                              ) : (
+                                <>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={handleBulkArchive}
+                                    className="text-xs"
+                                  >
+                                    {activePath === 'archive' ? 'Unarchive Selected' : 'Archive Selected'}
+                                  </Button>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={handleBulkDelete}
+                                    className="text-xs text-destructive"
+                                  >
+                                    Delete Selected
+                                  </Button>
+                                </>
+                              )}
                               <Button
                                 variant="ghost"
                                 size="sm"
@@ -873,6 +985,7 @@ const DashboardPage: React.FC = () => {
                             }
                           }}
                           onReport={handleViewSummary}
+                          onShare={handleShareMeeting}
                         />
                       )) || <div>No sessions found</div>}
                     </div>
@@ -912,6 +1025,16 @@ const DashboardPage: React.FC = () => {
                           >
                             View Active Meetings
                           </Button>
+                        </>
+                      ) : activePath === 'shared' ? (
+                        <>
+                          <ShareIcon className="w-12 h-12 text-muted-foreground/50 mx-auto mb-4" />
+                          <h3 className="text-lg font-medium text-foreground mb-2">No shared meetings yet</h3>
+                          <p className="text-muted-foreground text-sm max-w-sm mx-auto">
+                            {searchQuery 
+                              ? `No results for "${searchQuery}"`
+                              : "Meetings shared with you will appear here"}
+                          </p>
                         </>
                       ) : (
                         <>
@@ -1033,7 +1156,18 @@ const DashboardPage: React.FC = () => {
       {/* Dashboard Chatbot */}
       <DashboardChatbot />
       
-      
+      {/* Share Meeting Modal */}
+      {sessionToShare && (
+        <ShareMeetingModal
+          isOpen={shareModalOpen}
+          onClose={() => {
+            setShareModalOpen(false);
+            setSessionToShare(null);
+          }}
+          session={sessionToShare}
+          onShare={handleShareComplete}
+        />
+      )}
 
     </div>
     </DashboardChatProvider>

@@ -18,6 +18,7 @@ export async function GET(request: NextRequest) {
   
   try {
     const { searchParams } = new URL(request.url);
+    const filter = searchParams.get('filter'); // Extract filter at top level
     
     // Get current user from Supabase auth using the access token
     const authHeader = request.headers.get('authorization');
@@ -131,11 +132,20 @@ export async function GET(request: NextRequest) {
       orgId: userData.current_organization_id
     });
 
+    // Don't cache shared meetings queries as they can change frequently
+    const cacheHeaders = filter === 'shared' 
+      ? {
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache',
+          'Expires': '0'
+        }
+      : {
+          // Cache for 30 seconds at the edge, allow stale for 2 minutes while revalidating
+          'Cache-Control': 'public, s-maxage=30, stale-while-revalidate=120',
+        };
+    
     return NextResponse.json(response, {
-      headers: {
-        // Cache for 30 seconds at the edge, allow stale for 2 minutes while revalidating
-        'Cache-Control': 'public, s-maxage=30, stale-while-revalidate=120',
-      },
+      headers: cacheHeaders,
     });
 
   } catch (error) {
@@ -159,75 +169,304 @@ async function fetchSessions(
   const offset = parseInt(searchParams.get('offset') || '0');
   const search = searchParams.get('search');
   const conversationType = searchParams.get('conversation_type');
+  const filter = searchParams.get('filter'); // New filter parameter for 'shared'
+  
+  console.log('📊 fetchSessions params:', {
+    status,
+    search,
+    conversationType,
+    filter,
+    organizationId
+  });
 
-  // Build the query
-  let query = authClient
-    .from('sessions')
-    .select(
-      `
-      id,
-      title,
-      conversation_type,
+  // Get current user
+  const { data: { user } } = await authClient.auth.getUser();
+  if (!user) throw new Error('User not authenticated');
+
+  let sessions: any[] = [];
+  let totalCount = 0;
+
+  if (filter === 'shared') {
+    console.log('🔍 Fetching shared meetings for user:', { 
+      userId: user.id, 
+      userEmail: user.email,
+      filter,
       status,
-      recording_duration_seconds,
-      total_words_spoken,
-      created_at,
-      updated_at,
-      recording_started_at,
-      recording_ended_at,
-      participant_me,
-      participant_them,
-      recall_bot_id,
-      recall_bot_status,
-      meeting_url,
-      meeting_platform
-    `,
-      { count: 'exact' }
-    )
-    .eq('organization_id', organizationId)
-    .is('deleted_at', null)
-    .order('created_at', { ascending: false });
+      search,
+      authClientExists: !!authClient,
+      hasAuthHeader: !!authClient.auth
+    });
+    // Fetch shared meetings
+    const sharedQuery = authClient
+      .from('shared_meetings')
+      .select(`
+        session_id,
+        shared_by,
+        share_type,
+        permissions,
+        created_at,
+        sessions!inner (
+          id,
+          title,
+          conversation_type,
+          status,
+          recording_duration_seconds,
+          total_words_spoken,
+          created_at,
+          updated_at,
+          recording_started_at,
+          recording_ended_at,
+          participant_me,
+          participant_them,
+          recall_bot_id,
+          recall_bot_status,
+          meeting_url,
+          meeting_platform,
+          user_id,
+          visibility
+        ),
+        users!shared_meetings_shared_by_fkey (
+          id,
+          full_name,
+          email
+        )
+      `, { count: 'exact' })
+      .eq('shared_with', user.id)
+      .neq('sessions.user_id', user.id); // Exclude sessions owned by the current user
+    
+    // Add expires_at filter separately to avoid issues with OR conditions
+    sharedQuery.or('expires_at.is.null,expires_at.gt.' + new Date().toISOString());
 
-  // Apply filters
-  if (status) {
-    query = query.eq('status', status);
+    // Apply search filter if provided
+    if (search) {
+      sharedQuery.ilike('sessions.title', `%${search}%`);
+    }
+
+    // Apply status filter if provided
+    if (status) {
+      sharedQuery.eq('sessions.status', status);
+    } else {
+      // Exclude archived sessions by default
+      sharedQuery.neq('sessions.status', 'archived');
+    }
+
+    // Apply pagination
+    sharedQuery.range(offset, offset + limit - 1);
+    sharedQuery.order('created_at', { ascending: false });
+
+    const { data: sharedMeetings, count: sharedCount, error: sharedError } = await sharedQuery;
+
+    console.log('📊 Shared meetings query result:', {
+      sharedMeetings: sharedMeetings?.length || 0,
+      sharedCount,
+      error: sharedError,
+      firstMeeting: sharedMeetings?.[0],
+      userEmail: user.email,
+      userId: user.id
+    });
+
+    // Debug: Run a direct query using service client to bypass RLS
+    if (sharedMeetings?.length === 0 && !sharedError) {
+      const { data: directQuery, error: directError } = await serviceClient
+        .from('shared_meetings')
+        .select('*')
+        .eq('shared_with', user.id);
+      
+      console.log('🔍 Direct query (no RLS):', {
+        count: directQuery?.length || 0,
+        error: directError,
+        userId: user.id,
+        firstShare: directQuery?.[0]
+      });
+    }
+
+    if (sharedError) {
+      console.error('Error fetching shared meetings:', sharedError);
+      throw sharedError;
+    }
+    
+    console.log('📋 Shared meetings query result:', {
+      sharedMeetingsCount: sharedMeetings?.length || 0,
+      sharedCount,
+      firstFewIds: sharedMeetings?.slice(0, 3).map((sm: any) => sm.session_id)
+    });
+
+    // Transform shared meetings to match session format
+    sessions = sharedMeetings?.map((sm: any) => ({
+      ...sm.sessions,
+      shared_by: sm.users,
+      shared_at: sm.created_at,
+      share_type: sm.share_type,
+      permissions: sm.permissions,
+      is_shared: true,
+      is_shared_with_me: true
+    })) || [];
+
+    totalCount = sharedCount || 0;
+
+    // Get IDs of individually shared sessions to exclude from org shares
+    const individualSharedIds = sessions.map(s => s.id);
+
+    // Also fetch organization-shared meetings
+    const orgSharedQuery = authClient
+      .from('organization_shared_meetings')
+      .select(`
+        session_id,
+        shared_by,
+        created_at,
+        sessions!inner (
+          id,
+          title,
+          conversation_type,
+          status,
+          recording_duration_seconds,
+          total_words_spoken,
+          created_at,
+          updated_at,
+          recording_started_at,
+          recording_ended_at,
+          participant_me,
+          participant_them,
+          recall_bot_id,
+          recall_bot_status,
+          meeting_url,
+          meeting_platform,
+          user_id,
+          visibility
+        ),
+        users!organization_shared_meetings_shared_by_fkey (
+          id,
+          full_name,
+          email
+        )
+      `, { count: 'exact' })
+      .eq('organization_id', organizationId)
+      .neq('sessions.user_id', user.id); // Exclude sessions owned by the current user
+    
+    // Exclude already fetched individual shares
+    if (individualSharedIds.length > 0) {
+      orgSharedQuery.not('session_id', 'in', `(${individualSharedIds.join(',')})`);
+    }
+
+    const { data: orgSharedMeetings, count: orgSharedCount } = await orgSharedQuery;
+
+    if (orgSharedMeetings && orgSharedMeetings.length > 0) {
+      const orgSessions = orgSharedMeetings.map((osm: any) => ({
+        ...osm.sessions,
+        shared_by: osm.users,
+        shared_at: osm.created_at,
+        share_type: 'organization',
+        permissions: { view: true, use_as_context: true },
+        is_shared: true,
+        is_shared_with_me: true
+      }));
+      
+      sessions = [...sessions, ...orgSessions];
+      totalCount += orgSharedCount || 0;
+    }
+
   } else {
-    // If no status filter is provided, exclude only archived and deleted sessions
-    query = query.not('status', 'in', '("archived")');
-  }
+    // Build the original query for user's own sessions
+    let query = authClient
+      .from('sessions')
+      .select(
+        `
+        id,
+        title,
+        conversation_type,
+        status,
+        recording_duration_seconds,
+        total_words_spoken,
+        created_at,
+        updated_at,
+        recording_started_at,
+        recording_ended_at,
+        participant_me,
+        participant_them,
+        recall_bot_id,
+        recall_bot_status,
+        meeting_url,
+        meeting_platform,
+        visibility,
+        user_id
+      `,
+        { count: 'exact' }
+      )
+      .eq('organization_id', organizationId)
+      .eq('user_id', user.id) // Only show sessions owned by the current user
+      .is('deleted_at', null)
+      .order('created_at', { ascending: false });
 
-  if (conversationType) {
-    query = query.eq('conversation_type', conversationType);
-  }
+    // Apply filters
+    if (status) {
+      query = query.eq('status', status);
+    } else {
+      // If no status filter is provided, exclude only archived and deleted sessions
+      query = query.not('status', 'in', '("archived")');
+    }
 
-  if (search) {
-    query = query.ilike('title', `%${search}%`);
-  }
+    if (conversationType) {
+      query = query.eq('conversation_type', conversationType);
+    }
 
-  // Apply pagination
-  query = query.range(offset, offset + limit - 1);
+    if (search) {
+      query = query.ilike('title', `%${search}%`);
+    }
 
-  const { data: sessions, count, error } = await query;
+    // Apply pagination
+    query = query.range(offset, offset + limit - 1);
 
-  if (error) {
-    console.error('Error fetching sessions:', error);
-    throw error;
+    const { data: ownSessions, count, error } = await query;
+
+    if (error) {
+      console.error('Error fetching sessions:', error);
+      throw error;
+    }
+
+    sessions = ownSessions || [];
+    totalCount = count || 0;
   }
 
   console.log('Sessions query result:', { 
-    sessionsCount: sessions?.length || 0, 
-    totalCount: count,
-    organizationId 
+    sessionsCount: sessions.length, 
+    totalCount,
+    organizationId,
+    filter 
   });
 
   // Get session IDs to fetch additional data
-  const sessionIds = sessions?.map(s => s.id) || [];
+  const sessionIds = sessions.map(s => s.id);
 
   // Fetch transcript speakers for all sessions
   const transcriptSpeakersData = sessionIds.length > 0 ? await getTranscriptSpeakers(sessionIds, authClient) : new Map();
 
+  // Check which sessions are shared (for own sessions view)
+  let sharedStatusMap = new Map();
+  if (filter !== 'shared' && sessionIds.length > 0) {
+    const { data: sharedData } = await authClient
+      .from('shared_meetings')
+      .select('session_id')
+      .in('session_id', sessionIds)
+      .eq('shared_by', user.id);
+    
+    sharedData?.forEach(share => {
+      sharedStatusMap.set(share.session_id, true);
+    });
+
+    // Also check organization shares
+    const { data: orgSharedData } = await authClient
+      .from('organization_shared_meetings')
+      .select('session_id')
+      .in('session_id', sessionIds)
+      .eq('shared_by', user.id);
+    
+    orgSharedData?.forEach(share => {
+      sharedStatusMap.set(share.session_id, true);
+    });
+  }
+
   // Calculate additional fields for each session
-  const enhancedSessions = sessions?.map(session => ({
+  const enhancedSessions = sessions.map(session => ({
     ...session,
     duration: session.recording_duration_seconds,
     wordCount: session.total_words_spoken,
@@ -235,10 +474,11 @@ async function fetchSessions(
     hasSummary: false,
     linkedConversationsCount: 0,
     linkedConversations: [],
-    transcript_speakers: transcriptSpeakersData.get(session.id) || []
-  })) || [];
+    transcript_speakers: transcriptSpeakersData.get(session.id) || [],
+    is_shared: session.is_shared || sharedStatusMap.has(session.id) || session.visibility !== 'private',
+    is_shared_with_me: !!session.shared_by
+  }));
 
-  const totalCount = count || 0;
   const hasMore = offset + limit < totalCount;
 
   return {
@@ -290,7 +530,7 @@ async function fetchUserStats(
   const periodKey = periodStart.toISOString().slice(0, 7);
 
   // First try to get data from user_stats table which has the actual usage
-  const { data: userStatsData, error: userStatsError } = await serviceClient
+  const { error: userStatsError } = await serviceClient
     .from('user_stats')
     .select('current_month_minutes_used, monthly_minutes_limit, usage_percentage')
     .eq('id', userId)
@@ -413,7 +653,7 @@ async function fetchUserStats(
 // Helper function to fetch subscription
 async function fetchSubscription(
   authClient: ReturnType<typeof createAuthenticatedSupabaseClient>,
-  serviceClient: ReturnType<typeof createServerSupabaseClient>,
+  _serviceClient: ReturnType<typeof createServerSupabaseClient>,
   userId: string
 ) {
   // Get active subscription using the optimized view

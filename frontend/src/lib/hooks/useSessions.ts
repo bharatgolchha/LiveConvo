@@ -32,6 +32,13 @@ export interface Session {
   meeting_platform?: 'zoom' | 'google_meet' | 'teams';
   recall_bot_id?: string;
   recall_bot_status?: 'created' | 'joining' | 'in_call' | 'recording' | 'waiting' | 'permission_denied' | 'completed' | 'failed' | 'timeout' | 'cancelled';
+  is_shared?: boolean;
+  is_shared_with_me?: boolean;
+  shared_by?: {
+    id: string;
+    full_name: string | null;
+    email: string | null;
+  };
 }
 
 export interface SessionsResponse {

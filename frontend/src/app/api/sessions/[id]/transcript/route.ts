@@ -79,24 +79,23 @@ export async function GET(
       );
     }
 
-    // Verify session belongs to user's organization
-    const { data: session, error: sessionError } = await serviceClient
+    // Create authenticated client with user's token for RLS
+    const authClient = createAuthenticatedSupabaseClient(token);
+
+    // Verify user has access to session (RLS will handle permissions)
+    const { data: session, error: sessionError } = await authClient
       .from('sessions')
       .select('id, organization_id')
       .eq('id', sessionId)
-      .eq('organization_id', userData.current_organization_id)
       .is('deleted_at', null)
       .single();
 
     if (sessionError || !session) {
       return NextResponse.json(
-        { error: 'Not found', message: 'Session not found' },
+        { error: 'Not found', message: 'Session not found or access denied' },
         { status: 404 }
       );
     }
-
-    // Create authenticated client with user's token for RLS
-    const authClient = createAuthenticatedSupabaseClient(token);
 
     // Build query
     let query = authClient

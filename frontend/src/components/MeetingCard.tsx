@@ -2,7 +2,8 @@
 
 import React, { useState } from 'react'
 import { format, formatDistanceToNow } from 'date-fns'
-import { Clock, Calendar, MoreVertical, Users, Briefcase, Video, UserCheck, FileText, Bot, UserPlus } from 'lucide-react'
+import { Clock, Calendar, MoreVertical, Users, Briefcase, Video, UserCheck, FileText, Bot, UserPlus, Share2 } from 'lucide-react'
+import { ShareIcon } from '@heroicons/react/24/outline'
 import { Button } from '@/components/ui/Button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { cn } from '@/lib/utils'
@@ -19,12 +20,17 @@ type MeetingCardProps = {
   selected: boolean
   showFollowUp?: boolean
   showReport?: boolean
+  showShare?: boolean
   botStatus?: 'created' | 'joining' | 'in_call' | 'recording' | 'waiting' | 'permission_denied' | 'completed' | 'failed' | 'timeout' | 'cancelled'
   hasParticipants?: boolean
+  isShared?: boolean
+  isSharedWithMe?: boolean
+  sharedByName?: string
   onSelect: (id: string, checked: boolean) => void
   onOpen: (id: string) => void
   onFollowUp: (id: string) => void
   onReport: (id: string) => void
+  onShare?: () => void
 }
 
 const meetingTypeIcons = {
@@ -57,12 +63,17 @@ export const MeetingCard = React.memo(({
   selected,
   showFollowUp = false,
   showReport = false,
+  showShare = false,
   botStatus,
   hasParticipants = false,
+  isShared = false,
+  isSharedWithMe = false,
+  sharedByName,
   onSelect,
   onOpen,
   onFollowUp,
   onReport,
+  onShare,
 }: MeetingCardProps) => {
   const [tldrExpanded, setTldrExpanded] = useState(false)
 
@@ -203,7 +214,25 @@ export const MeetingCard = React.memo(({
         className="flex flex-col gap-1 min-w-0 cursor-pointer"
         onClick={() => onOpen(id)}
       >
-        <h3 className="font-semibold text-base truncate text-foreground">{title}</h3>
+        <div className="flex items-center gap-2">
+          <h3 className="font-semibold text-base truncate text-foreground">{title}</h3>
+          {/* Shared Badge */}
+          {(isShared || isSharedWithMe) && (
+            <div className="flex-shrink-0">
+              {isSharedWithMe ? (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-primary/10 text-primary dark:bg-primary/20 dark:text-primary text-xs font-medium">
+                  <ShareIcon className="w-3 h-3" />
+                  <span>Shared{sharedByName ? ` by ${sharedByName}` : ''}</span>
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-muted text-muted-foreground dark:bg-muted dark:text-muted-foreground text-xs font-medium">
+                  <Share2 className="w-3 h-3" />
+                  <span>Shared</span>
+                </span>
+              )}
+            </div>
+          )}
+        </div>
         
         {/* Mobile relative time */}
         <p className="sm:hidden text-xs text-muted-foreground flex items-center gap-1">
@@ -350,6 +379,20 @@ export const MeetingCard = React.memo(({
               <FileText className="w-4 h-4" />
             </Button>
           )}
+          {showShare && onShare && (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={(e) => {
+                e.stopPropagation()
+                onShare()
+              }}
+              aria-label={`Share ${title}`}
+              className="border-primary/30 text-primary hover:bg-primary/10 hover:border-primary/50"
+            >
+              <Share2 className="w-4 h-4" />
+            </Button>
+          )}
         </div>
       </div>
 
@@ -407,6 +450,20 @@ export const MeetingCard = React.memo(({
               className="border-primary/30 text-primary hover:bg-primary/10 hover:border-primary/50"
             >
               <FileText className="w-4 h-4" />
+            </Button>
+          )}
+          {showShare && onShare && (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={(e) => {
+                e.stopPropagation()
+                onShare()
+              }}
+              aria-label={`Share ${title}`}
+              className="border-primary/30 text-primary hover:bg-primary/10 hover:border-primary/50"
+            >
+              <Share2 className="w-4 h-4" />
             </Button>
           )}
         </div>
