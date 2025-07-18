@@ -38,7 +38,6 @@ import { useUpcomingMeetings } from '@/lib/hooks/useUpcomingMeetings';
 import { useRealtimeSessionsFinal } from '@/lib/hooks/useRealtimeSessionsFinal';
 import { useAutoRefresh } from '@/lib/hooks/useAutoRefresh';
 import { DeleteConfirmationModal } from '@/components/ui/DeleteConfirmationModal';
-import { PricingModal } from '@/components/ui/PricingModal';
 import { SettingsPanel } from '@/components/settings/SettingsPanel';
 import { ConversationListDate } from '@/components/ui/ConversationDateIndicator';
 import { LoadingModal } from '@/components/ui/LoadingModal';
@@ -108,7 +107,6 @@ const DashboardPage: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const debouncedSearchQuery = useDebounce(searchQuery, 300);
   const [selectedSessions, setSelectedSessions] = useState<Set<string>>(new Set());
-  const [isPricingModalOpen, setIsPricingModalOpen] = useState(false);
   const [isNavigating, setIsNavigating] = useState(false);
   const [navigationSessionTitle, setNavigationSessionTitle] = useState('');
   const [isNewSession, setIsNewSession] = useState(false);
@@ -792,7 +790,7 @@ const DashboardPage: React.FC = () => {
             onNavigate={(path) => {
               setIsSidebarOpen(false); // Close sidebar on mobile after navigation
               if (path === 'pricing') {
-                setIsPricingModalOpen(true);
+                router.push('/pricing');
               } else if (path === 'referrals') {
                 router.push('/dashboard/referrals');
               } else {
@@ -1084,11 +1082,6 @@ const DashboardPage: React.FC = () => {
       />
 
 
-      {/* Pricing Modal */}
-      <PricingModal
-        isOpen={isPricingModalOpen}
-        onClose={() => setIsPricingModalOpen(false)}
-      />
 
       {/* Delete Confirmation Modal */}
       <DeleteConfirmationModal

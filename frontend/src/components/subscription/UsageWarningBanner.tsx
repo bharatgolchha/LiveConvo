@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/Button';
-import { PricingModal } from '@/components/ui/PricingModal';
 import {
   AlertTriangle,
   Info,
@@ -22,7 +22,7 @@ export function UsageWarningBanner({
   onDismiss,
 }: UsageWarningBannerProps) {
   const { subscription, loading } = useSubscription();
-  const [showPricingModal, setShowPricingModal] = useState(false);
+  const router = useRouter();
   const [isDismissed, setIsDismissed] = useState(false);
 
   if (loading || !subscription || isDismissed) {
@@ -53,7 +53,7 @@ export function UsageWarningBanner({
   };
 
   const handleUpgradeClick = () => {
-    setShowPricingModal(true);
+    router.push('/pricing');
   };
 
   const remainingHours = Math.max(0, limitAudioHours - currentAudioHours);
@@ -131,7 +131,7 @@ export function UsageWarningBanner({
                 <Button
                   size="sm"
                   variant="ghost"
-                  onClick={() => setShowPricingModal(true)}
+                  onClick={() => router.push('/dashboard?tab=usage')}
                   className="text-xs"
                 >
                   <Clock className="w-3 h-3 mr-1" />
@@ -151,16 +151,6 @@ export function UsageWarningBanner({
           )}
         </div>
       </div>
-
-      <PricingModal
-        isOpen={showPricingModal}
-        onClose={() => setShowPricingModal(false)}
-        reason={
-          isAtLimit
-            ? "You've reached your monthly recording limit. Upgrade to Pro for unlimited recording hours."
-            : "You're approaching your monthly limit. Upgrade to Pro for unlimited recording hours."
-        }
-      />
     </>
   );
 }

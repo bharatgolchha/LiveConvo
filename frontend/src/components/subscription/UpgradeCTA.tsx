@@ -79,11 +79,6 @@ export function UpgradeCTA({
             <ArrowRight className="w-3 h-3 ml-1" />
           </Button>
         </div>
-        <PricingModal
-          isOpen={showPricingModal}
-          onClose={() => setShowPricingModal(false)}
-          reason={reason}
-        />
       </>
     );
   }
@@ -124,11 +119,6 @@ export function UpgradeCTA({
             </div>
           </div>
         </div>
-        <PricingModal
-          isOpen={showPricingModal}
-          onClose={() => setShowPricingModal(false)}
-          reason={reason}
-        />
       </>
     );
   }
@@ -165,11 +155,6 @@ export function UpgradeCTA({
             </Button>
           </div>
         </div>
-        <PricingModal
-          isOpen={showPricingModal}
-          onClose={() => setShowPricingModal(false)}
-          reason={reason}
-        />
       </>
     );
   }
