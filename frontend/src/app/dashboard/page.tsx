@@ -229,7 +229,7 @@ const DashboardPage: React.FC = () => {
     name: user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'User',
     email: user?.email || '',
     plan: planType,
-    planDisplayName: subscription?.plan?.displayName || subscription?.plan?.display_name
+    planDisplayName: subscription?.plan?.displayName
   };
 
   // Update URL when activePath changes

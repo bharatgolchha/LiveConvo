@@ -133,7 +133,7 @@ export async function GET(request: NextRequest) {
     });
 
     // Don't cache shared meetings queries as they can change frequently
-    const cacheHeaders = filter === 'shared' 
+    const cacheHeaders: Record<string, string> = filter === 'shared' 
       ? {
           'Cache-Control': 'no-cache, no-store, must-revalidate',
           'Pragma': 'no-cache',
