@@ -265,9 +265,10 @@ export async function GET(req: NextRequest) {
     // Use the direct query total (current period) as the authoritative usage
     const totalBillableMinutesFinal = totalBillableMinutes; // from earlier aggregation within period
     // In rare cases check_usage_limit may be out-of-sync; adjust minutesRemaining accordingly
-    const adjustedRemaining = isUnlimited ? null : Math.max(0, (minutesLimitOfficial || 0) - totalBillableMinutesFinal);
+    const adjustedRemaining = isUnlimited ? Number.MAX_SAFE_INTEGER : Math.max(0, (minutesLimitOfficial || 0) - totalBillableMinutesFinal);
     const minutesRemaining = adjustedRemaining;
-    monthlyBotMinutesLimit = minutesLimitOfficial;
+    // For unlimited plans, set limit to a large number instead of null for frontend compatibility
+    monthlyBotMinutesLimit = isUnlimited ? Number.MAX_SAFE_INTEGER : minutesLimitOfficial;
     // Overwrite to keep consistency
     limitRow.minutes_used = totalBillableMinutesFinal;
     limitRow.minutes_remaining = adjustedRemaining;
@@ -291,7 +292,7 @@ export async function GET(req: NextRequest) {
           periodEnd: monthEnd.toISOString(),
           // New fields for plan limits
           monthlyBotMinutesLimit,
-          remainingMinutes: adjustedRemaining ?? 0,
+          remainingMinutes: isUnlimited ? Number.MAX_SAFE_INTEGER : (adjustedRemaining ?? 0),
           overageMinutes: finalOverageMinutes,
           totalCost: finalTotalCost,
           overageCost: finalOverageCost

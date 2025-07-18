@@ -461,7 +461,8 @@ export function MeetingBotControl() {
   
   // Check if user has minutes remaining
   const hasMinutesRemaining = !usageLoading && stats && stats.remainingMinutes > 0;
-  const isOutOfMinutes = !usageLoading && stats && stats.remainingMinutes <= 0;
+  const isUnlimitedPlan = !usageLoading && stats && stats.remainingMinutes === Number.MAX_SAFE_INTEGER;
+  const isOutOfMinutes = !usageLoading && stats && stats.remainingMinutes <= 0 && !isUnlimitedPlan;
 
   return (
     <div className="flex items-center gap-2">
