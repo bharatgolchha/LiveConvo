@@ -238,21 +238,34 @@ export async function GET(req: NextRequest) {
     });
     const limitRow = Array.isArray(limitData) ? limitData[0] : limitData;
 
+    console.log('🔍 Bot usage limit check:', {
+      limitRow,
+      is_unlimited: limitRow?.is_unlimited,
+      minutes_limit: limitRow?.minutes_limit,
+      monthlyBotMinutesLimit
+    });
+
     const minutesUsedOfficial = limitRow?.minutes_used ?? totalBillableMinutes;
-    const minutesLimitOfficial = limitRow?.minutes_limit ?? monthlyBotMinutesLimit;
+    // Check if plan is unlimited - check both is_unlimited flag and null limit
+    const isUnlimited = limitRow?.is_unlimited === true || limitRow?.minutes_limit === null;
+    // For unlimited plans, set limit to null, otherwise use the value from DB
+    const minutesLimitOfficial = isUnlimited ? null : (limitRow?.minutes_limit ?? monthlyBotMinutesLimit);
+    
+    console.log('🔍 Unlimited check result:', {
+      isUnlimited,
+      minutesLimitOfficial,
+      minutesUsedOfficial
+    });
 
-    // Treat very large limits as unlimited
-    const isUnlimited = minutesLimitOfficial && minutesLimitOfficial >= 999999;
-
-    const remainingMinutes = isUnlimited ? null : Math.max(0, minutesLimitOfficial - minutesUsedOfficial);
-    const overageMinutes = isUnlimited ? 0 : Math.max(0, minutesUsedOfficial - minutesLimitOfficial);
+    const remainingMinutes = isUnlimited ? null : Math.max(0, (minutesLimitOfficial || 0) - minutesUsedOfficial);
+    const overageMinutes = isUnlimited ? 0 : Math.max(0, minutesUsedOfficial - (minutesLimitOfficial || 0));
     const overageCost = overageMinutes * 0.10;
     const totalCost = overageCost; // Cost is 0 if within plan limits
 
     // Use the direct query total (current period) as the authoritative usage
     const totalBillableMinutesFinal = totalBillableMinutes; // from earlier aggregation within period
     // In rare cases check_usage_limit may be out-of-sync; adjust minutesRemaining accordingly
-    const adjustedRemaining = minutesLimitOfficial === null ? null : Math.max(0, minutesLimitOfficial - totalBillableMinutesFinal);
+    const adjustedRemaining = isUnlimited ? null : Math.max(0, (minutesLimitOfficial || 0) - totalBillableMinutesFinal);
     const minutesRemaining = adjustedRemaining;
     monthlyBotMinutesLimit = minutesLimitOfficial;
     // Overwrite to keep consistency
@@ -262,7 +275,7 @@ export async function GET(req: NextRequest) {
     // -------------------------------------------------
     // Recompute overage based on final billable minutes
     // -------------------------------------------------
-    const finalOverageMinutes = monthlyBotMinutesLimit === null ? 0 : Math.max(0, totalBillableMinutesFinal - monthlyBotMinutesLimit);
+    const finalOverageMinutes = isUnlimited ? 0 : Math.max(0, totalBillableMinutesFinal - (monthlyBotMinutesLimit || 0));
     const finalOverageCost = finalOverageMinutes * 0.10;
     const finalTotalCost = finalOverageCost; // No cost within limit
 

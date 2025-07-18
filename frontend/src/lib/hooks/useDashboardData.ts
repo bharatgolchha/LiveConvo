@@ -124,11 +124,13 @@ export function useDashboardData(): DashboardDataHookReturn {
         filterParam: filters.filter
       });
 
-      // Create the request promise
-      const requestPromise = fetch(`/api/dashboard/data?${params.toString()}`, {
+      // Create the request promise with cache busting
+      const cacheBuster = `cb=${Date.now()}`;
+      const urlWithParams = `/api/dashboard/data?${params.toString()}&${cacheBuster}`;
+      const requestPromise = fetch(urlWithParams, {
         method: 'GET',
-        headers
-        // Temporarily remove abort signal to debug
+        headers,
+        cache: 'no-store' // Force no caching
       }).then(async (response) => {
         console.log('Dashboard API response status:', response.status);
         

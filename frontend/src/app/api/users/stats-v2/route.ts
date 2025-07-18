@@ -127,15 +127,20 @@ export async function GET(request: NextRequest) {
       console.error('Error checking usage limits:', limitsError);
     }
 
-    const limitData = limits?.[0] || {
-      can_record: true,
-      minutes_used: 0,
-      minutes_limit: 60, // Default 60 minutes (free plan)
-      minutes_remaining: 60,
-      percentage_used: 0
-    };
+    // Only use defaults if we truly have no data
+    const limitData = limits && limits.length > 0 
+      ? limits[0]
+      : {
+          can_record: true,
+          minutes_used: 0,
+          minutes_limit: 60, // Default 60 minutes (free plan)
+          minutes_remaining: 60,
+          percentage_used: 0,
+          is_unlimited: false
+        };
     
     // Debug logging
+    console.log('Raw limits from DB:', limits);
     console.log('Usage limit check for user:', {
       userId: user.id,
       organizationId: userData.current_organization_id,
@@ -191,8 +196,8 @@ export async function GET(request: NextRequest) {
       new Date(s.created_at) >= last30Days
     ).length;
 
-    // Handle unlimited plans (when limit is very high)
-    const isUnlimited = limitData.minutes_limit >= 999999;
+    // Handle unlimited plans (when limit is null or is_unlimited flag is true)
+    const isUnlimited = limitData.is_unlimited === true || limitData.minutes_limit === null || limitData.minutes_limit >= 999999;
     
     // Convert hours limit to minutes for consistency
     const monthlyMinutesLimit = isUnlimited ? null : limitData.minutes_limit;
@@ -252,6 +257,12 @@ export async function GET(request: NextRequest) {
       // Usage type indicator
       usageType: 'bot_minutes' // Indicates this is bot-minute based usage
     };
+
+    console.log('Stats API Response:', {
+      monthlyMinutesLimit: responseData.monthlyMinutesLimit,
+      isUnlimited: responseData.isUnlimited,
+      monthlyMinutesUsed: responseData.monthlyMinutesUsed
+    });
 
     return NextResponse.json(responseData, {
       headers: {

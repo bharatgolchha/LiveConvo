@@ -113,21 +113,32 @@ export const SubscriptionManager: React.FC = () => {
     try {
       setManagingSubscription(true);
       
-      // Determine environment and use appropriate billing portal URL
-      const isProduction = process.env.NEXT_PUBLIC_SUPABASE_URL?.includes('xkxjycccifwyxgtvflxz');
-      
-      const portalId = isProduction 
-        ? process.env.NEXT_PUBLIC_STRIPE_PROD_PORTAL_ID 
-        : process.env.NEXT_PUBLIC_STRIPE_TEST_PORTAL_ID;
-      
-      if (!portalId) {
-        console.error('Stripe billing portal ID not configured');
-        alert('Billing management is not available at the moment. Please contact support.');
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        alert('Please sign in to manage your subscription.');
         return;
       }
+
+      // Call the API to create a Stripe billing portal session
+      const response = await fetch('/api/billing/portal', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        console.error('Failed to create portal session:', error);
+        alert('Unable to open billing portal. Please try again or contact support.');
+        return;
+      }
+
+      const { url } = await response.json();
       
-      // Redirect to Stripe Customer Portal
-      window.location.href = `https://billing.stripe.com/p/login/${portalId}`;
+      // Redirect to the Stripe Customer Portal
+      window.location.href = url;
     } catch (error) {
       console.error('Error opening subscription portal:', error);
       alert('Unable to open billing portal. Please try again or contact support.');
@@ -330,27 +341,40 @@ export const SubscriptionManager: React.FC = () => {
         </div>
 
         {/* Management Actions */}
-        <div className="flex flex-col sm:flex-row gap-3">
+        <div className="space-y-4">
           {isPro && subscription.id && (
-            <Button
-              onClick={handleManageSubscription}
-              disabled={managingSubscription}
-              className="flex items-center gap-2"
-            >
-              <CreditCard className="w-4 h-4" />
-              {managingSubscription ? 'Loading...' : 'Manage Subscription'}
-              <ExternalLink className="w-4 h-4" />
-            </Button>
+            <>
+              <div className="flex flex-col sm:flex-row gap-3">
+                <Button
+                  onClick={handleManageSubscription}
+                  disabled={managingSubscription}
+                  className="flex items-center gap-2"
+                  variant="outline"
+                >
+                  <CreditCard className="w-4 h-4" />
+                  {managingSubscription ? 'Opening Portal...' : 'Manage Billing'}
+                  <ExternalLink className="w-4 h-4 ml-1" />
+                </Button>
+              </div>
+              <p className="text-sm text-muted-foreground">
+                Manage your subscription, update payment methods, download invoices, or cancel your plan.
+              </p>
+            </>
           )}
           
           {isFree && (
-            <Button
-              onClick={() => window.location.href = '/pricing'}
-              className="flex items-center gap-2"
-            >
-              <Crown className="w-4 h-4" />
-              Upgrade to Pro
-            </Button>
+            <div className="space-y-3">
+              <Button
+                onClick={() => window.location.href = '/pricing'}
+                className="flex items-center gap-2"
+              >
+                <Crown className="w-4 h-4" />
+                Upgrade to Pro
+              </Button>
+              <p className="text-sm text-muted-foreground">
+                Get unlimited audio hours, advanced features, and priority support.
+              </p>
+            </div>
           )}
         </div>
       </Card>

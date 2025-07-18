@@ -34,7 +34,6 @@ import { useDashboardDataWithFallback } from '@/lib/hooks/useDashboardDataWithFa
 import { useSessionData } from '@/lib/hooks/useSessionData';
 import { useDebounce } from '@/lib/utils/debounce';
 import type { Session } from '@/lib/hooks/useSessions';
-import { defaultStats } from '@/lib/hooks/useUserStats';
 import { useUpcomingMeetings } from '@/lib/hooks/useUpcomingMeetings';
 import { useRealtimeSessionsFinal } from '@/lib/hooks/useRealtimeSessionsFinal';
 import { useAutoRefresh } from '@/lib/hooks/useAutoRefresh';
@@ -74,6 +73,7 @@ interface User {
   email: string;
   avatar?: string;
   plan: 'free' | 'pro' | 'team';
+  planDisplayName?: string;
   is_admin?: boolean;
 }
 
@@ -215,7 +215,7 @@ const DashboardPage: React.FC = () => {
   } = useSessionData();
 
   // Extract subscription data
-  const planType: 'free' | 'pro' | 'team' = subscription?.plan.name === 'pro' 
+  const planType: 'free' | 'pro' | 'team' = subscription?.plan.name === 'pro' || subscription?.plan.name === 'max'
     ? 'pro' 
     : subscription?.plan.name === 'team' 
     ? 'team' 
@@ -230,7 +230,8 @@ const DashboardPage: React.FC = () => {
   const currentUser: User = {
     name: user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'User',
     email: user?.email || '',
-    plan: planType
+    plan: planType,
+    planDisplayName: subscription?.plan?.displayName || subscription?.plan?.display_name
   };
 
   // Update URL when activePath changes
@@ -785,7 +786,7 @@ const DashboardPage: React.FC = () => {
           ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
         `}>
           <DashboardSidebar 
-            usageStats={userStats || defaultStats}
+            usageStats={userStats}
             activePath={activePath}
             sharedCount={sharedMeetingsCount}
             onNavigate={(path) => {

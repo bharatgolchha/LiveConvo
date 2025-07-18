@@ -199,50 +199,6 @@ export function BotUsageDisplay({ organizationId, className }: BotUsageDisplayPr
 
       {/* Stats Overview */}
       <div className="space-y-4">
-        {/* Plan Info and Usage Progress */}
-        <div className="bg-primary/5 rounded-lg p-4 border border-primary/20">
-          <div className="flex items-center justify-between mb-3">
-            <div>
-              <h4 className="font-semibold flex items-center gap-2">
-                {stats.planDisplayName} Plan
-                <Badge variant="outline" className="text-xs">
-                  {stats.monthlyBotMinutesLimit} minutes/month
-                </Badge>
-              </h4>
-              <p className="text-sm text-muted-foreground mt-1">
-                Bot recording minutes reset monthly on your billing date
-              </p>
-            </div>
-            <div className="text-right">
-              <div className="text-2xl font-bold">{stats.totalMinutes}</div>
-              <div className="text-sm text-muted-foreground">minutes used</div>
-            </div>
-          </div>
-          
-          {/* Usage Progress Bar */}
-          <div className="space-y-2">
-            <div className="flex justify-between text-sm">
-              <span>{stats.totalMinutes} / {stats.monthlyBotMinutesLimit} minutes</span>
-              <span className={stats.remainingMinutes > 0 ? "text-green-600" : "text-red-600"}>
-                {stats.remainingMinutes > 0 ? `${stats.remainingMinutes} remaining` : `${stats.overageMinutes} over limit`}
-              </span>
-            </div>
-            <div className="w-full bg-muted rounded-full h-3 overflow-hidden">
-              <div 
-                className={cn(
-                  "h-3 transition-all duration-500",
-                  stats.totalMinutes <= stats.monthlyBotMinutesLimit 
-                    ? "bg-primary" 
-                    : "bg-red-500"
-                )}
-                style={{ 
-                  width: `${Math.min((stats.totalMinutes / stats.monthlyBotMinutesLimit) * 100, 100)}%` 
-                }}
-              />
-            </div>
-          </div>
-        </div>
-
         {/* Stats Grid */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <div className="bg-card rounded-lg p-4 border">
@@ -259,9 +215,11 @@ export function BotUsageDisplay({ organizationId, className }: BotUsageDisplayPr
               Minutes Used
             </div>
             <div className="text-2xl font-bold">{stats.totalMinutes}</div>
-            <div className="text-xs text-muted-foreground">
-              of {stats.monthlyBotMinutesLimit}
-            </div>
+            {stats.monthlyBotMinutesLimit !== null && (
+              <div className="text-xs text-muted-foreground">
+                of {stats.monthlyBotMinutesLimit}
+              </div>
+            )}
           </div>
           
           <div className="bg-card rounded-lg p-4 border">
@@ -287,7 +245,7 @@ export function BotUsageDisplay({ organizationId, className }: BotUsageDisplayPr
         </div>
 
         {/* Cost Explanation */}
-        {stats.totalCost > 0 && (
+        {stats.totalCost > 0 && stats.monthlyBotMinutesLimit !== null && (
           <div className="bg-yellow-50 dark:bg-yellow-900/20 rounded-lg p-3 border border-yellow-200 dark:border-yellow-800">
             <div className="flex items-start gap-2">
               <AlertCircle className="w-4 h-4 text-yellow-600 dark:text-yellow-400 mt-0.5" />

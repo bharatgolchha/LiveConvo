@@ -414,6 +414,24 @@ This is useful for development and testing without external services.
 - The `/api/checkout/create-session` route simply forwards requests to the edge function
 - Authentication is handled by passing the user's JWT token to the edge function
 
+### 🔄 Subscription Management Flow
+
+1. **New Subscriptions**: `/api/checkout/create-session` → `create-checkout-session` edge function
+2. **Manage Billing**: `/api/billing/portal` → `create-portal-session` edge function → Stripe Customer Portal
+3. **In the Portal, users can**:
+   - Update payment methods
+   - Download invoices  
+   - Upgrade/downgrade plans (with proration)
+   - Cancel subscription (continues until period end)
+   - Reactivate canceled subscriptions
+
+4. **Webhook Processing**: All subscription changes are handled by the `stripe-webhooks` edge function
+   - Plan changes take effect immediately for upgrades
+   - Downgrades typically apply at period end
+   - Cancellations continue access until period end
+
+See `STRIPE_SUBSCRIPTION_GUIDE.md` for detailed implementation details.
+
 ---
 
 **Note**: This guide is designed to help AI assistants understand and work with the liveprompt.ai codebase effectively. Always refer to the actual code for the most up-to-date implementation details.

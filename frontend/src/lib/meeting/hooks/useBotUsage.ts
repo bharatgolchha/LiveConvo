@@ -115,6 +115,12 @@ export function useBotUsage(organizationId?: string, showAllTime: boolean = fals
 
       const result = await response.json();
       console.log('✅ Bot usage data received:', result);
+      console.log('📊 Bot usage stats summary:', {
+        monthlyBotMinutesLimit: result.data?.summary?.monthlyBotMinutesLimit,
+        remainingMinutes: result.data?.summary?.remainingMinutes,
+        overageMinutes: result.data?.summary?.overageMinutes,
+        totalMinutes: result.data?.summary?.totalBillableMinutes
+      });
       
       // Map API response to expected format
       const sessions: BotUsageSession[] = result.data?.sessions?.map((session: any) => {

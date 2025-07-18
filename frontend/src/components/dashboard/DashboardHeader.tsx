@@ -21,6 +21,7 @@ export interface DashboardUser {
   email: string;
   avatar?: string;
   plan: 'free' | 'pro' | 'team';
+  planDisplayName?: string;
   is_admin?: boolean;
 }
 
@@ -156,7 +157,7 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({ user, onSearch, onNav
               </div>
               <div className="hidden sm:block text-left">
                 <p className="text-sm font-medium text-foreground">{user.name}</p>
-                <p className="text-xs text-muted-foreground capitalize">{user.plan} Plan</p>
+                <p className="text-xs text-muted-foreground">{user.planDisplayName || `${user.plan.charAt(0).toUpperCase() + user.plan.slice(1)} Plan`}</p>
               </div>
               <ChevronDownIcon className="w-4 h-4 text-muted-foreground" />
             </button>

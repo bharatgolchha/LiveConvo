@@ -556,13 +556,15 @@ async function fetchUserStats(
 
   // Fallback values if function fails
   let minutesUsed = limitRow?.minutes_used ?? 0;
-  const minutesLimit = limitRow?.minutes_limit ?? 60;
-  let minutesRemaining = limitRow?.minutes_remaining ?? Math.max(0, minutesLimit - minutesUsed);
-  const percentageUsed = limitRow?.percentage_used ?? (minutesLimit ? Math.round((minutesUsed / minutesLimit) * 100) : 0);
+  // Check if plan is unlimited - check both is_unlimited flag and null limit
+  const isUnlimited = limitRow?.is_unlimited === true || limitRow?.minutes_limit === null;
+  // For unlimited plans, set limit to null, otherwise use the value from DB
+  const minutesLimit = isUnlimited ? null : (limitRow?.minutes_limit ?? 60);
+  let minutesRemaining = isUnlimited ? null : (limitRow?.minutes_remaining ?? Math.max(0, (minutesLimit || 60) - minutesUsed));
+  const percentageUsed = isUnlimited ? 0 : (limitRow?.percentage_used ?? (minutesLimit ? Math.round((minutesUsed / minutesLimit) * 100) : 0));
 
-  const isUnlimited = minutesLimit >= 999999;
   const bot_minutes_used = limitRow?.minutes_used ?? 0;
-  const bot_minutes_limit = minutesLimit;
+  const bot_minutes_limit = isUnlimited ? null : minutesLimit;
 
   const limitData = {
     can_record: limitRow?.can_record ?? true,
@@ -571,10 +573,13 @@ async function fetchUserStats(
     minutes_remaining: minutesRemaining,
     percentage_used: percentageUsed,
     bot_minutes_used,
-    bot_minutes_limit
+    bot_minutes_limit,
+    is_unlimited: isUnlimited
   };
 
+  console.log('📊 Raw limit data from DB:', limitRow);
   console.log('📊 Usage from check_usage_limit:', limitData);
+  console.log('📊 Is unlimited?', isUnlimited, 'Minutes limit:', minutesLimit);
 
   // -------------------------------------------------
   // Recompute minutes within active billing period
@@ -591,10 +596,10 @@ async function fetchUserStats(
 
   // Use limitData.minutes_limit as the plan limit but minutes_used from current period calculation
   minutesUsed = currentPeriodBotMinutes;
-  minutesRemaining = isUnlimited ? null : Math.max(0, minutesLimit - minutesUsed);
+  minutesRemaining = isUnlimited ? null : Math.max(0, (minutesLimit || 60) - minutesUsed);
   limitData.minutes_used = minutesUsed;
   limitData.minutes_remaining = minutesRemaining;
-  limitData.percentage_used = isUnlimited ? 0 : Math.round((minutesUsed / minutesLimit) * 100);
+  limitData.percentage_used = isUnlimited ? 0 : (minutesLimit ? Math.round((minutesUsed / minutesLimit) * 100) : 0);
   limitData.bot_minutes_used = minutesUsed;
 
   console.log('🔄 Recalculated current period bot minutes:', { currentPeriodBotMinutes });
@@ -626,10 +631,10 @@ async function fetchUserStats(
   ).length;
 
   const monthlyMinutesLimit = isUnlimited ? null : limitData.minutes_limit;
-  const monthlyHoursLimit = isUnlimited ? null : Math.round((limitData.minutes_limit / 60) * 10) / 10;
+  const monthlyHoursLimit = isUnlimited ? null : (limitData.minutes_limit ? Math.round((limitData.minutes_limit / 60) * 10) / 10 : 0);
   const monthlyAudioHours = Math.round((limitData.minutes_used / 60) * 10) / 10;
 
-  return {
+  const result = {
     monthlyMinutesUsed: limitData.minutes_used,
     monthlyMinutesLimit,
     minutesRemaining: limitData.minutes_remaining,
@@ -646,8 +651,17 @@ async function fetchUserStats(
     sessionsLast30Days,
     currentMonth: periodKey,
     monthlyBotMinutesUsed: limitData.bot_minutes_used || 0,
-    monthlyBotMinutesLimit: limitData.bot_minutes_limit || minutesLimit
+    monthlyBotMinutesLimit: isUnlimited ? null : (limitData.bot_minutes_limit || minutesLimit)
   };
+
+  console.log('📊 Final stats being returned:', {
+    monthlyMinutesLimit: result.monthlyMinutesLimit,
+    monthlyBotMinutesLimit: result.monthlyBotMinutesLimit,
+    isUnlimited,
+    monthlyMinutesUsed: result.monthlyMinutesUsed
+  });
+
+  return result;
 }
 
 // Helper function to fetch subscription

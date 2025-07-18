@@ -27,7 +27,7 @@ export interface UsageStats {
 }
 
 interface DashboardSidebarProps {
-  usageStats: UsageStats;
+  usageStats: UsageStats | null;
   activePath: string;
   onNavigate: (path: string) => void;
   currentUser: { plan: 'free' | 'pro' | 'team'; };
@@ -38,16 +38,23 @@ interface DashboardSidebarProps {
 const DashboardSidebar: React.FC<DashboardSidebarProps> = ({ usageStats, activePath, onNavigate, currentUser, onCloseMobile, sharedCount }) => {
   // Debug: Log the usageStats to see what's being passed
   React.useEffect(() => {
-    console.log('📊 DashboardSidebar usageStats:', {
-      monthlyMinutesUsed: usageStats.monthlyMinutesUsed,
-      monthlyMinutesLimit: usageStats.monthlyMinutesLimit,
-      minutesRemaining: usageStats.minutesRemaining,
-      fullStats: usageStats
-    });
+    if (usageStats) {
+      console.log('📊 DashboardSidebar usageStats:', {
+        monthlyMinutesUsed: usageStats.monthlyMinutesUsed,
+        monthlyMinutesLimit: usageStats.monthlyMinutesLimit,
+        minutesRemaining: usageStats.minutesRemaining,
+        fullStats: usageStats
+      });
+    } else {
+      console.log('📊 DashboardSidebar usageStats: null (loading)');
+    }
   }, [usageStats]);
 
   // Use counts from stats instead of calculating from sessions
   const { archivedCount, activeCount } = useMemo(() => {
+    if (!usageStats) {
+      return { archivedCount: 0, activeCount: 0 };
+    }
     // Use the counts from usageStats which has the full picture
     const archived = usageStats.archivedSessions || 0;
     // Active count should include all non-archived sessions (active + draft + completed)
@@ -72,11 +79,13 @@ const DashboardSidebar: React.FC<DashboardSidebarProps> = ({ usageStats, activeP
     { path: 'settings', label: 'Settings', icon: Cog6ToothIcon },
   ];
 
-  const isUnlimited = usageStats.monthlyMinutesLimit == null;
+  const monthlyMinutesUsed = usageStats?.monthlyMinutesUsed || 0;
+  const monthlyMinutesLimit = usageStats?.monthlyMinutesLimit;
+  const isUnlimited = monthlyMinutesLimit == null || monthlyMinutesLimit >= 999999;
   const usagePercentage = isUnlimited
     ? 0
     : Math.min(
-        (usageStats.monthlyMinutesUsed || 0) / (usageStats.monthlyMinutesLimit || 600) * 100,
+        monthlyMinutesUsed / (monthlyMinutesLimit || 600) * 100,
         100,
       );
 
@@ -146,7 +155,7 @@ const DashboardSidebar: React.FC<DashboardSidebarProps> = ({ usageStats, activeP
             <div className="flex items-center justify-between text-sm">
               <span className="text-muted-foreground">Usage</span>
               <span className="font-medium">
-                {isUnlimited ? 'Unlimited' : `${formatMinutes(usageStats.monthlyMinutesUsed || 0)} / ${formatMinutes(usageStats.monthlyMinutesLimit || 0)}`}
+                {isUnlimited ? 'Unlimited' : `${formatMinutes(monthlyMinutesUsed)} / ${formatMinutes(monthlyMinutesLimit || 0)}`}
               </span>
             </div>
             

@@ -71,15 +71,19 @@ export async function GET(request: NextRequest) {
     // Return the usage data - handle NULL values properly
     const usageData = data?.[0] || {};
     
+    // Handle unlimited plans (null limits)
+    const isUnlimited = usageData.is_unlimited === true || usageData.minutes_limit === null;
+    
     // Ensure we always return a boolean for can_record
     const response = {
       // Reason: usageData.can_record may be undefined when the RPC returns no rows.
       // In that case, default to true so users are not blocked unnecessarily.
       can_record: typeof usageData.can_record === 'boolean' ? usageData.can_record : true,
       minutes_used: usageData.minutes_used ?? 0,
-      minutes_limit: usageData.minutes_limit ?? 600, // Default 10 hours if not provided
-      minutes_remaining: usageData.minutes_remaining ?? 600,
-      percentage_used: usageData.percentage_used ?? 0
+      minutes_limit: isUnlimited ? null : (usageData.minutes_limit ?? 600), // Return null for unlimited plans
+      minutes_remaining: isUnlimited ? null : (usageData.minutes_remaining ?? 600),
+      percentage_used: usageData.percentage_used ?? 0,
+      is_unlimited: isUnlimited
     };
 
     console.log('Processed usage data:', response);
