@@ -40,15 +40,65 @@ export const ShareMeetingModal: React.FC<ShareMeetingModalProps> = ({
   const [isSharing, setIsSharing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+  const [isValidatingEmail, setIsValidatingEmail] = useState(false);
+  const [emailValidationError, setEmailValidationError] = useState<string | null>(null);
 
-  const handleAddEmail = () => {
+  const handleAddEmail = async () => {
     const trimmedEmail = emailInput.trim();
-    if (trimmedEmail && isValidEmail(trimmedEmail) && !userEmails.includes(trimmedEmail)) {
+    setEmailValidationError(null);
+    
+    if (!trimmedEmail) return;
+    
+    if (!isValidEmail(trimmedEmail)) {
+      setEmailValidationError('Please enter a valid email address');
+      return;
+    }
+    
+    if (userEmails.includes(trimmedEmail)) {
+      setEmailValidationError('This email has already been added');
+      return;
+    }
+    
+    // Check if email exists in the system
+    setIsValidatingEmail(true);
+    try {
+      const headers: HeadersInit = {
+        'Content-Type': 'application/json',
+      };
+      
+      if (authSession?.access_token) {
+        headers['Authorization'] = `Bearer ${authSession.access_token}`;
+      }
+      
+      const response = await fetch('/api/users/validate-email', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ email: trimmedEmail })
+      });
+      
+      const data = await response.json();
+      
+      if (!response.ok) {
+        setEmailValidationError('Failed to validate email');
+        return;
+      }
+      
+      if (!data.exists) {
+        setEmailValidationError('No account found with this email address');
+        return;
+      }
+      
+      // Email is valid and exists
       setUserEmails([...userEmails, trimmedEmail]);
       setEmailInput('');
       setError(null);
-    } else if (!isValidEmail(trimmedEmail)) {
-      setError('Please enter a valid email address');
+      setEmailValidationError(null);
+      
+    } catch (err) {
+      console.error('Error validating email:', err);
+      setEmailValidationError('Failed to validate email');
+    } finally {
+      setIsValidatingEmail(false);
     }
   };
 
@@ -212,23 +262,38 @@ export const ShareMeetingModal: React.FC<ShareMeetingModalProps> = ({
                       <label className="block text-sm font-medium text-foreground mb-2">
                         Email addresses
                       </label>
-                      <div className="flex gap-2">
-                        <input
-                          type="email"
-                          value={emailInput}
-                          onChange={(e) => setEmailInput(e.target.value)}
-                          onKeyPress={(e) => e.key === 'Enter' && handleAddEmail()}
-                          placeholder="Enter email address"
-                          className="flex-1 px-3 py-2 text-sm bg-background border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-app-primary"
-                        />
-                        <Button
-                          onClick={handleAddEmail}
-                          disabled={!emailInput.trim()}
-                          variant="outline"
-                          size="sm"
-                        >
-                          Add
-                        </Button>
+                      <div>
+                        <div className="flex gap-2">
+                          <input
+                            type="email"
+                            value={emailInput}
+                            onChange={(e) => {
+                              setEmailInput(e.target.value);
+                              setEmailValidationError(null);
+                            }}
+                            onKeyPress={(e) => e.key === 'Enter' && !isValidatingEmail && handleAddEmail()}
+                            placeholder="Enter email address"
+                            className={`flex-1 px-3 py-2 text-sm bg-background border rounded-md focus:outline-none focus:ring-2 focus:ring-app-primary ${
+                              emailValidationError ? 'border-destructive' : 'border-input'
+                            }`}
+                            disabled={isValidatingEmail}
+                          />
+                          <Button
+                            onClick={handleAddEmail}
+                            disabled={!emailInput.trim() || isValidatingEmail}
+                            variant="outline"
+                            size="sm"
+                            loading={isValidatingEmail}
+                          >
+                            Add
+                          </Button>
+                        </div>
+                        {emailValidationError && (
+                          <p className="text-xs text-destructive mt-1.5 flex items-center gap-1">
+                            <ExclamationTriangleIcon className="w-3 h-3" />
+                            {emailValidationError}
+                          </p>
+                        )}
                       </div>
                       {userEmails.length > 0 && (
                         <div className="flex flex-wrap gap-1.5 mt-2">
