@@ -43,6 +43,7 @@ export const EnhancedAIChat = forwardRef<EnhancedAIChatRef>((props, ref) => {
   const [suggestedPrompts, setSuggestedPrompts] = useState<SuggestedAction[]>([]);
   const [initialPrompts, setInitialPrompts] = useState<SuggestedAction[]>([]);
   const [isLoadingInitialPrompts, setIsLoadingInitialPrompts] = useState(false);
+  const [hasLoadedInitialPrompts, setHasLoadedInitialPrompts] = useState(false);
   const [aiInstructions, setAiInstructions] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -136,7 +137,7 @@ export const EnhancedAIChat = forwardRef<EnhancedAIChatRef>((props, ref) => {
 
   // Fetch initial prompts
   const fetchInitialPrompts = useCallback(async () => {
-    if (!meeting || isLoadingInitialPrompts) return;
+    if (!meeting || isLoadingInitialPrompts || hasLoadedInitialPrompts) return;
 
     setIsLoadingInitialPrompts(true);
     try {
@@ -158,6 +159,7 @@ export const EnhancedAIChat = forwardRef<EnhancedAIChatRef>((props, ref) => {
         const data = await response.json();
         if (data.suggestedActions) {
           setInitialPrompts(data.suggestedActions);
+          setHasLoadedInitialPrompts(true);
         }
       }
     } catch (error) {
@@ -165,7 +167,7 @@ export const EnhancedAIChat = forwardRef<EnhancedAIChatRef>((props, ref) => {
     } finally {
       setIsLoadingInitialPrompts(false);
     }
-  }, [meeting, transcript.length, linkedConversations]);
+  }, [meeting, transcript.length, linkedConversations, isLoadingInitialPrompts, hasLoadedInitialPrompts]);
 
   // Clear chat function
   const clearChat = useCallback(() => {
@@ -180,7 +182,8 @@ export const EnhancedAIChat = forwardRef<EnhancedAIChatRef>((props, ref) => {
     // Clear suggested prompts
     setSuggestedPrompts([]);
     
-    // Fetch new initial prompts
+    // Reset the flag and fetch new initial prompts
+    setHasLoadedInitialPrompts(false);
     fetchInitialPrompts();
     
     // Focus input
@@ -212,10 +215,10 @@ export const EnhancedAIChat = forwardRef<EnhancedAIChatRef>((props, ref) => {
 
   // Fetch initial prompts when meeting data is available
   useEffect(() => {
-    if (meeting && messages.length === 1 && messages[0].id === 'welcome') {
+    if (meeting && messages.length === 1 && messages[0].id === 'welcome' && !hasLoadedInitialPrompts) {
       fetchInitialPrompts();
     }
-  }, [meeting, messages, fetchInitialPrompts]);
+  }, [meeting, messages.length, hasLoadedInitialPrompts, fetchInitialPrompts]);
 
   // Listen for previous meeting questions
   useEffect(() => {
