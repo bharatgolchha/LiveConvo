@@ -222,7 +222,9 @@ export const SubscriptionManager: React.FC = () => {
   }
 
   const { plan, subscription, usage } = subscriptionData;
-  const isPro = plan.name === 'pro' || plan.name === 'individual_pro';
+  // Check if it's a paid plan - any plan that's not the free plan and has a subscription ID
+  const isPaidPlan = plan.name !== 'individual_free' && plan.name !== 'free' && subscription.id !== null;
+  const isPro = plan.name === 'pro' || plan.name === 'individual_pro' || isPaidPlan;
   const isFree = plan.name === 'individual_free' || plan.name === 'free';
 
   return (
@@ -240,7 +242,7 @@ export const SubscriptionManager: React.FC = () => {
             </div>
             <p className="text-muted-foreground">
               {isPro 
-                ? 'Professional conversation coaching with unlimited features'
+                ? 'Premium conversation coaching with enhanced features'
                 : 'Basic conversation coaching features'
               }
             </p>

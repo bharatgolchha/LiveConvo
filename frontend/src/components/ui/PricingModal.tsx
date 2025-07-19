@@ -45,12 +45,22 @@ interface PricingPlan {
     isFeatured: boolean;
     sortOrder: number;
   };
+  trial?: {
+    enabled: boolean;
+    days: number;
+  };
 }
 
 interface PricingModalProps {
   isOpen: boolean;
   onClose: () => void;
   reason?: string;
+}
+
+interface TrialStatus {
+  isEligible: boolean;
+  hasUsedTrial: boolean;
+  currentTrialDaysLeft?: number;
 }
 
 const featureLabels = {
@@ -73,6 +83,7 @@ export const PricingModal: React.FC<PricingModalProps> = ({ isOpen, onClose, rea
   const [creditBalance, setCreditBalance] = useState(0);
   const [referralCode, setReferralCode] = useState('');
   const [referralDiscount, setReferralDiscount] = useState<{ valid: boolean; message?: string }>({ valid: false });
+  const [trialStatus, setTrialStatus] = useState<TrialStatus>({ isEligible: false, hasUsedTrial: false });
   const router = useRouter();
   const searchParams = useSearchParams();
   const { session } = useAuth();
@@ -83,6 +94,7 @@ export const PricingModal: React.FC<PricingModalProps> = ({ isOpen, onClose, rea
       fetchUserPlan();
       fetchCreditBalance();
       checkExistingReferral();
+      checkTrialEligibility();
       
       // Check for referral code in URL
       const urlReferralCode = searchParams.get('ref');
@@ -98,6 +110,7 @@ export const PricingModal: React.FC<PricingModalProps> = ({ isOpen, onClose, rea
       const response = await fetch('/api/pricing');
       if (!response.ok) throw new Error('Failed to fetch pricing');
       const data = await response.json();
+      console.log('Pricing plans loaded:', data.plans);
       setPlans(data.plans);
     } catch (error) {
       console.error('Error fetching pricing:', error);
@@ -119,7 +132,8 @@ export const PricingModal: React.FC<PricingModalProps> = ({ isOpen, onClose, rea
       
       if (response.ok) {
         const data = await response.json();
-        setCurrentUserPlan(data.plan.name);
+        console.log('User subscription data:', data);
+        setCurrentUserPlan(data.plan.slug);
       }
     } catch (error) {
       console.error('Error fetching user plan:', error);
@@ -169,6 +183,26 @@ export const PricingModal: React.FC<PricingModalProps> = ({ isOpen, onClose, rea
       }
     } catch (error) {
       console.error('Error checking existing referral:', error);
+    }
+  };
+
+  const checkTrialEligibility = async () => {
+    if (!session?.access_token) return;
+    
+    try {
+      const response = await fetch('/api/trials/check-eligibility', {
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`
+        }
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        console.log('Trial eligibility response:', data);
+        setTrialStatus(data);
+      }
+    } catch (error) {
+      console.error('Error checking trial eligibility:', error);
     }
   };
 
@@ -444,6 +478,14 @@ export const PricingModal: React.FC<PricingModalProps> = ({ isOpen, onClose, rea
                   const yearlyPrice = plan.pricing.yearly;
                   const savings = getYearlySavings(monthlyPrice, yearlyPrice);
                   
+                  // Debug trial badge conditions
+                  console.log(`Plan ${plan.slug}:`, {
+                    slug: plan.slug,
+                    isEligible: trialStatus.isEligible,
+                    currentUserPlan,
+                    showTrialBadge: plan.slug === 'pro' && trialStatus.isEligible && currentUserPlan !== 'pro'
+                  });
+                  
                   return (
                     <motion.div
                       key={plan.id}
@@ -502,6 +544,12 @@ export const PricingModal: React.FC<PricingModalProps> = ({ isOpen, onClose, rea
                               ✨ Save {savings}%
                             </p>
                           )}
+                          {plan.trial?.enabled && trialStatus.isEligible && currentUserPlan !== plan.slug && (
+                            <div className="mt-2 inline-flex items-center gap-1 px-2 py-1 bg-blue-500/10 text-blue-600 rounded-full text-xs font-medium">
+                              <Gift className="w-3 h-3" />
+                              {plan.trial.days}-day free trial included
+                            </div>
+                          )}
                         </div>
 
                         {/* Key Features - Show only top 3 to save space */}
@@ -545,7 +593,9 @@ export const PricingModal: React.FC<PricingModalProps> = ({ isOpen, onClose, rea
                         >
                           {currentUserPlan === plan.slug ? 'Current Plan' :
                            plan.slug === 'org_enterprise' ? 'Contact Sales' : 
-                           plan.slug === 'individual_free' ? 'Get Started' : 'Upgrade Now'}
+                           plan.slug === 'individual_free' ? 'Get Started' : 
+                           (plan.trial?.enabled && trialStatus.isEligible && currentUserPlan !== plan.slug) ? 'Start Free Trial' : 
+                           'Upgrade Now'}
                         </Button>
                       </Card>
                     </motion.div>

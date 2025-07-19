@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Check, X, Sparkles, Zap, Shield, Star, Mic, Search, Bell, User as UserIcon, Settings, LogOut, Crown, Rocket, Heart } from 'lucide-react';
+import { Check, X, Sparkles, Zap, Shield, Star, Mic, Search, Bell, User as UserIcon, Settings, LogOut, Crown, Rocket, Heart, Gift } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/badge';
@@ -55,6 +55,16 @@ interface PricingPlan {
   aiModels: string[];
   maxGuidanceRequestsPerSession: number;
   summaryGenerationPriority: number;
+  trial?: {
+    enabled: boolean;
+    days: number;
+  };
+}
+
+interface TrialStatus {
+  isEligible: boolean;
+  hasUsedTrial: boolean;
+  currentTrialDaysLeft?: number;
 }
 
 export default function PricingPage() {
@@ -63,6 +73,7 @@ export default function PricingPage() {
   const [billingPeriod, setBillingPeriod] = useState<'monthly' | 'yearly'>('monthly');
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [currentUserPlan, setCurrentUserPlan] = useState<string | null>(null);
+  const [trialStatus, setTrialStatus] = useState<TrialStatus>({ isEligible: false, hasUsedTrial: false });
   
   const { user, signOut } = useAuth();
   const { theme, resolvedTheme } = useTheme();
@@ -102,7 +113,9 @@ export default function PricingPage() {
             summary_generation_priority,
             is_active,
             is_featured,
-            sort_order
+            sort_order,
+            trial_enabled,
+            trial_days
           `)
           .eq('is_active', true)
           .order('sort_order');
@@ -152,7 +165,11 @@ export default function PricingPage() {
           },
           aiModels: plan.ai_model_access || ['gpt-4o-mini'],
           maxGuidanceRequestsPerSession: plan.max_guidance_requests_per_session,
-          summaryGenerationPriority: plan.summary_generation_priority
+          summaryGenerationPriority: plan.summary_generation_priority,
+          trial: {
+            enabled: plan.trial_enabled || false,
+            days: plan.trial_days || 0
+          }
         }));
 
         setPlans(formattedPlans);
@@ -178,7 +195,33 @@ export default function PricingPage() {
     };
 
     fetchPlans();
+    
+    // Check trial eligibility if user is logged in
+    if (user) {
+      checkTrialEligibility();
+    }
   }, [user]);
+
+  const checkTrialEligibility = async () => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+      
+      const response = await fetch('/api/trials/check-eligibility', {
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`
+        }
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        console.log('Trial eligibility response:', data);
+        setTrialStatus(data);
+      }
+    } catch (error) {
+      console.error('Error checking trial eligibility:', error);
+    }
+  };
 
   const formatPrice = (price: number | null): string => {
     if (price === null || price === 0) return 'Free';
@@ -690,6 +733,16 @@ export default function PricingPage() {
                         Save {savings}% with annual billing
                       </motion.p>
                     )}
+                    {plan.trial?.enabled && trialStatus.isEligible && currentUserPlan !== plan.slug && (
+                      <motion.div 
+                        initial={{ opacity: 0, scale: 0.8 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        className="mt-2 inline-flex items-center gap-1 px-3 py-1.5 bg-blue-500/10 text-blue-600 rounded-full text-xs font-medium"
+                      >
+                        <Gift className="w-3 h-3" />
+                        {plan.trial.days}-day free trial included
+                      </motion.div>
+                    )}
                   </div>
 
                   {/* Features List */}
@@ -737,6 +790,7 @@ export default function PricingPage() {
                         </>
                       ) : plan.slug === 'org_enterprise' ? 'Contact Sales' : 
                         plan.slug === 'individual_free' ? 'Get Started' : 
+                        (plan.trial?.enabled && trialStatus.isEligible && currentUserPlan !== plan.slug) ? 'Start Free Trial' :
                         (currentUserPlan && currentUserPlan !== 'individual_free') ? 'Manage Plan' : 'Upgrade Now'}
                       {!currentUserPlan || currentUserPlan !== plan.slug ? (
                         <Sparkles className="w-4 h-4 ml-2 inline-flex" />
@@ -824,7 +878,7 @@ export default function PricingPage() {
             },
             {
               question: "Is there a free trial?",
-              answer: "Our Individual Free plan is free forever with 1 hour per month. For paid plans, we offer a 14-day money-back guarantee."
+              answer: "Yes! New users get a free trial for eligible paid plans. No credit card required to start. Our Individual Free plan is also free forever with 1 hour per month."
             },
             {
               question: "How do team plans work?",
@@ -880,7 +934,7 @@ export default function PricingPage() {
             </div>
             <p className="text-sm text-muted-foreground mt-6 flex items-center justify-center gap-2">
               <Shield className="w-4 h-4" />
-              No credit card required • 14-day money-back guarantee
+              Free trial available • No credit card required • Cancel anytime
             </p>
           </motion.div>
         </div>

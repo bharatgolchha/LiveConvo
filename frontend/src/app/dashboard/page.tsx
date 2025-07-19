@@ -117,6 +117,7 @@ const DashboardPage: React.FC = () => {
   const [shareModalOpen, setShareModalOpen] = useState(false);
   const [sessionToShare, setSessionToShare] = useState<Session | null>(null);
   const [sharedMeetingsCount, setSharedMeetingsCount] = useState(0);
+  const [isEligibleForTrial, setIsEligibleForTrial] = useState(false);
 
   // Get all dashboard data from unified hook
   const { 
@@ -237,6 +238,33 @@ const DashboardPage: React.FC = () => {
     plan: planType,
     planDisplayName: subscription?.plan?.displayName
   };
+
+  // Check trial eligibility
+  useEffect(() => {
+    const checkTrialEligibility = async () => {
+      if (authSession?.access_token && planType === 'free') {
+        try {
+          const response = await fetch('/api/trials/check-eligibility', {
+            headers: {
+              'Authorization': `Bearer ${authSession.access_token}`
+            }
+          });
+          
+          if (response.ok) {
+            const data = await response.json();
+            console.log('Dashboard trial eligibility:', data);
+            console.log('Dashboard - Current plan type:', planType);
+            console.log('Dashboard - Is eligible for trial:', data.isEligible);
+            setIsEligibleForTrial(data.isEligible);
+          }
+        } catch (error) {
+          console.error('Error checking trial eligibility:', error);
+        }
+      }
+    };
+    
+    checkTrialEligibility();
+  }, [authSession, planType]);
 
   // Update URL when activePath changes
   useEffect(() => {
@@ -804,6 +832,7 @@ const DashboardPage: React.FC = () => {
               }
             }}
             currentUser={currentUser}
+            isEligibleForTrial={isEligibleForTrial}
             onCloseMobile={() => setIsSidebarOpen(false)}
           />
         </div>

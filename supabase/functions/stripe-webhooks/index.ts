@@ -1,4 +1,41 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
+import Stripe from "https://esm.sh/stripe@14.21.0";
+
+// Helper to require environment variables
+const requireEnv = (key: string): string => {
+  const val = Deno.env.get(key);
+  if (!val) {
+    throw new Error(`Missing required environment variable: ${key}`);
+  }
+  return val;
+};
+
+// Initialize clients outside handler to avoid cold start delays
+let stripe: Stripe | null = null;
+let supabase: any = null;
+
+try {
+  // Initialize Stripe client
+  const STRIPE_SECRET_KEY = requireEnv('STRIPE_SECRET_KEY');
+  stripe = new Stripe(STRIPE_SECRET_KEY, {
+    apiVersion: '2024-06-20',
+  });
+
+  // Initialize Supabase client
+  const SUPABASE_URL = requireEnv('SUPABASE_URL');
+  const SUPABASE_SERVICE_ROLE_KEY = requireEnv('SUPABASE_SERVICE_ROLE_KEY');
+  supabase = createClient(
+    SUPABASE_URL,
+    SUPABASE_SERVICE_ROLE_KEY,
+    { auth: { persistSession: false } }
+  );
+} catch (error) {
+  console.error('Failed to initialize clients:', error);
+}
+
+// Store webhook secret separately for access in handler
+const STRIPE_WEBHOOK_SECRET = Deno.env.get('STRIPE_WEBHOOK_SECRET');
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -7,25 +44,35 @@ const corsHeaders = {
 };
 
 Deno.serve(async (req: Request) => {
-  console.log('=== WEBHOOK CALLED ===');
-  console.log('Method:', req.method);
-  
+  // Handle CORS preflight immediately
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
   }
 
+  console.log('=== WEBHOOK CALLED ===');
+  console.log('Method:', req.method);
+
   try {
-    // Verify environment variables
-    const hasStripeKey = !!Deno.env.get('STRIPE_SECRET_KEY');
-    const hasWebhookSecret = !!Deno.env.get('STRIPE_WEBHOOK_SECRET');
-    const hasSupabaseUrl = !!Deno.env.get('SUPABASE_URL');
-    const hasSupabaseKey = !!Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
-    
-    console.log('Environment check:', { hasStripeKey, hasWebhookSecret, hasSupabaseUrl, hasSupabaseKey });
+    // Verify webhook secret and client initialization
+    if (!STRIPE_WEBHOOK_SECRET) {
+      console.error('Missing STRIPE_WEBHOOK_SECRET environment variable');
+      return new Response('Server configuration error', { 
+        status: 500,
+        headers: corsHeaders 
+      });
+    }
+
+    if (!stripe || !supabase) {
+      console.error('Failed to initialize clients - missing environment variables');
+      return new Response('Server initialization error', { 
+        status: 500,
+        headers: corsHeaders 
+      });
+    }
     
     const signature = req.headers.get('stripe-signature');
-    if (!signature || !hasWebhookSecret) {
-      return new Response('Missing signature or webhook secret', { 
+    if (!signature) {
+      return new Response('Missing stripe-signature header', { 
         status: 400,
         headers: corsHeaders 
       });
@@ -34,17 +81,10 @@ Deno.serve(async (req: Request) => {
     const body = await req.text();
     console.log('Body length:', body.length);
 
-    // Import and verify webhook
-    const { default: Stripe } = await import("https://esm.sh/stripe@14.21.0");
-    const stripe = new Stripe(Deno.env.get('STRIPE_SECRET_KEY') || '', {
-      apiVersion: '2024-06-20',
-    });
-    
-    const webhookSecret = Deno.env.get('STRIPE_WEBHOOK_SECRET')!;
-    let event: any;
+    let event: Stripe.Event;
     
     try {
-      event = await stripe.webhooks.constructEventAsync(body, signature, webhookSecret);
+      event = await stripe.webhooks.constructEventAsync(body, signature, STRIPE_WEBHOOK_SECRET);
       console.log('✅ Webhook verified! Event type:', event.type);
     } catch (err: any) {
       console.error('Signature verification failed:', err.message);
@@ -54,29 +94,35 @@ Deno.serve(async (req: Request) => {
       });
     }
 
-    // Import Supabase
-    const { createClient } = await import("https://esm.sh/@supabase/supabase-js@2.39.3");
-    const supabase = createClient(
-      Deno.env.get('SUPABASE_URL')!,
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-    );
-
     // Process the event
     try {
       // Handle checkout session completed
       if (event.type === 'checkout.session.completed') {
-        const session = event.data.object;
+        const session = event.data.object as Stripe.Checkout.Session;
         console.log('Processing checkout completion:', session.id);
         console.log('Subscription ID:', session.subscription);
         console.log('Payment status:', session.payment_status);
         console.log('Customer:', session.customer);
         console.log('Metadata:', session.metadata);
         
-        if (session.subscription && session.payment_status === 'paid') {
+        if (session.subscription) {
           // Get the subscription from Stripe to get all details
-          const subscription = await stripe.subscriptions.retrieve(session.subscription);
+          const subscription = await stripe.subscriptions.retrieve(session.subscription as string);
           console.log('Retrieved subscription:', subscription.id);
           console.log('Subscription status:', subscription.status);
+          console.log('Trial end:', subscription.trial_end);
+          
+          // Validate subscription has items
+          if (!subscription.items?.data?.length) {
+            console.error('CRITICAL: Subscription has no items:', subscription.id);
+            // Return 400 to retry - this might be a timing issue
+            return new Response(JSON.stringify({ 
+              error: 'Subscription has no items - will retry' 
+            }), {
+              headers: { 'Content-Type': 'application/json', ...corsHeaders },
+              status: 400,
+            });
+          }
           
           // Find user by customer ID
           const { data: userData, error: userError } = await supabase
@@ -86,10 +132,11 @@ Deno.serve(async (req: Request) => {
             .single();
             
           if (!userData) {
-            console.error('User not found for customer:', session.customer);
+            console.error('WARNING: User not found for customer:', session.customer);
+            // This is likely a data sync issue - return 200 to not retry forever
             return new Response(JSON.stringify({ 
               received: true, 
-              error: 'User not found' 
+              warning: 'User not found - check data sync' 
             }), {
               headers: { 'Content-Type': 'application/json', ...corsHeaders },
               status: 200,
@@ -99,7 +146,7 @@ Deno.serve(async (req: Request) => {
           console.log('User found:', userData.id);
           
           // Get price details
-          const priceId = subscription.items.data[0]?.price.id;
+          const priceId = subscription.items.data[0].price.id;
           
           // Look up plan by price ID
           const { data: planData, error: planError } = await supabase
@@ -109,18 +156,18 @@ Deno.serve(async (req: Request) => {
             .single();
             
           if (!planData) {
-            console.error('Plan not found for price:', priceId);
+            console.error('CRITICAL: Plan not found for price:', priceId);
+            // Return 400 to retry - plan might not be synced yet
             return new Response(JSON.stringify({ 
-              received: true, 
-              error: 'Plan not found' 
+              error: 'Plan not found - will retry' 
             }), {
               headers: { 'Content-Type': 'application/json', ...corsHeaders },
-              status: 200,
+              status: 400,
             });
           }
           
           // Update any existing incomplete subscriptions to canceled
-          await supabase
+          const { error: cancelError } = await supabase
             .from('subscriptions')
             .update({ 
               status: 'canceled',
@@ -128,21 +175,38 @@ Deno.serve(async (req: Request) => {
               updated_at: new Date().toISOString()
             })
             .eq('user_id', userData.id)
-            .in('status', ['incomplete', 'active'])
+            .in('status', ['incomplete', 'active', 'trialing'])
             .neq('stripe_subscription_id', subscription.id);
+            
+          if (cancelError) {
+            console.error('Failed to cancel old subscriptions:', cancelError);
+            return new Response('Database error', { 
+              status: 500,
+              headers: corsHeaders 
+            });
+          }
           
-          // Create or update subscription
+          // Determine if this is a trial subscription
+          const isTrialing = subscription.status === 'trialing';
+          const trialStart = subscription.trial_start ? new Date(subscription.trial_start * 1000).toISOString() : null;
+          const trialEnd = subscription.trial_end ? new Date(subscription.trial_end * 1000).toISOString() : null;
+          
+          // Create or update subscription (no UUID needed)
           const subscriptionData = {
             user_id: userData.id,
             organization_id: userData.current_organization_id || null,
             plan_id: planData.id,
             plan_type: planData.plan_type || 'individual',
             stripe_subscription_id: subscription.id,
-            stripe_customer_id: session.customer,
+            stripe_customer_id: session.customer as string,
             stripe_price_id: priceId,
-            status: 'active', // Set to active immediately since payment is confirmed
+            status: subscription.status === 'trialing' ? 'trialing' : 'active',
             current_period_start: new Date(subscription.current_period_start * 1000).toISOString(),
             current_period_end: new Date(subscription.current_period_end * 1000).toISOString(),
+            trial_start: trialStart,
+            trial_end: trialEnd,
+            is_trial: isTrialing,
+            has_used_trial: !!trialEnd,
             updated_at: new Date().toISOString()
           };
           
@@ -155,25 +219,51 @@ Deno.serve(async (req: Request) => {
             
           if (subError) {
             console.error('Failed to update subscription:', subError);
-            return new Response(JSON.stringify({ 
-              received: true, 
-              error: 'Failed to update subscription' 
-            }), {
-              headers: { 'Content-Type': 'application/json', ...corsHeaders },
-              status: 200,
+            return new Response('Database error', { 
+              status: 500,
+              headers: corsHeaders 
             });
           }
           
-          console.log('✅ Subscription activated from checkout:', subData);
+          console.log('✅ Subscription created/updated:', subData);
           
-          // Update user's last_subscription_change timestamp for notification
-          await supabase
-            .from('users')
-            .update({ 
-              last_subscription_change: new Date().toISOString(),
-              updated_at: new Date().toISOString()
-            })
-            .eq('id', userData.id);
+          // Update user's has_used_trial flag if this is a trial subscription
+          if (isTrialing && trialEnd) {
+            console.log('Updating user has_used_trial flag for trial subscription');
+            const { error: updateError } = await supabase
+              .from('users')
+              .update({ 
+                has_used_trial: true,
+                last_subscription_change: new Date().toISOString(),
+                updated_at: new Date().toISOString()
+              })
+              .eq('id', userData.id);
+              
+            if (updateError) {
+              console.error('Failed to update user trial flag:', updateError);
+              return new Response('Database error', { 
+                status: 500,
+                headers: corsHeaders 
+              });
+            }
+          } else {
+            // Just update last_subscription_change for non-trial subscriptions
+            const { error: updateError } = await supabase
+              .from('users')
+              .update({ 
+                last_subscription_change: new Date().toISOString(),
+                updated_at: new Date().toISOString()
+              })
+              .eq('id', userData.id);
+              
+            if (updateError) {
+              console.error('Failed to update user timestamp:', updateError);
+              return new Response('Database error', { 
+                status: 500,
+                headers: corsHeaders 
+              });
+            }
+          }
         }
         
         return new Response(JSON.stringify({ 
@@ -186,9 +276,64 @@ Deno.serve(async (req: Request) => {
         });
       }
       
-      // Handle invoice payment succeeded - REFERRAL PROCESSING
+      // Handle trial ending soon (3 days before trial ends)
+      if (event.type === 'customer.subscription.trial_will_end') {
+        const subscription = event.data.object as Stripe.Subscription;
+        console.log('Processing trial ending soon:', subscription.id);
+        console.log('Trial ends at:', new Date(subscription.trial_end! * 1000).toISOString());
+        
+        // Update subscription status
+        const { data: subData, error: subError } = await supabase
+          .from('subscriptions')
+          .update({ 
+            status: 'trialing',
+            updated_at: new Date().toISOString()
+          })
+          .eq('stripe_subscription_id', subscription.id)
+          .select('user_id');
+          
+        if (subError) {
+          console.error('Failed to update subscription:', subError);
+          return new Response('Database error', { 
+            status: 500,
+            headers: corsHeaders 
+          });
+        }
+          
+        if (subData && subData.length > 0) {
+          // TODO: Send email notification about trial ending
+          console.log('User to notify about trial ending:', subData[0].user_id);
+          
+          // Create notification record - check if table exists first
+          const { error: notifError } = await supabase
+            .from('user_notifications')
+            .insert({
+              user_id: subData[0].user_id,
+              type: 'trial_ending',
+              title: 'Your trial is ending soon',
+              message: 'Your 7-day trial will end in 3 days. Add a payment method to continue using Pro features.',
+              created_at: new Date().toISOString()
+            });
+            
+          if (notifError) {
+            console.error('Failed to create notification (table may not exist):', notifError);
+            // Don't fail the webhook for notification errors
+          }
+        }
+        
+        return new Response(JSON.stringify({ 
+          received: true, 
+          event_type: event.type,
+          subscription_id: subscription.id 
+        }), {
+          headers: { 'Content-Type': 'application/json', ...corsHeaders },
+          status: 200,
+        });
+      }
+      
+      // Handle invoice payment succeeded
       if (event.type === 'invoice.payment_succeeded') {
-        const invoice = event.data.object;
+        const invoice = event.data.object as Stripe.Invoice;
         console.log('Processing payment success for invoice:', invoice.id);
         console.log('Invoice details:', {
           subscription_id: invoice.subscription,
@@ -199,47 +344,95 @@ Deno.serve(async (req: Request) => {
         });
         
         if (invoice.subscription) {
-          // Update subscription status to active
+          // Get subscription details
+          const subscription = await stripe.subscriptions.retrieve(invoice.subscription as string);
+          
+          // Validate subscription has items
+          if (!subscription.items?.data?.length) {
+            console.error('CRITICAL: Subscription has no items:', subscription.id);
+            return new Response(JSON.stringify({ 
+              error: 'Subscription has no items - will retry' 
+            }), {
+              headers: { 'Content-Type': 'application/json', ...corsHeaders },
+              status: 400,
+            });
+          }
+          
+          // Update subscription status
+          const updateData: any = { 
+            status: subscription.status,
+            updated_at: new Date().toISOString()
+          };
+          
+          // If this is the first payment after trial, update trial flags
+          if (invoice.billing_reason === 'subscription_cycle' && subscription.status === 'active') {
+            const { data: subData } = await supabase
+              .from('subscriptions')
+              .select('is_trial')
+              .eq('stripe_subscription_id', invoice.subscription)
+              .single();
+              
+            if (subData?.is_trial) {
+              updateData.is_trial = false;
+              console.log('Trial converted to paid subscription');
+            }
+          }
+          
           const { error: updateError } = await supabase
             .from('subscriptions')
-            .update({ 
-              status: 'active',
-              updated_at: new Date().toISOString()
-            })
+            .update(updateData)
             .eq('stripe_subscription_id', invoice.subscription);
             
           if (updateError) {
             console.error('Failed to update subscription status:', updateError);
-          } else {
-            console.log('Subscription marked as active');
+            return new Response('Database error', { 
+              status: 500,
+              headers: corsHeaders 
+            });
           }
           
-          // Get subscription and user data
-          const { data: subData } = await supabase
+          // Get subscription and user data for referral processing
+          const { data: subData, error: subError } = await supabase
             .from('subscriptions')
             .select('user_id, stripe_checkout_session_id')
             .eq('stripe_subscription_id', invoice.subscription)
             .single();
             
+          if (subError) {
+            console.error('Failed to get subscription data:', subError);
+            return new Response('Database error', { 
+              status: 500,
+              headers: corsHeaders 
+            });
+          }
+            
           if (subData) {
             // Update user's last_subscription_change timestamp
-            await supabase
+            const { error: userUpdateError } = await supabase
               .from('users')
               .update({ 
                 last_subscription_change: new Date().toISOString(),
                 updated_at: new Date().toISOString()
               })
               .eq('id', subData.user_id);
+              
+            if (userUpdateError) {
+              console.error('Failed to update user:', userUpdateError);
+              return new Response('Database error', { 
+                status: 500,
+                headers: corsHeaders 
+              });
+            }
             
-            // REFERRAL PROCESSING - Check if this is first payment
-            if (invoice.billing_reason === 'subscription_create') {
-              console.log('First payment detected, processing referral...');
+            // REFERRAL PROCESSING - Check if this is first payment after trial
+            if (invoice.billing_reason === 'subscription_cycle' && invoice.amount_paid > 0) {
+              console.log('First payment after trial detected, processing referral...');
               
               // Check for pending referral
               const { data: referralData, error: referralError } = await supabase
                 .from('user_referrals')
                 .select('*')
-                .eq('referee_user_id', subData.user_id)
+                .eq('referee_id', subData.user_id)
                 .eq('status', 'pending')
                 .single();
               
@@ -252,7 +445,7 @@ Deno.serve(async (req: Request) => {
                   .update({
                     status: 'completed',
                     completed_at: new Date().toISOString(),
-                    first_payment_id: invoice.payment_intent,
+                    first_payment_id: invoice.payment_intent as string,
                     stripe_checkout_session_id: subData.stripe_checkout_session_id
                   })
                   .eq('id', referralData.id);
@@ -268,13 +461,13 @@ Deno.serve(async (req: Request) => {
                   const { error: creditError } = await supabase
                     .from('user_credits')
                     .insert({
-                      user_id: referralData.referrer_user_id,
+                      user_id: referralData.referrer_id,
                       amount: referralData.reward_amount || 5.00,
                       type: 'referral_reward',
                       description: `Referral reward for referring a new user`,
                       reference_id: referralData.id,
-                      expires_at: new Date(creditDate.getTime() + 365 * 24 * 60 * 60 * 1000).toISOString(), // 1 year from credit date
-                      created_at: creditDate.toISOString() // Will be available after 7 days
+                      expires_at: new Date(creditDate.getTime() + 365 * 24 * 60 * 60 * 1000).toISOString(),
+                      created_at: creditDate.toISOString()
                     });
                   
                   if (!creditError) {
@@ -289,24 +482,33 @@ Deno.serve(async (req: Request) => {
                       })
                       .eq('id', referralData.id);
                   } else {
-                    console.error('Failed to create credit:', creditError);
+                    console.error('Failed to create credit (check RLS):', creditError);
+                    // Don't fail webhook for credit errors
                   }
                 } else {
                   console.error('Failed to update referral:', updateRefError);
+                  // Don't fail webhook for referral errors
                 }
               }
             }
 
             // Reset monthly usage if it's a new billing period
             if (invoice.billing_reason === 'subscription_cycle') {
-              // Reset user's monthly usage
-              await supabase
+              const { error: resetError } = await supabase
                 .from('users')
                 .update({ 
                   current_month_audio_seconds: 0,
                   updated_at: new Date().toISOString()
                 })
                 .eq('id', subData.user_id);
+                
+              if (resetError) {
+                console.error('Failed to reset usage:', resetError);
+                return new Response('Database error', { 
+                  status: 500,
+                  headers: corsHeaders 
+                });
+              }
                 
               console.log('Reset monthly usage for user:', subData.user_id);
             }
@@ -326,84 +528,158 @@ Deno.serve(async (req: Request) => {
       // Handle customer subscription events
       if (event.type === 'customer.subscription.created' || 
           event.type === 'customer.subscription.updated') {
-        const subscription = event.data.object;
+        const subscription = event.data.object as Stripe.Subscription;
         console.log('Processing subscription:', subscription.id);
         console.log('Customer ID:', subscription.customer);
         console.log('Status:', subscription.status);
+        console.log('Trial end:', subscription.trial_end);
+        console.log('Subscription metadata:', subscription.metadata);
         
-        // Get customer email
-        let email: string | null = null;
-        try {
-          const customer = await stripe.customers.retrieve(subscription.customer as string);
-          email = (customer as any).email;
-          console.log('Customer email:', email);
-        } catch (err: any) {
-          console.error('Failed to retrieve customer:', err.message);
-          
-          // Try to find user by stripe_customer_id
-          console.log('Looking up user by stripe_customer_id...');
-          const { data: userData, error: userError } = await supabase
+        // Log period dates for debugging
+        console.log('Period dates:', {
+          current_period_start: subscription.current_period_start,
+          current_period_end: subscription.current_period_end,
+          status: subscription.status
+        });
+        
+        // Validate subscription has items
+        if (!subscription.items?.data?.length) {
+          console.error('CRITICAL: Subscription has no items:', subscription.id);
+          return new Response(JSON.stringify({ 
+            error: 'Subscription has no items - will retry' 
+          }), {
+            headers: { 'Content-Type': 'application/json', ...corsHeaders },
+            status: 400,
+          });
+        }
+        
+        // Check for user_id in metadata first (for direct subscription creation)
+        let userData: any = null;
+        
+        if (subscription.metadata?.user_id) {
+          console.log('Found user_id in metadata:', subscription.metadata.user_id);
+          const { data: userByMetadata } = await supabase
+            .from('users')
+            .select('id, email, current_organization_id')
+            .eq('id', subscription.metadata.user_id)
+            .single();
+            
+          if (userByMetadata) {
+            userData = userByMetadata;
+            console.log('User found by metadata user_id');
+            
+            // Update stripe_customer_id if not set
+            if (!userByMetadata.stripe_customer_id) {
+              await supabase
+                .from('users')
+                .update({ 
+                  stripe_customer_id: subscription.customer as string,
+                  updated_at: new Date().toISOString()
+                })
+                .eq('id', userByMetadata.id);
+              console.log('Updated user with stripe_customer_id');
+            }
+          }
+        }
+        
+        // If not found by metadata, try customer ID
+        if (!userData) {
+          userData = await supabase
             .from('users')
             .select('id, email, current_organization_id')
             .eq('stripe_customer_id', subscription.customer)
-            .single();
-            
-          if (userData) {
-            console.log('Found user by customer ID:', userData);
-            email = userData.email;
-          } else {
-            console.error('User lookup failed:', userError);
+            .single()
+            .then(result => result.data);
+        }
+          
+        if (!userData) {
+          console.log('User not found by stripe_customer_id, trying email lookup...');
+          
+          let email: string | null = null;
+          try {
+            const customer = await stripe.customers.retrieve(subscription.customer as string);
+            if (customer.deleted) {
+              console.error('Customer was deleted');
+              return new Response(JSON.stringify({ 
+                received: true, 
+                warning: 'Customer deleted - cannot process' 
+              }), {
+                headers: { 'Content-Type': 'application/json', ...corsHeaders },
+                status: 200,
+              });
+            }
+            email = customer.email;
+            console.log('Customer email:', email);
+          } catch (err: any) {
+            console.error('Failed to retrieve customer:', err.message);
             return new Response(JSON.stringify({ 
               received: true, 
-              error: 'Customer not found' 
+              warning: 'Customer not found - cannot process' 
             }), {
               headers: { 'Content-Type': 'application/json', ...corsHeaders },
               status: 200,
             });
           }
-        }
-        
-        if (!email) {
-          console.error('No email found');
-          return new Response(JSON.stringify({ 
-            received: true, 
-            error: 'No email' 
-          }), {
-            headers: { 'Content-Type': 'application/json', ...corsHeaders },
-            status: 200,
-          });
-        }
-        
-        // Get user
-        console.log('Looking up user by email:', email);
-        const { data: userData, error: userError } = await supabase
-          .from('users')
-          .select('id, current_organization_id')
-          .eq('email', email)
-          .single();
           
-        if (!userData) {
-          console.error('User not found:', userError);
-          return new Response(JSON.stringify({ 
-            received: true, 
-            error: 'User not found' 
-          }), {
-            headers: { 'Content-Type': 'application/json', ...corsHeaders },
-            status: 200,
-          });
+          if (!email) {
+            console.error('No email found');
+            return new Response(JSON.stringify({ 
+              received: true, 
+              warning: 'No email for customer - cannot process' 
+            }), {
+              headers: { 'Content-Type': 'application/json', ...corsHeaders },
+              status: 200,
+            });
+          }
+          
+          const { data: userByEmail, error: emailError } = await supabase
+            .from('users')
+            .select('id, current_organization_id')
+            .eq('email', email)
+            .single();
+            
+          if (!userByEmail) {
+            console.error('User not found by email:', emailError);
+            return new Response(JSON.stringify({ 
+              received: true, 
+              warning: 'User not found - check data sync' 
+            }), {
+              headers: { 'Content-Type': 'application/json', ...corsHeaders },
+              status: 200,
+            });
+          }
+          
+          const { error: updateError } = await supabase
+            .from('users')
+            .update({ 
+              stripe_customer_id: subscription.customer as string,
+              updated_at: new Date().toISOString()
+            })
+            .eq('id', userByEmail.id);
+            
+          if (updateError) {
+            console.error('Failed to update user customer ID:', updateError);
+            return new Response('Database error', { 
+              status: 500,
+              headers: corsHeaders 
+            });
+          }
+          
+          // Now we can assign to userData
+          userData = userByEmail;
         }
         
         console.log('User found:', userData.id);
         
         // Get price ID and plan
-        const priceId = subscription.items.data[0]?.price.id;
+        const priceId = subscription.items.data[0].price.id;
         console.log('Price details:', {
           priceId: priceId,
-          unitAmount: subscription.items.data[0]?.price.unit_amount,
-          interval: subscription.items.data[0]?.price.recurring?.interval
+          unitAmount: subscription.items.data[0].price.unit_amount,
+          interval: subscription.items.data[0].price.recurring?.interval
         });
         
-        // Look up plan by price ID from database
+        // Look up plan by price ID
         const { data: planData, error: planError } = await supabase
           .from('plans')
           .select('id, name, plan_type, monthly_audio_hours_limit')
@@ -411,14 +687,13 @@ Deno.serve(async (req: Request) => {
           .single();
           
         if (planError || !planData) {
-          console.error('Plan lookup error:', planError);
+          console.error('CRITICAL: Plan lookup error:', planError);
           return new Response(JSON.stringify({ 
-            received: true, 
-            error: 'Plan not found for price',
+            error: 'Plan not found - will retry',
             priceId: priceId
           }), {
             headers: { 'Content-Type': 'application/json', ...corsHeaders },
-            status: 200,
+            status: 400,
           });
         }
         
@@ -427,34 +702,50 @@ Deno.serve(async (req: Request) => {
         
         console.log('Plan found:', { planId, planType });
         
-        // Generate UUID for the subscription
-        const subscriptionId = globalThis.crypto.randomUUID();
+        // Convert timestamps to dates - use current time if period dates are missing
+        const startDate = subscription.current_period_start 
+          ? new Date(subscription.current_period_start * 1000).toISOString()
+          : new Date().toISOString();
+        const endDate = subscription.current_period_end 
+          ? new Date(subscription.current_period_end * 1000).toISOString()
+          : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(); // 30 days from now
+        const trialStart = subscription.trial_start ? new Date(subscription.trial_start * 1000).toISOString() : null;
+        const trialEnd = subscription.trial_end ? new Date(subscription.trial_end * 1000).toISOString() : null;
+        const isTrialing = subscription.status === 'trialing';
         
-        // Debug subscription dates
-        let startDate, endDate;
-        try {
-          console.log('Raw timestamps:', {
-            current_period_start: subscription.current_period_start,
-            current_period_end: subscription.current_period_end,
-            type_start: typeof subscription.current_period_start,
-            type_end: typeof subscription.current_period_end
-          });
-          
-          startDate = new Date(subscription.current_period_start * 1000).toISOString();
-          endDate = new Date(subscription.current_period_end * 1000).toISOString();
-          
-          console.log('Converted dates:', { startDate, endDate });
-        } catch (dateError: any) {
-          console.error('Date conversion error:', dateError);
-          console.error('Date error stack:', dateError.stack);
-          // Use current date as fallback
-          startDate = new Date().toISOString();
-          endDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(); // 30 days from now
+        console.log('Subscription period:', { startDate, endDate, trialStart, trialEnd, isTrialing });
+        
+        // Check if subscription already exists
+        const { data: existingData } = await supabase
+          .from('subscriptions')
+          .select('id, created_at')
+          .eq('stripe_subscription_id', subscription.id)
+          .single();
+        
+        // Cancel any existing active subscriptions for this user (if creating new)
+        if (!existingData) {
+          const { error: cancelError } = await supabase
+            .from('subscriptions')
+            .update({ 
+              status: 'canceled',
+              canceled_at: new Date().toISOString(),
+              updated_at: new Date().toISOString()
+            })
+            .eq('user_id', userData.id)
+            .neq('stripe_subscription_id', subscription.id)
+            .in('status', ['active', 'incomplete', 'trialing']);
+            
+          if (cancelError) {
+            console.error('Failed to cancel old subscriptions:', cancelError);
+            return new Response('Database error', { 
+              status: 500,
+              headers: corsHeaders 
+            });
+          }
         }
         
-        // Create/update subscription
+        // Create/update subscription (no UUID needed)
         const subscriptionData: any = {
-          id: subscriptionId,
           user_id: userData.id,
           organization_id: userData.current_organization_id || null,
           plan_id: planId,
@@ -465,36 +756,30 @@ Deno.serve(async (req: Request) => {
           status: subscription.status,
           current_period_start: startDate,
           current_period_end: endDate,
-          created_at: new Date().toISOString(),
+          trial_start: trialStart,
+          trial_end: trialEnd,
+          is_trial: isTrialing,
+          has_used_trial: !!trialEnd,
           updated_at: new Date().toISOString()
         };
         
-        console.log('Inserting subscription:', subscriptionData);
+        // Log subscription data for debugging
+        console.log('Subscription update details:', {
+          event_type: event.type,
+          subscription_id: subscription.id,
+          user_id: userData.id,
+          old_price: event.type === 'customer.subscription.updated' ? 
+            (event.data.previous_attributes as any)?.items?.data?.[0]?.price?.id : null,
+          new_price: priceId,
+          plan_name: planData.name
+        });
         
-        // Check if subscription already exists
-        const { data: existingData } = await supabase
-          .from('subscriptions')
-          .select('id')
-          .eq('stripe_subscription_id', subscription.id)
-          .single();
-        
-        // If updating, use existing ID
-        if (existingData) {
-          subscriptionData.id = existingData.id;
-          delete subscriptionData.created_at; // Don't update created_at on updates
-        } else {
-          // Cancel any existing subscriptions for this user
-          await supabase
-            .from('subscriptions')
-            .update({ 
-              status: 'canceled',
-              canceled_at: new Date().toISOString(),
-              updated_at: new Date().toISOString()
-            })
-            .eq('user_id', userData.id)
-            .neq('stripe_subscription_id', subscription.id)
-            .in('status', ['active', 'incomplete']);
+        // Only set created_at for new records
+        if (!existingData) {
+          subscriptionData.created_at = new Date().toISOString();
         }
+        
+        console.log('Upserting subscription:', subscriptionData);
         
         const { data: subData, error: subError } = await supabase
           .from('subscriptions')
@@ -505,32 +790,56 @@ Deno.serve(async (req: Request) => {
           
         if (subError) {
           console.error('Subscription insert error:', subError);
-          console.error('Error details:', JSON.stringify(subError, null, 2));
-          return new Response(JSON.stringify({ 
-            received: true, 
-            error: `Database error: ${subError.message}` 
-          }), {
-            headers: { 'Content-Type': 'application/json', ...corsHeaders },
-            status: 200,
+          return new Response('Database error', { 
+            status: 500,
+            headers: corsHeaders 
           });
         }
         
         console.log('Subscription created/updated:', subData);
         
-        // Update user's last_subscription_change timestamp
-        await supabase
-          .from('users')
-          .update({ 
-            last_subscription_change: new Date().toISOString(),
-            updated_at: new Date().toISOString()
-          })
-          .eq('id', userData.id);
+        // Update user's has_used_trial flag if this is a trial subscription
+        if (isTrialing && trialEnd) {
+          console.log('Updating user has_used_trial flag for trial subscription');
+          const { error: updateError } = await supabase
+            .from('users')
+            .update({ 
+              has_used_trial: true,
+              last_subscription_change: new Date().toISOString(),
+              updated_at: new Date().toISOString()
+            })
+            .eq('id', userData.id);
+            
+          if (updateError) {
+            console.error('Failed to update user trial flag:', updateError);
+            return new Response('Database error', { 
+              status: 500,
+              headers: corsHeaders 
+            });
+          }
+        } else {
+          // Just update last_subscription_change for non-trial subscriptions
+          const { error: updateError } = await supabase
+            .from('users')
+            .update({ 
+              last_subscription_change: new Date().toISOString(),
+              updated_at: new Date().toISOString()
+            })
+            .eq('id', userData.id);
+            
+          if (updateError) {
+            console.error('Failed to update user timestamp:', updateError);
+            return new Response('Database error', { 
+              status: 500,
+              headers: corsHeaders 
+            });
+          }
+        }
         
-        // Sync organization member limits (trigger should handle this, but be explicit)
+        // Sync organization member limits
         if (subscription.status === 'active' && userData.current_organization_id && planData) {
           console.log('Syncing organization member limits...');
           
-          // Update organization member limits
           const { error: memberUpdateError } = await supabase
             .from('organization_members')
             .update({ 
@@ -541,12 +850,12 @@ Deno.serve(async (req: Request) => {
             .eq('organization_id', userData.current_organization_id);
             
           if (memberUpdateError) {
-            console.error('Failed to update organization member limits:', memberUpdateError);
+            console.error('Failed to update organization member limits (check RLS):', memberUpdateError);
+            // Don't fail webhook for org sync errors
           } else {
             console.log('Organization member limits updated to:', planData.monthly_audio_hours_limit, 'hours');
           }
           
-          // Update organization limits
           const { error: orgUpdateError } = await supabase
             .from('organizations')
             .update({ 
@@ -556,7 +865,8 @@ Deno.serve(async (req: Request) => {
             .eq('id', userData.current_organization_id);
             
           if (orgUpdateError) {
-            console.error('Failed to update organization limits:', orgUpdateError);
+            console.error('Failed to update organization limits (check RLS):', orgUpdateError);
+            // Don't fail webhook for org sync errors
           }
         }
         
@@ -572,7 +882,7 @@ Deno.serve(async (req: Request) => {
 
       // Handle payment failure events
       if (event.type === 'invoice.payment_failed') {
-        const invoice = event.data.object;
+        const invoice = event.data.object as Stripe.Invoice;
         console.log('Processing payment failure for invoice:', invoice.id);
         console.log('Invoice details:', {
           subscription_id: invoice.subscription,
@@ -583,7 +893,6 @@ Deno.serve(async (req: Request) => {
         });
         
         if (invoice.subscription) {
-          // Update subscription status to past_due
           const { error: updateError } = await supabase
             .from('subscriptions')
             .update({ 
@@ -594,12 +903,13 @@ Deno.serve(async (req: Request) => {
             
           if (updateError) {
             console.error('Failed to update subscription status:', updateError);
+            return new Response('Database error', { 
+              status: 500,
+              headers: corsHeaders 
+            });
           } else {
             console.log('Subscription marked as past_due');
           }
-
-          // TODO: Send email notification to user about failed payment
-          // This could trigger an email via Supabase edge function or external service
         }
         
         return new Response(JSON.stringify({ 
@@ -614,17 +924,14 @@ Deno.serve(async (req: Request) => {
 
       // Handle upcoming invoice (3 days before charge)
       if (event.type === 'invoice.upcoming') {
-        const invoice = event.data.object;
+        const invoice = event.data.object as Stripe.Invoice;
         console.log('Processing upcoming invoice:', invoice.id);
         console.log('Invoice details:', {
           subscription_id: invoice.subscription,
           customer_id: invoice.customer,
           amount_due: invoice.amount_due,
-          billing_date: new Date(invoice.period_end * 1000).toISOString()
+          billing_date: invoice.period_end ? new Date(invoice.period_end * 1000).toISOString() : null
         });
-        
-        // TODO: Send reminder email about upcoming charge
-        // This gives users time to update payment method if needed
         
         return new Response(JSON.stringify({ 
           received: true, 
@@ -635,32 +942,12 @@ Deno.serve(async (req: Request) => {
           status: 200,
         });
       }
-
-      // Handle trial ending soon (3 days before trial ends)
-      if (event.type === 'customer.subscription.trial_will_end') {
-        const subscription = event.data.object;
-        console.log('Processing trial ending soon:', subscription.id);
-        console.log('Trial ends at:', new Date(subscription.trial_end * 1000).toISOString());
-        
-        // TODO: Send email notification about trial ending
-        // Encourage user to add payment method
-        
-        return new Response(JSON.stringify({ 
-          received: true, 
-          event_type: event.type,
-          subscription_id: subscription.id 
-        }), {
-          headers: { 'Content-Type': 'application/json', ...corsHeaders },
-          status: 200,
-        });
-      }
       
       // Handle subscription deletion/cancellation
       if (event.type === 'customer.subscription.deleted') {
-        const subscription = event.data.object;
+        const subscription = event.data.object as Stripe.Subscription;
         console.log('Processing subscription cancellation:', subscription.id);
         
-        // Update subscription status to canceled
         const { error: updateError } = await supabase
           .from('subscriptions')
           .update({ 
@@ -672,6 +959,10 @@ Deno.serve(async (req: Request) => {
           
         if (updateError) {
           console.error('Failed to update subscription status:', updateError);
+          return new Response('Database error', { 
+            status: 500,
+            headers: corsHeaders 
+          });
         } else {
           console.log('Subscription marked as canceled');
         }
@@ -686,162 +977,6 @@ Deno.serve(async (req: Request) => {
         });
       }
 
-      // Handle payment intent failures (immediate failures)
-      if (event.type === 'payment_intent.payment_failed') {
-        const paymentIntent = event.data.object;
-        console.log('Processing payment intent failure:', paymentIntent.id);
-        console.log('Error:', paymentIntent.last_payment_error?.message);
-        
-        // This is useful for one-time payments or immediate failures
-        // Different from invoice.payment_failed which is for subscription billing
-        
-        return new Response(JSON.stringify({ 
-          received: true, 
-          event_type: event.type,
-          payment_intent_id: paymentIntent.id 
-        }), {
-          headers: { 'Content-Type': 'application/json', ...corsHeaders },
-          status: 200,
-        });
-      }
-
-      // Handle payment intent success
-      if (event.type === 'payment_intent.succeeded') {
-        const paymentIntent = event.data.object;
-        console.log('Processing payment intent success:', paymentIntent.id);
-        
-        // Useful for tracking successful one-time payments
-        
-        return new Response(JSON.stringify({ 
-          received: true, 
-          event_type: event.type,
-          payment_intent_id: paymentIntent.id 
-        }), {
-          headers: { 'Content-Type': 'application/json', ...corsHeaders },
-          status: 200,
-        });
-      }
-
-      // Handle customer updates
-      if (event.type === 'customer.updated') {
-        const customer = event.data.object;
-        console.log('Processing customer update:', customer.id);
-        console.log('Customer email:', customer.email);
-        
-        // Update user email if changed
-        if (customer.email) {
-          const { error: updateError } = await supabase
-            .from('users')
-            .update({ 
-              email: customer.email,
-              updated_at: new Date().toISOString()
-            })
-            .eq('stripe_customer_id', customer.id);
-            
-          if (updateError) {
-            console.error('Failed to update user email:', updateError);
-          } else {
-            console.log('User email updated');
-          }
-        }
-        
-        return new Response(JSON.stringify({ 
-          received: true, 
-          event_type: event.type,
-          customer_id: customer.id 
-        }), {
-          headers: { 'Content-Type': 'application/json', ...corsHeaders },
-          status: 200,
-        });
-      }
-
-      // Handle customer deletion
-      if (event.type === 'customer.deleted') {
-        const customer = event.data.object;
-        console.log('Processing customer deletion:', customer.id);
-        
-        // Mark all subscriptions as canceled
-        const { error: updateError } = await supabase
-          .from('subscriptions')
-          .update({ 
-            status: 'canceled',
-            canceled_at: new Date().toISOString(),
-            updated_at: new Date().toISOString()
-          })
-          .eq('stripe_customer_id', customer.id);
-          
-        if (updateError) {
-          console.error('Failed to cancel subscriptions:', updateError);
-        } else {
-          console.log('All subscriptions canceled for deleted customer');
-        }
-        
-        return new Response(JSON.stringify({ 
-          received: true, 
-          event_type: event.type,
-          customer_id: customer.id 
-        }), {
-          headers: { 'Content-Type': 'application/json', ...corsHeaders },
-          status: 200,
-        });
-      }
-
-      // Handle payment method events
-      if (event.type === 'payment_method.attached') {
-        const paymentMethod = event.data.object;
-        console.log('Payment method attached:', paymentMethod.id);
-        console.log('Customer:', paymentMethod.customer);
-        
-        // Could be used to send confirmation email
-        
-        return new Response(JSON.stringify({ 
-          received: true, 
-          event_type: event.type,
-          payment_method_id: paymentMethod.id 
-        }), {
-          headers: { 'Content-Type': 'application/json', ...corsHeaders },
-          status: 200,
-        });
-      }
-
-      // Handle disputes
-      if (event.type === 'charge.dispute.created') {
-        const dispute = event.data.object;
-        console.log('Dispute created:', dispute.id);
-        console.log('Amount:', dispute.amount);
-        console.log('Reason:', dispute.reason);
-        
-        // TODO: Alert admin team about dispute
-        // Could update subscription status or flag account
-        
-        return new Response(JSON.stringify({ 
-          received: true, 
-          event_type: event.type,
-          dispute_id: dispute.id 
-        }), {
-          headers: { 'Content-Type': 'application/json', ...corsHeaders },
-          status: 200,
-        });
-      }
-
-      // Handle refunds
-      if (event.type === 'charge.refunded') {
-        const charge = event.data.object;
-        console.log('Charge refunded:', charge.id);
-        console.log('Amount refunded:', charge.amount_refunded);
-        
-        // Could be used to track refunds in your database
-        
-        return new Response(JSON.stringify({ 
-          received: true, 
-          event_type: event.type,
-          charge_id: charge.id 
-        }), {
-          headers: { 'Content-Type': 'application/json', ...corsHeaders },
-          status: 200,
-        });
-      }
-      
       // Handle other event types
       console.log('Unhandled event type:', event.type);
       return new Response(JSON.stringify({ received: true, event_type: event.type }), {
@@ -852,19 +987,17 @@ Deno.serve(async (req: Request) => {
     } catch (error: any) {
       console.error('Processing error:', error);
       console.error('Error stack:', error.stack);
-      return new Response(JSON.stringify({ 
-        received: true, 
-        error: 'Processing failed',
-        details: error.message 
-      }), {
-        headers: { 'Content-Type': 'application/json', ...corsHeaders },
-        status: 200,
+      // Return 500 for processing errors so Stripe retries
+      return new Response('Processing failed', { 
+        status: 500,
+        headers: corsHeaders 
       });
     }
     
   } catch (error: any) {
     console.error('General error:', error);
     console.error('Stack:', error.stack);
+    // Return 500 for general errors so Stripe retries
     return new Response('Webhook handler failed', { 
       status: 500,
       headers: corsHeaders 

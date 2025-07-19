@@ -86,6 +86,7 @@ export async function POST(request: NextRequest) {
     const data = await edgeResponse.json();
     console.log('Edge function response:', data);
     
+    // Pass through trial information from edge function
     return NextResponse.json(data);
   } catch (error) {
     console.error('Error creating checkout session:', error);

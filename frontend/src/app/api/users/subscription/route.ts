@@ -70,6 +70,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({
         plan: {
           name: 'individual_free',
+          slug: 'individual_free',
           displayName: freePlan?.display_name || 'Free',
           pricing: {
             monthly: null,
@@ -218,6 +219,7 @@ export async function GET(request: NextRequest) {
     const response = {
       plan: {
         name: subscriptionData.plan_name || 'individual_free',
+        slug: subscriptionData.plan_name || 'individual_free',
         displayName: subscriptionData.plan_display_name || 'Free',
         pricing: {
           monthly: subscriptionData.price_monthly ? parseFloat(subscriptionData.price_monthly) : null,

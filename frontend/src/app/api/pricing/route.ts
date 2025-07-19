@@ -60,6 +60,10 @@ export async function GET() {
       display: {
         isFeatured: plan.is_featured,
         sortOrder: plan.sort_order
+      },
+      trial: {
+        enabled: plan.trial_enabled || false,
+        days: plan.trial_days || 0
       }
     })) || [];
 

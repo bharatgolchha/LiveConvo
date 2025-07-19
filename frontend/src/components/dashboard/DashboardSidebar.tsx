@@ -33,9 +33,10 @@ interface DashboardSidebarProps {
   currentUser: { plan: 'free' | 'pro' | 'team'; };
   onCloseMobile?: () => void;
   sharedCount?: number;
+  isEligibleForTrial?: boolean;
 }
 
-const DashboardSidebar: React.FC<DashboardSidebarProps> = ({ usageStats, activePath, onNavigate, currentUser, onCloseMobile, sharedCount }) => {
+const DashboardSidebar: React.FC<DashboardSidebarProps> = ({ usageStats, activePath, onNavigate, currentUser, onCloseMobile, sharedCount, isEligibleForTrial }) => {
   // Debug: Log the usageStats to see what's being passed
   React.useEffect(() => {
     if (usageStats) {
@@ -188,7 +189,7 @@ const DashboardSidebar: React.FC<DashboardSidebarProps> = ({ usageStats, activeP
               className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-gradient-to-r from-primary to-primary/80 text-primary-foreground rounded-lg text-sm font-medium hover:from-primary/90 hover:to-primary disabled:opacity-50"
             >
               <Crown className="w-4 h-4" />
-              Upgrade to Pro
+              {isEligibleForTrial ? 'Start Free Trial' : 'Upgrade to Pro'}
             </button>
           </div>
         )}
