@@ -10,6 +10,7 @@ import { MeetingUrlEditor } from './MeetingUrlEditor';
 import { MeetingSetupPrompt } from './MeetingSetupPrompt';
 import { BotMinutesIndicator } from './BotMinutesIndicator';
 import { getPlatformIcon, getPlatformName } from '@/lib/meeting/utils/platform-detector';
+import { Badge } from '@/components/ui/badge';
 import { 
   ArrowLeftIcon, 
   VideoCameraIcon,
@@ -90,8 +91,13 @@ export function MeetingHeader() {
               </button>
               
               {/* Meeting Title */}
-              <h1 className="text-sm font-semibold text-foreground truncate flex-1">
-                {meeting.title}
+              <h1 className="text-sm font-semibold text-foreground truncate flex-1 flex items-center gap-2">
+                {meeting.title.includes('Engagement with Liveprompt.ai') && (
+                  <Badge variant="secondary" className="text-xs px-1.5 py-0">
+                    Auto
+                  </Badge>
+                )}
+                <span className="truncate">{meeting.title}</span>
               </h1>
             </div>
             
@@ -232,8 +238,13 @@ export function MeetingHeader() {
             
             {/* Meeting Details */}
             <div className="min-w-0 flex-1">
-              <h1 className="text-base sm:text-xl font-bold text-foreground truncate leading-tight">
-                {meeting.title}
+              <h1 className="text-base sm:text-xl font-bold text-foreground truncate leading-tight flex items-center gap-2">
+                {meeting.title.includes('Engagement with Liveprompt.ai') && (
+                  <Badge variant="secondary" className="text-xs px-1.5 py-0">
+                    Auto
+                  </Badge>
+                )}
+                <span className="truncate">{meeting.title}</span>
               </h1>
               {hasUrl ? (
                 <div className="flex items-center gap-2 mt-1">

@@ -117,7 +117,14 @@ export const CalendarEventCard: React.FC<CalendarEventCardProps> = ({
             </div>
             
             <div className="flex-1 min-w-0">
-              <h3 className="font-medium truncate">{meeting.title}</h3>
+              <h3 className="font-medium truncate flex items-center gap-2">
+                {meeting.title.includes('Engagement with Liveprompt.ai') && (
+                  <Badge variant="secondary" className="text-xs px-1.5 py-0">
+                    Auto
+                  </Badge>
+                )}
+                <span className="truncate">{meeting.title}</span>
+              </h3>
               
               <div className="flex items-center gap-4 mt-1 text-sm text-muted-foreground">
                 <div className="flex items-center gap-1">

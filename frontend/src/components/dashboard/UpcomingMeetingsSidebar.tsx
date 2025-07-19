@@ -17,6 +17,7 @@ import { format, isToday, isTomorrow, isThisWeek, differenceInMinutes } from 'da
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Switch } from '@/components/ui/switch';
+import { Badge } from '@/components/ui/badge';
 import { CalendarEventCard } from '@/components/calendar/CalendarEventCard';
 import { CalendarEmptyState } from '@/components/calendar/CalendarEmptyState';
 import { MeetingCardSkeleton } from '@/components/calendar/MeetingCardSkeleton';
@@ -727,8 +728,13 @@ const MeetingCard: React.FC<{ meeting: UpcomingMeeting }> = ({ meeting }) => {
             />
           )}
           <div className="flex-1 min-w-0">
-            <h4 className="text-sm font-medium truncate">
-              {meeting.title}
+            <h4 className="text-sm font-medium truncate flex items-center gap-2">
+              {meeting.title.includes('Engagement with Liveprompt.ai') && (
+                <Badge variant="secondary" className="text-xs px-1.5 py-0">
+                  Auto
+                </Badge>
+              )}
+              <span className="truncate">{meeting.title}</span>
             </h4>
             <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
               <span className="flex items-center gap-1">
