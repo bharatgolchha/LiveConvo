@@ -355,62 +355,63 @@ export default function PricingPage() {
   const getFeaturesList = (plan: PricingPlan) => {
     const features = [];
     
-    // Add usage limits
+    // Add usage limits with improved descriptions
     features.push({
       text: plan.limits.monthlyAudioHours
         ? plan.limits.monthlyAudioHours < 1 
-          ? `${plan.limits.monthlyAudioHours * 60} minutes/month`
-          : `${plan.limits.monthlyAudioHours} hours/month`
-        : 'Unlimited hours',
+          ? `${plan.limits.monthlyAudioHours * 60} minutes of AI transcription/month`
+          : `${plan.limits.monthlyAudioHours} hours of AI transcription/month`
+        : 'Unlimited AI transcription hours',
       included: true
     });
     
     features.push({
       text: plan.limits.maxSessionsPerMonth
-        ? `${plan.limits.maxSessionsPerMonth} sessions/month`
-        : 'Unlimited sessions',
+        ? `${plan.limits.maxSessionsPerMonth} conversation sessions/month`
+        : 'Unlimited conversation sessions',
       included: true
     });
 
-    // Add key features
+    // Add key features with improved descriptions
     if (plan.features.hasRealTimeGuidance) {
-      features.push({ text: 'Real-time AI guidance', included: true });
+      features.push({ text: 'Real-time AI coaching & suggestions', included: true });
     }
     
+    // All plans have summaries, but only Pro and Max have advanced summaries
     if (plan.features.hasAdvancedSummaries) {
-      features.push({ text: 'AI-powered summaries', included: true });
+      features.push({ text: 'Advanced AI summaries with insights', included: true });
     } else {
-      features.push({ text: 'AI-powered summaries', included: false });
+      features.push({ text: 'Basic conversation summaries', included: true });
     }
     
     if (plan.features.hasExportOptions) {
-      features.push({ text: 'Export to PDF/CSV', included: true });
+      features.push({ text: 'Export transcripts & reports (PDF/CSV)', included: true });
     } else {
-      features.push({ text: 'Export to PDF/CSV', included: false });
+      features.push({ text: 'Export transcripts & reports (PDF/CSV)', included: false });
     }
     
     if (plan.features.hasEmailSummaries) {
-      features.push({ text: 'Email summaries', included: true });
+      features.push({ text: 'Automated email summaries after calls', included: true });
     } else if (plan.slug !== 'individual_free') {
-      features.push({ text: 'Email summaries', included: false });
+      features.push({ text: 'Automated email summaries after calls', included: false });
     }
     
     if (plan.features.hasApiAccess) {
-      features.push({ text: 'API access', included: true });
+      features.push({ text: 'Full API access for integrations', included: true });
     } else if (plan.slug === 'max') {
-      features.push({ text: 'API access', included: false });
+      features.push({ text: 'Full API access for integrations', included: false });
     }
     
     if (plan.features.hasCustomTemplates) {
-      features.push({ text: 'Custom templates', included: true });
+      features.push({ text: 'Custom conversation templates & prompts', included: true });
     } else if (plan.slug === 'max') {
-      features.push({ text: 'Custom templates', included: false });
+      features.push({ text: 'Custom conversation templates & prompts', included: false });
     }
     
     if (plan.features.hasPrioritySupport) {
-      features.push({ text: 'Priority support', included: true });
+      features.push({ text: 'Priority 24/7 customer support', included: true });
     } else if (plan.slug === 'max') {
-      features.push({ text: 'Priority support', included: false });
+      features.push({ text: 'Priority 24/7 customer support', included: false });
     }
 
     return features;

@@ -1018,7 +1018,7 @@ export default function LandingPage() {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-              {/* Free Plan */}
+              {/* Starter Plan */}
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 whileInView={{ opacity: 1, y: 0 }}
@@ -1026,39 +1026,40 @@ export default function LandingPage() {
                 viewport={{ once: true }}
                 className="rounded-2xl p-8 bg-card/50 border border-border"
               >
-                <h3 className="text-xl font-semibold mb-2 text-foreground">Free Forever</h3>
+                <h3 className="text-xl font-semibold mb-2 text-foreground">Starter</h3>
                 <div className="mb-6">
-                  <span className="text-3xl font-bold text-foreground">$0</span>
+                  <span className="text-3xl font-bold text-foreground">$10</span>
                   <span className="text-muted-foreground">/month</span>
+                  <p className="text-xs mt-1 text-muted-foreground">or $100/year (save 17%)</p>
                 </div>
                 <ul className="space-y-3 mb-8">
                   <li className="flex items-center gap-2">
                     <Check className="w-4 h-4 text-app-info" />
-                    <span className="text-sm text-muted-foreground">60 minutes/month</span>
+                    <span className="text-sm text-muted-foreground">8 hours of AI transcription/month</span>
                   </li>
                   <li className="flex items-center gap-2">
                     <Check className="w-4 h-4 text-app-info" />
-                    <span className="text-sm text-muted-foreground">Real-time AI guidance</span>
+                    <span className="text-sm text-muted-foreground">80 conversation sessions/month</span>
                   </li>
                   <li className="flex items-center gap-2">
                     <Check className="w-4 h-4 text-app-info" />
-                    <span className="text-sm text-muted-foreground">Basic transcription</span>
+                    <span className="text-sm text-muted-foreground">Real-time AI coaching & suggestions</span>
                   </li>
                   <li className="flex items-center gap-2">
                     <Check className="w-4 h-4 text-app-info" />
-                    <span className="text-sm text-muted-foreground">Up to 40 sessions/month</span>
+                    <span className="text-sm text-muted-foreground">Basic conversation summaries</span>
                   </li>
                   <li className="flex items-center gap-2">
                     <Check className="w-4 h-4 text-app-info" />
-                    <span className="text-sm text-muted-foreground">10 documents per session</span>
+                    <span className="text-sm text-muted-foreground">Export transcripts & reports (PDF/CSV)</span>
                   </li>
                 </ul>
                 <Button
-                  onClick={() => router.push('/auth/signup')}
+                  onClick={() => router.push('/auth/signup?plan=starter')}
                   variant="secondary"
                   className="w-full bg-app-info hover:bg-app-info-light"
                 >
-                  Start Free
+                  Get Started
                 </Button>
               </motion.div>
 
@@ -1084,34 +1085,34 @@ export default function LandingPage() {
                 <ul className="space-y-3 mb-8">
                   <li className="flex items-center gap-2">
                     <Check className="w-4 h-4 text-app-info" />
-                    <span className="text-sm text-muted-foreground">100 hours/month (6000 minutes)</span>
+                    <span className="text-sm text-muted-foreground">20 hours of AI transcription/month</span>
                   </li>
                   <li className="flex items-center gap-2">
                     <Check className="w-4 h-4 text-app-info" />
-                    <span className="text-sm text-muted-foreground">Advanced AI summaries</span>
+                    <span className="text-sm text-muted-foreground">200 conversation sessions/month</span>
                   </li>
                   <li className="flex items-center gap-2">
                     <Check className="w-4 h-4 text-app-info" />
-                    <span className="text-sm text-muted-foreground">Export & email summaries</span>
+                    <span className="text-sm text-muted-foreground">Real-time AI coaching & suggestions</span>
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <Check className="w-4 h-4 text-app-info" />
+                    <span className="text-sm text-muted-foreground">Advanced AI summaries with insights</span>
                   </li>
                   <li className="flex items-center gap-2">
                     <Check className="w-4 h-4 text-app-info" />
                     <span className="text-sm text-muted-foreground">Priority support</span>
                   </li>
-                  <li className="flex items-center gap-2">
-                    <Check className="w-4 h-4 text-app-info" />
-                    <span className="text-sm text-muted-foreground">Analytics dashboard</span>
-                  </li>
                 </ul>
                 <Button
-                  onClick={() => router.push('/auth/signup')}
+                  onClick={() => router.push('/auth/signup?plan=pro')}
                   className="w-full bg-app-success hover:bg-app-success-light"
                 >
                   Upgrade to Pro
                 </Button>
               </motion.div>
 
-              {/* Team/Enterprise */}
+              {/* Max Plan */}
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 whileInView={{ opacity: 1, y: 0 }}
@@ -1119,48 +1120,50 @@ export default function LandingPage() {
                 viewport={{ once: true }}
                 className="rounded-2xl p-8 bg-card/50 border border-border"
               >
-                <h3 className="text-xl font-semibold mb-2 text-foreground">Team & Enterprise</h3>
+                <h3 className="text-xl font-semibold mb-2 text-foreground">Max</h3>
                 <div className="mb-6">
-                  <span className="text-3xl font-bold text-foreground">Custom</span>
+                  <span className="text-3xl font-bold text-foreground">$99</span>
+                  <span className="text-muted-foreground">/month</span>
+                  <p className="text-xs mt-1 text-muted-foreground">or $990/year (save 17%)</p>
                 </div>
                 <ul className="space-y-3 mb-8">
                   <li className="flex items-center gap-2">
                     <Check className="w-4 h-4 text-app-info" />
-                    <span className="text-sm text-muted-foreground">Everything in Pro</span>
+                    <span className="text-sm text-muted-foreground">Unlimited AI transcription hours</span>
                   </li>
                   <li className="flex items-center gap-2">
                     <Check className="w-4 h-4 text-app-info" />
-                    <span className="text-sm text-muted-foreground">Multiple team members</span>
+                    <span className="text-sm text-muted-foreground">Unlimited conversation sessions</span>
                   </li>
                   <li className="flex items-center gap-2">
                     <Check className="w-4 h-4 text-app-info" />
-                    <span className="text-sm text-muted-foreground">Admin controls</span>
+                    <span className="text-sm text-muted-foreground">Advanced AI summaries with insights</span>
                   </li>
                   <li className="flex items-center gap-2">
                     <Check className="w-4 h-4 text-app-info" />
-                    <span className="text-sm text-muted-foreground">SSO/SAML</span>
+                    <span className="text-sm text-muted-foreground">Automated email summaries after calls</span>
                   </li>
                   <li className="flex items-center gap-2">
                     <Check className="w-4 h-4 text-app-info" />
-                    <span className="text-sm text-muted-foreground">Custom AI training</span>
+                    <span className="text-sm text-muted-foreground">Export transcripts & reports (PDF/CSV)</span>
                   </li>
                   <li className="flex items-center gap-2">
                     <Check className="w-4 h-4 text-app-info" />
-                    <span className="text-sm text-muted-foreground">SLA & dedicated support</span>
+                    <span className="text-sm text-muted-foreground">Priority 24/7 customer support</span>
                   </li>
                 </ul>
                 <Button
-                  onClick={() => window.location.href = 'mailto:sales@liveprompt.ai'}
+                  onClick={() => router.push('/auth/signup?plan=max')}
                   variant="secondary"
                   className="w-full bg-app-info hover:bg-app-info-light"
                 >
-                  Contact Sales
+                  Go Unlimited
                 </Button>
               </motion.div>
             </div>
 
             <p className="text-center mt-8 text-sm text-muted-foreground">
-              All prices in USD. No credit card required for free plan. See <Link href="/pricing" className="text-app-success hover:underline">full pricing details</Link>
+              All prices in USD. 14-day money-back guarantee. See <Link href="/pricing" className="text-app-success hover:underline">all plans including free option</Link>
             </p>
           </div>
         </section>

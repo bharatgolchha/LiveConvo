@@ -13,6 +13,7 @@ import {
   BellAlertIcon
 } from '@heroicons/react/24/outline';
 import { Button } from '@/components/ui/Button';
+import { CalendarPermissionModal } from './CalendarPermissionModal';
 
 interface CalendarEmptyStateProps {
   onConnectCalendar: () => void;
@@ -178,6 +179,16 @@ export const CalendarEmptyState: React.FC<CalendarEmptyStateProps> = ({
   isConnecting = false 
 }) => {
   const [showBenefits, setShowBenefits] = useState(false);
+  const [showPermissionModal, setShowPermissionModal] = useState(false);
+
+  const handlePermissionModalContinue = () => {
+    setShowPermissionModal(false);
+    onConnectCalendar();
+  };
+
+  const handlePermissionModalClose = () => {
+    setShowPermissionModal(false);
+  };
 
   const benefits = [
     {
@@ -244,7 +255,7 @@ export const CalendarEmptyState: React.FC<CalendarEmptyStateProps> = ({
           className="space-y-3"
         >
           <Button
-            onClick={onConnectCalendar}
+            onClick={() => setShowPermissionModal(true)}
             disabled={isConnecting}
             className="w-full bg-gradient-to-r from-app-primary to-app-primary-dark hover:from-app-primary-dark hover:to-app-primary text-primary-foreground shadow-lg hover:shadow-xl transform hover:scale-105 transition-all"
             size="lg"
@@ -314,6 +325,14 @@ export const CalendarEmptyState: React.FC<CalendarEmptyStateProps> = ({
           We only access your calendar events. Your data is secure and encrypted.
         </motion.p>
       </div>
+
+      {/* Permission Modal */}
+      <CalendarPermissionModal
+        isOpen={showPermissionModal}
+        onClose={handlePermissionModalClose}
+        onContinue={handlePermissionModalContinue}
+        provider="google"
+      />
     </div>
   );
 };

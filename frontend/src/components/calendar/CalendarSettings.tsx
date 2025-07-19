@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/Button';
 import { CalendarConnection, CalendarPreferences } from '@/types/calendar';
 import { CalendarConnectionCard } from './CalendarConnectionCard';
 import { CalendarPreferences as CalendarPreferencesComponent } from './CalendarPreferences';
+import { CalendarPermissionModal } from './CalendarPermissionModal';
 import { PlusIcon } from '@heroicons/react/24/outline';
 
 export const CalendarSettings: React.FC = () => {
@@ -15,6 +16,8 @@ export const CalendarSettings: React.FC = () => {
   const [preferences, setPreferences] = useState<CalendarPreferences | null>(null);
   const [loading, setLoading] = useState(true);
   const [connecting, setConnecting] = useState(false);
+  const [showPermissionModal, setShowPermissionModal] = useState(false);
+  const [pendingProvider, setPendingProvider] = useState<'google' | 'outlook' | null>(null);
 
   const calendarEnabled = process.env.NEXT_PUBLIC_CALENDAR_ENABLED === 'true';
   const googleEnabled = process.env.NEXT_PUBLIC_GOOGLE_CALENDAR_ENABLED === 'true';
@@ -54,13 +57,22 @@ export const CalendarSettings: React.FC = () => {
   };
 
   const handleConnectCalendar = async (provider: 'google' | 'outlook') => {
+    setPendingProvider(provider);
+    setShowPermissionModal(true);
+  };
+
+  const handlePermissionModalContinue = async () => {
+    if (!pendingProvider) return;
+    
     try {
       setConnecting(true);
+      setShowPermissionModal(false);
+      
       const headers = {
         'Authorization': `Bearer ${session?.access_token}`
       };
 
-      const response = await fetch(`/api/calendar/auth/${provider}`, { headers });
+      const response = await fetch(`/api/calendar/auth/${pendingProvider}`, { headers });
       
       if (!response.ok) {
         throw new Error('Failed to initiate calendar connection');
@@ -77,7 +89,13 @@ export const CalendarSettings: React.FC = () => {
       alert('Failed to connect calendar. Please try again.');
     } finally {
       setConnecting(false);
+      setPendingProvider(null);
     }
+  };
+
+  const handlePermissionModalClose = () => {
+    setShowPermissionModal(false);
+    setPendingProvider(null);
   };
 
   const handleDisconnectCalendar = async (connectionId: string) => {
@@ -243,6 +261,16 @@ export const CalendarSettings: React.FC = () => {
         <CalendarPreferencesComponent
           preferences={preferences}
           onUpdate={handleUpdatePreferences}
+        />
+      )}
+
+      {/* Permission Modal */}
+      {pendingProvider && (
+        <CalendarPermissionModal
+          isOpen={showPermissionModal}
+          onClose={handlePermissionModalClose}
+          onContinue={handlePermissionModalContinue}
+          provider={pendingProvider}
         />
       )}
     </div>

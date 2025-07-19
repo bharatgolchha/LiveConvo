@@ -23,6 +23,7 @@ import { MeetingCardSkeleton } from '@/components/calendar/MeetingCardSkeleton';
 import { CalendarSyncStatus, CalendarSyncProgress } from '@/components/calendar/CalendarSyncStatus';
 import { CalendarErrorHandler, CalendarError, parseCalendarError } from '@/components/calendar/CalendarErrorHandler';
 import { CalendarQuickActions } from '@/components/calendar/CalendarQuickActions';
+import { CalendarPermissionModal } from '@/components/calendar/CalendarPermissionModal';
 import { useAuth } from '@/contexts/AuthContext';
 import { UpcomingMeeting } from '@/types/calendar';
 
@@ -55,6 +56,7 @@ export const UpcomingMeetingsSidebar: React.FC<UpcomingMeetingsSidebarProps> = (
   const [calendarError, setCalendarError] = useState<CalendarError | null>(null);
   const [calendarConnection, setCalendarConnection] = useState<any>(null);
   const [calendarPreferences, setCalendarPreferences] = useState<any>(null);
+  const [showPermissionModal, setShowPermissionModal] = useState(false);
 
   const calendarEnabled = process.env.NEXT_PUBLIC_CALENDAR_ENABLED === 'true';
   const AUTO_REFRESH_INTERVAL = 5 * 60 * 1000; // 5 minutes
@@ -128,8 +130,13 @@ export const UpcomingMeetingsSidebar: React.FC<UpcomingMeetingsSidebarProps> = (
   };
 
   const handleConnectCalendar = async () => {
+    setShowPermissionModal(true);
+  };
+
+  const handlePermissionModalContinue = async () => {
     try {
       setIsConnectingCalendar(true);
+      setShowPermissionModal(false);
       
       const headers = {
         'Authorization': `Bearer ${session?.access_token}`
@@ -150,6 +157,10 @@ export const UpcomingMeetingsSidebar: React.FC<UpcomingMeetingsSidebarProps> = (
       console.error('Failed to connect calendar:', error);
       setIsConnectingCalendar(false);
     }
+  };
+
+  const handlePermissionModalClose = () => {
+    setShowPermissionModal(false);
   };
 
   const loadCalendarPreferences = async () => {
@@ -628,6 +639,14 @@ export const UpcomingMeetingsSidebar: React.FC<UpcomingMeetingsSidebarProps> = (
           </motion.aside>
         )}
       </AnimatePresence>
+
+      {/* Permission Modal */}
+      <CalendarPermissionModal
+        isOpen={showPermissionModal}
+        onClose={handlePermissionModalClose}
+        onContinue={handlePermissionModalContinue}
+        provider="google"
+      />
     </>
   );
 };

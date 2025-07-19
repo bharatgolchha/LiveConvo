@@ -12,6 +12,7 @@ import { Button } from '@/components/ui/Button';
 import { Switch } from '@/components/ui/switch';
 import { useAuth } from '@/contexts/AuthContext';
 import { CalendarConnection } from '@/types/calendar';
+import { CalendarPermissionModal } from '@/components/calendar/CalendarPermissionModal';
 
 interface CalendarStepProps {
   data: {
@@ -39,6 +40,7 @@ export const CalendarStep: React.FC<CalendarStepProps> = ({
   const [connectionError, setConnectionError] = useState<string | null>(null);
   const [existingConnection, setExistingConnection] = useState<CalendarConnection | null>(null);
   const [checkingConnection, setCheckingConnection] = useState(true);
+  const [showPermissionModal, setShowPermissionModal] = useState(false);
 
   useEffect(() => {
     const checkCalendarConnection = async () => {
@@ -93,9 +95,14 @@ export const CalendarStep: React.FC<CalendarStepProps> = ({
   }, [session, updateData, data.calendar_connected]);
 
   const handleConnectCalendar = async () => {
+    setShowPermissionModal(true);
+  };
+
+  const handlePermissionModalContinue = async () => {
     try {
       setIsConnecting(true);
       setConnectionError(null);
+      setShowPermissionModal(false);
 
       const response = await fetch('/api/calendar/auth/google', {
         headers: {
@@ -117,6 +124,10 @@ export const CalendarStep: React.FC<CalendarStepProps> = ({
       setConnectionError('Failed to connect calendar. Please try again.');
       setIsConnecting(false);
     }
+  };
+
+  const handlePermissionModalClose = () => {
+    setShowPermissionModal(false);
   };
 
   const calendarBenefits = [
@@ -305,6 +316,14 @@ export const CalendarStep: React.FC<CalendarStepProps> = ({
           You can always connect your calendar later from settings
         </p>
       )}
+
+      {/* Permission Modal */}
+      <CalendarPermissionModal
+        isOpen={showPermissionModal}
+        onClose={handlePermissionModalClose}
+        onContinue={handlePermissionModalContinue}
+        provider="google"
+      />
     </div>
   );
 };
