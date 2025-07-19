@@ -163,6 +163,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       })
       if (!error) {
         setSessionExpiredMessage(null)
+        // Update last login
+        try {
+          await fetch('/api/auth/update-last-login', { 
+            method: 'POST',
+            credentials: 'include'
+          })
+        } catch (err) {
+          console.error('Failed to update last login:', err)
+        }
       }
       return { error }
     } catch (error) {

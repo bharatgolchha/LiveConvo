@@ -46,9 +46,16 @@ export async function GET(request: NextRequest) {
     const serviceClient = createServerSupabaseClient();
     const { data: userData, error: userError } = await serviceClient
       .from('users')
-      .select('current_organization_id, full_name, has_completed_onboarding')
+      .select('current_organization_id, full_name, has_completed_onboarding, is_active')
       .eq('id', user.id)
       .single();
+
+    console.log('User data fetched:', { 
+      userId: user.id, 
+      email: user.email,
+      is_active: userData?.is_active,
+      userData 
+    });
 
     if (userError) {
       console.error('Error fetching user data:', userError);
@@ -62,6 +69,24 @@ export async function GET(request: NextRequest) {
       return NextResponse.json(
         { error: 'Database error', message: 'Failed to fetch user data' },
         { status: 500 }
+      );
+    }
+
+    // Check if user is deactivated
+    if (userData?.is_active === false) {
+      console.log('User is deactivated:', user.email);
+      return NextResponse.json(
+        { 
+          error: 'Account deactivated', 
+          message: 'Your account has been deactivated', 
+          is_deactivated: true 
+        },
+        { 
+          status: 403,
+          headers: {
+            'Content-Type': 'application/json',
+          }
+        }
       );
     }
 
@@ -120,7 +145,8 @@ export async function GET(request: NextRequest) {
         id: user.id,
         email: user.email,
         full_name: userData.full_name,
-        organization_id: userData.current_organization_id
+        organization_id: userData.current_organization_id,
+        is_active: userData.is_active
       }
     };
 

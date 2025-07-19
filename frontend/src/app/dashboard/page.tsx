@@ -30,6 +30,7 @@ import { useTheme } from '@/contexts/ThemeContext';
 import ProtectedRoute from '@/components/auth/ProtectedRoute';
 import { useAuth } from '@/contexts/AuthContext';
 import { useDashboardDataWithFallback } from '@/lib/hooks/useDashboardDataWithFallback';
+import { AccountDeactivatedModal } from '@/components/auth/AccountDeactivatedModal';
 // Removed useSessionThreads import - no longer needed for grouped view
 import { useSessionData } from '@/lib/hooks/useSessionData';
 import { useDebounce } from '@/lib/utils/debounce';
@@ -137,8 +138,13 @@ const DashboardPage: React.FC = () => {
   const pagination = dashboardData?.pagination || null;
   const userStats = dashboardData?.stats || null;
   const subscription = dashboardData?.subscription || null;
+  const userData = dashboardData?.user || null;
   const sessionsLoading = dataLoading;
   const sessionsError = dataError;
+  
+  // Check if user is deactivated
+  const isUserDeactivated = userData?.is_active === false || 
+    (sessionsError && sessionsError.includes('Account deactivated'));
 
   // Debug: Log userStats to check minutes data
   React.useEffect(() => {
@@ -1162,6 +1168,9 @@ const DashboardPage: React.FC = () => {
           onShare={handleShareComplete}
         />
       )}
+      
+      {/* Account Deactivated Modal - Non-dismissable */}
+      {isUserDeactivated && <AccountDeactivatedModal />}
 
     </div>
     </DashboardChatProvider>

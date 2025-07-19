@@ -56,6 +56,16 @@ export default function AuthCallbackPage() {
         if (session?.user?.email) {
           setStatus('Verifying access...')
           
+          // Update last login
+          try {
+            await fetch('/api/auth/update-last-login', { 
+              method: 'POST',
+              credentials: 'include'
+            })
+          } catch (err) {
+            console.error('Failed to update last login:', err)
+          }
+          
           // Check if user is on approved waitlist
           const waitlistResponse = await fetch('/api/auth/check-waitlist', {
             method: 'POST',

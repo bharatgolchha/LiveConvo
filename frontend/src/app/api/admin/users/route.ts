@@ -1,6 +1,6 @@
 import { NextResponse, NextRequest } from 'next/server';
 import { createServerSupabaseClient } from '@/lib/supabase';
-import type { Organization, SessionData } from '@/types/api';
+import type { Organization } from '@/types/api';
 
 export async function GET(request: NextRequest) {
   try {
@@ -16,13 +16,13 @@ export async function GET(request: NextRequest) {
     }
 
     // Check if user is admin
-    const { data: userData } = await supabase
+    const { data: adminCheck } = await supabase
       .from('users')
       .select('is_admin')
       .eq('id', user.id)
       .single();
 
-    if (!userData?.is_admin) {
+    if (!adminCheck?.is_admin) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
@@ -55,45 +55,63 @@ export async function GET(request: NextRequest) {
       organizations = data || [];
     }
 
-    // Fetch user statistics
+    // Fetch user statistics from sessions table
     const userIds = users?.map(u => u.id) || [];
-    let sessions: Pick<SessionData, 'user_id' | 'total_audio_seconds'>[] = [];
+    
+    interface SessionStats {
+      user_id: string;
+      session_count: number;
+      total_seconds: number;
+    }
+    
+    let sessionStats: SessionStats[] = [];
     
     if (userIds.length > 0) {
       const { data } = await supabase
         .from('sessions')
-        .select('user_id, total_audio_seconds')
-        .in('user_id', userIds);
-      sessions = data || [];
+        .select('user_id, recording_duration_seconds')
+        .in('user_id', userIds)
+        .is('deleted_at', null);
+      
+      // Aggregate stats per user
+      const statsMap = (data || []).reduce((acc, session) => {
+        if (!acc[session.user_id]) {
+          acc[session.user_id] = {
+            user_id: session.user_id,
+            session_count: 0,
+            total_seconds: 0
+          };
+        }
+        acc[session.user_id].session_count += 1;
+        acc[session.user_id].total_seconds += session.recording_duration_seconds || 0;
+        return acc;
+      }, {} as Record<string, SessionStats>);
+      
+      sessionStats = Object.values(statsMap);
     }
 
-    // Create organization map
+    // Create maps for quick lookup
     const orgMap = organizations?.reduce((acc, org) => {
       acc[org.id] = org;
       return acc;
     }, {} as Record<string, Organization>) || {};
-
-    // Calculate stats for each user
-    const userStats = sessions?.reduce((acc, session) => {
-      if (!acc[session.user_id]) {
-        acc[session.user_id] = {
-          total_sessions: 0,
-          total_audio_minutes: 0
-        };
-      }
-      acc[session.user_id].total_sessions += 1;
-      acc[session.user_id].total_audio_minutes += (session.total_audio_seconds || 0) / 60;
+    
+    const statsMap = sessionStats.reduce((acc, stat) => {
+      acc[stat.user_id] = stat;
       return acc;
-    }, {} as Record<string, { total_sessions: number; total_audio_minutes: number }>);
+    }, {} as Record<string, SessionStats>);
 
-    // Combine user data with stats
-    const usersWithStats = users?.map(user => ({
+    // Combine all data
+    const combinedUsers = users?.map(user => ({
       ...user,
       organization: user.current_organization_id ? orgMap[user.current_organization_id] : null,
-      stats: userStats[user.id] || null
+      stats: statsMap[user.id] ? {
+        total_sessions: statsMap[user.id].session_count,
+        total_audio_minutes: Math.round(statsMap[user.id].total_seconds / 60)
+      } : null
     }));
 
-    return NextResponse.json(usersWithStats);
+    return NextResponse.json(combinedUsers);
 
   } catch (error) {
     console.error('Admin users error:', error);

@@ -21,6 +21,7 @@ export interface DashboardData {
     email: string;
     full_name: string;
     organization_id: string;
+    is_active?: boolean;
   } | null;
 }
 
@@ -135,11 +136,21 @@ export function useDashboardData(): DashboardDataHookReturn {
         console.log('Dashboard API response status:', response.status);
         
         if (!response.ok) {
-          const errorData = await response.json().catch(() => ({ message: 'Failed to parse error response' }));
+          let errorData;
+          try {
+            const text = await response.text();
+            errorData = text ? JSON.parse(text) : { message: 'No error details provided' };
+          } catch (e) {
+            errorData = { message: 'Failed to parse error response' };
+          }
           console.error('Dashboard API error:', response.status, errorData);
           
           if (response.status === 401 && user) {
             setSessionExpiredMessage(errorData.message || 'Your session has expired. Please sign in again.');
+          }
+          // Handle deactivated account
+          if (response.status === 403 && (errorData.is_deactivated || errorData.error === 'Account deactivated')) {
+            throw new Error('Account deactivated');
           }
           // Handle missing endpoint gracefully
           if (response.status === 404) {
