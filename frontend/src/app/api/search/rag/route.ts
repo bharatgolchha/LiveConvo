@@ -4,7 +4,7 @@ import OpenAI from 'openai';
 import { z } from 'zod';
 
 const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
+  apiKey: process.env.OPENAI_API_KEY || '',
 });
 
 const SearchRequestSchema = z.object({
@@ -19,17 +19,36 @@ const SearchRequestSchema = z.object({
 type SearchRequest = z.infer<typeof SearchRequestSchema>;
 
 async function generateQueryEmbedding(query: string): Promise<number[]> {
-  const response = await openai.embeddings.create({
-    model: 'text-embedding-3-small',
-    input: query,
-    encoding_format: 'float',
-  });
+  if (!process.env.OPENAI_API_KEY) {
+    console.error('❌ OPENAI_API_KEY not configured - cannot generate embeddings');
+    throw new Error('OpenAI API key not configured');
+  }
+  
+  try {
+    const response = await openai.embeddings.create({
+      model: 'text-embedding-3-small',
+      input: query,
+      encoding_format: 'float',
+    });
 
-  return response.data[0].embedding;
+    return response.data[0].embedding;
+  } catch (error) {
+    console.error('❌ Failed to generate embedding:', error);
+    throw new Error('Failed to generate embedding');
+  }
 }
 
 export async function POST(request: NextRequest) {
   try {
+    // Early check for OpenAI API key
+    if (!process.env.OPENAI_API_KEY) {
+      console.error('❌ RAG Search: OPENAI_API_KEY not configured');
+      return NextResponse.json({ 
+        error: 'Search service not configured',
+        details: 'OpenAI API key missing'
+      }, { status: 503 });
+    }
+    
     const authHeader = request.headers.get('authorization');
     const token = authHeader?.split(' ')[1];
     
@@ -76,6 +95,14 @@ export async function POST(request: NextRequest) {
 
       if (sessionError) {
         console.error('Session search error:', sessionError);
+        // Check if it's a missing function error
+        if (sessionError.message?.includes('function') && sessionError.message?.includes('does not exist')) {
+          console.error('❌ RPC function hybrid_search_sessions not found in database');
+          return NextResponse.json({ 
+            error: 'Search functionality not available',
+            details: 'Database search functions not configured'
+          }, { status: 503 });
+        }
       } else {
         results.push(...(sessionResults || []).map((result: any) => ({
           ...result,
@@ -97,6 +124,11 @@ export async function POST(request: NextRequest) {
 
       if (summaryError) {
         console.error('Summary search error:', summaryError);
+        // Check if it's a missing function error
+        if (summaryError.message?.includes('function') && summaryError.message?.includes('does not exist')) {
+          console.error('❌ RPC function match_summaries_by_content not found in database');
+          // Don't return error here, just skip summary search
+        }
       } else {
         results.push(...(summaryResults || []).map((result: any) => ({
           ...result,

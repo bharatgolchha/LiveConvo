@@ -30,6 +30,7 @@ import {
   combineModularResults
 } from '@/lib/prompts/modularSummaryPrompts';
 import { sendPostCallNotification } from '@/lib/services/email/postCallNotification';
+import { triggerEmbeddingsGenerationAsync } from '@/lib/services/embeddings';
 
 const openrouterApiKey = process.env.OPENROUTER_API_KEY;
 console.log('🔍 Environment check:', {
@@ -398,6 +399,10 @@ async function processFinalization({
 
   if (summaryResult.error) {
     console.error('❌ Failed to save summary:', summaryResult.error);
+  } else {
+    // Trigger embeddings generation in the background
+    console.log('🔄 Triggering embeddings generation for new summary...');
+    triggerEmbeddingsGenerationAsync({ batchSize: 5 });
   }
 
   // Update session status

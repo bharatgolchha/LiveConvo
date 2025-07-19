@@ -544,6 +544,14 @@ export async function POST(request: NextRequest) {
       ? await shouldPerformAgenticSearch(parsedContext.userMessage, dashboardContext)
       : await shouldPerformMeetingSearch(parsedContext.userMessage);
     
+    console.log('🔍 RAG Search Debug:', {
+      mode,
+      shouldSearch,
+      query: parsedContext.userMessage,
+      hasAuthToken: !!request.headers.get('authorization'),
+      env: process.env.NODE_ENV
+    });
+    
     if (shouldSearch) {
       console.log(`🔍 ${mode} mode: Performing agentic search for query:`, parsedContext.userMessage);
       

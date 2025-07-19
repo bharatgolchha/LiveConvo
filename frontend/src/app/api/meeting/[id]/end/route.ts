@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { sendPostCallNotification } from '@/lib/services/email/postCallNotification';
+import { triggerEmbeddingsGenerationAsync } from '@/lib/services/embeddings';
 
 export async function POST(
   request: NextRequest,
