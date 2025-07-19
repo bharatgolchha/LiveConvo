@@ -551,33 +551,25 @@ export async function POST(request: NextRequest) {
       try {
         console.log('🔗 Calling search API directly');
         
-        // Import and call the new RAG search handler
-        const { POST: ragSearchHandler } = await import('../search/rag/route');
-        
-        // For testing purposes, use service role key to access user data
+        // Check if we have auth
         const authHeader = request.headers.get('authorization');
-        const token = authHeader?.split(' ')[1];
-        
-        // Get user ID from the token (if available) or fall back to known user
-        let targetUserId = 'e1ae6d39-bc60-4954-a498-ab08f14144af'; // Default for testing
-        
-        if (token && token !== process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
-          try {
-            const testSupabase = createAuthenticatedSupabaseClient(token);
-            const { data: { user } } = await testSupabase.auth.getUser();
-            if (user) {
-              targetUserId = user.id;
-            }
-          } catch (e) {
-            console.log('Using default user ID for search');
-          }
+        if (!authHeader) {
+          console.error('❌ No authorization header for RAG search');
+          throw new Error('No authorization header available for search');
         }
         
-        // Create a mock NextRequest for RAG search with service role
-        const ragSearchRequest = new NextRequest('http://localhost/api/search/rag', {
+        // Make HTTP request to RAG search endpoint
+        // Get the host from the request headers for server-side API calls
+        const host = request.headers.get('host');
+        const protocol = process.env.NODE_ENV === 'production' ? 'https' : 'http';
+        const searchUrl = `${protocol}://${host}/api/search/rag`;
+        
+        console.log('🔍 RAG search URL:', searchUrl);
+        
+        const searchResponse = await fetch(searchUrl, {
           method: 'POST',
           headers: {
-            'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`,
+            'Authorization': authHeader,
             'Content-Type': 'application/json'
           },
           body: JSON.stringify({
@@ -585,12 +577,9 @@ export async function POST(request: NextRequest) {
             type: 'hybrid',
             threshold: 0.3,
             limit: mode === 'meeting' ? 5 : 10, // Limit results for meeting mode
-            includeKeywordSearch: true,
-            targetUserId: targetUserId
+            includeKeywordSearch: true
           })
         });
-        
-        const searchResponse = await ragSearchHandler(ragSearchRequest);
         
         if (searchResponse.ok) {
           const searchData = await searchResponse.json();
@@ -618,10 +607,22 @@ export async function POST(request: NextRequest) {
           console.log(`✅ Agentic search found ${searchResults.length} relevant results`);
         } else {
           const errorText = await searchResponse.text();
-          console.error('Search API error:', searchResponse.status, errorText);
+          console.error('❌ Search API error:', searchResponse.status, errorText);
+          
+          // Log more details for debugging
+          console.error('Search request details:', {
+            hasAuth: !!authHeader,
+            query: parsedContext.userMessage,
+            mode: mode
+          });
         }
       } catch (error) {
-        console.error('Agentic search error:', error);
+        console.error('❌ Agentic search error:', error);
+        console.error('Error details:', {
+          name: error instanceof Error ? error.name : 'Unknown',
+          message: error instanceof Error ? error.message : String(error),
+          stack: error instanceof Error ? error.stack : undefined
+        });
         // Continue with original context if search fails
       }
     }
