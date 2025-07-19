@@ -71,7 +71,7 @@ export async function GET(request: NextRequest) {
       hasSubscription: true,
       isOnTrial: subscription.is_trial,
       status: subscription.status,
-      planName: subscription.plans?.display_name || subscription.plans?.name,
+      planName: (subscription.plans as any)?.display_name || (subscription.plans as any)?.name,
       trialStatus: subscription.is_trial ? {
         trialStart: subscription.trial_start,
         trialEnd: subscription.trial_end,
