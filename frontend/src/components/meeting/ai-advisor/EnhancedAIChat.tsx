@@ -598,14 +598,18 @@ export const EnhancedAIChat = forwardRef<EnhancedAIChatRef>((props, ref) => {
                             ),
                             // Lists
                             ul: ({children}: any) => (
-                              <ul className="list-disc list-inside space-y-1 mb-2">{children}</ul>
+                              <ul className="list-disc list-outside pl-5 space-y-2 mb-2 marker:text-primary">{children}</ul>
                             ),
                             ol: ({children}: any) => (
-                              <ol className="list-decimal list-inside space-y-1 mb-2">{children}</ol>
+                              <ol className="list-decimal list-outside pl-5 space-y-2 mb-2 marker:text-primary">{children}</ol>
                             ),
-                            li: ({children}: any) => (
-                              <li className="ml-2">{children}</li>
-                            ),
+                            li: ({children}: any) => {
+                              // Handle empty list items
+                              if (!children || (Array.isArray(children) && children.length === 0)) {
+                                return null;
+                              }
+                              return <li className="pl-0 [&>p]:mb-0">{children}</li>;
+                            },
                             // Code blocks
                             pre: ({children}: any) => (
                               <pre className="p-3 rounded-lg bg-muted overflow-x-auto mb-2">
@@ -616,7 +620,7 @@ export const EnhancedAIChat = forwardRef<EnhancedAIChatRef>((props, ref) => {
                               const isInline = !String(children).includes('\n');
                               if (isInline) {
                                 return (
-                                  <code className="px-1.5 py-0.5 rounded bg-muted text-foreground font-mono text-xs">
+                                  <code className="px-1 py-[0.1rem] rounded bg-muted/60 text-foreground font-mono text-[0.9em]">
                                     {children}
                                   </code>
                                 );
@@ -629,23 +633,23 @@ export const EnhancedAIChat = forwardRef<EnhancedAIChatRef>((props, ref) => {
                             },
                             // Headings
                             h1: ({children}: any) => (
-                              <h1 className="text-lg font-bold mb-2">{children}</h1>
+                              <h1 className="text-xl sm:text-2xl font-bold mt-4 first:mt-0 mb-2">{children}</h1>
                             ),
                             h2: ({children}: any) => (
-                              <h2 className="text-base font-semibold mb-2">{children}</h2>
+                              <h2 className="text-lg sm:text-xl font-semibold mt-4 first:mt-0 mb-2 [&>a]:no-underline [&>a]:font-semibold [&>a]:text-foreground [&>a:hover]:underline">{children}</h2>
                             ),
                             h3: ({children}: any) => (
-                              <h3 className="text-sm font-semibold mb-1">{children}</h3>
+                              <h3 className="text-base sm:text-lg font-semibold mt-3 first:mt-0 mb-1 [&>a]:no-underline [&>a]:font-semibold [&>a]:text-foreground [&>a:hover]:underline">{children}</h3>
                             ),
                             // Blockquotes
                             blockquote: ({children}: any) => (
-                              <blockquote className="border-l-2 border-primary/30 pl-3 italic text-muted-foreground mb-2">
+                              <blockquote className="border-l-2 border-primary/40 pl-4 italic bg-muted/20 rounded-md py-2 my-3">
                                 {children}
                               </blockquote>
                             ),
                             // Horizontal rules
                             hr: () => (
-                              <hr className="my-2 border-border" />
+                              <hr className="my-4 border-border/60" />
                             ),
                           }}
                         >

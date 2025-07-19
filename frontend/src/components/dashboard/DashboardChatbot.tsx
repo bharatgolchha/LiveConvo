@@ -487,7 +487,7 @@ export function DashboardChatbot() {
                       >
                         <div className={`flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center text-xs ${
                           message.role === 'user'
-                            ? 'bg-primary text-primary-foreground'
+                            ? 'bg-primary/10 text-primary border border-primary/20'
                             : message.isError
                             ? 'bg-destructive/10 text-destructive'
                             : message.role === 'system'
@@ -508,7 +508,7 @@ export function DashboardChatbot() {
                         }`}>
                           <div className={`inline-block px-4 py-2.5 rounded-xl text-sm shadow-sm ${
                             message.role === 'user'
-                              ? 'bg-primary text-primary-foreground shadow-primary/20'
+                              ? 'bg-primary/10 text-foreground border border-primary/20'
                               : message.isError
                               ? 'bg-destructive/10 text-destructive border border-destructive/20'
                               : message.role === 'system'
@@ -521,18 +521,23 @@ export function DashboardChatbot() {
                                   // Paragraphs
                                   p: ({children}: any) => <p className="mb-2 last:mb-0">{children}</p>,
                                   // Lists
-                                  ul: ({children}: any) => <ul className="mb-2 ml-4 list-disc list-inside space-y-1 last:mb-0">{children}</ul>,
-                                  ol: ({children}: any) => <ol className="mb-2 ml-4 list-decimal list-inside space-y-1 last:mb-0">{children}</ol>,
-                                  li: ({children}: any) => <li className="ml-2">{children}</li>,
+                                  ul: ({children}: any) => <ul className="list-disc list-outside pl-5 space-y-2 mb-2 last:mb-0 marker:text-primary">{children}</ul>,
+                                  ol: ({children}: any) => <ol className="list-decimal list-outside pl-5 space-y-2 mb-2 last:mb-0 marker:text-primary">{children}</ol>,
+                                  li: ({children}: any) => {
+                                    if (!children || (Array.isArray(children) && children.length === 0)) {
+                                      return null;
+                                    }
+                                    return <li className="pl-0 [&>p]:mb-0">{children}</li>;
+                                  },
                                   // Headings
-                                  h1: ({children}: any) => <h1 className="text-lg font-bold mb-2">{children}</h1>,
-                                  h2: ({children}: any) => <h2 className="text-base font-semibold mb-2">{children}</h2>,
-                                  h3: ({children}: any) => <h3 className="text-sm font-semibold mb-1">{children}</h3>,
+                                  h1: ({children}: any) => <h1 className="text-xl sm:text-2xl font-bold mt-4 first:mt-0 mb-2">{children}</h1>,
+                                  h2: ({children}: any) => <h2 className="text-lg sm:text-xl font-semibold mt-4 first:mt-0 mb-2 [&>a]:no-underline [&>a]:font-semibold [&>a]:text-foreground [&>a:hover]:underline">{children}</h2>,
+                                  h3: ({children}: any) => <h3 className="text-base sm:text-lg font-semibold mt-3 first:mt-0 mb-1 [&>a]:no-underline [&>a]:font-semibold [&>a]:text-foreground [&>a:hover]:underline">{children}</h3>,
                                   // Text formatting
                                   strong: ({children}: any) => <strong className="font-semibold text-foreground">{children}</strong>,
                                   em: ({children}: any) => <em className="italic">{children}</em>,
                                   // Blockquotes
-                                  blockquote: ({children}: any) => <blockquote className="border-l-2 border-primary/30 pl-3 italic text-muted-foreground mb-2">{children}</blockquote>,
+                                  blockquote: ({children}: any) => <blockquote className="border-l-2 border-primary/40 pl-4 italic bg-muted/20 rounded-md py-2 my-3">{children}</blockquote>,
                                   // Code blocks
                                   pre: ({children}: any) => (
                                     <pre className="p-3 rounded-lg bg-muted overflow-x-auto mb-2">
@@ -543,7 +548,7 @@ export function DashboardChatbot() {
                                     const isInline = !String(children).includes('\n');
                                     if (isInline) {
                                       return (
-                                        <code className="px-1.5 py-0.5 rounded bg-muted text-foreground font-mono text-xs">
+                                        <code className="px-1 py-[0.1rem] rounded bg-muted/60 text-foreground font-mono text-[0.9em]">
                                           {children}
                                         </code>
                                       );
@@ -567,7 +572,7 @@ export function DashboardChatbot() {
                                     </a>
                                   ),
                                   // Horizontal rules
-                                  hr: () => <hr className="my-2 border-border" />,
+                                  hr: () => <hr className="my-4 border-border/60" />,
                                   // Line breaks
                                   br: () => <br className="h-1" />
                                 }}
