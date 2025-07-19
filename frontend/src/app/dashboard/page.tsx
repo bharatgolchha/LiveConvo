@@ -316,10 +316,11 @@ const DashboardPage: React.FC = () => {
     setCurrentPage(1); // Reset to first page when searching
   };
 
-  const handlePageChange = (page: number) => {
+  const handlePageChange = async (page: number) => {
     setCurrentPage(page);
     const offset = (page - 1) * itemsPerPage;
-    fetchDashboardData({ 
+    // Don't show loading modal for pagination
+    await fetchDashboardData({ 
       ...getCurrentFilters(), 
       limit: itemsPerPage, 
       offset 
@@ -341,15 +342,23 @@ const DashboardPage: React.FC = () => {
     return filters;
   };
 
+  // State for navigation loading
+  const [isLoadingNavigation, setIsLoadingNavigation] = useState(false);
+
   // Update data fetching when filters change (but not pagination)
   React.useEffect(() => {
     if (user && authSession) {
-      setCurrentPage(1); // Reset to first page when filters change
-      fetchDashboardData({ 
-        ...getCurrentFilters(), 
-        limit: itemsPerPage, 
-        offset: 0 
-      });
+      const fetchData = async () => {
+        setIsLoadingNavigation(true);
+        setCurrentPage(1); // Reset to first page when filters change
+        await fetchDashboardData({ 
+          ...getCurrentFilters(), 
+          limit: itemsPerPage, 
+          offset: 0 
+        });
+        setIsLoadingNavigation(false);
+      };
+      fetchData();
     }
   }, [activePath, debouncedSearchQuery]); // Only depend on actual filter changes
 
@@ -770,8 +779,8 @@ const DashboardPage: React.FC = () => {
     );
   }
 
-  // Show loading state while data is being fetched
-  if (sessionsLoading && sessions.length === 0) {
+  // Show loading state only for initial load
+  if (sessionsLoading && sessions.length === 0 && !isLoadingNavigation) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
@@ -1200,6 +1209,9 @@ const DashboardPage: React.FC = () => {
       
       {/* Account Deactivated Modal - Non-dismissable */}
       {isUserDeactivated && <AccountDeactivatedModal />}
+
+      {/* Navigation Loading Modal */}
+      <LoadingModal isOpen={isLoadingNavigation} />
 
     </div>
     </DashboardChatProvider>
