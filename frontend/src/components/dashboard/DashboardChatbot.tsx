@@ -264,11 +264,18 @@ export function DashboardChatbot() {
         responseText = 'I received an unexpected response format. Please try again.';
       }
       
+      // Process response text to fix excessive line breaks
+      // Replace multiple consecutive newlines with double newlines
+      const processedResponseText = responseText
+        .replace(/\n{3,}/g, '\n\n')  // Replace 3+ newlines with 2
+        .replace(/\n\n+(?=\n)/g, '\n\n')  // Ensure no more than 2 consecutive newlines
+        .trim();
+      
       // Add AI response
       const aiMessage: ChatMessage = {
         id: `ai-${Date.now()}`,
         role: 'assistant',
-        content: responseText,
+        content: processedResponseText,
         timestamp: new Date().toISOString()
       };
 
@@ -353,9 +360,9 @@ export function DashboardChatbot() {
         whileHover={{ scale: 1.1 }}
         whileTap={{ scale: 0.95 }}
         onClick={() => setIsExpanded(true)}
-        className="fixed bottom-6 right-6 w-16 h-16 bg-gradient-to-br from-primary to-primary/80 text-primary-foreground rounded-full shadow-2xl shadow-primary/30 flex items-center justify-center hover:from-primary hover:to-primary/70 transition-all z-[100] ring-2 ring-background"
+        className="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 w-14 h-14 sm:w-16 sm:h-16 bg-gradient-to-br from-primary to-primary/80 text-primary-foreground rounded-full shadow-2xl shadow-primary/30 flex items-center justify-center hover:from-primary hover:to-primary/70 transition-all z-[100] ring-2 ring-background"
       >
-        <ChatBubbleLeftRightIcon className="w-7 h-7" />
+        <ChatBubbleLeftRightIcon className="w-6 h-6 sm:w-7 sm:h-7" />
       </motion.button>
     );
   }
@@ -385,18 +392,18 @@ export function DashboardChatbot() {
             className={`fixed ${
               isFullscreen 
                 ? 'inset-4 md:inset-8 lg:inset-16 xl:inset-24 max-w-6xl max-h-[90vh] mx-auto' 
-                : 'bottom-6 right-6 w-[480px] h-[700px]'
+                : 'bottom-2 right-2 left-2 sm:left-auto sm:bottom-6 sm:right-6 w-auto sm:w-[480px] md:w-[560px] lg:w-[600px] h-[75vh] sm:h-[700px] md:h-[750px] lg:h-[800px] max-h-[90vh]'
             } bg-gradient-to-b from-card to-card/95 backdrop-blur-lg border border-border/60 rounded-2xl shadow-2xl z-[100] ${
-              isMinimized && !isFullscreen ? 'w-96 h-14' : ''
+              isMinimized && !isFullscreen ? 'w-auto sm:w-80 md:w-96 h-14' : ''
             } flex flex-col overflow-hidden ring-1 ring-primary/20 transition-all duration-300`}
           >
           {/* Header */}
-          <div className="flex items-center justify-between px-5 py-4 border-b border-border bg-gradient-to-r from-primary/10 to-primary/5 backdrop-blur-sm">
-            <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-full bg-gradient-to-br from-primary to-primary/80 flex items-center justify-center shadow-lg shadow-primary/20">
-                <SparklesIcon className="w-5 h-5 text-primary-foreground" />
+          <div className="flex items-center justify-between px-4 py-2.5 border-b border-border bg-gradient-to-r from-primary/10 to-primary/5 backdrop-blur-sm">
+            <div className="flex items-center gap-2">
+              <div className="w-7 h-7 rounded-full bg-gradient-to-br from-primary to-primary/80 flex items-center justify-center shadow-lg shadow-primary/20">
+                <SparklesIcon className="w-4 h-4 text-primary-foreground" />
               </div>
-              <span className="font-semibold text-base">AI Wizard</span>
+              <span className="font-medium text-sm">AI Wizard</span>
             </div>
             <div className="flex items-center gap-1">
               {!isMinimized && messages.length > 1 && (
@@ -466,7 +473,7 @@ export function DashboardChatbot() {
             <>
               {/* Messages */}
               <div className="flex-1 overflow-y-auto">
-                <div className={`${isFullscreen ? 'p-8 max-w-4xl mx-auto' : 'p-4'} space-y-4`}>
+                <div className={`${isFullscreen ? 'p-8 max-w-4xl mx-auto' : 'p-4 sm:p-6'} space-y-4`}>
                   <AnimatePresence>
                     {messages.map((message) => (
                       <motion.div
@@ -508,20 +515,61 @@ export function DashboardChatbot() {
                               ? 'bg-gradient-to-r from-muted to-muted/70 text-muted-foreground border border-border/50'
                               : 'bg-gradient-to-r from-muted to-muted/80 text-foreground border border-border/30'
                           }`}>
-                            <div className="whitespace-pre-wrap break-words">
+                            <div className="prose prose-sm dark:prose-invert max-w-none">
                               <ReactMarkdown
                                 components={{
+                                  // Paragraphs
+                                  p: ({children}: any) => <p className="mb-2 last:mb-0">{children}</p>,
+                                  // Lists
+                                  ul: ({children}: any) => <ul className="mb-2 ml-4 list-disc list-inside space-y-1 last:mb-0">{children}</ul>,
+                                  ol: ({children}: any) => <ol className="mb-2 ml-4 list-decimal list-inside space-y-1 last:mb-0">{children}</ol>,
+                                  li: ({children}: any) => <li className="ml-2">{children}</li>,
+                                  // Headings
+                                  h1: ({children}: any) => <h1 className="text-lg font-bold mb-2">{children}</h1>,
+                                  h2: ({children}: any) => <h2 className="text-base font-semibold mb-2">{children}</h2>,
+                                  h3: ({children}: any) => <h3 className="text-sm font-semibold mb-1">{children}</h3>,
+                                  // Text formatting
+                                  strong: ({children}: any) => <strong className="font-semibold text-foreground">{children}</strong>,
+                                  em: ({children}: any) => <em className="italic">{children}</em>,
+                                  // Blockquotes
+                                  blockquote: ({children}: any) => <blockquote className="border-l-2 border-primary/30 pl-3 italic text-muted-foreground mb-2">{children}</blockquote>,
+                                  // Code blocks
+                                  pre: ({children}: any) => (
+                                    <pre className="p-3 rounded-lg bg-muted overflow-x-auto mb-2">
+                                      {children}
+                                    </pre>
+                                  ),
+                                  code: ({children}: any) => {
+                                    const isInline = !String(children).includes('\n');
+                                    if (isInline) {
+                                      return (
+                                        <code className="px-1.5 py-0.5 rounded bg-muted text-foreground font-mono text-xs">
+                                          {children}
+                                        </code>
+                                      );
+                                    }
+                                    return (
+                                      <code className="text-xs font-mono">
+                                        {children}
+                                      </code>
+                                    );
+                                  },
+                                  // Links
                                   a: ({href, children, ...props}: any) => (
                                     <a 
                                       href={href} 
                                       target="_blank" 
                                       rel="noopener noreferrer"
-                                      className="text-primary hover:text-primary/80 underline"
+                                      className="text-primary hover:text-primary/80 underline decoration-primary/30 underline-offset-2"
                                       {...props}
                                     >
                                       {children}
                                     </a>
-                                  )
+                                  ),
+                                  // Horizontal rules
+                                  hr: () => <hr className="my-2 border-border" />,
+                                  // Line breaks
+                                  br: () => <br className="h-1" />
                                 }}
                               >
                                 {message.content}
@@ -579,7 +627,7 @@ export function DashboardChatbot() {
 
               {/* Smart Suggestions */}
               {((messages.length === 1 && !isTyping) || (dynamicSuggestions.length > 0 && !isTyping)) && (
-                <div className={`${isFullscreen ? 'px-8 pb-4' : 'px-4 pb-2'}`}>
+                <div className={`${isFullscreen ? 'px-8 pb-4' : 'px-4 sm:px-6 pb-3'}`}>
                   <div className={`${isFullscreen ? 'max-w-4xl mx-auto' : ''}`}>
                     <div className="flex items-center justify-between mb-2">
                       <button
@@ -630,7 +678,7 @@ export function DashboardChatbot() {
               )}
 
               {/* Input */}
-              <div className={`flex-shrink-0 ${isFullscreen ? 'p-8' : 'p-5'} border-t border-border bg-gradient-to-t from-muted/30 to-transparent`}>
+              <div className={`flex-shrink-0 ${isFullscreen ? 'p-8' : 'p-4 sm:p-6'} border-t border-border bg-gradient-to-t from-muted/30 to-transparent`}>
                 <form onSubmit={handleSubmit} className={`flex gap-2 ${isFullscreen ? 'max-w-4xl mx-auto' : ''}`}>
                   <input
                     ref={inputRef}

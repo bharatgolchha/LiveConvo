@@ -547,7 +547,7 @@ export const EnhancedAIChat = forwardRef<EnhancedAIChatRef>((props, ref) => {
                 >
                   <div className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center ${
                     message.role === 'user'
-                      ? 'bg-primary text-primary-foreground'
+                      ? 'bg-primary/10 text-primary border border-primary/20'
                       : message.isError
                       ? 'bg-destructive/10 text-destructive'
                       : message.role === 'system'
@@ -562,27 +562,91 @@ export const EnhancedAIChat = forwardRef<EnhancedAIChatRef>((props, ref) => {
                   }`}>
                     <div className={`inline-block px-4 py-3 rounded-2xl ${
                       message.role === 'user'
-                        ? 'bg-primary text-primary-foreground'
+                        ? 'bg-primary/10 text-foreground border border-primary/20'
                         : message.isError
                         ? 'bg-destructive/10 text-destructive border border-destructive/20'
                         : message.role === 'system'
                         ? 'bg-muted/50 text-muted-foreground border border-border'
                         : 'bg-muted text-foreground'
                     }`}>
-                      <div className="text-sm leading-relaxed whitespace-pre-wrap break-words">
+                      <div className="text-sm leading-relaxed prose prose-sm dark:prose-invert max-w-none">
                         <ReactMarkdown
                           components={{
+                            // Links
                             a: ({href, children, ...props}: any) => (
                               <a 
                                 href={href} 
                                 target="_blank" 
                                 rel="noopener noreferrer"
-                                className="text-primary hover:text-primary/80 underline"
+                                className="text-primary hover:text-primary/80 underline decoration-primary/30 underline-offset-2"
                                 {...props}
                               >
                                 {children}
                               </a>
-                            )
+                            ),
+                            // Paragraphs
+                            p: ({children}: any) => (
+                              <p className="mb-2 last:mb-0">{children}</p>
+                            ),
+                            // Bold text
+                            strong: ({children}: any) => (
+                              <strong className="font-semibold text-foreground">{children}</strong>
+                            ),
+                            // Italic text
+                            em: ({children}: any) => (
+                              <em className="italic">{children}</em>
+                            ),
+                            // Lists
+                            ul: ({children}: any) => (
+                              <ul className="list-disc list-inside space-y-1 mb-2">{children}</ul>
+                            ),
+                            ol: ({children}: any) => (
+                              <ol className="list-decimal list-inside space-y-1 mb-2">{children}</ol>
+                            ),
+                            li: ({children}: any) => (
+                              <li className="ml-2">{children}</li>
+                            ),
+                            // Code blocks
+                            pre: ({children}: any) => (
+                              <pre className="p-3 rounded-lg bg-muted overflow-x-auto mb-2">
+                                {children}
+                              </pre>
+                            ),
+                            code: ({children}: any) => {
+                              const isInline = !String(children).includes('\n');
+                              if (isInline) {
+                                return (
+                                  <code className="px-1.5 py-0.5 rounded bg-muted text-foreground font-mono text-xs">
+                                    {children}
+                                  </code>
+                                );
+                              }
+                              return (
+                                <code className="text-xs font-mono">
+                                  {children}
+                                </code>
+                              );
+                            },
+                            // Headings
+                            h1: ({children}: any) => (
+                              <h1 className="text-lg font-bold mb-2">{children}</h1>
+                            ),
+                            h2: ({children}: any) => (
+                              <h2 className="text-base font-semibold mb-2">{children}</h2>
+                            ),
+                            h3: ({children}: any) => (
+                              <h3 className="text-sm font-semibold mb-1">{children}</h3>
+                            ),
+                            // Blockquotes
+                            blockquote: ({children}: any) => (
+                              <blockquote className="border-l-2 border-primary/30 pl-3 italic text-muted-foreground mb-2">
+                                {children}
+                              </blockquote>
+                            ),
+                            // Horizontal rules
+                            hr: () => (
+                              <hr className="my-2 border-border" />
+                            ),
                           }}
                         >
                           {message.content}
