@@ -150,7 +150,7 @@ interface ChatRequest {
   personalContext?: string;
   participantMe?: string;
   participantThem?: string;
-  smartNotes?: Array<any>;
+  smartNotes?: Array<{ category?: string; content?: string; text?: string; importance?: string }>;
   sessionOwner?: {
     id: string;
     email: string;
@@ -500,8 +500,8 @@ export async function POST(request: NextRequest) {
     const parsedContext = parseContextFromMessage(message);
     const effectiveConversationType = parsedContext.conversationType || conversationType;
 
-    let runningSummary = summary?.tldr || '';
-    let effectiveTranscript = transcript;
+    const runningSummary = summary?.tldr || '';
+    const effectiveTranscript = transcript;
 
     // Debug log chat history being received
     console.log('🔍 Chat API - Received chat history:', {
@@ -535,95 +535,94 @@ export async function POST(request: NextRequest) {
       smartNotesPrompt = `SMART NOTES (last ${topNotes.length}):\n${notesText}`;
     }
 
-    // For dashboard mode, check if we need to perform agentic search
+    // Check if we need to perform agentic search for both dashboard and meeting modes
     let searchResults = null;
     let enhancedDashboardContext = dashboardContext;
     
-    if (mode === 'dashboard') {
-      console.log('🔍 Dashboard mode detected, checking if search needed for:', parsedContext.userMessage);
+    // For meeting mode, only perform search when query analysis indicates it's needed
+    const shouldSearch = mode === 'dashboard' 
+      ? await shouldPerformAgenticSearch(parsedContext.userMessage, dashboardContext)
+      : await shouldPerformMeetingSearch(parsedContext.userMessage);
+    
+    if (shouldSearch) {
+      console.log(`🔍 ${mode} mode: Performing agentic search for query:`, parsedContext.userMessage);
       
-      // Analyze the query to see if we need more specific information
-      const shouldSearch = await shouldPerformAgenticSearch(parsedContext.userMessage, dashboardContext);
-      
-      console.log('🔍 Should perform search?', shouldSearch);
-      
-      if (shouldSearch) {
-        console.log('🔍 Performing agentic search for query:', parsedContext.userMessage);
+      // Call the search API directly
+      try {
+        console.log('🔗 Calling search API directly');
         
-        // Call the search API directly
-        try {
-          console.log('🔗 Calling search API directly');
-          
-          // Import and call the new RAG search handler
-          const { POST: ragSearchHandler } = await import('../search/rag/route');
-          
-          // For testing purposes, use service role key to access user data
-          const authHeader = request.headers.get('authorization');
-          const token = authHeader?.split(' ')[1];
-          
-          // Get user ID from the token (if available) or fall back to known user
-          let targetUserId = 'e1ae6d39-bc60-4954-a498-ab08f14144af'; // Default for testing
-          
-          if (token && token !== process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
-            try {
-              const testSupabase = createAuthenticatedSupabaseClient(token);
-              const { data: { user } } = await testSupabase.auth.getUser();
-              if (user) {
-                targetUserId = user.id;
-              }
-            } catch (e) {
-              console.log('Using default user ID for search');
+        // Import and call the new RAG search handler
+        const { POST: ragSearchHandler } = await import('../search/rag/route');
+        
+        // For testing purposes, use service role key to access user data
+        const authHeader = request.headers.get('authorization');
+        const token = authHeader?.split(' ')[1];
+        
+        // Get user ID from the token (if available) or fall back to known user
+        let targetUserId = 'e1ae6d39-bc60-4954-a498-ab08f14144af'; // Default for testing
+        
+        if (token && token !== process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
+          try {
+            const testSupabase = createAuthenticatedSupabaseClient(token);
+            const { data: { user } } = await testSupabase.auth.getUser();
+            if (user) {
+              targetUserId = user.id;
             }
+          } catch (e) {
+            console.log('Using default user ID for search');
           }
+        }
+        
+        // Create a mock NextRequest for RAG search with service role
+        const ragSearchRequest = new NextRequest('http://localhost/api/search/rag', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            query: parsedContext.userMessage,
+            type: 'hybrid',
+            threshold: 0.3,
+            limit: mode === 'meeting' ? 5 : 10, // Limit results for meeting mode
+            includeKeywordSearch: true,
+            targetUserId: targetUserId
+          })
+        });
+        
+        const searchResponse = await ragSearchHandler(ragSearchRequest);
+        
+        if (searchResponse.ok) {
+          const searchData = await searchResponse.json();
+          searchResults = searchData.results;
           
-          // Create a mock NextRequest for RAG search with service role
-          const ragSearchRequest = new NextRequest('http://localhost/api/search/rag', {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`,
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-              query: parsedContext.userMessage,
-              type: 'hybrid',
-              threshold: 0.3,
-              limit: 10,
-              includeKeywordSearch: true,
-              targetUserId: targetUserId
-            })
+          // Debug: Log search details
+          console.log('🔍 Search API response:', {
+            mode: mode,
+            query: searchData.query,
+            totalFound: searchData.totalFound,
+            resultsLength: searchResults?.length,
+            searchType: searchData.searchType,
+            threshold: searchData.metadata?.threshold
           });
           
-          const searchResponse = await ragSearchHandler(ragSearchRequest);
-          
-          if (searchResponse.ok) {
-            const searchData = await searchResponse.json();
-            searchResults = searchData.results;
-            
-            // Debug: Log search details
-            console.log('🔍 Search API response:', {
-              query: searchData.query,
-              totalFound: searchData.totalFound,
-              resultsLength: searchResults?.length,
-              searchType: searchData.searchType,
-              threshold: searchData.metadata?.threshold
-            });
-            
-            // Enhance dashboard context with search results
+          // Enhance context with search results
+          if (mode === 'dashboard') {
             enhancedDashboardContext = {
               ...dashboardContext,
               searchResults: searchResults,
               searchQuery: searchData.query
             };
-            
-            console.log(`✅ Agentic search found ${searchResults.length} relevant results`);
-          } else {
-            const errorText = await searchResponse.text();
-            console.error('Search API error:', searchResponse.status, errorText);
           }
-        } catch (error) {
-          console.error('Agentic search error:', error);
-          // Continue with original context if search fails
+          
+          console.log(`✅ Agentic search found ${searchResults.length} relevant results`);
+        } else {
+          const errorText = await searchResponse.text();
+          console.error('Search API error:', searchResponse.status, errorText);
         }
+      } catch (error) {
+        console.error('Agentic search error:', error);
+        // Continue with original context if search fails
       }
     }
 
@@ -641,7 +640,8 @@ export async function POST(request: NextRequest) {
           meetingUrl || undefined,
           effectiveTranscript || undefined,
           sessionOwner,
-          aiInstructions || undefined
+          aiInstructions || undefined,
+          searchResults
         );
 
     // Debug: Log the system prompt
@@ -815,7 +815,19 @@ function getChatGuidanceSystemPrompt(
     fullName: string | null;
     personalContext: string | null;
   },
-  aiInstructions?: string
+  aiInstructions?: string,
+  searchResults?: Array<{
+    type: string;
+    title: string;
+    date?: string;
+    created_at?: string;
+    tldr?: string;
+    summary?: string;
+    score?: number;
+    similarity?: number;
+    key_decisions?: Array<string | { decision?: string; text?: string; title?: string }>;
+    action_items?: Array<string | { task?: string; text?: string; title?: string }>;
+  }>
 ): string {
   const live = isRecording && transcriptLength > 0;
   const modeDescriptor = live ? '🎥 LIVE (conversation in progress)' : '📝 PREP (planning before the call)';
@@ -859,10 +871,54 @@ function getChatGuidanceSystemPrompt(
     aiInstructionsSection += '\nIMPORTANT: Follow these custom instructions carefully throughout the conversation.\n';
   }
 
+  // Build search results section for meeting mode
+  let searchResultsSection = '';
+  if (searchResults && searchResults.length > 0) {
+    searchResultsSection = '\n🔎 RELEVANT PAST CONVERSATIONS & CONTEXT:\n';
+    searchResults.forEach((result, idx) => {
+      const resultDate = result.created_at ? formatMeetingDate(result.created_at) : result.date ? formatMeetingDate(result.date) : '';
+      searchResultsSection += `${idx + 1}. "${result.title}"`;
+      if (resultDate) searchResultsSection += ` (${resultDate})`;
+      searchResultsSection += '\n';
+      
+      // Add summary
+      if (result.tldr) {
+        searchResultsSection += `   Summary: ${result.tldr}\n`;
+      } else if (result.summary) {
+        searchResultsSection += `   Summary: ${result.summary}\n`;
+      }
+      
+      // Add relevance score
+      const relevanceScore = result.score || result.similarity || 0;
+      searchResultsSection += `   Relevance: ${Math.round(relevanceScore * 100)}%\n`;
+      
+      // Add key decisions if available
+      if (result.key_decisions && Array.isArray(result.key_decisions) && result.key_decisions.length > 0) {
+        const decisionTexts = result.key_decisions.slice(0, 2).map((decision) => 
+          typeof decision === 'string' ? decision : 
+          (decision as { decision?: string; text?: string; title?: string }).decision || (decision as { decision?: string; text?: string; title?: string }).text || String(decision)
+        );
+        searchResultsSection += `   Key Decisions: ${decisionTexts.join('; ')}\n`;
+      }
+      
+      // Add action items if available
+      if (result.action_items && Array.isArray(result.action_items) && result.action_items.length > 0) {
+        const actionTexts = result.action_items.slice(0, 2).map((action) => 
+          typeof action === 'string' ? action : 
+          (action as { task?: string; text?: string; title?: string }).task || (action as { task?: string; text?: string; title?: string }).text || String(action)
+        );
+        searchResultsSection += `   Action Items: ${actionTexts.join('; ')}\n`;
+      }
+      
+      searchResultsSection += '\n';
+    });
+    searchResultsSection += 'Use this historical context to provide more informed and relevant advice.\n';
+  }
+
   return `You are ${meLabel}'s helpful AI meeting advisor. Your job is to be genuinely useful - answer questions directly, give practical advice, and help ${meLabel} navigate their conversation with ${themLabel}.
 
 ${getCurrentDateContext()}
-${sessionOwnerSection}${aiInstructionsSection}
+${sessionOwnerSection}${aiInstructionsSection}${searchResultsSection}
 CURRENT SITUATION: ${modeDescriptor}${meetingContextSection}
 Conversation Stage: ${stage}
 ${transcript ? `Conversation Transcript: ${transcript}` : ''}
@@ -915,6 +971,71 @@ function getConversationStage(transcriptLength: number): string {
   if (transcriptLength < 1500) return 'discovery';
   if (transcriptLength < 3000) return 'discussion';
   return 'closing';
+}
+
+// Determine if we should perform agentic search for meeting mode
+async function shouldPerformMeetingSearch(query: string): Promise<boolean> {
+  console.log('🔎 Analyzing meeting query for search decision:', query);
+  
+  // Enhanced search triggers for meeting mode
+  const searchKeywords = [
+    'search', 'find', 'show me', 'last month', 'weeks ago', 'days ago',
+    'tell me about', 'what about', 'explain', 'describe', 'regarding',
+    'about the', 'meeting', 'conversation', 'discussion', 'call',
+    'previous', 'earlier', 'history', 'past', 'before',
+    'similar', 'related', 'other', 'another'
+  ];
+  const queryLower = query.toLowerCase();
+  const hasSearchKeyword = searchKeywords.some(keyword => queryLower.includes(keyword));
+  
+  // Check for proper nouns and meeting-like patterns
+  const hasProperNoun = /\b[A-Z][a-z]+(?:\s+[A-Z][a-z]+)*\b/.test(query);
+  const hasMeetingPattern = /\b\w+\s+meeting\b|\bmeeting\s+with\b|\bconversation\s+with\b/i.test(query);
+  
+  if (hasSearchKeyword || hasProperNoun || hasMeetingPattern) {
+    console.log('🔎 Meeting search trigger detected:', {
+      hasSearchKeyword,
+      hasProperNoun,
+      hasMeetingPattern,
+      query: query.substring(0, 50)
+    });
+    return true;
+  }
+  
+  // Analyze the query
+  const analyzedQuery = analyzeQuery(query);
+  
+  console.log('🔎 Analyzed meeting query:', {
+    intent: analyzedQuery.intent,
+    participantsCount: analyzedQuery.participants.length,
+    topicsCount: analyzedQuery.topics.length,
+    temporalType: analyzedQuery.temporal.type,
+    entitiesCount: analyzedQuery.entities.length
+  });
+  
+  // Always search for specific queries in meeting mode
+  if (analyzedQuery.intent === 'search' || analyzedQuery.intent === 'comparison') {
+    console.log('🔎 Search/comparison intent detected - will search');
+    return true;
+  }
+  
+  // Search if asking about specific people
+  if (analyzedQuery.participants.length > 0 && analyzedQuery.participants.some(p => p.type !== 'self')) {
+    return true;
+  }
+  
+  // Search if asking about specific dates
+  if (analyzedQuery.temporal.type !== 'none') {
+    return true;
+  }
+  
+  // Search if asking about specific entities or topics
+  if (analyzedQuery.entities.length > 0 || analyzedQuery.topics.length > 1) {
+    return true;
+  }
+  
+  console.log('🔎 No meeting search criteria met - proceeding without RAG search');
+  return false;
 }
 
 // Determine if we should perform agentic search
@@ -1091,20 +1212,21 @@ function getDashboardSystemPrompt(
     meetingsSection = '\n📊 RECENT MEETINGS:\n';
     dashboardContext.recentMeetings.forEach((meeting, idx) => {
       const meetingDate = meeting.created_at ? formatMeetingDate(meeting.created_at) : 'No date';
-      const meetingLink = (meeting as any).url ? `[${meeting.title}](${ (meeting as any).url})` : `"${meeting.title}"`;
+      const meetingWithUrl = meeting as { url?: string } & typeof meeting;
+      const meetingLink = meetingWithUrl.url ? `[${meeting.title}](${meetingWithUrl.url})` : `"${meeting.title}"`;
       meetingsSection += `${idx + 1}. ${meetingLink} (${meetingDate})\n`;
       if (meeting.summary) meetingsSection += `   Summary: ${meeting.summary}\n`;
       if (meeting.decisions && meeting.decisions.length > 0) {
-        const decisionTexts = meeting.decisions.slice(0, 3).map(decision => 
+        const decisionTexts = meeting.decisions.slice(0, 3).map((decision: string | { decision?: string; text?: string; title?: string }) => 
           typeof decision === 'string' ? decision : 
-          (decision as any).decision || (decision as any).text || (decision as any).title || String(decision)
+          decision.decision || decision.text || decision.title || String(decision)
         );
         meetingsSection += `   Key Decisions: ${decisionTexts.join('; ')}\n`;
       }
       if (meeting.actionItems && meeting.actionItems.length > 0) {
-        const actionTexts = meeting.actionItems.slice(0, 3).map(action => 
+        const actionTexts = meeting.actionItems.slice(0, 3).map((action: string | { task?: string; text?: string; title?: string }) => 
           typeof action === 'string' ? action : 
-          (action as any).task || (action as any).text || (action as any).title || String(action)
+          action.task || action.text || action.title || String(action)
         );
         meetingsSection += `   Action Items: ${actionTexts.join('; ')}\n`;
       }
@@ -1166,7 +1288,14 @@ function getDashboardSystemPrompt(
   if (searchResults && searchResults.length > 0) {
     searchResultsSection = '\n🔎 SEARCH RESULTS (Most relevant to your query):\n';
     searchResults.forEach((result, idx) => {
-      const resultAny = result as any;
+      const resultAny = result as typeof result & {
+        created_at?: string;
+        tldr?: string;
+        score?: number;
+        similarity?: number;
+        key_decisions?: Array<string | { decision?: string; text?: string; title?: string }>;
+        action_items?: Array<string | { task?: string; text?: string; title?: string }>;
+      };
       const resultDate = resultAny.created_at ? formatMeetingDate(resultAny.created_at) : result.date ? formatMeetingDate(result.date) : 'No date';
       searchResultsSection += `${idx + 1}. [${result.type}] "${result.title}" (${resultDate})\n`;
       
@@ -1183,7 +1312,7 @@ function getDashboardSystemPrompt(
       
       // Handle key decisions from enhanced search results
       if (resultAny.key_decisions && Array.isArray(resultAny.key_decisions) && resultAny.key_decisions.length > 0) {
-        const decisionTexts = resultAny.key_decisions.slice(0, 2).map((decision: any) => 
+        const decisionTexts = resultAny.key_decisions.slice(0, 2).map((decision) => 
           typeof decision === 'string' ? decision : 
           decision.decision || decision.text || decision.title || String(decision)
         );
@@ -1194,7 +1323,7 @@ function getDashboardSystemPrompt(
       
       // Handle action items from enhanced search results
       if (resultAny.action_items && Array.isArray(resultAny.action_items) && resultAny.action_items.length > 0) {
-        const actionTexts = resultAny.action_items.slice(0, 2).map((action: any) => 
+        const actionTexts = resultAny.action_items.slice(0, 2).map((action) => 
           typeof action === 'string' ? action : 
           action.task || action.text || action.title || String(action)
         );

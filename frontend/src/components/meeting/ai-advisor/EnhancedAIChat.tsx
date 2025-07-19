@@ -7,7 +7,8 @@ import {
   ClockIcon,
   ExclamationTriangleIcon,
   BoltIcon,
-  Cog6ToothIcon
+  Cog6ToothIcon,
+  MagnifyingGlassIcon
 } from '@heroicons/react/24/outline';
 import ReactMarkdown from 'react-markdown';
 import { useMeetingContext } from '@/lib/meeting/context/MeetingContext';
@@ -45,6 +46,7 @@ export const EnhancedAIChat = forwardRef<EnhancedAIChatRef>((props, ref) => {
   const [isLoadingInitialPrompts, setIsLoadingInitialPrompts] = useState(false);
   const [hasLoadedInitialPrompts, setHasLoadedInitialPrompts] = useState(false);
   const [aiInstructions, setAiInstructions] = useState<string | null>(null);
+  const [isSearching, setIsSearching] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -340,6 +342,15 @@ export const EnhancedAIChat = forwardRef<EnhancedAIChatRef>((props, ref) => {
       setMessages(prev => [...prev, userMessage]);
       setInput('');
     }
+    
+    // Check if message might trigger a search
+    const searchKeywords = ['search', 'find', 'show me', 'tell me about', 'what about', 'meeting', 'conversation', 'previous', 'earlier', 'history'];
+    const mightTriggerSearch = searchKeywords.some(keyword => messageToSend.toLowerCase().includes(keyword));
+    
+    if (mightTriggerSearch) {
+      setIsSearching(true);
+    }
+    
     setIsTyping(true);
 
     try {
@@ -422,10 +433,17 @@ export const EnhancedAIChat = forwardRef<EnhancedAIChatRef>((props, ref) => {
       const suggestedActions = data.suggestedActions || [];
 
       // Add AI response
+      let responseContent = typeof aiResponse === 'string' ? aiResponse : aiResponse.response || 'I understand. How can I help you further?';
+      
+      // Add search indicator if a search was performed
+      if (isSearching && mightTriggerSearch) {
+        responseContent = `🔎 *Found relevant information from past conversations*\n\n${responseContent}`;
+      }
+      
       const aiMessage: ChatMessage = {
         id: `ai-${Date.now()}`,
         role: 'assistant',
-        content: typeof aiResponse === 'string' ? aiResponse : aiResponse.response || 'I understand. How can I help you further?',
+        content: responseContent,
         timestamp: new Date().toISOString()
       };
 
@@ -450,6 +468,7 @@ export const EnhancedAIChat = forwardRef<EnhancedAIChatRef>((props, ref) => {
       setMessages(prev => [...prev, errorMessage]);
     } finally {
       setIsTyping(false);
+      setIsSearching(false);
     }
   };
 
@@ -510,8 +529,6 @@ export const EnhancedAIChat = forwardRef<EnhancedAIChatRef>((props, ref) => {
     return SparklesIcon;
   };
 
-  // Check if personalized context is active
-  const hasPersonalizedContext = meeting?.sessionOwner?.personalContext || personalContext;
 
   return (
     <div className="flex flex-col h-full">
@@ -522,7 +539,7 @@ export const EnhancedAIChat = forwardRef<EnhancedAIChatRef>((props, ref) => {
             <Cog6ToothIcon className="w-3.5 h-3.5" />
             <span className="font-medium">Custom AI Instructions Active</span>
             <span className="text-purple-600 dark:text-purple-400 truncate flex-1">
-              "{aiInstructions.substring(0, 50)}{aiInstructions.length > 50 ? '...' : ''}"
+              &quot;{aiInstructions.substring(0, 50)}{aiInstructions.length > 50 ? '...' : ''}&quot;
             </span>
           </div>
         </div>
@@ -666,6 +683,25 @@ export const EnhancedAIChat = forwardRef<EnhancedAIChatRef>((props, ref) => {
                 </motion.div>
               );
             })}
+          </AnimatePresence>
+
+          {/* Search indicator */}
+          <AnimatePresence>
+            {isSearching && !isTyping && (
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -20 }}
+                className="flex gap-3"
+              >
+                <div className="flex-shrink-0 w-8 h-8 rounded-full bg-amber-500/20 text-amber-600 dark:text-amber-400 flex items-center justify-center">
+                  <MagnifyingGlassIcon className="w-4 h-4 animate-pulse" />
+                </div>
+                <div className="bg-amber-500/10 px-4 py-3 rounded-2xl">
+                  <span className="text-sm text-amber-700 dark:text-amber-300">Searching past conversations...</span>
+                </div>
+              </motion.div>
+            )}
           </AnimatePresence>
 
           {/* Typing indicator */}
