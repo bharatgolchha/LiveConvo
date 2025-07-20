@@ -34,20 +34,29 @@ export const MeetingCardAdapter = React.memo(({
 
   // Map session data to MeetingCard props
   const mappedProps = useMemo(() => {
-    // Get first participant as owner, or use fallback
-    const participants = session.transcript_speakers && Array.isArray(session.transcript_speakers) 
-      ? session.transcript_speakers
-          .filter((speaker: string) => speaker && speaker.trim() && !['me', 'them', 'user', 'other'].includes(speaker.toLowerCase()))
-          .map((speaker: string) => speaker.trim())
-      : []
-    
-    // If no transcript speakers, fall back to participant_them or create a default
-    const finalParticipants = participants.length > 0 
-      ? participants 
-      : session.participant_them ? [session.participant_them] : []
-    
-    // Check if participants have actually joined (have transcript data)
-    const hasParticipants = participants.length > 0
+    // Helper to clean and normalise participant names
+    const cleanNames = (names: string[] | null | undefined) => {
+      if (!Array.isArray(names)) return []
+      return names
+        .filter(name => name && name.trim() && !['me', 'them', 'user', 'other'].includes(name.toLowerCase()))
+        .map(name => name.trim())
+    }
+
+    const transcriptSpeakers = cleanNames(session.transcript_speakers)
+
+    // Names that might have come from calendar attendees (saved in `participants` column)
+    const calendarParticipants = cleanNames(session.participants)
+
+    // Merge lists and de-duplicate while preserving order
+    const merged = [...new Set([...transcriptSpeakers, ...calendarParticipants])]
+
+    const finalParticipants = merged.length > 0
+      ? merged
+      : session.participant_them
+        ? [session.participant_them.trim()]
+        : []
+
+    const hasParticipants = finalParticipants.length > 0
     
     // Map session status to MeetingCard status
     const getCardStatus = (sessionStatus: Session['status']) => {
@@ -102,7 +111,7 @@ export const MeetingCardAdapter = React.memo(({
     
     // Create TLDR from session summary or context
     const getTldr = (): string | undefined => {
-      const participantCount = participants.length
+      const participantCount = finalParticipants.length
       const duration = session.recording_duration_seconds || 0
       const hasRecording = duration > 0
       

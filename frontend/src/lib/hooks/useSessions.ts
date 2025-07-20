@@ -28,6 +28,10 @@ export interface Session {
   participant_me?: string;
   participant_them?: string;
   transcript_speakers?: string[];
+  /**
+   * List of participant display names, typically sourced from calendar event attendees.
+   */
+  participants?: string[];
   meeting_url?: string;
   meeting_platform?: 'zoom' | 'google_meet' | 'teams';
   recall_bot_id?: string;

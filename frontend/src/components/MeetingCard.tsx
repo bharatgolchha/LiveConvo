@@ -97,10 +97,19 @@ export const MeetingCard = React.memo(({
     return colors[index % colors.length]
   }
 
-  // Process participants for display
+  // Process participants for display (avatars + text)
   const maxDisplayParticipants = 3
   const displayParticipants = participants.slice(0, maxDisplayParticipants)
   const remainingCount = Math.max(0, participants.length - maxDisplayParticipants)
+
+  // Build human-readable string of names: "Alice, Bob, Charlie +2"
+  const participantNamesText = () => {
+    if (participants.length === 0) return 'No participants'
+    if (participants.length <= maxDisplayParticipants) {
+      return participants.join(', ')
+    }
+    return `${participants.slice(0, maxDisplayParticipants).join(', ')} +${remainingCount}`
+  }
 
   // Helper function to get bot status display
   const getBotStatusDisplay = () => {
@@ -273,12 +282,7 @@ export const MeetingCard = React.memo(({
             
             {/* Participant names */}
             <span className="text-muted-foreground text-sm">
-              {participants.length > 0 
-                ? participants.length === 1 
-                  ? participants[0]
-                  : `${participants.length} participants`
-                : 'No participants'
-              }
+              {participantNamesText()}
             </span>
           </div>
           <span className="text-muted-foreground">• {formatDuration(durationSec)}</span>
