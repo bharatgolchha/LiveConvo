@@ -21,19 +21,23 @@ interface CalendarStepProps {
     auto_record_enabled?: boolean;
   };
   updateData: (data: any) => void;
-  onComplete: () => void;
+  onComplete?: () => void;
+  onNext?: () => void;
   onBack: () => void;
-  isLoading: boolean;
+  isLoading?: boolean;
   error?: string | null;
+  isLastStep?: boolean;
 }
 
 export const CalendarStep: React.FC<CalendarStepProps> = ({
   data,
   updateData,
   onComplete,
+  onNext,
   onBack,
-  isLoading,
-  error
+  isLoading = false,
+  error,
+  isLastStep = true
 }) => {
   const { session } = useAuth();
   const [isConnecting, setIsConnecting] = useState(false);
@@ -287,7 +291,7 @@ export const CalendarStep: React.FC<CalendarStepProps> = ({
           Back
         </Button>
         <Button
-          onClick={onComplete}
+          onClick={isLastStep ? onComplete : onNext}
           disabled={isLoading}
           className="flex-1 bg-gradient-to-r from-app-primary to-app-primary-dark hover:from-app-primary-dark hover:to-app-primary text-white py-3 text-base font-medium shadow-lg hover:shadow-xl transition-all duration-200 flex items-center justify-center gap-2"
         >
@@ -298,13 +302,24 @@ export const CalendarStep: React.FC<CalendarStepProps> = ({
             </>
           ) : (
             <>
-              {data.calendar_connected ? (
-                <>
-                  <SparklesIcon className="w-5 h-5" />
-                  Complete Setup
-                </>
+              {isLastStep ? (
+                data.calendar_connected ? (
+                  <>
+                    <SparklesIcon className="w-5 h-5" />
+                    Complete Setup
+                  </>
+                ) : (
+                  'Skip for Now'
+                )
               ) : (
-                'Skip for Now'
+                data.calendar_connected ? (
+                  <>
+                    Continue
+                    <ArrowLeftIcon className="w-4 h-4 rotate-180" />
+                  </>
+                ) : (
+                  'Skip for Now'
+                )
               )}
             </>
           )}

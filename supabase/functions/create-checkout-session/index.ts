@@ -47,7 +47,7 @@ serve(async (req) => {
       )
     }
 
-    const { priceId, planId, interval, referralCode } = await req.json()
+    const { priceId, planId, interval, referralCode, successUrl, cancelUrl, trialDays } = await req.json()
 
     if (!priceId) {
       return new Response(
@@ -191,6 +191,8 @@ serve(async (req) => {
     }
 
     // Create checkout session - back to line_items which is the correct format
+    const isTrialCheckout = trialDays && Number(trialDays) > 0
+
     const sessionConfig: any = {
       customer: customerId,
       payment_method_types: ['card'],
@@ -199,8 +201,8 @@ serve(async (req) => {
         price: priceId,
         quantity: 1,
       }],
-      success_url: `${origin}/dashboard?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${origin}/dashboard`,
+      success_url: successUrl || `${origin}/dashboard?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: cancelUrl || `${origin}/dashboard`,
       subscription_data: {
         metadata: {
           user_id: user.id,
@@ -208,6 +210,7 @@ serve(async (req) => {
           interval: interval,
           ...referralMetadata
         },
+        ...(isTrialCheckout ? { trial_period_days: Number(trialDays) } : {}),
       },
     }
     
@@ -221,7 +224,7 @@ serve(async (req) => {
     console.log('Checkout session created:', session.id)
 
     return new Response(
-      JSON.stringify({ url: session.url }),
+      JSON.stringify({ url: session.url, isTrialCheckout, trialDays: trialDays || 0 }),
       { 
         status: 200, 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' } 

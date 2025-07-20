@@ -24,11 +24,23 @@ export async function GET(request: NextRequest) {
     }
 
     // Get active subscription using the optimized view
-    const { data: subscriptionData, error: subscriptionError } = await supabase
+    // Handle multiple subscriptions by taking the first active one
+    console.log('🔍 Fetching subscriptions for user:', user.id);
+    const { data: subscriptions, error: subscriptionError } = await supabase
       .from('active_user_subscriptions')
       .select('*')
       .eq('user_id', user.id)
-      .maybeSingle();
+      .order('created_at', { ascending: false });
+      
+    console.log('📊 Subscriptions found:', subscriptions?.length || 0);
+    if (subscriptions && subscriptions.length > 0) {
+      console.log('📋 First subscription details:', {
+        id: subscriptions[0].id,
+        status: subscriptions[0].status,
+        plan_name: subscriptions[0].plan_name,
+        organization_id: subscriptions[0].organization_id
+      });
+    }
 
     if (subscriptionError) {
       console.error('Error fetching subscription:', subscriptionError);
@@ -36,6 +48,13 @@ export async function GET(request: NextRequest) {
         { error: 'Failed to fetch subscription data' },
         { status: 500 }
       );
+    }
+
+    // Take the first subscription if multiple exist
+    const subscriptionData = subscriptions && subscriptions.length > 0 ? subscriptions[0] : null;
+    
+    if (subscriptions && subscriptions.length > 1) {
+      console.warn(`User ${user.id} has ${subscriptions.length} active subscriptions, using the most recent one`);
     }
 
     // Debug log to see the structure

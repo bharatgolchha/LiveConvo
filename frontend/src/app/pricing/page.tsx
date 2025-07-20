@@ -460,6 +460,9 @@ export default function PricingPage() {
     return features;
   };
 
+  // Exclude free plans from display
+  const displayedPlans = plans.filter(p => p.slug !== 'individual_free' && p.slug !== 'free');
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-background via-background to-primary/5 flex items-center justify-center">
@@ -646,13 +649,17 @@ export default function PricingPage() {
       )}
 
       {/* Pricing Cards */}
-      <div className="container mx-auto px-4 pb-20 pt-8">
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-8 lg:gap-10 max-w-[1400px] mx-auto">
-          {plans.map((plan, index) => {
+      <div className="container mx-auto px-4 pb-20 pt-8 flex justify-center">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8 lg:gap-10 max-w-[1200px]">
+          {displayedPlans.map((plan, index) => {
             const price = billingPeriod === 'monthly' ? plan.pricing.monthly : plan.pricing.yearly;
             const monthlyPrice = plan.pricing.monthly;
             const yearlyPrice = plan.pricing.yearly;
             const savings = getYearlySavings(monthlyPrice, yearlyPrice);
+            // Determine upgrade vs downgrade relative to current plan
+            const currentPlanObj = plans.find(p => p.slug === currentUserPlan);
+            const currentPrice = currentPlanObj ? (billingPeriod === 'monthly' ? currentPlanObj.pricing.monthly : currentPlanObj.pricing.yearly) : null;
+            const isUpgradeOption = currentPrice !== null && price !== null && price > currentPrice;
             const features = getFeaturesList(plan);
             
             return (
@@ -783,15 +790,28 @@ export default function PricingPage() {
                       variant={plan.display.isFeatured ? 'primary' : 'outline'}
                       disabled={currentUserPlan === plan.slug}
                     >
-                      {currentUserPlan === plan.slug ? (
-                        <>
-                          <span>Current Plan</span>
-                          <span className="text-xs ml-2">(Manage in Settings)</span>
-                        </>
-                      ) : plan.slug === 'org_enterprise' ? 'Contact Sales' : 
-                        plan.slug === 'individual_free' ? 'Get Started' : 
-                        (plan.trial?.enabled && trialStatus.isEligible && currentUserPlan !== plan.slug) ? 'Start Free Trial' :
-                        (currentUserPlan && currentUserPlan !== 'individual_free') ? 'Manage Plan' : 'Upgrade Now'}
+                      {(() => {
+                        if (currentUserPlan === plan.slug) {
+                          return (
+                            <>
+                              <span>Current Plan</span>
+                              <span className="text-xs ml-2">(Manage in Settings)</span>
+                            </>
+                          );
+                        }
+
+                        if (plan.slug === 'org_enterprise') return 'Contact Sales';
+
+                        if (plan.trial?.enabled && trialStatus.isEligible && currentUserPlan === 'individual_free') {
+                          return 'Start Free Trial';
+                        }
+
+                        if (currentUserPlan && currentUserPlan !== 'individual_free') {
+                          return isUpgradeOption ? 'Upgrade Plan' : 'Downgrade Plan';
+                        }
+
+                        return 'Upgrade Now';
+                      })()}
                       {!currentUserPlan || currentUserPlan !== plan.slug ? (
                         <Sparkles className="w-4 h-4 ml-2 inline-flex" />
                       ) : null}

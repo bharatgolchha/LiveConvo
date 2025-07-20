@@ -40,6 +40,7 @@ export async function POST(request: NextRequest) {
 
     // Use service role client for administrative operations
     const serviceClient = createServerSupabaseClient();
+    console.log('🔧 Service client initialized');
     
     // Check if user exists in users table
     const { data: existingUserData } = await serviceClient
@@ -134,12 +135,58 @@ export async function POST(request: NextRequest) {
     }
 
     // If user has already completed onboarding and has no active memberships,
-    // something went wrong - prevent creating duplicate org
+    // just mark onboarding as complete and return success
     if (userProfile?.has_completed_onboarding) {
-      return NextResponse.json(
-        { error: 'Already onboarded', message: 'User has already completed onboarding' },
-        { status: 400 }
-      );
+      return NextResponse.json({
+        message: 'User already completed onboarding',
+        user: userProfile,
+        organization: null,
+        membership: null,
+        subscription: null
+      }, { status: 200 });
+    }
+    
+    // Check if user already owns an organization (even if not marked as onboarded)
+    const { data: existingOwnedOrg } = await serviceClient
+      .from('organization_members')
+      .select('*, organizations(*)')
+      .eq('user_id', user.id)
+      .eq('role', 'owner')
+      // No status filter to detect any ownership status
+      .single();
+    
+    if (existingOwnedOrg) {
+      // User already owns an organization, just complete onboarding
+      const { data: updatedUser, error: userUpdateError } = await serviceClient
+        .from('users')
+        .update({
+          has_completed_onboarding: true,
+          has_completed_organization_setup: true,
+          current_organization_id: existingOwnedOrg.organization_id,
+          timezone: timezone || userProfile?.timezone || 'UTC',
+          use_case: use_case || userProfile?.use_case || null,
+          acquisition_source: acquisition_source || userProfile?.acquisition_source || null,
+          onboarding_completed_at: new Date().toISOString()
+        })
+        .eq('id', user.id)
+        .select()
+        .single();
+
+      if (userUpdateError) {
+        console.error('User update error:', userUpdateError);
+        return NextResponse.json(
+          { error: 'Database error', message: 'Failed to update user' },
+          { status: 500 }
+        );
+      }
+
+      return NextResponse.json({
+        message: 'Onboarding completed with existing owned organization',
+        user: updatedUser,
+        organization: existingOwnedOrg.organizations,
+        membership: existingOwnedOrg,
+        subscription: null
+      }, { status: 200 });
     }
 
     // Get the free plan (create if missing)
@@ -191,38 +238,114 @@ export async function POST(request: NextRequest) {
 
     console.log('📋 Using free plan:', freePlan);
 
-    // Generate organization name if not provided
-    const userEmail = user.email || '';
-    const defaultOrgName = organization_name || 
-      (userProfile?.full_name ? `${userProfile.full_name}'s Organization` : 
-       `${userEmail.split('@')[0]}'s Organization`);
+    // Check if user already owns an organization (to avoid duplicate ownership error)
+    const { data: existingOwnedOrgs } = await serviceClient
+      .from('organization_members')
+      .select(`
+        organization_id,
+        role,
+        status,
+        organizations (
+          id,
+          name,
+          slug,
+          display_name,
+          default_timezone,
+          monthly_audio_hours_limit,
+          max_members,
+          max_sessions_per_month,
+          is_active
+        )
+      `)
+      .eq('user_id', user.id)
+      .eq('role', 'owner')
+      // Allow any status to detect ownership and avoid duplicate owner constraint
+      .order('created_at', { ascending: false });
 
-    // Generate unique slug for organization
-    const baseSlug = defaultOrgName.toLowerCase()
-      .replace(/[^a-z0-9]/g, '-')
-      .replace(/-+/g, '-')
-      .replace(/^-|-$/g, '');
+    let organization;
+    let membership;
     
-    let organizationSlug = baseSlug;
-    let slugCounter = 1;
-    
-    // Ensure slug is unique
-    while (true) {
-      const { data: existingOrg } = await serviceClient
-        .from('organizations')
-        .select('id')
-        .eq('slug', organizationSlug)
-        .single();
+    if (existingOwnedOrgs && existingOwnedOrgs.length > 0) {
+      // User already owns an organization, use the existing one
+      console.log('🏢 User already owns an organization, using existing one');
+      const existingOwnership = existingOwnedOrgs[0];
+      // Cast to any due to type inference limitations of joined column
+      organization = existingOwnership.organizations as any;
       
-      if (!existingOrg) break;
-      organizationSlug = `${baseSlug}-${slugCounter}`;
-      slugCounter++;
-    }
+      // Get the actual membership record
+      const { data: existingMembership } = await serviceClient
+        .from('organization_members')
+        .select('*')
+        .eq('organization_id', existingOwnership.organization_id)
+        .eq('user_id', user.id)
+        .single();
+        
+      membership = existingMembership || {
+        organization_id: existingOwnership.organization_id,
+        user_id: user.id,
+        role: existingOwnership.role,
+        status: existingOwnership.status
+      };
+      
+      // Update organization name if provided
+      if (organization_name && organization_name !== organization.name) {
+        const { data: updatedOrg, error: updateError } = await serviceClient
+          .from('organizations')
+          .update({
+            name: organization_name,
+            display_name: organization_name,
+            default_timezone: timezone || organization.default_timezone
+          })
+          .eq('id', organization.id)
+          .select()
+          .single();
+          
+        if (!updateError && updatedOrg) {
+          organization = updatedOrg;
+          console.log('✅ Updated existing organization name to:', organization_name);
+        }
+      }
+    } else {
+      // No existing organization, create a new one
+      // Generate organization name if not provided
+      const userEmail = user.email || '';
+      const defaultOrgName = organization_name || 
+        (userProfile?.full_name ? `${userProfile.full_name}'s Organization` : 
+         `${userEmail.split('@')[0]}'s Organization`);
 
-    // Create organization
-    const { data: organization, error: orgError } = await serviceClient
-      .from('organizations')
-      .insert({
+      // Generate unique slug for organization
+      const baseSlug = defaultOrgName.toLowerCase()
+        .replace(/[^a-z0-9]/g, '-')
+        .replace(/-+/g, '-')
+        .replace(/^-|-$/g, '')
+        .substring(0, 50); // Limit length
+      
+      let organizationSlug = baseSlug || 'org';
+      let slugCounter = 1;
+      
+      // Ensure slug is unique
+      while (true) {
+        const { data: existingOrg } = await serviceClient
+          .from('organizations')
+          .select('id')
+          .eq('slug', organizationSlug)
+          .single();
+        
+        if (!existingOrg) break;
+        
+        // Use timestamp for better uniqueness
+        organizationSlug = `${baseSlug}-${Date.now()}-${slugCounter}`;
+        slugCounter++;
+        
+        // Safety check to prevent infinite loop
+        if (slugCounter > 100) {
+          organizationSlug = `org-${user.id.substring(0, 8)}-${Date.now()}`;
+          break;
+        }
+      }
+
+      // Create organization
+      console.log('📦 Creating organization with data:', {
         name: defaultOrgName,
         display_name: defaultOrgName,
         slug: organizationSlug,
@@ -231,66 +354,196 @@ export async function POST(request: NextRequest) {
         max_members: freePlan.max_organization_members || 1,
         max_sessions_per_month: freePlan.max_sessions_per_month,
         is_active: true
-      })
-      .select()
-      .single();
+      });
+      
+      let newOrganization;
+      let orgInsertError;
+      let insertAttempts = 0;
+      let currentSlug = organizationSlug;
 
-    if (orgError) {
-      console.error('Organization creation error:', orgError);
-      return NextResponse.json(
-        { error: 'Database error', message: 'Failed to create organization' },
-        { status: 500 }
-      );
+      // Retry up to 5 times in case of slug clashes
+      while (insertAttempts < 5) {
+        const { data: orgData, error: insertError } = await serviceClient
+          .from('organizations')
+          .insert({
+            name: defaultOrgName,
+            display_name: defaultOrgName,
+            slug: currentSlug,
+            default_timezone: timezone,
+            monthly_audio_hours_limit: freePlan?.monthly_audio_hours_limit ?? null,
+            max_members: freePlan.max_organization_members || 1,
+            max_sessions_per_month: freePlan.max_sessions_per_month,
+            is_active: true
+          })
+          .select()
+          .single();
+
+        if (!insertError) {
+          newOrganization = orgData;
+          break;
+        }
+
+        // If slug duplicate, regenerate and retry
+        if (insertError.code === '23505') {
+          insertAttempts++;
+          currentSlug = `${baseSlug}-${Date.now()}-${insertAttempts}`;
+          console.warn(`⚠️ Duplicate slug detected. Retrying with slug: ${currentSlug}`);
+          continue;
+        }
+
+        // Any other error – abort
+        orgInsertError = insertError;
+        break;
+      }
+
+      if (!newOrganization) {
+        console.error('❌ Organization creation error:', {
+          error: orgInsertError,
+          organizationData: {
+            name: defaultOrgName,
+            slug: currentSlug,
+            timezone: timezone
+          }
+        });
+        return NextResponse.json(
+          { 
+            error: 'Database error', 
+            message: `Failed to create organization: ${orgInsertError?.message || 'Unknown error'}`,
+            details: orgInsertError?.details || orgInsertError?.hint || null,
+            code: orgInsertError?.code
+          },
+          { status: 500 }
+        );
+      }
+
+      organization = newOrganization;
+
+      // Create organization membership with owner role
+      const { data: newMembership, error: membershipError } = await serviceClient
+        .from('organization_members')
+        .insert({
+          organization_id: organization.id,
+          user_id: user.id,
+          role: 'owner',
+          status: 'active',
+          monthly_audio_hours_limit: freePlan?.monthly_audio_hours_limit ?? null,
+          max_sessions_per_month: freePlan.max_sessions_per_month
+        })
+        .select()
+        .single();
+
+      if (membershipError) {
+        console.error('Membership creation error:', membershipError);
+
+        // Handle specific case where user already owns an organization (constraint violation)
+        if (membershipError.code === 'P0001') {
+          // Clean up the newly created organization since it won't be used
+          await serviceClient.from('organizations').delete().eq('id', organization.id);
+
+          // Fetch the existing owner membership and organization
+          const { data: existingOwnerMembership } = await serviceClient
+            .from('organization_members')
+            .select('*, organizations(*)')
+            .eq('user_id', user.id)
+            .eq('role', 'owner')
+            .order('created_at', { ascending: false })
+            .single();
+
+          if (existingOwnerMembership) {
+            membership = existingOwnerMembership;
+            organization = existingOwnerMembership.organizations as any;
+            console.log('ℹ️ Fallback to existing organization after ownership constraint violation');
+          } else {
+            return NextResponse.json(
+              { error: 'Database error', message: 'Failed to create organization membership' },
+              { status: 500 }
+            );
+          }
+        } else {
+          // Clean up organization if membership fails for other reasons
+          await serviceClient.from('organizations').delete().eq('id', organization.id);
+          return NextResponse.json(
+            { error: 'Database error', message: 'Failed to create organization membership' },
+            { status: 500 }
+          );
+        }
+      }
+      
+      membership = newMembership;
     }
 
-    // Create organization membership with owner role
-    const { data: membership, error: membershipError } = await serviceClient
-      .from('organization_members')
-      .insert({
-        organization_id: organization.id,
-        user_id: user.id,
-        role: 'owner',
-        status: 'active',
-        monthly_audio_hours_limit: freePlan?.monthly_audio_hours_limit ?? null,
-        max_sessions_per_month: freePlan.max_sessions_per_month
-      })
-      .select()
-      .single();
-
-    if (membershipError) {
-      console.error('Membership creation error:', membershipError);
-      // Clean up organization if membership fails
-      await serviceClient.from('organizations').delete().eq('id', organization.id);
-      return NextResponse.json(
-        { error: 'Database error', message: 'Failed to create organization membership' },
-        { status: 500 }
-      );
-    }
-
-    // Create subscription for the organization
-    const { data: subscription, error: subscriptionError } = await serviceClient
+    // Check if user already has a subscription (e.g., from Stripe webhook)
+    // Include incomplete status as this happens when checkout completes but before webhook confirms
+    const { data: existingSubscription } = await serviceClient
       .from('subscriptions')
-      .insert({
-        organization_id: organization.id,
-        user_id: user.id,
-        plan_id: freePlan.id,
-        plan_type: 'monthly',
-        status: 'active',
-        current_period_start: new Date().toISOString(),
-        current_period_end: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString() // 30 days from now
-      })
-      .select()
+      .select('*')
+      .eq('user_id', user.id)
+      .in('status', ['active', 'trialing', 'incomplete'])
+      .order('created_at', { ascending: false })
+      .limit(1)
       .single();
-
-    if (subscriptionError) {
-      console.error('Subscription creation error:', subscriptionError);
-      // Clean up organization and membership if subscription fails
-      await serviceClient.from('organization_members').delete().eq('id', membership.id);
-      await serviceClient.from('organizations').delete().eq('id', organization.id);
-      return NextResponse.json(
-        { error: 'Database error', message: 'Failed to create subscription' },
-        { status: 500 }
-      );
+    
+    let subscription = existingSubscription;
+    
+    // Only create a Free subscription if user doesn't already have one
+    if (!existingSubscription) {
+      const { data: newSubscription, error: subscriptionError } = await serviceClient
+        .from('subscriptions')
+        .insert({
+          organization_id: organization.id,
+          user_id: user.id,
+          plan_id: freePlan.id,
+          plan_type: 'monthly',
+          status: 'active',
+          current_period_start: new Date().toISOString(),
+          current_period_end: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString() // 30 days from now
+        })
+        .select()
+        .single();
+      
+      if (subscriptionError) {
+        console.error('Subscription creation error:', subscriptionError);
+        // Clean up organization and membership if subscription fails
+        await serviceClient.from('organization_members').delete().eq('id', membership.id);
+        await serviceClient.from('organizations').delete().eq('id', organization.id);
+        return NextResponse.json(
+          { error: 'Database error', message: 'Failed to create subscription' },
+          { status: 500 }
+        );
+      }
+      
+      subscription = newSubscription;
+    } else {
+      console.log('User already has an active subscription, skipping Free plan creation');
+      console.log('Existing subscription details:', {
+        id: existingSubscription.id,
+        status: existingSubscription.status,
+        plan_id: existingSubscription.plan_id,
+        organization_id: existingSubscription.organization_id
+      });
+      
+      // Always update the existing subscription with the new organization_id
+      // This is crucial for users who complete checkout before onboarding
+      const { error: updateSubError } = await serviceClient
+        .from('subscriptions')
+        .update({ 
+          organization_id: organization.id,
+          // Also update status to active if it was incomplete and payment went through
+          status: existingSubscription.status === 'incomplete' ? 'active' : existingSubscription.status
+        })
+        .eq('id', existingSubscription.id);
+        
+      if (updateSubError) {
+        console.error('Failed to update subscription with organization_id:', updateSubError);
+      } else {
+        console.log('Successfully linked subscription to organization:', organization.id);
+      }
+      
+      // Update the subscription object for the response
+      existingSubscription.organization_id = organization.id;
+      if (existingSubscription.status === 'incomplete') {
+        existingSubscription.status = 'active';
+      }
     }
 
     // Process referral code if provided

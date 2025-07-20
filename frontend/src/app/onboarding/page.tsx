@@ -8,6 +8,7 @@ import { OnboardingLayout } from '@/components/onboarding/OnboardingLayout';
 import { WelcomeStep } from '@/components/onboarding/WelcomeStep';
 import { UseCaseStep } from '@/components/onboarding/UseCaseStep';
 import { CalendarStep } from '@/components/onboarding/CalendarStep';
+import { UpgradeStep } from '@/components/onboarding/UpgradeStep';
 import { useOnboarding } from '@/lib/hooks/useOnboarding';
 import { supabase } from '@/lib/supabase';
 
@@ -33,7 +34,7 @@ function OnboardingContent() {
       const savedStep = sessionStorage.getItem('onboardingStep');
       if (savedStep) {
         const step = parseInt(savedStep);
-        if (!isNaN(step) && step >= 1 && step <= 3) {
+        if (!isNaN(step) && step >= 1 && step <= 4) {
           console.log('📍 Restored onboarding step:', step);
           return step;
         }
@@ -68,8 +69,10 @@ function OnboardingContent() {
     };
   });
 
-  const totalSteps = 3;
+  const totalSteps = 4;
   const redirectUrl = searchParams.get('redirect') || '/dashboard';
+  const stepParam = searchParams.get('step');
+  const subscribedParam = searchParams.get('subscribed');
 
   useEffect(() => {
     // Check if user has already completed onboarding
@@ -133,7 +136,7 @@ function OnboardingContent() {
     }
   };
 
-  const handleComplete = async () => {
+  const handleComplete = useCallback(async () => {
     if (!user) return;
     
     console.log('🚀 Starting onboarding completion for user:', user.id);
@@ -239,7 +242,15 @@ function OnboardingContent() {
       // Don't redirect on error, show the error to user
       alert('Failed to complete onboarding. Please check the console for details.');
     }
-  };
+  }, [user, onboardingData, completeOnboarding, router, redirectUrl, session]);
+
+  useEffect(() => {
+    // Handle return from Stripe checkout
+    if (stepParam === 'complete' && subscribedParam === 'true' && user && !checkingStatus) {
+      console.log('User returned from checkout, completing onboarding...');
+      handleComplete();
+    }
+  }, [stepParam, subscribedParam, user, checkingStatus, handleComplete]);
 
   const renderStep = () => {
     switch (currentStep) {
@@ -265,10 +276,18 @@ function OnboardingContent() {
           <CalendarStep
             data={onboardingData}
             updateData={updateData}
-            onComplete={handleComplete}
+            onNext={handleNext}
+            onBack={handleBack}
+            isLastStep={false}
+          />
+        );
+      case 4:
+        return (
+          <UpgradeStep
+            onUpgrade={handleComplete}
+            onSkip={handleComplete}
             onBack={handleBack}
             isLoading={isLoading}
-            error={onboardingError}
           />
         );
       default:

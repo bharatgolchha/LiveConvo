@@ -145,6 +145,33 @@ Deno.serve(async (req: Request) => {
           
           console.log('User found:', userData.id);
           
+          // If user doesn't have a current_organization_id, find their organization
+          let organizationId = userData.current_organization_id;
+          if (!organizationId) {
+            console.log('User missing current_organization_id, looking for their organization...');
+            const { data: membershipData } = await supabase
+              .from('organization_members')
+              .select('organization_id')
+              .eq('user_id', userData.id)
+              .eq('role', 'owner')
+              .eq('status', 'active')
+              .single();
+              
+            if (membershipData) {
+              organizationId = membershipData.organization_id;
+              console.log('Found user organization:', organizationId);
+              
+              // Update user's current_organization_id
+              await supabase
+                .from('users')
+                .update({ 
+                  current_organization_id: organizationId,
+                  updated_at: new Date().toISOString()
+                })
+                .eq('id', userData.id);
+            }
+          }
+          
           // Get price details
           const priceId = subscription.items.data[0].price.id;
           
@@ -166,8 +193,9 @@ Deno.serve(async (req: Request) => {
             });
           }
           
-          // Update any existing incomplete subscriptions to canceled
-          const { error: cancelError } = await supabase
+          // Cancel ALL existing subscriptions for this user (including Free plan)
+          console.log('Canceling all existing subscriptions for user:', userData.id);
+          const { data: canceledSubs, error: cancelError } = await supabase
             .from('subscriptions')
             .update({ 
               status: 'canceled',
@@ -176,7 +204,8 @@ Deno.serve(async (req: Request) => {
             })
             .eq('user_id', userData.id)
             .in('status', ['incomplete', 'active', 'trialing'])
-            .neq('stripe_subscription_id', subscription.id);
+            .neq('stripe_subscription_id', subscription.id)
+            .select('id, plan_id');
             
           if (cancelError) {
             console.error('Failed to cancel old subscriptions:', cancelError);
@@ -184,6 +213,10 @@ Deno.serve(async (req: Request) => {
               status: 500,
               headers: corsHeaders 
             });
+          }
+          
+          if (canceledSubs && canceledSubs.length > 0) {
+            console.log(`Canceled ${canceledSubs.length} existing subscription(s):`, canceledSubs);
           }
           
           // Determine if this is a trial subscription
@@ -194,7 +227,7 @@ Deno.serve(async (req: Request) => {
           // Create or update subscription (no UUID needed)
           const subscriptionData = {
             user_id: userData.id,
-            organization_id: userData.current_organization_id || null,
+            organization_id: organizationId || null,
             plan_id: planData.id,
             plan_type: planData.plan_type || 'individual',
             stripe_subscription_id: subscription.id,
@@ -209,6 +242,11 @@ Deno.serve(async (req: Request) => {
             has_used_trial: !!trialEnd,
             updated_at: new Date().toISOString()
           };
+          
+          // Log warning if organization_id is missing
+          if (!subscriptionData.organization_id) {
+            console.warn('⚠️ WARNING: Creating subscription without organization_id for user:', userData.id);
+          }
           
           const { data: subData, error: subError } = await supabase
             .from('subscriptions')
@@ -671,6 +709,33 @@ Deno.serve(async (req: Request) => {
         
         console.log('User found:', userData.id);
         
+        // If user doesn't have a current_organization_id, find their organization
+        let organizationId = userData.current_organization_id;
+        if (!organizationId) {
+          console.log('User missing current_organization_id, looking for their organization...');
+          const { data: membershipData } = await supabase
+            .from('organization_members')
+            .select('organization_id')
+            .eq('user_id', userData.id)
+            .eq('role', 'owner')
+            .eq('status', 'active')
+            .single();
+            
+          if (membershipData) {
+            organizationId = membershipData.organization_id;
+            console.log('Found user organization:', organizationId);
+            
+            // Update user's current_organization_id
+            await supabase
+              .from('users')
+              .update({ 
+                current_organization_id: organizationId,
+                updated_at: new Date().toISOString()
+              })
+              .eq('id', userData.id);
+          }
+        }
+        
         // Get price ID and plan
         const priceId = subscription.items.data[0].price.id;
         console.log('Price details:', {
@@ -722,9 +787,10 @@ Deno.serve(async (req: Request) => {
           .eq('stripe_subscription_id', subscription.id)
           .single();
         
-        // Cancel any existing active subscriptions for this user (if creating new)
+        // Cancel ALL existing active subscriptions for this user (if creating new)
         if (!existingData) {
-          const { error: cancelError } = await supabase
+          console.log('New subscription detected, canceling all existing subscriptions for user:', userData.id);
+          const { data: canceledSubs, error: cancelError } = await supabase
             .from('subscriptions')
             .update({ 
               status: 'canceled',
@@ -733,7 +799,8 @@ Deno.serve(async (req: Request) => {
             })
             .eq('user_id', userData.id)
             .neq('stripe_subscription_id', subscription.id)
-            .in('status', ['active', 'incomplete', 'trialing']);
+            .in('status', ['active', 'incomplete', 'trialing'])
+            .select('id, plan_id, stripe_subscription_id');
             
           if (cancelError) {
             console.error('Failed to cancel old subscriptions:', cancelError);
@@ -742,12 +809,31 @@ Deno.serve(async (req: Request) => {
               headers: corsHeaders 
             });
           }
+          
+          if (canceledSubs && canceledSubs.length > 0) {
+            console.log(`Canceled ${canceledSubs.length} existing subscription(s):`, canceledSubs);
+            
+            // Also try to cancel Stripe subscriptions if they have stripe_subscription_id
+            for (const sub of canceledSubs) {
+              if (sub.stripe_subscription_id) {
+                try {
+                  console.log('Canceling Stripe subscription:', sub.stripe_subscription_id);
+                  await stripe.subscriptions.update(sub.stripe_subscription_id, {
+                    cancel_at_period_end: true
+                  });
+                } catch (stripeError: any) {
+                  console.error('Failed to cancel Stripe subscription:', sub.stripe_subscription_id, stripeError.message);
+                  // Don't fail the webhook if Stripe cancellation fails
+                }
+              }
+            }
+          }
         }
         
         // Create/update subscription (no UUID needed)
         const subscriptionData: any = {
           user_id: userData.id,
-          organization_id: userData.current_organization_id || null,
+          organization_id: organizationId || null,
           plan_id: planId,
           plan_type: planType,
           stripe_subscription_id: subscription.id,
@@ -762,6 +848,11 @@ Deno.serve(async (req: Request) => {
           has_used_trial: !!trialEnd,
           updated_at: new Date().toISOString()
         };
+        
+        // Log warning if organization_id is missing
+        if (!subscriptionData.organization_id) {
+          console.warn('⚠️ WARNING: Creating/updating subscription without organization_id for user:', userData.id);
+        }
         
         // Log subscription data for debugging
         console.log('Subscription update details:', {
