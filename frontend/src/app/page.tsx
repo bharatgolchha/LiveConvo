@@ -11,17 +11,17 @@ import {
   CheckCircle2,
   Shield,
   Mail,
-  MessageCircle,
-  FileText,
   ChevronDown,
   Clock,
-  Users,
   X,
-  Mic,
-  Brain,
-  ListChecks,
   History,
-  BarChart3
+  MessageSquare,
+  TrendingUp,
+  Sparkles,
+  Briefcase,
+  UserCheck,
+  HeartHandshake,
+  ChartBar,
 } from 'lucide-react';
 import SeoJsonLd from '@/components/SeoJsonLd';
 import { Header } from '@/components/layout/Header';
@@ -33,46 +33,35 @@ export default function LandingPage() {
   const [expandedFaq, setExpandedFaq] = useState<number | null>(null);
   const [showFloatingCTA, setShowFloatingCTA] = useState(false);
   const [showScheduleModal, setShowScheduleModal] = useState(false);
-  const [activeTab, setActiveTab] = useState(0);
+  const [activeScenario, setActiveScenario] = useState('sales');
 
-  // Tab data for the product showcase
-  const productTabs = [
-    {
-      id: 0,
-      name: 'Live Transcription',
-      icon: Mic,
-      description: 'Real-time speech-to-text with speaker identification',
-      image: 'https://ucvfgfbjcrxbzppwjpuu.supabase.co/storage/v1/object/public/images/Screenshots/1.png'
+  // Feature media configuration - easily switch between image and video
+  const featureMedia = {
+    aiAdvisor: {
+      type: 'image', // Change to 'video' when you have the video file
+      src: '/feature-images/s1.png',
+      videoSrc: '/feature-videos/ai-advisor-demo.mp4', // Add your video path here
+      alt: 'AI Advisor Chat Interface - Real-time Q&A during conversations'
     },
-    {
-      id: 1,
-      name: 'AI Guidance',
-      icon: Brain,
-      description: 'Smart suggestions and perfect responses in real-time',
-      image: 'https://ucvfgfbjcrxbzppwjpuu.supabase.co/storage/v1/object/public/images/Screenshots/2.png'
+    liveSuggestions: {
+      type: 'image', // Change to 'video' when you have the video file
+      src: '/feature-images/s2.png',
+      videoSrc: '/feature-videos/live-suggestions-demo.mp4', // Add your video path here
+      alt: 'Live AI Suggestions - Real-time response recommendations during calls'
     },
-    {
-      id: 2,
-      name: 'Smart Notes',
-      icon: ListChecks,
-      description: 'Automated action items and meeting summaries',
-      image: 'https://ucvfgfbjcrxbzppwjpuu.supabase.co/storage/v1/object/public/images/Screenshots/4.png'
+    liveTranscription: {
+      type: 'video',
+      src: '/feature-images/transcription-placeholder.png',
+      videoSrc: '/feature-videos/s3.mp4',
+      alt: 'Live Transcription - Real-time speech to text with high accuracy'
     },
-    {
-      id: 3,
-      name: 'Context Memory',
-      icon: History,
-      description: 'Access previous conversations and maintain continuity',
-      image: 'https://ucvfgfbjcrxbzppwjpuu.supabase.co/storage/v1/object/public/images/Screenshots/3.png'
-    },
-    {
-      id: 4,
-      name: 'Analytics',
-      icon: BarChart3,
-      description: 'Meeting insights and performance metrics',
-      image: 'https://ucvfgfbjcrxbzppwjpuu.supabase.co/storage/v1/object/public/images/Screenshots/5.png'
+    reports: {
+      type: 'image',
+      src: '/feature-images/s4.png',
+      videoSrc: '/feature-videos/reports-demo.mp4',
+      alt: 'Reports and Summaries - AI-generated custom reports and meeting summaries'
     }
-  ];
+  };
 
   // Check if this is an auth callback
   React.useEffect(() => {
@@ -216,16 +205,6 @@ export default function LandingPage() {
               <LandingAuthSection variant="hero" />
             </div>
 
-            <div className="flex items-center justify-center gap-6 text-sm text-muted-foreground mb-16">
-              <span className="flex items-center gap-2">
-                <Shield className="w-4 h-4" />
-                SOC 2 Compliant
-              </span>
-              <span className="flex items-center gap-2">
-                <Clock className="w-4 h-4" />
-                &lt;2s Response Time
-              </span>
-            </div>
             </div>
             
             {/* Hero Screenshot - Below Content */}
@@ -253,6 +232,7 @@ export default function LandingPage() {
                 />
               </div>
             </motion.div>
+            
           </div>
         </section>
 
@@ -353,255 +333,885 @@ export default function LandingPage() {
           </div>
         </section>
 
-        {/* Platform Integration Section */}
-        <section className="py-16 px-4 sm:px-6 lg:px-8">
-          <div className="max-w-4xl mx-auto">
-            <motion.div 
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.6 }}
-              className="text-center"
-            >
-              <h2 className="text-2xl font-semibold mb-8 text-foreground">
-                Works seamlessly with your favorite platforms
-              </h2>
-              <div className="flex justify-center items-center gap-8 md:gap-12 flex-wrap">
-                <div className="group cursor-pointer transition-transform hover:scale-110">
-                  <Image
-                    src="/platform-logos/zoom.png"
-                    alt="Zoom integration - liveprompt.ai works seamlessly with Zoom meetings"
-                    width={100}
-                    height={35}
-                    className="object-contain opacity-60 group-hover:opacity-100 transition-opacity duration-300 filter grayscale group-hover:grayscale-0"
-                  />
-                </div>
-                <div className="group cursor-pointer transition-transform hover:scale-110">
-                  <Image
-                    src="/platform-logos/meet.png"
-                    alt="Google Meet integration - Real-time AI coaching for Google Meet calls"
-                    width={100}
-                    height={35}
-                    className="object-contain opacity-60 group-hover:opacity-100 transition-opacity duration-300 filter grayscale group-hover:grayscale-0"
-                  />
-                </div>
-                <div className="group cursor-pointer transition-transform hover:scale-110">
-                  <Image
-                    src="/platform-logos/teams.png"
-                    alt="Microsoft Teams integration - AI-powered conversation assistant for Teams meetings"
-                    width={100}
-                    height={35}
-                    className="object-contain opacity-60 group-hover:opacity-100 transition-opacity duration-300 filter grayscale group-hover:grayscale-0"
-                  />
-                </div>
-              </div>
-              <p className="text-sm mt-6 text-muted-foreground">
-                No downloads required • Works in your browser • Zero setup time
-              </p>
-            </motion.div>
-          </div>
-        </section>
-
-        {/* Product Screenshot with Tabs */}
-        <section className="py-20 px-4 sm:px-6 lg:px-8">
-          <div className="max-w-5xl mx-auto">
-            {/* Tab Navigation */}
-            <motion.div
-              initial={{ opacity: 0, y: -20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6 }}
-              viewport={{ once: true }}
-              className="mb-8"
-            >
-              <div className="flex flex-wrap justify-center gap-2 sm:gap-4">
-                {productTabs.map((tab) => {
-                  const Icon = tab.icon;
-                  const isActive = activeTab === tab.id;
-                  
-                  return (
-                    <motion.button
-                      key={tab.id}
-                      onClick={() => setActiveTab(tab.id)}
-                      whileHover={{ scale: 1.05 }}
-                      whileTap={{ scale: 0.98 }}
-                      className={`
-                        group relative px-5 sm:px-7 py-3.5 rounded-2xl font-medium text-sm sm:text-base
-                        transition-all duration-300
-                        ${isActive 
-                          ? 'bg-gradient-to-r from-app-success via-app-success-light to-app-info text-white shadow-xl shadow-app-success/25 scale-105' 
-                          : 'bg-card/80 backdrop-blur-sm hover:bg-card text-foreground border border-border hover:border-app-success/30 hover:shadow-lg'
-                        }
-                      `}
-                    >
-                      <div className="flex items-center gap-2.5">
-                        <Icon className={`w-4 h-4 sm:w-5 sm:h-5 transition-colors duration-300 ${
-                          isActive 
-                            ? 'text-white' 
-                            : 'text-muted-foreground group-hover:text-app-success'
-                        }`} />
-                        <span className={isActive ? 'font-semibold' : ''}>{tab.name}</span>
-                      </div>
-                      
-                      {/* Glow effect for active tab */}
-                      {isActive && (
-                        <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-app-success/20 to-app-info/20 blur-xl -z-10" />
-                      )}
-                    </motion.button>
-                  );
-                })}
-              </div>
-              
-              {/* Tab Description */}
-              <motion.p 
-                key={activeTab}
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.3 }}
-                className="text-center mt-4 text-muted-foreground"
-              >
-                {productTabs[activeTab].description}
-              </motion.p>
-            </motion.div>
-
-            {/* Tab Content - Image */}
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95 }}
-              whileInView={{ opacity: 1, scale: 1 }}
-              transition={{ duration: 0.6 }}
-              viewport={{ once: true }}
-              className="relative"
-            >
-              <AnimatePresence mode="wait">
-                <motion.div
-                  key={activeTab}
-                  initial={{ opacity: 0, x: 20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: -20 }}
-                  transition={{ duration: 0.3 }}
-                  className="relative rounded-xl overflow-hidden shadow-2xl border border-border"
-                >
-                  <Image 
-                    src={productTabs[activeTab].image}
-                    alt={`liveprompt.ai ${productTabs[activeTab].name} feature - ${productTabs[activeTab].description}`}
-                    width={1000}
-                    height={643}
-                    className="w-full h-auto max-w-[1000px] mx-auto"
-                    priority
-                  />
-                  <div className="absolute bottom-0 left-0 right-0 p-8 bg-gradient-to-t from-card/90 to-transparent">
-                    <p className="text-sm text-center text-muted-foreground">
-                      Works seamlessly with Zoom, Google Meet, Teams, and any video platform
-                    </p>
-                  </div>
-                </motion.div>
-              </AnimatePresence>
-            </motion.div>
-          </div>
-        </section>
-
-
-        {/* The Moment That Changes Everything */}
-        <section className="py-20 px-4 sm:px-6 lg:px-8">
-          <div className="max-w-5xl mx-auto">
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6 }}
-              viewport={{ once: true }}
-              className="text-center mb-16"
-            >
-              <h2 className="text-3xl font-bold mb-4 text-foreground">
-                Every Call Has That <span className="text-app-success">Make-or-Break Moment</span>
-              </h2>
-              <p className="text-xl max-w-3xl mx-auto text-muted-foreground">
-                When they say "We're happy with our current solution" or "Send me more info" — 
-                what you say next determines if you close the deal or lose it forever.
-              </p>
-            </motion.div>
-
-            {/* Real Scenarios */}
-            <div className="space-y-6">
+        {/* Platform Compatibility Section */}
+        <section className="py-20 px-4 sm:px-6 lg:px-8 bg-gradient-to-b from-background to-muted/20">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8 }}
+            viewport={{ once: true }}
+            className="max-w-7xl mx-auto text-center"
+          >
+            {/* Heading */}
+            <h2 className="text-3xl sm:text-4xl font-bold mb-4 text-foreground">
+              Works Where You Work
+            </h2>
+            <p className="text-lg text-muted-foreground max-w-2xl mx-auto mb-12">
+              No downloads, no plugins. liveprompt.ai integrates seamlessly with your existing meeting platforms for instant AI assistance.
+            </p>
+            
+            {/* Logos Grid */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-8 max-w-4xl mx-auto">
+              {/* Google Meet */}
               <motion.div
-                initial={{ opacity: 0, x: -20 }}
-                whileInView={{ opacity: 1, x: 0 }}
-                transition={{ duration: 0.6 }}
-                viewport={{ once: true }}
-                className="rounded-2xl p-8 bg-gradient-to-r from-card/50 to-muted/30 border border-border"
-              >
-                <div className="flex items-start gap-6">
-                  <div className="flex-shrink-0">
-                    <div className="w-12 h-12 rounded-full flex items-center justify-center bg-app-success/20">
-                      <MessageCircle className="w-6 h-6 text-app-success" />
-                    </div>
-                  </div>
-                  <div className="flex-1">
-                    <p className="mb-3 text-muted-foreground">Prospect says:</p>
-                    <p className="text-xl font-semibold mb-4 text-foreground">"This sounds expensive. What's the ROI?"</p>
-                    <div className="rounded-lg p-4 bg-app-success/10 border border-app-success/30">
-                      <p className="text-sm mb-2 text-app-success">liveprompt.ai whispers:</p>
-                      <p className="text-foreground">
-                        "Great question! Our average customer sees ROI in 6 weeks. 
-                        Can I share how [similar company] saved $40k in their first quarter?"
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </motion.div>
-
-              <motion.div
-                initial={{ opacity: 0, x: -20 }}
-                whileInView={{ opacity: 1, x: 0 }}
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.6, delay: 0.1 }}
                 viewport={{ once: true }}
-                className="rounded-2xl p-8 bg-gradient-to-r from-card to-muted border border-border"
+                className="bg-card border border-border rounded-2xl p-8 hover:shadow-lg transition-all duration-300 hover:border-app-success/50"
               >
-                <div className="flex items-start gap-6">
-                  <div className="flex-shrink-0">
-                    <div className="w-12 h-12 bg-app-primary/20 rounded-full flex items-center justify-center">
-                      <Users className="w-6 h-6 text-app-primary" />
-                    </div>
-                  </div>
-                  <div className="flex-1">
-                    <p className="text-muted-foreground mb-3">Candidate says:</p>
-                    <p className="text-xl font-semibold text-foreground mb-4">"I led the project to successful completion"</p>
-                    <div className="bg-app-primary/10 border border-app-primary/30 rounded-lg p-4">
-                      <p className="text-sm text-app-primary mb-2">liveprompt.ai suggests:</p>
-                      <p className="text-foreground">
-                        "Impressive! Walk me through a specific challenge you faced. 
-                        How did you handle stakeholder pushback?"
-                      </p>
-                    </div>
-                  </div>
+                <div className="relative w-full h-16 mb-4">
+                  <Image
+                    src="/Logos_recorders/meet.png"
+                    alt="Google Meet"
+                    fill
+                    className="object-contain"
+                  />
                 </div>
+                <h3 className="text-lg font-semibold text-foreground mb-2">Google Meet</h3>
+                <p className="text-sm text-muted-foreground">One-click integration with your Google workspace</p>
               </motion.div>
-
+              
+              {/* Zoom */}
               <motion.div
-                initial={{ opacity: 0, x: -20 }}
-                whileInView={{ opacity: 1, x: 0 }}
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.6, delay: 0.2 }}
                 viewport={{ once: true }}
-                className="rounded-2xl p-8 bg-gradient-to-r from-card to-muted border border-border"
+                className="bg-card border border-border rounded-2xl p-8 hover:shadow-lg transition-all duration-300 hover:border-app-info/50"
               >
-                <div className="flex items-start gap-6">
-                  <div className="flex-shrink-0">
-                    <div className="w-12 h-12 bg-accent/20 rounded-full flex items-center justify-center">
-                      <FileText className="w-6 h-6 text-accent" />
-                    </div>
+                <div className="relative w-full h-16 mb-4">
+                  <Image
+                    src="/Logos_recorders/zoom.png"
+                    alt="Zoom"
+                    fill
+                    className="object-contain"
+                  />
+                </div>
+                <h3 className="text-lg font-semibold text-foreground mb-2">Zoom</h3>
+                <p className="text-sm text-muted-foreground">Perfect for client calls and team meetings</p>
+              </motion.div>
+              
+              {/* Teams */}
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.6, delay: 0.3 }}
+                viewport={{ once: true }}
+                className="bg-card border border-border rounded-2xl p-8 hover:shadow-lg transition-all duration-300 hover:border-app-success-light/50"
+              >
+                <div className="relative w-full h-16 mb-4">
+                  <Image
+                    src="/Logos_recorders/teams.png"
+                    alt="Microsoft Teams"
+                    fill
+                    className="object-contain"
+                  />
+                </div>
+                <h3 className="text-lg font-semibold text-foreground mb-2">Microsoft Teams</h3>
+                <p className="text-sm text-muted-foreground">Enterprise-ready for your organization</p>
+              </motion.div>
+            </div>
+            
+            {/* Additional info */}
+            <motion.p
+              initial={{ opacity: 0 }}
+              whileInView={{ opacity: 1 }}
+              transition={{ duration: 0.8, delay: 0.4 }}
+              viewport={{ once: true }}
+              className="mt-12 text-sm text-muted-foreground"
+            >
+              More platforms coming soon • Works with any browser-based meeting
+            </motion.p>
+          </motion.div>
+        </section>
+
+        {/* Key Features Grid - Otter.ai Style */}
+        <section className="py-20 px-4 sm:px-6 lg:px-8">
+          <div className="max-w-7xl mx-auto">
+            {/* Section heading - Choose one of these options:
+              Option 1: "Everything you need to win conversations"
+              Option 2: "Powerful features that work together"
+              Option 3: "Your AI-powered conversation toolkit"
+              Option 4: "Features designed for real conversations"
+              Option 5: "Built for professionals who close deals"
+            */}
+            <div className="text-center mb-12">
+              <h2 className="text-3xl sm:text-4xl font-bold mb-4 text-foreground">
+                Your AI-powered conversation toolkit
+              </h2>
+              <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
+                Real-time assistance for sales, recruiting, and consulting professionals
+              </p>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+              
+              {/* Questions when you need them */}
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.6 }}
+                viewport={{ once: true }}
+                className="bg-gradient-to-br from-white/5 via-muted/30 to-app-success/10 dark:from-white/10 dark:via-muted/40 dark:to-app-success/20 rounded-3xl p-8 relative overflow-hidden border border-border/50 backdrop-blur-sm"
+              >
+                <div className="relative z-10">
+                  <h2 className="text-2xl font-bold mb-4 text-foreground">
+                    Questions when you need them
+                  </h2>
+                  <p className="text-muted-foreground mb-6">
+                    Ask any question during the call, get insights and ideas, instantly. AI Advisor helps in real-time.
+                  </p>
+                  
+                  {/* Mobile mockup - video or image */}
+                  <div className="relative rounded-2xl aspect-square overflow-hidden bg-black/5">
+                    {featureMedia.aiAdvisor.type === 'video' ? (
+                      <video
+                        autoPlay
+                        loop
+                        muted
+                        playsInline
+                        className="w-full h-full object-cover"
+                      >
+                        <source src={featureMedia.aiAdvisor.videoSrc} type="video/mp4" />
+                      </video>
+                    ) : (
+                      <Image
+                        src={featureMedia.aiAdvisor.src}
+                        alt={featureMedia.aiAdvisor.alt}
+                        fill
+                        className="object-cover"
+                        sizes="(max-width: 768px) 100vw, 50vw"
+                      />
+                    )}
                   </div>
-                  <div className="flex-1">
-                    <p className="text-muted-foreground mb-3">While you're deep in conversation:</p>
-                    <p className="text-xl font-semibold text-foreground mb-4">AI captures every detail, commitment, and next step</p>
-                    <div className="bg-accent/10 border border-accent/30 rounded-lg p-4">
-                      <p className="text-sm text-accent mb-2">30 seconds after your call:</p>
-                      <p className="text-foreground">
-                        Complete summary with action items, key decisions, and follow-up 
-                        timeline ready to paste into your CRM
-                      </p>
+                </div>
+                
+                {/* Decorative gradient */}
+                <div className="absolute -bottom-20 -right-20 w-64 h-64 bg-gradient-to-br from-app-success/20 to-app-info/20 rounded-full blur-3xl opacity-30" />
+              </motion.div>
+
+              {/* Live suggestions that win deals */}
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.6, delay: 0.1 }}
+                viewport={{ once: true }}
+                className="bg-gradient-to-br from-app-success/20 to-app-info/20 rounded-3xl p-8 relative overflow-hidden border border-app-success/30"
+              >
+                <div className="relative z-10">
+                  <h2 className="text-2xl font-bold mb-4 text-foreground">
+                    Live suggestions that win deals
+                  </h2>
+                  <p className="text-muted-foreground mb-6">
+                    Our AI listens and provides perfect responses in real-time — only you can see them.
+                  </p>
+                  
+                  {/* Video call with AI suggestions - video or image */}
+                  <div className="relative rounded-2xl aspect-square overflow-hidden bg-black/5">
+                    {featureMedia.liveSuggestions.type === 'video' ? (
+                      <video
+                        autoPlay
+                        loop
+                        muted
+                        playsInline
+                        className="w-full h-full object-cover"
+                      >
+                        <source src={featureMedia.liveSuggestions.videoSrc} type="video/mp4" />
+                      </video>
+                    ) : (
+                      <Image
+                        src={featureMedia.liveSuggestions.src}
+                        alt={featureMedia.liveSuggestions.alt}
+                        fill
+                        className="object-cover"
+                        sizes="(max-width: 768px) 100vw, 50vw"
+                      />
+                    )}
+                  </div>
+                </div>
+                
+                {/* Decorative gradient */}
+                <div className="absolute -top-20 -left-20 w-64 h-64 bg-gradient-to-br from-app-success/30 to-app-info/30 rounded-full blur-3xl opacity-20" />
+              </motion.div>
+
+              {/* Live transcription you can trust */}
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.6, delay: 0.2 }}
+                viewport={{ once: true }}
+                className="bg-gradient-to-br from-muted/30 to-card rounded-3xl p-8 relative overflow-hidden border border-border"
+              >
+                <div className="relative z-10">
+                  <h2 className="text-2xl font-bold mb-4 text-foreground">
+                    Live transcription you can trust
+                  </h2>
+                  <p className="text-muted-foreground mb-6">
+                    Users report up to 95% accuracy so the detail oriented never miss a detail.
+                  </p>
+                  
+                  {/* Live transcription interface - video or image */}
+                  <div className="relative rounded-2xl aspect-square overflow-hidden bg-black/5">
+                    {featureMedia.liveTranscription.type === 'video' ? (
+                      <video
+                        autoPlay
+                        loop
+                        muted
+                        playsInline
+                        className="w-full h-full object-cover"
+                      >
+                        <source src={featureMedia.liveTranscription.videoSrc} type="video/mp4" />
+                      </video>
+                    ) : (
+                      <Image
+                        src={featureMedia.liveTranscription.src}
+                        alt={featureMedia.liveTranscription.alt}
+                        fill
+                        className="object-cover"
+                        sizes="(max-width: 768px) 100vw, 50vw"
+                      />
+                    )}
+                  </div>
+                </div>
+                
+                {/* Decorative gradient */}
+                <div className="absolute -bottom-10 -left-10 w-48 h-48 bg-gradient-to-br from-app-success/20 to-transparent rounded-full blur-2xl" />
+              </motion.div>
+
+              {/* Reports that tell the story */}
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.6, delay: 0.3 }}
+                viewport={{ once: true }}
+                className="bg-gradient-to-br from-app-info/10 to-muted/20 rounded-3xl p-8 relative overflow-hidden border border-app-info/30"
+              >
+                <div className="relative z-10">
+                  <h2 className="text-2xl font-bold mb-4 text-foreground">
+                    Reports that tell the story
+                  </h2>
+                  <p className="text-muted-foreground mb-6">
+                    No matter how long a meeting is, we'll condense it into a short, easy-to-read summary. Generate custom AI reports tailored to your needs.
+                  </p>
+                  
+                  {/* Report interface - video or image */}
+                  <div className="relative rounded-2xl aspect-square overflow-hidden bg-black/5">
+                    {featureMedia.reports.type === 'video' ? (
+                      <video
+                        autoPlay
+                        loop
+                        muted
+                        playsInline
+                        className="w-full h-full object-cover"
+                      >
+                        <source src={featureMedia.reports.videoSrc} type="video/mp4" />
+                      </video>
+                    ) : (
+                      <Image
+                        src={featureMedia.reports.src}
+                        alt={featureMedia.reports.alt}
+                        fill
+                        className="object-cover"
+                        sizes="(max-width: 768px) 100vw, 50vw"
+                      />
+                    )}
+                  </div>
+                </div>
+                
+                {/* Decorative gradient */}
+                <div className="absolute -top-10 -right-10 w-48 h-48 bg-gradient-to-br from-app-info/20 to-transparent rounded-full blur-2xl" />
+              </motion.div>
+
+              {/* Take action - items */}
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.6, delay: 0.4 }}
+                viewport={{ once: true }}
+                className="bg-gradient-to-br from-card to-muted/20 rounded-3xl p-8 relative overflow-hidden border border-border"
+              >
+                <div className="relative z-10">
+                  <h2 className="text-2xl font-bold mb-4 text-foreground">
+                    Take action — items
+                  </h2>
+                  <p className="text-muted-foreground mb-6">
+                    We automatically capture and assign action items from all your meetings.
+                  </p>
+                  
+                  {/* Action items in report format */}
+                  <div className="space-y-3">
+                    {/* Action Item 1 */}
+                    <div className="p-4 bg-card/50 border border-border/50 rounded-lg">
+                      <div className="flex items-start gap-3">
+                        <div className="w-6 h-6 bg-app-success/20 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                          <span className="text-app-success text-xs font-bold">✓</span>
+                        </div>
+                        <div className="flex-1">
+                          <p className="text-sm font-medium text-foreground mb-2">
+                            Follow up with client on pricing proposal and implementation timeline
+                          </p>
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="px-2 py-0.5 rounded-full text-xs font-medium border border-orange-500/30 text-orange-600 dark:text-orange-400 bg-orange-50 dark:bg-orange-950/30">
+                              HIGH
+                            </span>
+                            <span className="px-2 py-0.5 bg-muted text-muted-foreground rounded-full text-xs">
+                              👤 Sarah Chen
+                            </span>
+                            <span className="px-2 py-0.5 bg-muted text-muted-foreground rounded-full text-xs">
+                              📅 Tomorrow
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    {/* Action Item 2 */}
+                    <div className="p-4 bg-card/50 border border-border/50 rounded-lg">
+                      <div className="flex items-start gap-3">
+                        <div className="w-6 h-6 bg-muted/50 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5 border-2 border-muted-foreground">
+                        </div>
+                        <div className="flex-1">
+                          <p className="text-sm font-medium text-foreground mb-2">
+                            Prepare competitive analysis report for next week's strategy meeting
+                          </p>
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="px-2 py-0.5 rounded-full text-xs font-medium border border-yellow-500/30 text-yellow-600 dark:text-yellow-400 bg-yellow-50 dark:bg-yellow-950/30">
+                              MEDIUM
+                            </span>
+                            <span className="px-2 py-0.5 bg-muted text-muted-foreground rounded-full text-xs">
+                              👤 John Davis
+                            </span>
+                            <span className="px-2 py-0.5 bg-muted text-muted-foreground rounded-full text-xs">
+                              📅 Next Monday
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    {/* Action Item 3 */}
+                    <div className="p-4 bg-card/50 border border-border/50 rounded-lg">
+                      <div className="flex items-start gap-3">
+                        <div className="w-6 h-6 bg-muted/50 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5 border-2 border-muted-foreground">
+                        </div>
+                        <div className="flex-1">
+                          <p className="text-sm font-medium text-foreground mb-2">
+                            Update project documentation with new API endpoints
+                          </p>
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="px-2 py-0.5 rounded-full text-xs font-medium border border-green-500/30 text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-950/30">
+                              LOW
+                            </span>
+                            <span className="px-2 py-0.5 bg-muted text-muted-foreground rounded-full text-xs">
+                              👤 Mike Wilson
+                            </span>
+                            <span className="px-2 py-0.5 bg-muted text-muted-foreground rounded-full text-xs">
+                              📅 End of week
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    {/* Action Item 4 */}
+                    <div className="p-4 bg-card/50 border border-border/50 rounded-lg">
+                      <div className="flex items-start gap-3">
+                        <div className="w-6 h-6 bg-app-success/20 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                          <span className="text-app-success text-xs font-bold">✓</span>
+                        </div>
+                        <div className="flex-1">
+                          <p className="text-sm font-medium text-foreground mb-2">
+                            Schedule quarterly review meeting with stakeholders
+                          </p>
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="px-2 py-0.5 rounded-full text-xs font-medium border border-orange-500/30 text-orange-600 dark:text-orange-400 bg-orange-50 dark:bg-orange-950/30">
+                              HIGH
+                            </span>
+                            <span className="px-2 py-0.5 bg-muted text-muted-foreground rounded-full text-xs">
+                              👤 Emily Rodriguez
+                            </span>
+                            <span className="px-2 py-0.5 bg-muted text-muted-foreground rounded-full text-xs">
+                              📅 This week
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    {/* Action Item 5 */}
+                    <div className="p-4 bg-card/50 border border-border/50 rounded-lg">
+                      <div className="flex items-start gap-3">
+                        <div className="w-6 h-6 bg-muted/50 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5 border-2 border-muted-foreground">
+                        </div>
+                        <div className="flex-1">
+                          <p className="text-sm font-medium text-foreground mb-2">
+                            Research competitor pricing models and market positioning
+                          </p>
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="px-2 py-0.5 rounded-full text-xs font-medium border border-yellow-500/30 text-yellow-600 dark:text-yellow-400 bg-yellow-50 dark:bg-yellow-950/30">
+                              MEDIUM
+                            </span>
+                            <span className="px-2 py-0.5 bg-muted text-muted-foreground rounded-full text-xs">
+                              👤 Alex Thompson
+                            </span>
+                            <span className="px-2 py-0.5 bg-muted text-muted-foreground rounded-full text-xs">
+                              📅 Next Friday
+                            </span>
+                          </div>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </div>
+                
+                {/* Decorative gradient */}
+                <div className="absolute -bottom-10 -right-10 w-48 h-48 bg-gradient-to-br from-app-success/10 to-app-info/10 rounded-full blur-2xl" />
               </motion.div>
+
+              {/* Your conversation memory */}
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.6, delay: 0.5 }}
+                viewport={{ once: true }}
+                className="bg-gradient-to-br from-muted/20 to-card rounded-3xl p-8 relative overflow-hidden border border-border"
+              >
+                <div className="relative z-10">
+                  <h2 className="text-2xl font-bold mb-4 text-foreground">
+                    Your conversation memory
+                  </h2>
+                  <p className="text-muted-foreground mb-6">
+                    Our AI automatically retrieves context from past meetings for perfect continuity.
+                  </p>
+                  
+                  {/* Conversation memory timeline */}
+                  <div className="space-y-3">
+                    {/* Previous meeting 1 */}
+                    <div className="p-4 bg-card/50 border border-border/50 rounded-lg">
+                      <div className="flex items-start gap-3">
+                        <div className="w-8 h-8 bg-app-info/20 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5">
+                          <History className="w-4 h-4 text-app-info" />
+                        </div>
+                        <div className="flex-1">
+                          <div className="flex items-center justify-between mb-2">
+                            <h4 className="text-sm font-semibold text-foreground">Product Roadmap Discussion</h4>
+                            <span className="text-xs text-muted-foreground">2 days ago</span>
+                          </div>
+                          <p className="text-sm text-muted-foreground mb-2">
+                            "Discussed Q2 priorities: API v2 launch, mobile app beta, and enterprise features. Client requested enhanced reporting capabilities."
+                          </p>
+                          <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                            <span className="flex items-center gap-1">
+                              <Clock className="w-3 h-3" />
+                              45 min
+                            </span>
+                            <span className="flex items-center gap-1">
+                              <MessageSquare className="w-3 h-3" />
+                              Key context retrieved
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    {/* Previous meeting 2 */}
+                    <div className="p-4 bg-card/50 border border-border/50 rounded-lg">
+                      <div className="flex items-start gap-3">
+                        <div className="w-8 h-8 bg-app-success/20 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5">
+                          <History className="w-4 h-4 text-app-success" />
+                        </div>
+                        <div className="flex-1">
+                          <div className="flex items-center justify-between mb-2">
+                            <h4 className="text-sm font-semibold text-foreground">Sales Pipeline Review</h4>
+                            <span className="text-xs text-muted-foreground">1 week ago</span>
+                          </div>
+                          <p className="text-sm text-muted-foreground mb-2">
+                            "Enterprise deal worth $120K in final stages. Decision maker concerns about integration timeline and support SLA."
+                          </p>
+                          <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                            <span className="flex items-center gap-1">
+                              <Clock className="w-3 h-3" />
+                              30 min
+                            </span>
+                            <span className="flex items-center gap-1">
+                              <TrendingUp className="w-3 h-3" />
+                              Deal progressed
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    {/* Previous meeting 3 */}
+                    <div className="p-4 bg-card/50 border border-border/50 rounded-lg">
+                      <div className="flex items-start gap-3">
+                        <div className="w-8 h-8 bg-muted/50 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5">
+                          <History className="w-4 h-4 text-muted-foreground" />
+                        </div>
+                        <div className="flex-1">
+                          <div className="flex items-center justify-between mb-2">
+                            <h4 className="text-sm font-semibold text-foreground">Technical Architecture Review</h4>
+                            <span className="text-xs text-muted-foreground">2 weeks ago</span>
+                          </div>
+                          <p className="text-sm text-muted-foreground mb-2">
+                            "Agreed on microservices approach for scalability. Database migration scheduled for March. Security audit findings addressed."
+                          </p>
+                          <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                            <span className="flex items-center gap-1">
+                              <Clock className="w-3 h-3" />
+                              60 min
+                            </span>
+                            <span className="flex items-center gap-1">
+                              <CheckCircle2 className="w-3 h-3" />
+                              3 decisions made
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                
+                {/* Decorative gradient */}
+                <div className="absolute -top-20 -right-20 w-64 h-64 bg-gradient-to-br from-muted/30 to-app-success/10 rounded-full blur-3xl opacity-20" />
+              </motion.div>
+
             </div>
+          </div>
+        </section>
+
+
+
+        {/* AI Suggestions in Action - Interactive Showcase */}
+        <section className="py-20 px-4 sm:px-6 lg:px-8 bg-gradient-to-b from-background via-background/95 to-muted/20">
+          <div className="max-w-6xl mx-auto">
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6 }}
+              viewport={{ once: true }}
+              className="text-center mb-12"
+            >
+              <h2 className="text-3xl sm:text-4xl font-bold mb-4 text-foreground">
+                See <span className="text-app-success">AI Suggestions</span> in Action
+              </h2>
+              <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
+                Watch how liveprompt.ai provides perfect responses in real-time across different professional scenarios
+              </p>
+            </motion.div>
+
+            {/* Tab Navigation */}
+            <div className="flex flex-wrap justify-center gap-2 mb-8">
+              {[
+                { id: 'sales', label: 'Sales', icon: Briefcase },
+                { id: 'recruiting', label: 'Recruiting', icon: UserCheck },
+                { id: 'customer-success', label: 'Customer Success', icon: HeartHandshake },
+                { id: 'consulting', label: 'Consulting', icon: ChartBar },
+              ].map((tab) => (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveScenario(tab.id)}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all duration-200 ${
+                    activeScenario === tab.id
+                      ? 'bg-app-success text-black'
+                      : 'bg-card hover:bg-muted text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  <tab.icon className="w-4 h-4" />
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+
+            {/* Conversation Display */}
+            <motion.div
+              key={activeScenario}
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              transition={{ duration: 0.3 }}
+              className="bg-black/5 dark:bg-black/20 rounded-3xl p-8 border border-border/50"
+            >
+              {/* Sales Scenario */}
+              {activeScenario === 'sales' && (
+                <div className="space-y-6">
+                  {/* Prospect Message */}
+                  <motion.div
+                    initial={{ opacity: 0, x: -20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: 0.2 }}
+                    className="flex gap-3"
+                  >
+                    <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center flex-shrink-0">
+                      <span className="text-xs font-semibold">P</span>
+                    </div>
+                    <div className="flex-1 max-w-md">
+                      <p className="text-sm text-muted-foreground mb-1">Prospect</p>
+                      <div className="bg-card rounded-2xl p-4">
+                        <p className="text-foreground">This sounds expensive. What's the ROI?</p>
+                      </div>
+                    </div>
+                  </motion.div>
+
+                  {/* AI Suggestion */}
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{ delay: 0.6 }}
+                    className="ml-11"
+                  >
+                    <div className="bg-black/90 dark:bg-black/80 rounded-2xl p-6 border border-app-success/30 relative overflow-hidden">
+                      <div className="flex items-start gap-3 mb-4">
+                        <Sparkles className="w-5 h-5 text-app-success mt-0.5" />
+                        <div className="flex-1">
+                          <p className="text-sm text-app-success mb-2 font-medium">AI Suggestion</p>
+                          <p className="text-white/90">
+                            "Great question! Our average customer sees ROI in 6 weeks. For companies your size, 
+                            we typically see a 35% increase in close rates. Can I share how TechCorp saved $40k 
+                            in their first quarter by reducing meeting prep time by 2 hours per rep per week?"
+                          </p>
+                        </div>
+                      </div>
+                      
+                      {/* Suggested Prompts */}
+                      <div className="flex flex-wrap gap-2 mt-4 pt-4 border-t border-white/10">
+                        <button className="px-3 py-1.5 bg-white/10 hover:bg-white/20 text-white/80 rounded-full text-sm transition-colors flex items-center gap-1.5">
+                          <span>📊</span> Show ROI Calculator
+                        </button>
+                        <button className="px-3 py-1.5 bg-white/10 hover:bg-white/20 text-white/80 rounded-full text-sm transition-colors flex items-center gap-1.5">
+                          <span>💰</span> Discuss Pricing Tiers
+                        </button>
+                        <button className="px-3 py-1.5 bg-white/10 hover:bg-white/20 text-white/80 rounded-full text-sm transition-colors flex items-center gap-1.5">
+                          <span>📈</span> Share Success Stories
+                        </button>
+                      </div>
+                    </div>
+                  </motion.div>
+
+                  {/* Impact Badge */}
+                  <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ delay: 0.8 }}
+                    className="flex justify-center"
+                  >
+                    <div className="inline-flex items-center gap-2 px-4 py-2 bg-app-success/10 border border-app-success/30 rounded-full">
+                      <span className="text-app-success text-sm font-medium">📈 35% higher close rates</span>
+                    </div>
+                  </motion.div>
+                </div>
+              )}
+
+              {/* Recruiting Scenario */}
+              {activeScenario === 'recruiting' && (
+                <div className="space-y-6">
+                  {/* Candidate Message */}
+                  <motion.div
+                    initial={{ opacity: 0, x: -20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: 0.2 }}
+                    className="flex gap-3"
+                  >
+                    <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center flex-shrink-0">
+                      <span className="text-xs font-semibold">C</span>
+                    </div>
+                    <div className="flex-1 max-w-md">
+                      <p className="text-sm text-muted-foreground mb-1">Candidate</p>
+                      <div className="bg-card rounded-2xl p-4">
+                        <p className="text-foreground">I led a team of developers on that project</p>
+                      </div>
+                    </div>
+                  </motion.div>
+
+                  {/* AI Suggestion */}
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{ delay: 0.6 }}
+                    className="ml-11"
+                  >
+                    <div className="bg-black/90 dark:bg-black/80 rounded-2xl p-6 border border-app-info/30 relative overflow-hidden">
+                      <div className="flex items-start gap-3 mb-4">
+                        <Sparkles className="w-5 h-5 text-app-info mt-0.5" />
+                        <div className="flex-1">
+                          <p className="text-sm text-app-info mb-2 font-medium">AI Suggestion</p>
+                          <p className="text-white/90">
+                            "That's great leadership experience! Can you walk me through how you structured the team? 
+                            What was your approach to delegation, and how did you handle any performance issues or conflicts 
+                            that arose during the project?"
+                          </p>
+                        </div>
+                      </div>
+                      
+                      {/* Suggested Prompts */}
+                      <div className="flex flex-wrap gap-2 mt-4 pt-4 border-t border-white/10">
+                        <button className="px-3 py-1.5 bg-white/10 hover:bg-white/20 text-white/80 rounded-full text-sm transition-colors flex items-center gap-1.5">
+                          <span>👥</span> Team Size Details
+                        </button>
+                        <button className="px-3 py-1.5 bg-white/10 hover:bg-white/20 text-white/80 rounded-full text-sm transition-colors flex items-center gap-1.5">
+                          <span>🎯</span> Leadership Challenges
+                        </button>
+                        <button className="px-3 py-1.5 bg-white/10 hover:bg-white/20 text-white/80 rounded-full text-sm transition-colors flex items-center gap-1.5">
+                          <span>📊</span> Measure Success
+                        </button>
+                      </div>
+                    </div>
+                  </motion.div>
+
+                  {/* Impact Badge */}
+                  <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ delay: 0.8 }}
+                    className="flex justify-center"
+                  >
+                    <div className="inline-flex items-center gap-2 px-4 py-2 bg-app-info/10 border border-app-info/30 rounded-full">
+                      <span className="text-app-info text-sm font-medium">🎯 40% reduction in bad hires</span>
+                    </div>
+                  </motion.div>
+                </div>
+              )}
+
+              {/* Customer Success Scenario */}
+              {activeScenario === 'customer-success' && (
+                <div className="space-y-6">
+                  {/* Client Message */}
+                  <motion.div
+                    initial={{ opacity: 0, x: -20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: 0.2 }}
+                    className="flex gap-3"
+                  >
+                    <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center flex-shrink-0">
+                      <span className="text-xs font-semibold">C</span>
+                    </div>
+                    <div className="flex-1 max-w-md">
+                      <p className="text-sm text-muted-foreground mb-1">Client</p>
+                      <div className="bg-card rounded-2xl p-4">
+                        <p className="text-foreground">We're seeing some issues with the API integration</p>
+                      </div>
+                    </div>
+                  </motion.div>
+
+                  {/* AI Suggestion */}
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{ delay: 0.6 }}
+                    className="ml-11"
+                  >
+                    <div className="bg-black/90 dark:bg-black/80 rounded-2xl p-6 border border-app-success-light/30 relative overflow-hidden">
+                      <div className="flex items-start gap-3 mb-4">
+                        <Sparkles className="w-5 h-5 text-app-success-light mt-0.5" />
+                        <div className="flex-1">
+                          <p className="text-sm text-app-success-light mb-2 font-medium">AI Suggestion</p>
+                          <p className="text-white/90">
+                            "I understand that must be frustrating. Let me help you resolve this quickly. 
+                            Can you share the specific error messages you're seeing? I'll check our system logs 
+                            on my end and we can do a screen share to debug this together right now."
+                          </p>
+                        </div>
+                      </div>
+                      
+                      {/* Suggested Prompts */}
+                      <div className="flex flex-wrap gap-2 mt-4 pt-4 border-t border-white/10">
+                        <button className="px-3 py-1.5 bg-white/10 hover:bg-white/20 text-white/80 rounded-full text-sm transition-colors flex items-center gap-1.5">
+                          <span>🔧</span> Technical Details
+                        </button>
+                        <button className="px-3 py-1.5 bg-white/10 hover:bg-white/20 text-white/80 rounded-full text-sm transition-colors flex items-center gap-1.5">
+                          <span>📱</span> Schedule Debug Session
+                        </button>
+                        <button className="px-3 py-1.5 bg-white/10 hover:bg-white/20 text-white/80 rounded-full text-sm transition-colors flex items-center gap-1.5">
+                          <span>📚</span> Share Docs
+                        </button>
+                      </div>
+                    </div>
+                  </motion.div>
+
+                  {/* Impact Badge */}
+                  <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ delay: 0.8 }}
+                    className="flex justify-center"
+                  >
+                    <div className="inline-flex items-center gap-2 px-4 py-2 bg-app-success-light/10 border border-app-success-light/30 rounded-full">
+                      <span className="text-app-success-light text-sm font-medium">⏰ 2+ hours saved per week</span>
+                    </div>
+                  </motion.div>
+                </div>
+              )}
+
+              {/* Consulting Scenario */}
+              {activeScenario === 'consulting' && (
+                <div className="space-y-6">
+                  {/* Client Message */}
+                  <motion.div
+                    initial={{ opacity: 0, x: -20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: 0.2 }}
+                    className="flex gap-3"
+                  >
+                    <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center flex-shrink-0">
+                      <span className="text-xs font-semibold">C</span>
+                    </div>
+                    <div className="flex-1 max-w-md">
+                      <p className="text-sm text-muted-foreground mb-1">Client</p>
+                      <div className="bg-card rounded-2xl p-4">
+                        <p className="text-foreground">We need to add real-time analytics to the dashboard</p>
+                      </div>
+                    </div>
+                  </motion.div>
+
+                  {/* AI Suggestion */}
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{ delay: 0.6 }}
+                    className="ml-11"
+                  >
+                    <div className="bg-black/90 dark:bg-black/80 rounded-2xl p-6 border border-accent/30 relative overflow-hidden">
+                      <div className="flex items-start gap-3 mb-4">
+                        <Sparkles className="w-5 h-5 text-accent mt-0.5" />
+                        <div className="flex-1">
+                          <p className="text-sm text-accent mb-2 font-medium">AI Suggestion</p>
+                          <p className="text-white/90">
+                            "That's a valuable addition. Let me understand your requirements better: What specific 
+                            metrics need real-time updates? What's your current data volume and refresh rate expectations? 
+                            This will help me estimate the development effort and infrastructure changes needed."
+                          </p>
+                        </div>
+                      </div>
+                      
+                      {/* Suggested Prompts */}
+                      <div className="flex flex-wrap gap-2 mt-4 pt-4 border-t border-white/10">
+                        <button className="px-3 py-1.5 bg-white/10 hover:bg-white/20 text-white/80 rounded-full text-sm transition-colors flex items-center gap-1.5">
+                          <span>📋</span> Scope Requirements
+                        </button>
+                        <button className="px-3 py-1.5 bg-white/10 hover:bg-white/20 text-white/80 rounded-full text-sm transition-colors flex items-center gap-1.5">
+                          <span>💵</span> Estimate Budget
+                        </button>
+                        <button className="px-3 py-1.5 bg-white/10 hover:bg-white/20 text-white/80 rounded-full text-sm transition-colors flex items-center gap-1.5">
+                          <span>📅</span> Timeline Impact
+                        </button>
+                      </div>
+                    </div>
+                  </motion.div>
+
+                  {/* Impact Badge */}
+                  <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ delay: 0.8 }}
+                    className="flex justify-center"
+                  >
+                    <div className="inline-flex items-center gap-2 px-4 py-2 bg-accent/10 border border-accent/30 rounded-full">
+                      <span className="text-accent text-sm font-medium">💰 15% higher billable hours</span>
+                    </div>
+                  </motion.div>
+                </div>
+              )}
+            </motion.div>
 
             {/* Bottom CTA */}
             <motion.div
@@ -612,20 +1222,21 @@ export default function LandingPage() {
               className="text-center mt-12"
             >
               <p className="text-lg mb-6 text-muted-foreground">
-                Stop losing deals to better-prepared competitors. 
-                <span className="font-semibold text-foreground"> Level the playing field with AI.</span>
+                Stop second-guessing your responses. 
+                <span className="font-semibold text-foreground"> Let AI guide every conversation to success.</span>
               </p>
               <Button
-                onClick={() => router.push('/auth/signup')}
+                onClick={() => setShowScheduleModal(true)}
                 size="lg"
-                className="text-lg px-8 py-6 bg-app-success hover:bg-app-success-light transform hover:scale-105 transition-all duration-200"
+                className="text-base px-8 py-4 bg-app-success hover:bg-app-success-light text-black font-semibold rounded-xl shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-all duration-200"
               >
-                Start Using It Free
-                <ArrowRight className="ml-2 w-5 h-5" />
+                Experience It Yourself
+                <ArrowRight className="ml-2 w-4 h-4" />
               </Button>
             </motion.div>
           </div>
         </section>
+
 
         {/* How It Works */}
         <section className="py-20 px-4 sm:px-6 lg:px-8" style={{ backgroundColor: 'rgba(17, 24, 39, 0.3)' }}>
@@ -713,213 +1324,7 @@ export default function LandingPage() {
           </div>
         </section>
 
-        {/* Use Cases - Streamlined */}
-        <section className="py-20 px-4 sm:px-6 lg:px-8">
-          <div className="max-w-4xl mx-auto">
-            <h2 className="text-3xl font-bold text-center mb-12 text-foreground">
-              Built for High-Stakes Conversations
-            </h2>
-            
-            <div className="space-y-8">
-              <motion.div
-                initial={{ opacity: 0, x: -20 }}
-                whileInView={{ opacity: 1, x: 0 }}
-                transition={{ duration: 0.6 }}
-                viewport={{ once: true }}
-                className="flex items-start gap-4 p-6 rounded-xl bg-card/50 border border-border"
-              >
-                <div className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 bg-app-success/20">
-                  <MessageCircle className="w-5 h-5 text-app-success" />
-                </div>
-                <div className="flex-1">
-                  <h3 className="text-xl font-semibold mb-2 text-foreground">Sales & Discovery Calls</h3>
-                  <p className="mb-3 text-muted-foreground">
-                    Never miss BANT criteria again. AI tracks what you've covered and suggests what to ask next.
-                  </p>
-                  <div className="rounded-lg p-3 mb-3 bg-app-success/10 border border-app-success/30">
-                    <p className="text-sm italic text-foreground">
-                      "We're happy with our current solution" → 
-                      <span className="text-foreground"> AI suggests: "What specific challenges are you facing that your current solution doesn't address?"</span>
-                    </p>
-                  </div>
-                  <p className="text-sm font-semibold text-app-success">
-                    📈 Users report 35% higher close rates
-                  </p>
-                </div>
-              </motion.div>
 
-              <motion.div
-                initial={{ opacity: 0, x: -20 }}
-                whileInView={{ opacity: 1, x: 0 }}
-                transition={{ duration: 0.6, delay: 0.1 }}
-                viewport={{ once: true }}
-                className="flex items-start gap-4 p-6 rounded-xl bg-card/50 border border-border"
-              >
-                <div className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 bg-app-info/20">
-                  <Users className="w-5 h-5 text-app-info" />
-                </div>
-                <div className="flex-1">
-                  <h3 className="text-xl font-semibold mb-2 text-foreground">Recruiting & Interviews</h3>
-                  <p className="mb-3 text-muted-foreground">
-                    AI suggests behavioral follow-ups and helps spot inconsistencies in real-time.
-                  </p>
-                  <div className="rounded-lg p-3 mb-3 bg-app-info/10 border border-app-info/30">
-                    <p className="text-sm italic text-foreground">
-                      Candidate mentions "led a team" → 
-                      <span className="text-foreground"> AI suggests: "How many people? What was your biggest challenge as their leader?"</span>
-                    </p>
-                  </div>
-                  <p className="text-sm font-semibold text-app-info">
-                    🎯 Reduce bad hires by 40%
-                  </p>
-                </div>
-              </motion.div>
-
-              <motion.div
-                initial={{ opacity: 0, x: -20 }}
-                whileInView={{ opacity: 1, x: 0 }}
-                transition={{ duration: 0.6, delay: 0.2 }}
-                viewport={{ once: true }}
-                className="flex items-start gap-4 p-6 rounded-xl bg-card/50 border border-border"
-              >
-                <div className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 bg-app-success/20">
-                  <FileText className="w-5 h-5 text-app-success" />
-                </div>
-                <div className="flex-1">
-                  <h3 className="text-xl font-semibold mb-2 text-foreground">Consulting & Client Success</h3>
-                  <p className="mb-3 text-muted-foreground">
-                    Bill for expertise, not note-taking. AI captures every requirement and commitment.
-                  </p>
-                  <div className="rounded-lg p-3 mb-3 bg-app-success/10 border border-app-success/30">
-                    <p className="text-sm italic text-foreground">
-                      Client mentions new requirement → 
-                      <span className="text-foreground"> AI flags: "New scope item detected. Clarify timeline and budget impact."</span>
-                    </p>
-                  </div>
-                  <p className="text-sm font-semibold text-app-success">
-                    ⏰ Save 2+ hours per client per week
-                  </p>
-                </div>
-              </motion.div>
-            </div>
-          </div>
-        </section>
-
-        {/* Product Features Showcase */}
-        <section className="py-20 px-4 sm:px-6 lg:px-8 bg-muted/30">
-          <div className="max-w-6xl mx-auto">
-            <h2 className="text-3xl font-bold text-center mb-4 text-foreground">
-              Powerful Features That Work Together
-            </h2>
-            <p className="text-xl text-center mb-12 max-w-2xl mx-auto text-muted-foreground">
-              Everything you need for successful conversations, all in one place
-            </p>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {/* Live Transcript */}
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.6 }}
-                viewport={{ once: true }}
-                className="rounded-xl p-6 bg-card/50 border border-border hover:border-app-success/50 transition-colors"
-              >
-                <div className="w-12 h-12 mb-4 rounded-lg flex items-center justify-center bg-app-success/10">
-                  <MessageCircle className="w-6 h-6 text-app-success" />
-                </div>
-                <h3 className="text-lg font-semibold mb-2 text-foreground">Live Transcript</h3>
-                <p className="text-sm text-muted-foreground">
-                  Real-time speech-to-text with speaker identification. Never miss a word.
-                </p>
-              </motion.div>
-
-              {/* AI Chat */}
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.6, delay: 0.1 }}
-                viewport={{ once: true }}
-                className="rounded-xl p-6 bg-card/50 border border-border hover:border-app-info/50 transition-colors"
-              >
-                <div className="w-12 h-12 mb-4 rounded-lg flex items-center justify-center bg-app-info/10">
-                  <MessageCircle className="w-6 h-6 text-app-info" />
-                </div>
-                <h3 className="text-lg font-semibold mb-2 text-foreground">AI Advisor Chat</h3>
-                <p className="text-sm text-muted-foreground">
-                  Ask questions and get suggestions about the conversation as it happens.
-                </p>
-              </motion.div>
-
-              {/* Smart Notes */}
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.6, delay: 0.2 }}
-                viewport={{ once: true }}
-                className="rounded-xl p-6 bg-card/50 border border-border hover:border-app-success/50 transition-colors"
-              >
-                <div className="w-12 h-12 mb-4 rounded-lg flex items-center justify-center bg-app-success/10">
-                  <CheckCircle2 className="w-6 h-6 text-app-success" />
-                </div>
-                <h3 className="text-lg font-semibold mb-2 text-foreground">Smart Notes</h3>
-                <p className="text-sm text-muted-foreground">
-                  AI-generated checklist and action items updated in real-time.
-                </p>
-              </motion.div>
-
-              {/* Meeting Bot */}
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.6, delay: 0.3 }}
-                viewport={{ once: true }}
-                className="rounded-xl p-6 bg-card/50 border border-border hover:border-app-success/50 transition-colors"
-              >
-                <div className="w-12 h-12 mb-4 rounded-lg flex items-center justify-center bg-app-success/10">
-                  <Users className="w-6 h-6 text-app-success" />
-                </div>
-                <h3 className="text-lg font-semibold mb-2 text-foreground">Meeting Bot</h3>
-                <p className="text-sm text-muted-foreground">
-                  Join any Zoom, Meet, or Teams call with our AI recorder. No downloads needed.
-                </p>
-              </motion.div>
-
-              {/* Previous Context */}
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.6, delay: 0.4 }}
-                viewport={{ once: true }}
-                className="rounded-xl p-6 bg-card/50 border border-border hover:border-app-info/50 transition-colors"
-              >
-                <div className="w-12 h-12 mb-4 rounded-lg flex items-center justify-center bg-app-info/10">
-                  <Clock className="w-6 h-6 text-app-info" />
-                </div>
-                <h3 className="text-lg font-semibold mb-2 text-foreground">Previous Context</h3>
-                <p className="text-sm text-muted-foreground">
-                  Reference past conversations automatically for continuity and follow-ups.
-                </p>
-              </motion.div>
-
-              {/* Instant Summaries */}
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.6, delay: 0.5 }}
-                viewport={{ once: true }}
-                className="rounded-xl p-6 bg-card/50 border border-border hover:border-app-success/50 transition-colors"
-              >
-                <div className="w-12 h-12 mb-4 rounded-lg flex items-center justify-center bg-app-success/10">
-                  <FileText className="w-6 h-6 text-app-success" />
-                </div>
-                <h3 className="text-lg font-semibold mb-2 text-foreground">Instant Summaries</h3>
-                <p className="text-sm text-muted-foreground">
-                  Get professional meeting summaries with action items within seconds.
-                </p>
-              </motion.div>
-            </div>
-          </div>
-        </section>
 
         {/* Trust & Security */}
         <section className="py-20 px-4 sm:px-6 lg:px-8">
@@ -1408,7 +1813,6 @@ export default function LandingPage() {
                   style={{ border: 0 }} 
                   width="100%" 
                   height="100%" 
-                  frameBorder="0"
                 />
               </motion.div>
             </motion.div>

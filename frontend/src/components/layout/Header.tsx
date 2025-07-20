@@ -6,7 +6,10 @@ import Image from 'next/image'
 import { useRouter, usePathname } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Menu, X, ChevronDown, FileText, BookOpen, HelpCircle, Sparkles } from 'lucide-react'
+import { UserCircleIcon, Cog6ToothIcon, ArrowRightOnRectangleIcon } from '@heroicons/react/24/outline'
 import { UseCasesDropdown } from '@/components/landing/UseCasesModal'
+import { useAuth } from '@/contexts/AuthContext'
+import { supabase } from '@/lib/supabase'
 
 interface NavItem {
   label: string
@@ -54,6 +57,9 @@ export function Header() {
   const [isScrolled, setIsScrolled] = useState(false)
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const [isResourcesOpen, setIsResourcesOpen] = useState(false)
+  const [userMenuOpen, setUserMenuOpen] = useState(false)
+  const [userData, setUserData] = useState<any>(null)
+  const { user, signOut } = useAuth()
 
   useEffect(() => {
     const handleScroll = () => {
@@ -67,6 +73,50 @@ export function Header() {
   useEffect(() => {
     setIsMobileMenuOpen(false)
   }, [pathname])
+
+  // Fetch user data when user is logged in
+  useEffect(() => {
+    const fetchUserData = async () => {
+      if (user) {
+        const { data, error } = await supabase
+          .from('users')
+          .select('*')
+          .eq('id', user.id)
+          .single()
+        
+        if (data && !error) {
+          setUserData(data)
+        }
+      } else {
+        setUserData(null)
+      }
+    }
+    
+    fetchUserData()
+  }, [user])
+
+  // Close user menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as HTMLElement
+      if (!target.closest('.user-menu-container')) {
+        setUserMenuOpen(false)
+      }
+    }
+
+    if (userMenuOpen) {
+      document.addEventListener('mousedown', handleClickOutside)
+      return () => document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [userMenuOpen])
+
+  const handleLogout = async () => {
+    const { error } = await signOut()
+    if (error) {
+      console.error('Logout error:', error)
+    }
+    router.push('/')
+  }
 
   const handleNavClick = (href: string) => {
     if (href.startsWith('#')) {
@@ -176,12 +226,73 @@ export function Header() {
 
           {/* Secondary Navigation - Right Side */}
           <div className="hidden md:flex items-center gap-3">
+            {user && userData ? (
+              <>
+                <button
+                  onClick={() => router.push('/dashboard')}
+                  className="px-4 py-2 text-sm font-medium transition-colors bg-primary text-primary-foreground hover:bg-primary/90 rounded-lg"
+                >
+                  Dashboard
+                </button>
+                
+                {/* User Menu */}
+                <div className="relative user-menu-container">
+                  <button
+                    onClick={() => setUserMenuOpen(!userMenuOpen)}
+                    className="flex items-center space-x-2 p-2 rounded-lg hover:bg-accent transition-colors"
+                  >
+                    <UserCircleIcon className="w-8 h-8 text-muted-foreground" />
+                    <ChevronDown className={`w-4 h-4 text-muted-foreground transition-transform ${userMenuOpen ? 'rotate-180' : ''}`} />
+                  </button>
+
+                  {/* Dropdown Menu */}
+                  <AnimatePresence>
+                    {userMenuOpen && (
+                      <motion.div
+                        initial={{ opacity: 0, scale: 0.95, y: -10 }}
+                        animate={{ opacity: 1, scale: 1, y: 0 }}
+                        exit={{ opacity: 0, scale: 0.95, y: -10 }}
+                        transition={{ duration: 0.1 }}
+                        className="absolute right-0 mt-2 w-48 bg-card rounded-lg shadow-lg border border-border py-1 z-50"
+                      >
+                        <div className="px-4 py-2 border-b border-border">
+                          <p className="text-sm font-medium text-foreground">{userData.full_name || 'User'}</p>
+                          <p className="text-xs text-muted-foreground">{userData.email}</p>
+                        </div>
+
+                        <button
+                          onClick={() => {
+                            router.push('/dashboard')
+                            setUserMenuOpen(false)
+                          }}
+                          className="w-full text-left px-4 py-2 text-sm text-foreground hover:bg-accent flex items-center space-x-2"
+                        >
+                          <Cog6ToothIcon className="w-4 h-4" />
+                          <span>Settings</span>
+                        </button>
+
+                        <div className="border-t border-border mt-1 pt-1">
+                          <button
+                            onClick={handleLogout}
+                            className="w-full text-left px-4 py-2 text-sm text-destructive hover:bg-destructive/10 flex items-center space-x-2"
+                          >
+                            <ArrowRightOnRectangleIcon className="w-4 h-4" />
+                            <span>Sign Out</span>
+                          </button>
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
+              </>
+            ) : (
               <button
                 onClick={() => router.push('/auth/login')}
                 className="px-4 py-2 text-sm font-medium transition-colors text-muted-foreground hover:text-foreground"
               >
                 Sign In
               </button>
+            )}
           </div>
 
           {/* Mobile Menu Button */}
@@ -243,12 +354,45 @@ export function Header() {
               </div>
 
               <div className="border-t pt-4 space-y-2 border-border">
-                <button
-                  onClick={() => router.push('/auth/login')}
-                  className="w-full px-4 py-3 rounded-lg text-sm font-medium transition-colors text-muted-foreground hover:text-foreground hover:bg-muted"
-                >
-                  Sign In
-                </button>
+                {user && userData ? (
+                  <>
+                    <button
+                      onClick={() => {
+                        router.push('/dashboard')
+                        setIsMobileMenuOpen(false)
+                      }}
+                      className="w-full px-4 py-3 rounded-lg text-sm font-medium transition-colors bg-primary text-primary-foreground hover:bg-primary/90"
+                    >
+                      Dashboard
+                    </button>
+                    <div className="px-4 py-3 border-b border-border">
+                      <p className="text-sm font-medium text-foreground">{userData.full_name || 'User'}</p>
+                      <p className="text-xs text-muted-foreground">{userData.email}</p>
+                    </div>
+                    <button
+                      onClick={() => {
+                        router.push('/dashboard')
+                        setIsMobileMenuOpen(false)
+                      }}
+                      className="w-full text-left px-4 py-3 rounded-lg text-sm font-medium transition-colors text-muted-foreground hover:text-foreground hover:bg-muted"
+                    >
+                      Settings
+                    </button>
+                    <button
+                      onClick={handleLogout}
+                      className="w-full text-left px-4 py-3 rounded-lg text-sm font-medium transition-colors text-destructive hover:bg-destructive/10"
+                    >
+                      Sign Out
+                    </button>
+                  </>
+                ) : (
+                  <button
+                    onClick={() => router.push('/auth/login')}
+                    className="w-full px-4 py-3 rounded-lg text-sm font-medium transition-colors text-muted-foreground hover:text-foreground hover:bg-muted"
+                  >
+                    Sign In
+                  </button>
+                )}
               </div>
             </div>
           </motion.div>
