@@ -362,10 +362,11 @@ export default function LandingPage() {
               >
                 <div className="relative w-full h-16 mb-4">
                   <Image
-                    src="/Logos_recorders/meet.png"
+                    src="/logos-recorders/meet.png"
                     alt="Google Meet"
                     fill
                     className="object-contain"
+                    priority
                   />
                 </div>
                 <h3 className="text-lg font-semibold text-foreground mb-2">Google Meet</h3>
@@ -382,10 +383,11 @@ export default function LandingPage() {
               >
                 <div className="relative w-full h-16 mb-4">
                   <Image
-                    src="/Logos_recorders/zoom.png"
+                    src="/logos-recorders/zoom.png"
                     alt="Zoom"
                     fill
                     className="object-contain"
+                    priority
                   />
                 </div>
                 <h3 className="text-lg font-semibold text-foreground mb-2">Zoom</h3>
@@ -402,10 +404,11 @@ export default function LandingPage() {
               >
                 <div className="relative w-full h-16 mb-4">
                   <Image
-                    src="/Logos_recorders/teams.png"
+                    src="/logos-recorders/teams.png"
                     alt="Microsoft Teams"
                     fill
                     className="object-contain"
+                    priority
                   />
                 </div>
                 <h3 className="text-lg font-semibold text-foreground mb-2">Microsoft Teams</h3>
