@@ -48,6 +48,20 @@
   animation-delay: 100ms;
 }
 
+/* Shimmer animation for progress bars */
+@keyframes shimmer {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(200%);
+  }
+}
+
+.animate-shimmer {
+  animation: shimmer 2s linear infinite;
+}
+
 .delay-200 {
   animation-delay: 200ms;
 }

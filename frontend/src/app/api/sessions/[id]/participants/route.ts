@@ -60,14 +60,28 @@ export async function GET(
     
     if (calendarParticipants.length > 0) {
       // Use calendar participants if available
-      const participants = calendarParticipants.map((p: any) => ({
-        name: p.name || p.email || 'Unknown',
-        email: p.email,
-        initials: getInitials(p.name || p.email || 'Unknown'),
-        color: getColorForName(p.name || p.email || 'Unknown'),
-        response_status: p.response_status,
-        is_organizer: p.is_organizer
-      }));
+      const seen = new Set<string>();
+      const participants = calendarParticipants.flatMap((p: any) => {
+        // Support two shapes:
+        // 1) String ("Jane Doe") coming from sessions.participants JSON array
+        // 2) Object from calendar attendee list { name, email, response_status, ... }
+        const isString = typeof p === 'string';
+        const displayName: string = isString ? p : (p.name || p.email || 'Unknown');
+
+        if (seen.has(displayName)) {
+          return []; // skip duplicates
+        }
+        seen.add(displayName);
+
+        return [{
+          name: displayName,
+          email: isString ? undefined : p.email,
+          initials: getInitials(displayName),
+          color: getColorForName(displayName),
+          response_status: isString ? undefined : p.response_status,
+          is_organizer: isString ? undefined : p.is_organizer
+        }];
+      });
       
       return NextResponse.json({ participants });
     }

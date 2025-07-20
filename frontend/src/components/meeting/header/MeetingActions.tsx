@@ -34,7 +34,8 @@ export function MeetingActions() {
   const { 
     endMeeting, 
     isEnding, 
-    endingStep, 
+    endingStep,
+    currentStep, 
     endingSuccess, 
     error 
   } = useEndMeeting();
@@ -260,6 +261,7 @@ export function MeetingActions() {
           step={endingStep}
           isSuccess={endingSuccess}
           error={error}
+          currentStepIndex={currentStep ? ['preparing', 'stopping-recording', 'finalizing', 'generating-summary', 'complete'].indexOf(currentStep) : 0}
         />
       </div>
     );

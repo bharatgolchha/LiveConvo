@@ -25,11 +25,19 @@ interface UseEndMeetingOptions {
   onError?: (error: Error) => void;
 }
 
+export type EndMeetingStep = 
+  | 'stop-bot'
+  | 'finalize-session'
+  | 'generate-summary'
+  | 'process-modules'
+  | 'complete';
+
 export function useEndMeeting(options: UseEndMeetingOptions = {}) {
   const router = useRouter();
   const { session: authSession } = useAuth();
   const [isEnding, setIsEnding] = useState(false);
   const [endingStep, setEndingStep] = useState<string>('');
+  const [currentStep, setCurrentStep] = useState<EndMeetingStep | null>(null);
   const [endingSuccess, setEndingSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -39,7 +47,8 @@ export function useEndMeeting(options: UseEndMeetingOptions = {}) {
     setIsEnding(true);
     setEndingSuccess(false);
     setError(null);
-    setEndingStep('Preparing to end meeting...');
+    setCurrentStep('stop-bot');
+    setEndingStep('Stopping recording and finalizing...');
 
     try {
       const headers: HeadersInit = { 'Content-Type': 'application/json' };
@@ -47,8 +56,6 @@ export function useEndMeeting(options: UseEndMeetingOptions = {}) {
         headers['Authorization'] = `Bearer ${authSession.access_token}`;
       }
 
-      setEndingStep('Stopping recording and finalizing...');
-      
       const response = await fetch(`/api/meeting/${meetingId}/end`, {
         method: 'POST',
         headers
@@ -62,7 +69,23 @@ export function useEndMeeting(options: UseEndMeetingOptions = {}) {
 
       console.log('✅ Meeting ended successfully:', data);
 
-      // Show success state
+      // Update steps based on response
+      setCurrentStep('finalize-session');
+      setEndingStep('Session marked as completed');
+      await new Promise(resolve => setTimeout(resolve, 500));
+
+      // Step: Generate summary
+      setCurrentStep('generate-summary');
+      setEndingStep('Generating final summary...');
+      await new Promise(resolve => setTimeout(resolve, 1000));
+
+      // Step: Process modules
+      setCurrentStep('process-modules');
+      setEndingStep('Processing analysis modules...');
+      await new Promise(resolve => setTimeout(resolve, 800));
+
+      // Step: Complete
+      setCurrentStep('complete');
       setEndingStep('Meeting ended successfully!');
       setEndingSuccess(true);
 
@@ -101,6 +124,7 @@ export function useEndMeeting(options: UseEndMeetingOptions = {}) {
   const reset = useCallback(() => {
     setIsEnding(false);
     setEndingStep('');
+    setCurrentStep(null);
     setEndingSuccess(false);
     setError(null);
   }, []);
@@ -109,6 +133,7 @@ export function useEndMeeting(options: UseEndMeetingOptions = {}) {
     endMeeting,
     isEnding,
     endingStep,
+    currentStep,
     endingSuccess,
     error,
     reset
