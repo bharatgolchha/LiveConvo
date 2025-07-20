@@ -3,6 +3,7 @@
 import React, { useState } from 'react'
 import { format, formatDistanceToNow } from 'date-fns'
 import { Clock, Calendar, MoreVertical, Users, Briefcase, Video, UserCheck, FileText, Bot, UserPlus, Share2 } from 'lucide-react'
+import { ParticipantsList } from '@/components/report/ParticipantsList'
 import { ShareIcon } from '@heroicons/react/24/outline'
 import { Button } from '@/components/ui/Button'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -23,6 +24,8 @@ type MeetingCardProps = {
   showShare?: boolean
   botStatus?: 'created' | 'joining' | 'in_call' | 'recording' | 'waiting' | 'permission_denied' | 'completed' | 'failed' | 'timeout' | 'cancelled'
   hasParticipants?: boolean
+  participantMe?: string
+  participantThem?: string
   isShared?: boolean
   isSharedWithMe?: boolean
   sharedByName?: string
@@ -66,6 +69,8 @@ export const MeetingCard = React.memo(({
   showShare = false,
   botStatus,
   hasParticipants = false,
+  participantMe,
+  participantThem,
   isShared = false,
   isSharedWithMe = false,
   sharedByName,
@@ -77,39 +82,7 @@ export const MeetingCard = React.memo(({
 }: MeetingCardProps) => {
   const [tldrExpanded, setTldrExpanded] = useState(false)
 
-  // Helper function to get participant initials for avatar
-  const getInitials = (name: string): string => {
-    if (!name) return '?'
-    const words = name.trim().split(' ')
-    if (words.length === 1) {
-      return words[0].substring(0, 2).toUpperCase()
-    }
-    return words.map(word => word.charAt(0)).join('').substring(0, 2).toUpperCase()
-  }
-
-  // Helper function to get avatar color (consistent colors for each participant)
-  const getAvatarColor = (participant: string): string => {
-    const colors = [
-      'bg-blue-500', 'bg-green-500', 'bg-yellow-500', 'bg-purple-500',
-      'bg-pink-500', 'bg-indigo-500', 'bg-red-500', 'bg-teal-500'
-    ]
-    const index = participant.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0)
-    return colors[index % colors.length]
-  }
-
-  // Process participants for display (avatars + text)
-  const maxDisplayParticipants = 3
-  const displayParticipants = participants.slice(0, maxDisplayParticipants)
-  const remainingCount = Math.max(0, participants.length - maxDisplayParticipants)
-
-  // Build human-readable string of names: "Alice, Bob, Charlie +2"
-  const participantNamesText = () => {
-    if (participants.length === 0) return 'No participants'
-    if (participants.length <= maxDisplayParticipants) {
-      return participants.join(', ')
-    }
-    return `${participants.slice(0, maxDisplayParticipants).join(', ')} +${remainingCount}`
-  }
+  // (Participant avatar helpers removed – now handled by ParticipantsList)
 
   // Helper function to get bot status display
   const getBotStatusDisplay = () => {
@@ -254,37 +227,13 @@ export const MeetingCard = React.memo(({
           <span className="text-xs rounded-full bg-muted px-2 py-0.5 text-muted-foreground">
             {meetingType}
           </span>
-          <div className="flex items-center gap-1">
-            {/* Participant Avatars */}
-            <div className="flex items-center -space-x-1">
-              {displayParticipants.map((participant: string, index: number) => (
-                <div
-                  key={`${participant}-${index}`}
-                  className={cn(
-                    'w-6 h-6 rounded-full flex items-center justify-center border-2 border-background relative',
-                    getAvatarColor(participant)
-                  )}
-                  title={participant}
-                >
-                  <span className="text-xs font-medium text-white">
-                    {getInitials(participant)}
-                  </span>
-                </div>
-              ))}
-              
-              {/* +X More indicator */}
-              {remainingCount > 0 && (
-                <div className="w-6 h-6 rounded-full bg-muted flex items-center justify-center border-2 border-background text-xs font-medium text-muted-foreground">
-                  +{remainingCount}
-                </div>
-              )}
-            </div>
-            
-            {/* Participant names */}
-            <span className="text-muted-foreground text-sm">
-              {participantNamesText()}
-            </span>
-          </div>
+          {/* Participant pills fetched from API for consistent display */}
+          <ParticipantsList 
+            sessionId={id} 
+            fallbackParticipants={
+              participantMe || participantThem ? { me: participantMe || '', them: participantThem || '' } : undefined
+            }
+          />
           <span className="text-muted-foreground">• {formatDuration(durationSec)}</span>
         </div>
 

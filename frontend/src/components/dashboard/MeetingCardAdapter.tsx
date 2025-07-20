@@ -184,6 +184,8 @@ export const MeetingCardAdapter = React.memo(({
       title: displayTitle,
       meetingType: getMeetingType(session.conversation_type),
       participants: finalParticipants,
+      participantMe: session.participant_me,
+      participantThem: session.participant_them,
       status: getCardStatus(session.status),
       startTime: session.recording_started_at 
         ? new Date(session.recording_started_at) 
