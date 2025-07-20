@@ -230,6 +230,8 @@ export const MeetingCard = React.memo(({
           {/* Participant pills fetched from API for consistent display */}
           <ParticipantsList 
             sessionId={id} 
+            showLabel={false}
+            maxVisible={3}
             fallbackParticipants={
               participantMe || participantThem ? { me: participantMe || '', them: participantThem || '' } : undefined
             }

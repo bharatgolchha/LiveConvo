@@ -10,15 +10,18 @@ interface Participant {
 
 interface ParticipantsListProps {
   sessionId: string;
+  showLabel?: boolean; // If false, hides the "Participants:" text label
+  maxVisible?: number; // Max participants visible before collapsing (undefined = show all)
   fallbackParticipants?: {
     me: string;
     them: string;
   };
 }
 
-export function ParticipantsList({ sessionId, fallbackParticipants }: ParticipantsListProps) {
+export function ParticipantsList({ sessionId, showLabel = true, maxVisible, fallbackParticipants }: ParticipantsListProps) {
   const [participants, setParticipants] = useState<Participant[]>([]);
   const [loading, setLoading] = useState(true);
+  const [expanded, setExpanded] = useState(false);
   const { session } = useAuth();
 
   useEffect(() => {
@@ -138,7 +141,7 @@ export function ParticipantsList({ sessionId, fallbackParticipants }: Participan
       <div className="flex items-center gap-3">
         <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
           <Users className="w-4 h-4" />
-          <span className="font-medium">Participants:</span>
+          {showLabel && <span className="font-medium">Participants:</span>}
         </div>
         <div className="flex items-center gap-2">
           {[1, 2].map((i) => (
@@ -156,14 +159,17 @@ export function ParticipantsList({ sessionId, fallbackParticipants }: Participan
     return null;
   }
 
+  const visibleParticipants = expanded || maxVisible === undefined ? participants : participants.slice(0, maxVisible);
+  const remainingCount = maxVisible !== undefined && !expanded ? participants.length - visibleParticipants.length : 0;
+
   return (
     <div className="flex items-center gap-3">
       <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
         <Users className="w-4 h-4" />
-        <span className="font-medium">Participants:</span>
+        {showLabel && <span className="font-medium">Participants:</span>}
       </div>
       <div className="flex items-center gap-1.5 flex-wrap">
-        {participants.map((participant, index) => (
+        {visibleParticipants.map((participant, index) => (
           <div
             key={index}
             className="group flex items-center gap-1.5 px-2.5 py-1 bg-muted/50 dark:bg-muted/30 border border-border hover:border-primary/50 rounded-full transition-all duration-200 hover:shadow-sm cursor-default"
@@ -177,10 +183,14 @@ export function ParticipantsList({ sessionId, fallbackParticipants }: Participan
             <span className="text-xs text-foreground font-medium">{participant.name}</span>
           </div>
         ))}
-        {participants.length > 3 && (
-          <div className="text-xs text-muted-foreground">
-            ({participants.length} {participants.length === 1 ? 'person' : 'people'})
-          </div>
+        {remainingCount > 0 && (
+          <button
+            type="button"
+            onClick={() => setExpanded(true)}
+            className="text-xs text-muted-foreground focus:outline-none"
+          >
+            (+{remainingCount} more)
+          </button>
         )}
       </div>
     </div>
