@@ -2,25 +2,30 @@ import React, { useState, useEffect } from 'react';
 import { useMeetingContext } from '@/lib/meeting/context/MeetingContext';
 import { RecordingPlayer } from '@/components/recordings/RecordingPlayer';
 import { RecordingStatus } from '@/components/recordings/RecordingStatus';
+import { RecordingUpgradePrompt } from '@/components/recordings/RecordingUpgradePrompt';
 import { PlayCircleIcon, ArrowDownTrayIcon, ArrowPathIcon } from '@heroicons/react/24/outline';
 import { useAuth } from '@/contexts/AuthContext';
+import { useSubscription } from '@/lib/hooks/useSubscription';
 
 export function RecordingTab() {
   const { meeting, setMeeting } = useMeetingContext();
   const { session } = useAuth();
+  const { hasFeature, loading: subscriptionLoading } = useSubscription();
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [refreshError, setRefreshError] = useState<string | null>(null);
+  
+  const hasRecordingAccess = hasFeature('hasRecordingAccess');
 
   // Automatically fetch fresh recording URL when component mounts
   useEffect(() => {
     if (!meeting || !meeting.botId || !session?.access_token) return;
     
-    // Only fetch if we have a bot ID and the meeting is completed
-    if (meeting.status === 'completed' && meeting.botId) {
+    // Only fetch if we have recording access, subscription is loaded, have a bot ID and the meeting is completed
+    if (meeting.status === 'completed' && meeting.botId && !subscriptionLoading && hasRecordingAccess) {
       console.log('🔄 RecordingTab mounted - fetching fresh recording URL');
       handleRefreshRecording();
     }
-  }, [meeting?.id, meeting?.botId, meeting?.status]); // Only re-run if meeting ID, bot ID, or status changes
+  }, [meeting?.id, meeting?.botId, meeting?.status, subscriptionLoading, hasRecordingAccess]); // Only re-run if meeting ID, bot ID, status, or access changes
 
   if (!meeting) {
     return (
@@ -28,6 +33,20 @@ export function RecordingTab() {
         <p className="text-muted-foreground">No meeting data available</p>
       </div>
     );
+  }
+  
+  // Show loading state while subscription is loading
+  if (subscriptionLoading) {
+    return (
+      <div className="flex items-center justify-center h-full">
+        <div className="w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin"></div>
+      </div>
+    );
+  }
+  
+  // Check subscription access after loading
+  if (!hasRecordingAccess) {
+    return <RecordingUpgradePrompt />;
   }
 
   const hasRecording = !!meeting.recallRecordingUrl;
@@ -244,6 +263,7 @@ export function RecordingTab() {
           recordingStatus={meeting.recallRecordingStatus}
           recordingExpiresAt={meeting.recallRecordingExpiresAt}
           sessionId={meeting.id}
+          sessionCreatedAt={meeting.createdAt}
         />
       </div>
     </div>

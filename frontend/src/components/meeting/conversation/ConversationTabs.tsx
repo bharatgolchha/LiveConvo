@@ -6,9 +6,11 @@ import {
   DocumentTextIcon,
   ClipboardDocumentListIcon,
   LinkIcon,
-  VideoCameraIcon
+  VideoCameraIcon,
+  LockClosedIcon
 } from '@heroicons/react/24/outline';
 import { useMeetingContext } from '@/lib/meeting/context/MeetingContext';
+import { useSubscription } from '@/lib/hooks/useSubscription';
 import { LiveTranscriptTab } from './LiveTranscriptTab';
 import { RealtimeSummaryTab } from './RealtimeSummaryTab';
 import { SmartNotesTab } from './SmartNotesTab';
@@ -52,9 +54,12 @@ const tabs = [
 
 export function ConversationTabs() {
   const { activeTab, setActiveTab, meeting, linkedConversations } = useMeetingContext();
+  const { hasFeature, loading: subscriptionLoading } = useSubscription();
   const isMobile = useIsMobile();
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const activeTabRef = useRef<HTMLButtonElement>(null);
+  
+  const hasRecordingAccess = hasFeature('hasRecordingAccess');
   
   // Scroll to active tab on mobile
   useEffect(() => {
@@ -95,6 +100,11 @@ export function ConversationTabs() {
               >
                 <Icon className="w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0" />
                 <span className="text-sm sm:text-base font-medium">{isMobile && tab.id === 'transcript' ? 'Transcript' : tab.label}</span>
+                
+                {/* Show lock icon for recording tab if no access (only after loading) */}
+                {tab.id === 'recording' && !subscriptionLoading && !hasRecordingAccess && (
+                  <LockClosedIcon className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-muted-foreground ml-1" />
+                )}
                 
                 {showBadge && (
                   <span className="ml-1 px-1.5 py-0.5 text-xs bg-primary text-primary-foreground rounded-full">

@@ -55,8 +55,26 @@ export async function GET(request: NextRequest) {
       organizations = data || [];
     }
 
-    // Fetch user statistics from sessions table
+    // Fetch active subscriptions for all users
     const userIds = users?.map(u => u.id) || [];
+    interface UserSubscription {
+      user_id: string;
+      plan_display_name: string;
+      plan_type: string;
+      status: string;
+    }
+    
+    let userSubscriptions: UserSubscription[] = [];
+    
+    if (userIds.length > 0) {
+      const { data } = await supabase
+        .from('active_user_subscriptions')
+        .select('user_id, plan_display_name, plan_type, status')
+        .in('user_id', userIds);
+      userSubscriptions = data || [];
+    }
+
+    // Fetch user statistics from sessions table
     
     interface SessionStats {
       user_id: string;
@@ -100,11 +118,17 @@ export async function GET(request: NextRequest) {
       acc[stat.user_id] = stat;
       return acc;
     }, {} as Record<string, SessionStats>);
+    
+    const subscriptionMap = userSubscriptions.reduce((acc, sub) => {
+      acc[sub.user_id] = sub;
+      return acc;
+    }, {} as Record<string, UserSubscription>);
 
     // Combine all data
     const combinedUsers = users?.map(user => ({
       ...user,
       organization: user.current_organization_id ? orgMap[user.current_organization_id] : null,
+      subscription: subscriptionMap[user.id] || null,
       stats: statsMap[user.id] ? {
         total_sessions: statsMap[user.id].session_count,
         total_audio_minutes: Math.round(statsMap[user.id].total_seconds / 60)

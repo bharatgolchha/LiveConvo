@@ -49,6 +49,20 @@ export async function GET(
         { status: 400 }
       );
     }
+    
+    // Check if user has recording access
+    const { data: subscription } = await serviceClient
+      .from('active_user_subscriptions')
+      .select('has_recording_access')
+      .eq('user_id', user.id)
+      .single();
+    
+    if (!subscription?.has_recording_access) {
+      return NextResponse.json(
+        { error: 'Upgrade required', message: 'Recording access is available with paid plans. Please upgrade to access recordings.' },
+        { status: 403 }
+      );
+    }
 
     // Create authenticated client with user's token for RLS
     const authClient = createAuthenticatedSupabaseClient(token);

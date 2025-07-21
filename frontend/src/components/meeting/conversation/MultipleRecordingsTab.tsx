@@ -1,8 +1,10 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useMeetingContext } from '@/lib/meeting/context/MeetingContext';
 import { RecordingPlayer } from '@/components/recordings/RecordingPlayer';
+import { RecordingUpgradePrompt } from '@/components/recordings/RecordingUpgradePrompt';
 import { PlayCircleIcon, ArrowDownTrayIcon, ArrowPathIcon, VideoCameraIcon } from '@heroicons/react/24/outline';
 import { useAuth } from '@/contexts/AuthContext';
+import { useSubscription } from '@/lib/hooks/useSubscription';
 
 interface Recording {
   id: string;
@@ -21,6 +23,7 @@ export function MultipleRecordingsTab() {
   console.log('MultipleRecordingsTab rendering');
   const { meeting } = useMeetingContext();
   const { session } = useAuth();
+  const { hasFeature, loading: subscriptionLoading } = useSubscription();
   const [recordings, setRecordings] = useState<Recording[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -28,6 +31,8 @@ export function MultipleRecordingsTab() {
   const [selectedRecording, setSelectedRecording] = useState<Recording | null>(null);
   const [freshRecordingUrl, setFreshRecordingUrl] = useState<string | null>(null);
   const [isFetchingFreshUrl, setIsFetchingFreshUrl] = useState(false);
+  
+  const hasRecordingAccess = hasFeature('hasRecordingAccess');
   
   console.log('Current state:', {
     meetingId: meeting?.id,
@@ -122,20 +127,22 @@ export function MultipleRecordingsTab() {
 
   useEffect(() => {
     console.log('MultipleRecordingsTab - Meeting:', meeting);
-    if (meeting?.id) {
+    // Only fetch if we have recording access and subscription is loaded
+    if (meeting?.id && !subscriptionLoading && hasRecordingAccess) {
       fetchRecordings();
     }
-  }, [meeting?.id, fetchRecordings]);
+  }, [meeting?.id, fetchRecordings, subscriptionLoading, hasRecordingAccess]);
 
   // Check if we have a recording URL in the meeting data
   const hasRecallRecording = meeting?.recallRecordingUrl || (meeting as any)?.recall_recording_url;
 
   // Fetch fresh URL when hasRecallRecording becomes available
   useEffect(() => {
-    if (hasRecallRecording && meeting?.status === 'completed') {
+    // Only fetch if we have recording access and subscription is loaded
+    if (hasRecallRecording && meeting?.status === 'completed' && !subscriptionLoading && hasRecordingAccess) {
       fetchFreshRecordingUrl();
     }
-  }, [hasRecallRecording, meeting?.status, fetchFreshRecordingUrl]);
+  }, [hasRecallRecording, meeting?.status, fetchFreshRecordingUrl, subscriptionLoading, hasRecordingAccess]);
 
   const handleRefresh = async () => {
     console.log('🔄 Manual refresh triggered');
@@ -195,6 +202,20 @@ export function MultipleRecordingsTab() {
         <p className="text-muted-foreground">No meeting data available</p>
       </div>
     );
+  }
+  
+  // Show loading state while subscription is loading
+  if (subscriptionLoading) {
+    return (
+      <div className="flex items-center justify-center h-full">
+        <div className="w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin"></div>
+      </div>
+    );
+  }
+  
+  // Check subscription access after loading
+  if (!hasRecordingAccess) {
+    return <RecordingUpgradePrompt />;
   }
 
   if (loading) {
@@ -278,6 +299,7 @@ export function MultipleRecordingsTab() {
             recordingStatus={meeting.recallRecordingStatus || (meeting as any).recall_recording_status || 'done'}
             recordingExpiresAt={meeting.recallRecordingExpiresAt || (meeting as any).recall_recording_expires_at}
             sessionId={meeting.id}
+            sessionCreatedAt={meeting.createdAt || (meeting as any).created_at}
           />
         </div>
       </div>
@@ -444,6 +466,7 @@ export function MultipleRecordingsTab() {
                 recordingStatus={selectedRecording.recording_status || undefined}
                 recordingExpiresAt={selectedRecording.recording_expires_at || undefined}
                 sessionId={meeting.id}
+                sessionCreatedAt={meeting.createdAt || (meeting as any).created_at}
               />
             </div>
           </>

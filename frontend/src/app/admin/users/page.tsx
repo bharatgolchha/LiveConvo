@@ -18,6 +18,12 @@ interface User {
     name: string;
     current_plan: string;
   };
+  subscription?: {
+    user_id: string;
+    plan_display_name: string;
+    plan_type: string;
+    status: string;
+  };
   stats?: {
     total_sessions: number;
     total_audio_minutes: number;
@@ -108,6 +114,9 @@ export default function AdminUsersPage() {
                   Organization
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                  Plan
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                   Status
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
@@ -141,17 +150,39 @@ export default function AdminUsersPage() {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     {user.organization ? (
-                      <div>
-                        <div className="text-sm text-gray-900 dark:text-white">
-                          {user.organization.name}
-                        </div>
-                        <div className="text-sm text-gray-500 dark:text-gray-400">
-                          {user.organization.current_plan} plan
-                        </div>
+                      <div className="text-sm text-gray-900 dark:text-white">
+                        {user.organization.name}
                       </div>
                     ) : (
                       <span className="text-sm text-gray-500 dark:text-gray-400">
                         No organization
+                      </span>
+                    )}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    {user.subscription ? (
+                      <div>
+                        <div className="text-sm text-gray-900 dark:text-white">
+                          {user.subscription.plan_display_name}
+                        </div>
+                        <div className="text-xs text-gray-500 dark:text-gray-400">
+                          {user.subscription.status === 'active' ? 'Active' : 
+                           user.subscription.status === 'trialing' ? 'Trial' :
+                           user.subscription.status}
+                        </div>
+                      </div>
+                    ) : user.organization?.current_plan ? (
+                      <div>
+                        <div className="text-sm text-gray-900 dark:text-white">
+                          {user.organization.current_plan}
+                        </div>
+                        <div className="text-xs text-gray-500 dark:text-gray-400">
+                          Via organization
+                        </div>
+                      </div>
+                    ) : (
+                      <span className="text-sm text-gray-500 dark:text-gray-400">
+                        Free
                       </span>
                     )}
                   </td>

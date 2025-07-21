@@ -14,6 +14,7 @@ interface RecordingPlayerProps {
   recordingStatus?: string;
   recordingExpiresAt?: string;
   sessionId: string;
+  sessionCreatedAt?: string;
   onTimeUpdate?: (currentTime: number) => void;
 }
 
@@ -22,6 +23,7 @@ export function RecordingPlayer({
   recordingStatus,
   recordingExpiresAt,
   sessionId,
+  sessionCreatedAt,
   onTimeUpdate
 }: RecordingPlayerProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -398,10 +400,21 @@ export function RecordingPlayer({
           </Button>
         </div>
         
-        {recordingExpiresAt && !isExpired && (
-          <p className="text-xs text-muted-foreground">
-            Recording expires on {new Date(recordingExpiresAt).toLocaleDateString()}
-          </p>
+        {sessionCreatedAt && (
+          <div className="space-y-1">
+            {recordingExpiresAt && !isExpired && (
+              <p className="text-xs text-muted-foreground">
+                Recording expires on {new Date(recordingExpiresAt).toLocaleDateString()}
+              </p>
+            )}
+            <p className="text-xs text-muted-foreground">
+              Recording will be permanently deleted on {new Date(new Date(sessionCreatedAt).getTime() + 7 * 24 * 60 * 60 * 1000).toLocaleDateString('en-US', { 
+                month: 'long', 
+                day: 'numeric', 
+                year: 'numeric' 
+              })}
+            </p>
+          </div>
         )}
       </div>
     </Card>

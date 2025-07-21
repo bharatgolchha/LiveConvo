@@ -11,7 +11,9 @@ import {
   Download
 } from 'lucide-react';
 import { RecordingPlayer } from '@/components/recordings/RecordingPlayer';
+import { RecordingUpgradePrompt } from '@/components/recordings/RecordingUpgradePrompt';
 import { useAuth } from '@/contexts/AuthContext';
+import { useSubscription } from '@/lib/hooks/useSubscription';
 
 interface TranscriptMessage {
   id: string;
@@ -35,6 +37,7 @@ interface TranscriptTabProps {
 
 export function TranscriptTab({ sessionId, sharedToken }: TranscriptTabProps) {
   const { session } = useAuth();
+  const { hasFeature, loading: subscriptionLoading } = useSubscription();
   const [transcript, setTranscript] = useState<TranscriptMessage[]>([]);
   const [recording, setRecording] = useState<RecordingData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -43,13 +46,22 @@ export function TranscriptTab({ sessionId, sharedToken }: TranscriptTabProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [isRefreshing, setIsRefreshing] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+  
+  const hasRecordingAccess = hasFeature('hasRecordingAccess');
 
   useEffect(() => {
     if (sessionId && (sharedToken || session?.access_token)) {
       fetchTranscript();
-      fetchRecording();
+      // Only fetch recording if subscription is loaded and user has access (or it's a shared view)
+      if (!subscriptionLoading && (hasRecordingAccess || sharedToken)) {
+        fetchRecording();
+      } else if (!subscriptionLoading && !hasRecordingAccess && !sharedToken) {
+        // Set recording to null if no access
+        setRecording(null);
+        setRecordingLoading(false);
+      }
     }
-  }, [sessionId, session?.access_token, sharedToken]);
+  }, [sessionId, session?.access_token, sharedToken, subscriptionLoading, hasRecordingAccess]);
 
   const fetchTranscript = async () => {
     if (!sessionId) return;
@@ -125,7 +137,12 @@ export function TranscriptTab({ sessionId, sharedToken }: TranscriptTabProps) {
 
   const handleRefresh = async () => {
     setIsRefreshing(true);
-    await Promise.all([fetchTranscript(), fetchRecording()]);
+    const promises = [fetchTranscript()];
+    // Only fetch recording if user has access or it's a shared view
+    if (hasRecordingAccess || sharedToken) {
+      promises.push(fetchRecording());
+    }
+    await Promise.all(promises);
     setIsRefreshing(false);
   };
 
@@ -228,7 +245,7 @@ export function TranscriptTab({ sessionId, sharedToken }: TranscriptTabProps) {
                 <p className="text-sm text-muted-foreground">Full video recording of the meeting</p>
               </div>
             </div>
-            {recording?.url && (
+            {recording?.url && (hasRecordingAccess || sharedToken) && (
               <a
                 href={recording.url}
                 download={`recording-${sessionId}.mp4`}
@@ -251,6 +268,10 @@ export function TranscriptTab({ sessionId, sharedToken }: TranscriptTabProps) {
                 recordingExpiresAt={recording.expiresAt}
                 sessionId={sessionId || ''}
               />
+            ) : !hasRecordingAccess && !sharedToken ? (
+              <div className="bg-background rounded-lg">
+                <RecordingUpgradePrompt />
+              </div>
             ) : (
               <div className="flex flex-col items-center justify-center h-[400px] bg-black text-white">
                 <PlayCircle className="w-16 h-16 mb-4 opacity-50" />

@@ -2,15 +2,6 @@ import { NextResponse, NextRequest } from 'next/server';
 import { createServerSupabaseClient } from '@/lib/supabase';
 import type { WaitlistEntry, WaitlistStats } from '@/types/api';
 
-interface SubscriptionWithPlan {
-  plan_type: string;
-  status: string;
-  plans: {
-    name: string;
-    display_name: string;
-  } | null;
-}
-
 export async function GET(request: NextRequest) {
   try {
     // Check if user is authenticated
@@ -58,16 +49,15 @@ export async function GET(request: NextRequest) {
         .from('sessions')
         .select('id, recording_duration_seconds'),
       
-      // Users by plan (from subscriptions)
+      // Active subscriptions with plan details
       supabase
-        .from('subscriptions')
+        .from('active_user_subscriptions')
         .select(`
+          user_id,
           plan_type,
           status,
-          plans (
-            name,
-            display_name
-          )
+          plan_display_name,
+          price_monthly
         `),
       
       // Active users today
@@ -92,31 +82,37 @@ export async function GET(request: NextRequest) {
     );
     const totalAudioHours = totalAudioSeconds / 3600;
 
-    // Group users by plan
+    // Group users by plan and calculate revenue
     const subscriptions = subscriptionsResult.data || [];
-    const planCounts = subscriptions
-      .filter((sub) => sub.status === 'active')
-      .reduce((acc: Record<string, number>, sub) => {
-        const planName = (sub as { plans?: { display_name?: string } }).plans?.display_name || sub.plan_type || 'Free';
-        acc[planName] = (acc[planName] || 0) + 1;
+    const planStats = subscriptions
+      .filter((sub) => sub.status === 'active' || sub.status === 'trialing')
+      .reduce((acc: { counts: Record<string, number>, revenue: number }, sub) => {
+        const planName = sub.plan_display_name || 'Unknown Plan';
+        acc.counts[planName] = (acc.counts[planName] || 0) + 1;
+        
+        // Only count revenue from active (not trial) subscriptions
+        if (sub.status === 'active' && sub.price_monthly) {
+          acc.revenue += parseFloat(sub.price_monthly);
+        }
+        
         return acc;
-      }, {} as Record<string, number>);
+      }, { counts: {}, revenue: 0 });
 
     // Add free users (users without active subscriptions)
-    const freeUsers = Math.max(0, totalUsers - subscriptions.filter((s) => s.status === 'active').length);
+    const activeSubscriptionCount = subscriptions.filter((s) => s.status === 'active' || s.status === 'trialing').length;
+    const freeUsers = Math.max(0, totalUsers - activeSubscriptionCount);
     if (freeUsers > 0) {
-      planCounts['Free'] = freeUsers;
+      planStats.counts['Free'] = freeUsers;
     }
 
-    const usersByPlan = Object.entries(planCounts).map(([plan, count]) => ({
+    const usersByPlan = Object.entries(planStats.counts).map(([plan, count]) => ({
       plan,
       count
     }));
 
-    // Calculate revenue (simplified - in real app, this would come from payment data)
-    const monthlyRevenue = (planCounts['Professional'] || 0) * 29 + 
-                          (planCounts['Team'] || 0) * 79;
-    const totalRevenue = monthlyRevenue * 12; // Simplified annual projection
+    // Calculate revenue
+    const monthlyRevenue = Math.round(planStats.revenue);
+    const totalRevenue = monthlyRevenue * 12; // Annual projection
 
     // Calculate waitlist statistics
     const waitlistEntries = waitlistResult.data || [];

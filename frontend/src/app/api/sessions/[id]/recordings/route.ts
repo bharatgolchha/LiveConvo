@@ -34,6 +34,21 @@ export async function GET(
         { status: 401 }
       );
     }
+    
+    // Check if user has recording access
+    const serviceClient = createServerSupabaseClient();
+    const { data: subscription } = await serviceClient
+      .from('active_user_subscriptions')
+      .select('has_recording_access')
+      .eq('user_id', user.id)
+      .single();
+    
+    if (!subscription?.has_recording_access) {
+      return NextResponse.json(
+        { error: 'Upgrade required', message: 'Recording access is available with paid plans. Please upgrade to access recordings.' },
+        { status: 403 }
+      );
+    }
 
     // Get session to check if it has a bot ID
     const { data: session, error: sessionError } = await authClient

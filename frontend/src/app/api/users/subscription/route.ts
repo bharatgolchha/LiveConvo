@@ -68,7 +68,7 @@ export async function GET(request: NextRequest) {
       // Fetch the free plan limits dynamically so we don\'t rely on a hard-coded value
       const { data: freePlan, error: freePlanError } = await supabase
         .from('plans')
-        .select('display_name, monthly_audio_minutes_limit, monthly_audio_hours_limit')
+        .select('display_name, monthly_audio_minutes_limit, monthly_audio_hours_limit, has_recording_access')
         .eq('name', 'individual_free')
         .single();
 
@@ -104,6 +104,7 @@ export async function GET(request: NextRequest) {
             hasPrioritySupport: false,
             hasAnalyticsDashboard: false,
             hasTeamCollaboration: false,
+            hasRecordingAccess: freePlan?.has_recording_access || false,
           }
         },
         subscription: {
@@ -253,6 +254,7 @@ export async function GET(request: NextRequest) {
           hasPrioritySupport: subscriptionData.has_priority_support || false,
           hasAnalyticsDashboard: subscriptionData.has_analytics_dashboard || false,
           hasTeamCollaboration: subscriptionData.has_team_collaboration || false,
+          hasRecordingAccess: subscriptionData.has_recording_access || false,
         }
       },
       subscription: {

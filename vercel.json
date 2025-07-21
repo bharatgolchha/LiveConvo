@@ -33,6 +33,10 @@
     {
       "path": "/api/cron/enforce-bot-limits",
       "schedule": "*/1 * * * *"
+    },
+    {
+      "path": "/api/cron/cleanup-recall-calls",
+      "schedule": "0 0 * * *"
     }
   ]
 } 
