@@ -2,17 +2,15 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Check, X, Sparkles, Zap, Shield, Star, Mic, Search, Bell, User as UserIcon, Settings, LogOut, Crown, Rocket, Heart, Gift } from 'lucide-react';
+import { Check, X, Sparkles, Zap, Shield, Star, Crown, Rocket, Heart, Gift, Settings } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/badge';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '@/contexts/AuthContext';
-import { useTheme } from '@/contexts/ThemeContext';
-import { ThemeToggle } from '@/components/ui/ThemeToggle';
-import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
 import { Footer } from '@/components/layout/Footer';
+import { Header } from '@/components/layout/Header';
 
 interface PricingPlan {
   id: string;
@@ -71,12 +69,10 @@ export default function PricingPage() {
   const [plans, setPlans] = useState<PricingPlan[]>([]);
   const [loading, setLoading] = useState(true);
   const [billingPeriod, setBillingPeriod] = useState<'monthly' | 'yearly'>('monthly');
-  const [showUserMenu, setShowUserMenu] = useState(false);
   const [currentUserPlan, setCurrentUserPlan] = useState<string | null>(null);
   const [trialStatus, setTrialStatus] = useState<TrialStatus>({ isEligible: false, hasUsedTrial: false });
   
   const { user, signOut } = useAuth();
-  const { theme, resolvedTheme } = useTheme();
   const router = useRouter();
 
   useEffect(() => {
@@ -479,88 +475,10 @@ export default function PricingPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-primary/5">
-      {/* Header for logged-in users */}
-      {user && (
-        <header className="sticky top-0 z-50 w-full bg-card/80 backdrop-blur-xl">
-          <div className="flex h-16 items-center justify-between px-4 sm:px-6 lg:px-8">
-            {/* Logo and Title */}
-            <Link href="/dashboard" className="flex items-center gap-3 group">
-              <img 
-                src={resolvedTheme === 'dark' 
-                  ? "https://ucvfgfbjcrxbzppwjpuu.supabase.co/storage/v1/object/public/images//DarkMode2.png"
-                  : "https://ucvfgfbjcrxbzppwjpuu.supabase.co/storage/v1/object/public/images//LightMode2.png"
-                }
-                alt="liveprompt.ai"
-                className="h-8 w-auto object-contain transition-transform group-hover:scale-105"
-              />
-            </Link>
-            
-            {/* Right side actions */}
-            <div className="flex items-center gap-3">
-              <Button
-                onClick={() => router.push('/dashboard')}
-                variant="ghost"
-                className="hidden sm:flex items-center gap-2"
-              >
-                <UserIcon className="w-4 h-4" />
-                Dashboard
-              </Button>
-              <ThemeToggle />
-              <div className="relative user-menu-container">
-                <button
-                  onClick={() => setShowUserMenu(!showUserMenu)}
-                  className="flex items-center gap-2 px-3 py-1.5 rounded-lg hover:bg-muted transition-all duration-200 hover:shadow-sm"
-                >
-                  <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary via-primary to-primary/80 flex items-center justify-center text-primary-foreground font-semibold text-sm shadow-md">
-                    {user.email?.charAt(0).toUpperCase()}
-                  </div>
-                  <span className="hidden sm:block text-sm font-medium text-foreground">
-                    {user.email?.split('@')[0]}
-                  </span>
-                </button>
-                
-                <AnimatePresence>
-                  {showUserMenu && (
-                    <motion.div
-                      initial={{ opacity: 0, y: -10, scale: 0.95 }}
-                      animate={{ opacity: 1, y: 0, scale: 1 }}
-                      exit={{ opacity: 0, y: -10, scale: 0.95 }}
-                      className="absolute right-0 mt-2 w-56 rounded-xl bg-card border shadow-xl overflow-hidden backdrop-blur-sm"
-                    >
-                      <div className="p-3 border-b bg-muted/30">
-                        <p className="text-sm font-medium text-foreground">{user.email?.split('@')[0]}</p>
-                        <p className="text-xs text-muted-foreground mt-0.5">{user.email}</p>
-                      </div>
-                      <div className="p-1">
-                        <Link
-                          href="/dashboard"
-                          className="flex items-center gap-3 px-3 py-2 text-sm rounded-md hover:bg-muted transition-colors text-foreground"
-                        >
-                          <UserIcon className="w-4 h-4" />
-                          <span>Dashboard</span>
-                        </Link>
-                        <button
-                          onClick={async () => {
-                            await signOut();
-                            router.push('/');
-                          }}
-                          className="w-full flex items-center gap-3 px-3 py-2 text-sm rounded-md hover:bg-muted transition-colors text-red-600"
-                        >
-                          <LogOut className="w-4 h-4" />
-                          <span>Sign Out</span>
-                        </button>
-                      </div>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </div>
-            </div>
-          </div>
-        </header>
-      )}
+      <Header />
 
       {/* Main Content */}
-      <div className="relative overflow-hidden">
+      <div className="relative overflow-hidden pt-16">
         <div className="container mx-auto px-6 sm:px-8 lg:px-12 py-12 lg:py-16">
           <motion.div
             initial={{ opacity: 0, y: 20 }}

@@ -27,6 +27,10 @@ const primaryNavItems: NavItem[] = [
   {
     label: 'Pricing',
     href: '/pricing'
+  },
+  {
+    label: 'Careers',
+    href: 'https://skillspot.ai/job_board/1752571116439x176146420708409340'
   }
 ]
 
@@ -119,7 +123,9 @@ export function Header() {
   }
 
   const handleNavClick = (href: string) => {
-    if (href.startsWith('#')) {
+    if (href.startsWith('http')) {
+      window.open(href, '_blank')
+    } else if (href.startsWith('#')) {
       const element = document.querySelector(href)
       element?.scrollIntoView({ behavior: 'smooth' })
     } else {
@@ -159,6 +165,15 @@ export function Header() {
                 <div key={item.label}>
                   {item.component ? (
                     item.component
+                  ) : item.href?.startsWith('http') ? (
+                    <a
+                      href={item.href}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className={`px-4 py-2 text-sm font-medium transition-colors rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted/50`}
+                    >
+                      {item.label}
+                    </a>
                   ) : (
                     <Link
                       href={item.href || '#'}
