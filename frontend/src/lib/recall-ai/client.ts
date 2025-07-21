@@ -8,7 +8,7 @@ export interface CreateBotParams {
   meetingUrl: string;
   sessionId: string;
   botName?: string;
-  transcriptionProvider?: 'deepgram' | 'speechmatics' | 'assembly_ai';
+  transcriptionProvider?: 'deepgram' | 'speechmatics' | 'assembly_ai' | 'aws_transcribe';
   metadata?: {
     userEmail?: string;
     userName?: string;
@@ -125,6 +125,7 @@ export class RecallAIClient {
         transcript: {
           provider: this.getTranscriptionProvider(params.transcriptionProvider),
         },
+        start_recording_on: 'call_join',
         realtime_endpoints: params.sessionId ? [
           {
             type: 'webhook',
@@ -335,6 +336,7 @@ export class RecallAIClient {
         return { 
           deepgram_streaming: {
             model: 'nova-3',
+            language: 'multi',
             smart_format: 'true',
             punctuate: 'true',
             profanity_filter: 'false',
@@ -347,10 +349,20 @@ export class RecallAIClient {
         return { speechmatics_streaming: {} };
       case 'assembly_ai':
         return { assembly_ai_streaming: {} };
+      case 'aws_transcribe':
+        return {
+          aws_transcribe_streaming: {
+            language_identification: true,
+            language_options: 'en-US,es-US,fr-FR,de-DE,ja-JP,ko-KR,zh-CN,pt-BR,it-IT,hi-IN',
+            partial_results_stability: 'high',
+            show_speaker_label: true
+          }
+        };
       default:
         return { 
           deepgram_streaming: {
             model: 'nova-3',
+            language: 'multi',
             smart_format: 'true',
             punctuate: 'true',
             profanity_filter: 'false',

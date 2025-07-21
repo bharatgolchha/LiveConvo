@@ -94,7 +94,7 @@ export class RecallSessionManager {
             sessionId,
             meetingUrl,
             botName,
-            transcriptionProvider: streamingProvider as 'deepgram' | 'assembly_ai' | 'speechmatics',
+            transcriptionProvider: streamingProvider as 'deepgram' | 'assembly_ai' | 'speechmatics' | 'aws_transcribe',
             metadata,
           });
           break; // Success, exit retry loop
@@ -413,7 +413,7 @@ export class RecallSessionManager {
         meetingUrl: meetingUrl,
         sessionId: sessionId,
         botName: botName,
-        transcriptionProvider: streamingProvider as 'deepgram' | 'assembly_ai' | 'speechmatics',
+        transcriptionProvider: streamingProvider as 'deepgram' | 'assembly_ai' | 'speechmatics' | 'aws_transcribe',
         metadata,
       });
       

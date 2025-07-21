@@ -204,14 +204,16 @@ export default function SystemSettingsCard() {
               <option value="deepgram">Deepgram</option>
               <option value="assembly_ai">AssemblyAI</option>
               <option value="speechmatics">Speechmatics</option>
+              <option value="aws_transcribe">AWS Transcribe</option>
             </select>
           </div>
 
           <div className="mt-4 p-4 bg-gray-50 dark:bg-gray-800 rounded-md">
             <p className="text-sm text-gray-600 dark:text-gray-400">
-              <strong>Deepgram:</strong> Fast, accurate, and cost-effective. Good for general use.<br/>
-              <strong>AssemblyAI:</strong> High accuracy with advanced features like speaker labels.<br/>
-              <strong>Speechmatics:</strong> Excellent multilingual support.
+              <strong>Deepgram:</strong> Fast, accurate, and cost-effective. Nova-3 model with multilingual code-switching.<br/>
+              <strong>AssemblyAI:</strong> High accuracy with advanced features like speaker labels (single language only).<br/>
+              <strong>Speechmatics:</strong> Excellent multilingual support.<br/>
+              <strong>AWS Transcribe:</strong> Advanced language detection (requires AWS credentials configuration).
             </p>
           </div>
         </div>
