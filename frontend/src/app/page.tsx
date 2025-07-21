@@ -90,20 +90,36 @@ export default function LandingPage() {
 
   const faqs = [
     {
-      question: 'How does liveprompt.ai work during my calls?',
-      answer: 'liveprompt.ai runs silently in your browser alongside any video platform. It provides real-time AI suggestions visible only to you, helping you navigate conversations with confidence.'
+      question: 'How does the AI bot join my meetings?',
+      answer: 'After connecting your calendar, our AI teammate automatically joins your scheduled meetings on Zoom, Google Meet, or Teams. You can also manually add meeting URLs or record in-person conversations directly from your browser. The bot appears as "Liveprompt.ai" in your participant list.'
     },
     {
-      question: 'What makes this different from note-taking tools?',
-      answer: 'Unlike passive note-takers, liveprompt.ai actively coaches you during conversations with real-time guidance, objection handling, and next-best-question suggestions.'
+      question: 'What happens during a live conversation?',
+      answer: 'You get real-time transcription with 95% accuracy, instant AI suggestions tailored to your conversation context, and an interactive chat where you can ask questions and get immediate guidance. Everything updates in under 2 seconds, helping you respond perfectly in the moment.'
     },
     {
-      question: 'Is my conversation data secure?',
-      answer: 'Yes. We use bank-level encryption, are SOC 2 compliant, and process data in real-time with zero retention after your session ends.'
+      question: 'Is my conversation data secure and private?',
+      answer: 'Absolutely. We\'re SOC 2 compliant with bank-level encryption. Your data is processed in real-time and deleted after each session - we don\'t store recordings. Only you can see the AI suggestions during calls. Your conversations are never used to train AI models.'
     },
     {
-      question: 'Which platforms does it support?',
-      answer: 'Works with Zoom, Google Meet, Teams, and any browser-based video platform. No plugins or downloads required.'
+      question: 'How do the usage limits work?',
+      answer: 'Plans include monthly audio hours (transcription time). Free tier offers limited hours, Starter includes 8 hours, Pro includes 20 hours, and Max is unlimited. You can track usage in real-time from your dashboard and receive alerts at 80% usage.'
+    },
+    {
+      question: 'Can I try it before committing to a paid plan?',
+      answer: 'Yes! New users get a 7-day free trial with Pro features. You can also start with our free plan to test basic features. No credit card required to get started, and you can upgrade anytime.'
+    },
+    {
+      question: 'What kind of reports and summaries do I get?',
+      answer: 'After each meeting, you receive AI-generated summaries with key decisions, action items, and follow-up questions. You can generate custom reports focused on specific topics, export transcripts as PDF/CSV, and share professional meeting recaps with attendees.'
+    },
+    {
+      question: 'Does it work for team collaboration?',
+      answer: 'Yes! Team plans allow multiple users in your organization to use liveprompt.ai with shared billing and usage limits. Each team member gets their own account with personal settings and meeting history. Perfect for sales teams, recruiting departments, or consulting firms.'
+    },
+    {
+      question: 'What if I need help or have technical issues?',
+      answer: 'Pro and Max users get priority support. We offer email support for all users, with typical response times under 24 hours. Our help center includes guides for common issues, and you can always reach us at hello@liveprompt.ai.'
     }
   ];
 
@@ -444,7 +460,7 @@ export default function LandingPage() {
                 Your AI-powered conversation toolkit
               </h2>
               <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-                Real-time assistance for sales, recruiting, and consulting professionals
+                AI-powered conversation intelligence that wins deals and builds relationships
               </p>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -1241,91 +1257,6 @@ export default function LandingPage() {
         </section>
 
 
-        {/* How It Works */}
-        <section className="py-20 px-4 sm:px-6 lg:px-8" style={{ backgroundColor: 'rgba(17, 24, 39, 0.3)' }}>
-          <div className="max-w-6xl mx-auto">
-            <h2 className="text-3xl font-bold text-center mb-4" style={{ color: '#ffffff' }}>
-              How It Works
-            </h2>
-            <p className="text-xl text-center mb-12 max-w-2xl mx-auto" style={{ color: '#d1d5db' }}>
-              Three simple steps to transform your conversations
-            </p>
-            
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.6 }}
-                viewport={{ once: true }}
-                className="relative"
-              >
-                <div className="text-center">
-                  <div className="w-20 h-20 mx-auto mb-4 rounded-2xl flex items-center justify-center font-bold text-2xl" style={{ background: 'linear-gradient(to bottom right, #16a34a, rgba(22, 163, 74, 0.8))', color: '#ffffff' }}>
-                    1
-                  </div>
-                  <h3 className="text-xl font-semibold mb-2" style={{ color: '#ffffff' }}>Connect</h3>
-                  <p style={{ color: '#d1d5db' }}>
-                    Works instantly with Zoom, Meet, Teams - no downloads or plugins required
-                  </p>
-                </div>
-                <div className="hidden md:block absolute top-10 -right-4 w-8 h-8">
-                  <ArrowRight className="w-full h-full text-muted-foreground" />
-                </div>
-              </motion.div>
-
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.6, delay: 0.1 }}
-                viewport={{ once: true }}
-                className="relative"
-              >
-                <div className="text-center">
-                  <div className="w-20 h-20 mx-auto mb-4 rounded-2xl flex items-center justify-center font-bold text-2xl" style={{ background: 'linear-gradient(to bottom right, #0ea5e9, rgba(14, 165, 233, 0.8))', color: '#ffffff' }}>
-                    2
-                  </div>
-                  <h3 className="text-xl font-semibold mb-2" style={{ color: '#ffffff' }}>Converse</h3>
-                  <p style={{ color: '#d1d5db' }}>
-                    AI listens and provides real-time coaching only you can see
-                  </p>
-                </div>
-                <div className="hidden md:block absolute top-10 -right-4 w-8 h-8">
-                  <ArrowRight className="w-full h-full text-muted-foreground" />
-                </div>
-              </motion.div>
-
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.6, delay: 0.2 }}
-                viewport={{ once: true }}
-                className="text-center"
-              >
-                <div className="w-20 h-20 mx-auto mb-4 rounded-2xl flex items-center justify-center font-bold text-2xl" style={{ background: 'linear-gradient(to bottom right, #16a34a, rgba(22, 163, 74, 0.8))', color: '#ffffff' }}>
-                  3
-                </div>
-                <h3 className="text-xl font-semibold mb-2" style={{ color: '#ffffff' }}>Close</h3>
-                <p style={{ color: '#d1d5db' }}>
-                  Get action items and CRM-ready summaries automatically
-                </p>
-              </motion.div>
-            </div>
-
-            {/* Visual Demo CTA */}
-            <div className="mt-12 text-center">
-              <button 
-                onClick={() => router.push('/auth/login')}
-                className="inline-flex items-center gap-2 transition-colors"
-                style={{ color: '#16a34a' }}
-                onMouseEnter={(e) => e.currentTarget.style.color = '#15803d'}
-                onMouseLeave={(e) => e.currentTarget.style.color = '#16a34a'}
-              >
-                <span>See it in action</span>
-                <ArrowRight className="w-4 h-4" />
-              </button>
-            </div>
-          </div>
-        </section>
 
 
 
