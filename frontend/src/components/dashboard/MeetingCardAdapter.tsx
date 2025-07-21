@@ -90,23 +90,52 @@ export const MeetingCardAdapter = React.memo(({
     const getMeetingType = (conversationType?: string | null) => {
       if (!conversationType) return 'Team'
       
+      // Handle custom types that contain specific keywords
+      const lowerType = conversationType.toLowerCase()
+      
+      // Check for sales-related keywords
+      if (lowerType.includes('sales') || lowerType.includes('demo') || lowerType.includes('discovery')) {
+        return 'Sales'
+      }
+      
+      // Check for support-related keywords
+      if (lowerType.includes('support') || lowerType.includes('help') || lowerType.includes('customer')) {
+        return 'Support'
+      }
+      
+      // Check for interview-related keywords
+      if (lowerType.includes('interview') || lowerType.includes('candidate')) {
+        return 'Interview'
+      }
+      
+      // Check for coaching-related keywords
+      if (lowerType.includes('coaching') || lowerType.includes('1:1') || lowerType.includes('one_on_one') || lowerType.includes('mentor')) {
+        return 'Coaching'
+      }
+      
+      // Exact type mapping for known types
       const typeMap: Record<string, string> = {
         'sales': 'Sales',
         'sales_call': 'Sales',
-        'support': 'Team',
+        'support': 'Support',
         'team_meeting': 'Team',
         'meeting': 'Team',
         'interview': 'Interview',
-        'consultation': 'Team',
-        'one_on_one': 'Team',
-        'training': 'Team',
+        'coaching': 'Coaching',
+        'consultation': 'Consultation',
+        'training': 'Training',
         'brainstorming': 'Team',
-        'demo': 'Demo',
+        'demo': 'Sales',
         'standup': 'Team',
-        'custom': 'Team'
+        'product_strategy': 'Strategy',
+        'strategy': 'Strategy',
+        'custom': 'Custom'
       }
       
-      return typeMap[conversationType.toLowerCase()] || 'Team'
+      // Return exact match if found, otherwise return the original type capitalized
+      return typeMap[lowerType] || conversationType.split('_').map(word => 
+        word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
+      ).join(' ')
     }
     
     // Create TLDR from session summary or context
