@@ -38,7 +38,7 @@ export function RecordingUpgradePrompt() {
           </li>
           <li className="flex items-start gap-2">
             <CheckIcon className="w-5 h-5 text-primary mt-0.5 flex-shrink-0" />
-            <span className="text-sm text-muted-foreground">Secure cloud storage with 30-day retention</span>
+            <span className="text-sm text-muted-foreground">Secure cloud storage with 7-day retention</span>
           </li>
         </ul>
       </div>
