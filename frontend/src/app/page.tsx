@@ -90,6 +90,10 @@ export default function LandingPage() {
 
   const faqs = [
     {
+      question: 'Which languages does liveprompt.ai support?',
+      answer: 'We provide real-time transcription in 10 major languages: English, Spanish, French, German, Hindi, Russian, Portuguese, Japanese, Italian, and Dutch. You can even switch between languages during your conversation, and our AI will keep up! This makes liveprompt.ai perfect for international teams, global sales calls, and multilingual customer support.'
+    },
+    {
       question: 'How does the AI bot join my meetings?',
       answer: 'After connecting your calendar, our AI teammate automatically joins your scheduled meetings on Zoom, Google Meet, or Teams. You can also manually add meeting URLs or record in-person conversations directly from your browser. The bot appears as "Liveprompt.ai" in your participant list.'
     },
@@ -140,8 +144,13 @@ export default function LandingPage() {
           <div className="absolute inset-0 bg-background/40" />
           <div className="relative z-10">
             <div className="max-w-4xl mx-auto text-center px-6 sm:px-8 lg:px-12">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full mb-6 bg-app-success/10 border border-app-success/30">
-              <span className="text-sm font-medium text-app-success">#1 AI Teammate</span>
+            <div className="flex flex-wrap items-center justify-center gap-3 mb-6">
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-app-success/10 border border-app-success/30">
+                <span className="text-sm font-medium text-app-success">#1 AI Teammate</span>
+              </div>
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-app-info/10 border border-app-info/30">
+                <span className="text-sm font-medium text-app-info">🌐 10 Languages Supported</span>
+              </div>
             </div>
             
             <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold mb-8 leading-[1.1] tracking-[-0.02em] px-4">
@@ -362,8 +371,11 @@ export default function LandingPage() {
             <h2 className="text-3xl sm:text-4xl font-bold mb-4 text-foreground">
               Works Where You Work
             </h2>
-            <p className="text-lg text-muted-foreground max-w-2xl mx-auto mb-12">
+            <p className="text-lg text-muted-foreground max-w-2xl mx-auto mb-8">
               No downloads, no plugins. liveprompt.ai integrates seamlessly with your existing meeting platforms for instant AI assistance.
+            </p>
+            <p className="text-base text-app-info font-medium mb-12">
+              ✨ Transcribes in 10 languages on every platform
             </p>
             
             {/* Logos Grid */}
@@ -442,6 +454,135 @@ export default function LandingPage() {
             >
               More platforms coming soon • Works with any browser-based meeting
             </motion.p>
+          </motion.div>
+        </section>
+
+        {/* Multilingual Support Section */}
+        <section className="py-20 px-4 sm:px-6 lg:px-8 relative overflow-hidden">
+          {/* Background gradients */}
+          <div className="absolute inset-0 bg-gradient-to-br from-app-info/5 via-background to-app-success/5" />
+          <div className="absolute top-0 left-1/4 w-96 h-96 bg-gradient-to-br from-app-info/10 to-transparent rounded-full blur-3xl opacity-50" />
+          <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-gradient-to-tl from-app-success/10 to-transparent rounded-full blur-3xl opacity-50" />
+          <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-gradient-to-r from-app-info/5 via-app-success/5 to-app-info/5 rounded-full blur-3xl opacity-30" />
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8 }}
+            viewport={{ once: true }}
+            className="max-w-7xl mx-auto relative z-10"
+          >
+            {/* Main Heading */}
+            <div className="text-center mb-12">
+              <h2 className="text-3xl sm:text-4xl font-bold mb-4 text-foreground">
+                Speak Your Language, We'll Understand
+              </h2>
+              <p className="text-lg text-muted-foreground max-w-3xl mx-auto">
+                Real-time transcription in 10 major languages. Break language barriers in global meetings with instant, accurate transcription that keeps up with your conversation.
+              </p>
+            </div>
+            
+            {/* Language Grid */}
+            <div className="max-w-5xl mx-auto mb-12">
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4">
+                {[
+                  { lang: 'English', flag: '🇺🇸', code: 'EN' },
+                  { lang: 'Spanish', flag: '🇪🇸', code: 'ES' },
+                  { lang: 'French', flag: '🇫🇷', code: 'FR' },
+                  { lang: 'German', flag: '🇩🇪', code: 'DE' },
+                  { lang: 'Hindi', flag: '🇮🇳', code: 'HI' },
+                  { lang: 'Russian', flag: '🇷🇺', code: 'RU' },
+                  { lang: 'Portuguese', flag: '🇧🇷', code: 'PT' },
+                  { lang: 'Japanese', flag: '🇯🇵', code: 'JA' },
+                  { lang: 'Italian', flag: '🇮🇹', code: 'IT' },
+                  { lang: 'Dutch', flag: '🇳🇱', code: 'NL' },
+                ].map((language, index) => (
+                  <motion.div
+                    key={language.code}
+                    initial={{ opacity: 0, scale: 0.9 }}
+                    whileInView={{ opacity: 1, scale: 1 }}
+                    transition={{ duration: 0.4, delay: index * 0.05 }}
+                    viewport={{ once: true }}
+                    className="bg-card border border-border rounded-xl p-4 text-center hover:shadow-lg hover:border-app-info/50 transition-all duration-300"
+                  >
+                    <div className="text-3xl mb-2">{language.flag}</div>
+                    <p className="font-semibold text-foreground">{language.lang}</p>
+                    <p className="text-xs text-muted-foreground">{language.code}</p>
+                  </motion.div>
+                ))}
+              </div>
+            </div>
+            
+            {/* Key Benefits */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-4xl mx-auto">
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.6 }}
+                viewport={{ once: true }}
+                className="text-center"
+              >
+                <div className="w-12 h-12 mx-auto mb-3 rounded-full bg-app-success/10 flex items-center justify-center">
+                  <span className="text-2xl">🔄</span>
+                </div>
+                <h3 className="font-semibold mb-2 text-foreground">Switch Languages Mid-Conversation</h3>
+                <p className="text-sm text-muted-foreground">
+                  Seamlessly handle multilingual meetings. Our AI adapts instantly when speakers switch languages.
+                </p>
+              </motion.div>
+              
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.6, delay: 0.1 }}
+                viewport={{ once: true }}
+                className="text-center"
+              >
+                <div className="w-12 h-12 mx-auto mb-3 rounded-full bg-app-info/10 flex items-center justify-center">
+                  <span className="text-2xl">🎯</span>
+                </div>
+                <h3 className="font-semibold mb-2 text-foreground">95% Accuracy Across All Languages</h3>
+                <p className="text-sm text-muted-foreground">
+                  Industry-leading accuracy with advanced AI models that understand context and nuance in every language.
+                </p>
+              </motion.div>
+              
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.6, delay: 0.2 }}
+                viewport={{ once: true }}
+                className="text-center"
+              >
+                <div className="w-12 h-12 mx-auto mb-3 rounded-full bg-app-success-light/10 flex items-center justify-center">
+                  <span className="text-2xl">🌍</span>
+                </div>
+                <h3 className="font-semibold mb-2 text-foreground">Perfect for Global Teams</h3>
+                <p className="text-sm text-muted-foreground">
+                  Empower international sales, support multilingual customers, and unite distributed teams.
+                </p>
+              </motion.div>
+            </div>
+            
+            {/* Call to Action */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6, delay: 0.3 }}
+              viewport={{ once: true }}
+              className="text-center mt-12"
+            >
+              <p className="text-lg mb-6 text-muted-foreground">
+                Join global companies breaking down language barriers with AI
+              </p>
+              <Button
+                onClick={() => setShowScheduleModal(true)}
+                size="lg"
+                className="text-base px-8 py-4 bg-app-info hover:bg-app-info-light text-white font-semibold rounded-xl shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-all duration-200"
+              >
+                Try Multilingual Transcription
+                <ArrowRight className="ml-2 w-4 h-4" />
+              </Button>
+            </motion.div>
           </motion.div>
         </section>
 
@@ -553,7 +694,7 @@ export default function LandingPage() {
                 <div className="absolute -top-20 -left-20 w-64 h-64 bg-gradient-to-br from-app-success/30 to-app-info/30 rounded-full blur-3xl opacity-20" />
               </motion.div>
 
-              {/* Live transcription you can trust */}
+              {/* Multilingual transcription you can trust */}
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 whileInView={{ opacity: 1, y: 0 }}
@@ -563,10 +704,10 @@ export default function LandingPage() {
               >
                 <div className="relative z-10">
                   <h2 className="text-2xl font-bold mb-4 text-foreground">
-                    Live transcription you can trust
+                    Multilingual transcription you can trust
                   </h2>
                   <p className="text-muted-foreground mb-6">
-                    Users report up to 95% accuracy so the detail oriented never miss a detail.
+                    95% accuracy in 10 languages - English, Spanish, French, German, Hindi, Russian, Portuguese, Japanese, Italian, and Dutch. Switch languages naturally, we'll keep up.
                   </p>
                   
                   {/* Live transcription interface - video or image */}

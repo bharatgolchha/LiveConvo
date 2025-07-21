@@ -136,6 +136,7 @@ const SeoJsonLd: React.FC = () => {
           }
         ],
         featureList: [
+          'Multilingual real-time transcription (10 languages)',
           'Real-time AI conversation coaching',
           'Live transcription with speaker identification',
           'Automated meeting summaries and action items',
@@ -151,7 +152,9 @@ const SeoJsonLd: React.FC = () => {
           '<2 second response time',
           'Meeting bot for automatic recording',
           'Export to PDF/Word/Email',
-          'Team analytics dashboard'
+          'Team analytics dashboard',
+          'Language switching mid-conversation',
+          'Supports: English, Spanish, French, German, Hindi, Russian, Portuguese, Japanese, Italian, Dutch'
         ],
         screenshot: [
           {
