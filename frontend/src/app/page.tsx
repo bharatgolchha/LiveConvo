@@ -119,7 +119,7 @@ export default function LandingPage() {
     },
     {
       question: 'What if I need help or have technical issues?',
-      answer: 'Pro and Max users get priority support. We offer email support for all users, with typical response times under 24 hours. Our help center includes guides for common issues, and you can always reach us at hello@liveprompt.ai.'
+      answer: 'Pro and Max users get priority support through our in-app messenger (look for the question mark icon in your dashboard header) for instant help. We also offer email support for all users, with typical response times under 24 hours. Our help center includes guides for common issues, and you can always reach us at hello@liveprompt.ai.'
     }
   ];
 
@@ -1270,7 +1270,7 @@ export default function LandingPage() {
               </p>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12 max-w-4xl mx-auto">
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 whileInView={{ opacity: 1, y: 0 }}
@@ -1299,19 +1299,6 @@ export default function LandingPage() {
                 <p className="text-sm text-muted-foreground">Your data is always protected</p>
               </motion.div>
 
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.6, delay: 0.2 }}
-                viewport={{ once: true }}
-                className="text-center"
-              >
-                <div className="w-16 h-16 mx-auto mb-4 rounded-full flex items-center justify-center bg-app-success/10">
-                  <Clock className="w-8 h-8 text-app-success" />
-                </div>
-                <h3 className="font-semibold mb-2 text-foreground">Zero Data Retention</h3>
-                <p className="text-sm text-muted-foreground">Deleted after each session</p>
-              </motion.div>
 
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
