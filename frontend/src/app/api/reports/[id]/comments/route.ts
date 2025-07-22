@@ -232,7 +232,7 @@ export async function PATCH(
     const { content, isResolved } = body;
 
     // Build update object
-    const updates: any = {
+    const updates: Record<string, unknown> = {
       updated_at: new Date().toISOString(),
       is_edited: true
     };

@@ -37,7 +37,7 @@ export async function GET(request: NextRequest) {
       overLimit: 0,
       graceStarted: 0,
       stopped: 0,
-      errors: [] as any[]
+      errors: [] as { botId: string; error: string; details?: string }[]
     };
 
     const sessionManager = new RecallSessionManager();
@@ -105,8 +105,7 @@ export async function GET(request: NextRequest) {
             } catch (stopError) {
               console.error(`Failed to stop bot ${bot.bot_id}:`, stopError);
               results.errors.push({
-                bot_id: bot.bot_id,
-                session_id: bot.session_id,
+                botId: bot.bot_id,
                 error: 'Failed to stop bot',
                 details: stopError instanceof Error ? stopError.message : 'Unknown error'
               });
@@ -116,8 +115,7 @@ export async function GET(request: NextRequest) {
       } catch (botError) {
         console.error(`Error processing bot ${bot.bot_id}:`, botError);
         results.errors.push({
-          bot_id: bot.bot_id,
-          session_id: bot.session_id,
+          botId: bot.bot_id,
           error: 'Failed to process bot',
           details: botError instanceof Error ? botError.message : 'Unknown error'
         });

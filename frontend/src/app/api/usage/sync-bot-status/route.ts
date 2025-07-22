@@ -155,7 +155,7 @@ export async function POST(request: NextRequest) {
           
           // Calculate from Recall.ai data if local data is missing
           if (botData.status_changes?.length > 0) {
-            const joinTime = botData.status_changes.find((s: any) => 
+            const joinTime = botData.status_changes.find((s: { code: string; created_at: string }) => 
               s.code === 'joining_call' || s.code === 'in_call_recording'
             )?.created_at;
             

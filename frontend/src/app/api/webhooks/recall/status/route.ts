@@ -184,13 +184,13 @@ export async function POST(request: NextRequest) {
           .eq('calendar_connection_id', connection.id);
 
         if (recallEvents.results && recallEvents.results.length > 0) {
-          const activeEvents = recallEvents.results.filter((e: any) => !e.is_deleted);
+          const activeEvents = recallEvents.results.filter((e: { is_deleted?: boolean }) => !e.is_deleted);
           
           // Filter out events older than 60 days
           const sixtyDaysAgo = new Date();
           sixtyDaysAgo.setDate(sixtyDaysAgo.getDate() - 60);
           
-          const validEvents = activeEvents.filter((event: any) => {
+          const validEvents = activeEvents.filter((event: { start_time: string; raw?: { summary?: string; title?: string } }) => {
             const eventDate = new Date(event.start_time);
             if (eventDate < sixtyDaysAgo) {
               console.warn(`Filtering out stale event in webhook: ${event.raw?.summary || event.raw?.title || 'Untitled'} from ${event.start_time}`);
@@ -201,7 +201,7 @@ export async function POST(request: NextRequest) {
           
           console.log(`Webhook: Filtered ${activeEvents.length} active events to ${validEvents.length} valid events`);
           
-          const eventsToInsert = validEvents.map((event: any) => ({
+          const eventsToInsert = validEvents.map((event: Record<string, unknown>) => ({
             calendar_connection_id: connection.id,
             external_event_id: event.id,
             title: event.raw?.summary || event.raw?.title || 'Untitled Event',
@@ -442,8 +442,8 @@ async function handleBotJoining(
   botId: string,
   sessionId: string | undefined,
   timestamp: string,
-  session: any,
-  supabase: any
+  session: { user_id: string; organization_id: string },
+  supabase: ReturnType<typeof createServerSupabaseClient>
 ) {
   // Ensure bot usage tracking exists
   if (sessionId && session) {
@@ -474,7 +474,7 @@ async function updateBotStatus(
   botId: string,
   status: string,
   timestamp: string,
-  supabase: any
+  supabase: ReturnType<typeof createServerSupabaseClient>
 ) {
   await supabase
     .from('bot_usage_tracking')
@@ -491,8 +491,8 @@ async function handleRecordingStarted(
   botId: string,
   sessionId: string | undefined,
   timestamp: string,
-  session: any,
-  supabase: any
+  session: { user_id: string; organization_id: string },
+  supabase: ReturnType<typeof createServerSupabaseClient>
 ) {
   await supabase
     .from('bot_usage_tracking')
@@ -521,7 +521,7 @@ async function handlePermissionDenied(
   sessionId: string | undefined,
   timestamp: string,
   subCode: string | null,
-  supabase: any
+  supabase: ReturnType<typeof createServerSupabaseClient>
 ) {
   await updateBotStatus(botId, 'permission_denied', timestamp, supabase);
   
@@ -543,8 +543,8 @@ async function handleBotCompleted(
   botId: string,
   sessionId: string | undefined,
   timestamp: string,
-  session: any,
-  supabase: any
+  session: { user_id: string; organization_id: string },
+  supabase: ReturnType<typeof createServerSupabaseClient>
 ) {
   console.log(`🏁 Processing bot completion: ${botId}`);
   
@@ -694,8 +694,8 @@ async function handleBotFailed(
   sessionId: string | undefined,
   timestamp: string,
   subCode: string | null,
-  session: any,
-  supabase: any
+  session: { user_id: string; organization_id: string },
+  supabase: ReturnType<typeof createServerSupabaseClient>
 ) {
   await updateBotStatus(botId, 'failed', timestamp, supabase);
   
@@ -722,7 +722,7 @@ async function createUsageTrackingEntries(
   sessionId: string,
   startedAt: string,
   durationSeconds: number,
-  supabase: any
+  supabase: ReturnType<typeof createServerSupabaseClient>
 ) {
   const entries = [];
   let remainingSeconds = durationSeconds;

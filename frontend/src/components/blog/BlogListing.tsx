@@ -224,7 +224,6 @@ export default function BlogListing({ posts, categories, tags }: BlogListingProp
                   <article
                     key={post.slug}
                     className="bg-card rounded-lg shadow-md hover:shadow-lg transition-shadow p-6 border border-border">
-                  >
                     <div className="flex items-start justify-between">
                       <div className="flex-1">
                         <div className="flex items-center gap-4 mb-3">
@@ -316,7 +315,6 @@ export default function BlogListing({ posts, categories, tags }: BlogListingProp
                       setSearchQuery('')
                     }}
                     className="text-primary hover:text-primary/80 font-medium">
-                  >
                     Clear all filters
                   </button>
                 </div>

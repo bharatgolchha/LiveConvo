@@ -16,7 +16,7 @@ export class WebhookRetryService {
    */
   static async queueWebhook(
     url: string,
-    payload: any,
+    payload: Record<string, unknown>,
     webhookType: string,
     eventType: string,
     options: WebhookRetryOptions = {}
@@ -76,7 +76,17 @@ export class WebhookRetryService {
   /**
    * Process a single webhook
    */
-  private static async processWebhook(webhook: any) {
+  private static async processWebhook(webhook: {
+    id: string;
+    url: string;
+    payload: Record<string, unknown>;
+    webhook_type: string;
+    event_type: string;
+    retry_count: number;
+    max_retries: number;
+    status: string;
+    [key: string]: unknown;
+  }) {
     const supabase = createServerSupabaseClient();
     
     // Mark as processing
@@ -128,7 +138,16 @@ export class WebhookRetryService {
   /**
    * Handle webhook failure
    */
-  private static async handleWebhookFailure(webhook: any, errorMessage: string) {
+  private static async handleWebhookFailure(webhook: {
+    id: string;
+    url: string;
+    payload: Record<string, unknown>;
+    webhook_type: string;
+    event_type: string;
+    retry_count: number;
+    max_retries: number;
+    [key: string]: unknown;
+  }, errorMessage: string) {
     const supabase = createServerSupabaseClient();
     
     const newRetryCount = webhook.retry_count + 1;
@@ -164,7 +183,15 @@ export class WebhookRetryService {
   /**
    * Move failed webhook to dead letter queue
    */
-  private static async moveToDeadLetterQueue(webhook: any, lastError: string) {
+  private static async moveToDeadLetterQueue(webhook: {
+    id: string;
+    url: string;
+    payload: Record<string, unknown>;
+    webhook_type: string;
+    event_type: string;
+    retry_count: number;
+    [key: string]: unknown;
+  }, lastError: string) {
     const supabase = createServerSupabaseClient();
     
     // Create DLQ entry

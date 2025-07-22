@@ -31,7 +31,7 @@ export async function getNotionDatabases(notionToken: string): Promise<NotionDat
       }
     });
     
-    return response.results.map((db: any) => ({
+    return response.results.map((db: { id: string; title?: Array<{ plain_text?: string }>; url?: string }) => ({
       id: db.id,
       title: db.title?.[0]?.plain_text || 'Untitled Database',
       url: db.url
@@ -52,7 +52,7 @@ export async function exportSummaryToNotion(options: NotionExportOptions): Promi
     const notion = new Client({ auth: notionToken });
     
     // Build page content
-    const children: any[] = [
+    const children: Array<{ object: string; type: string; [key: string]: unknown }> = [
       {
         object: 'block',
         type: 'heading_1',

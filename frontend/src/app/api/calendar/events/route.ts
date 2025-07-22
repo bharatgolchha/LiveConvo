@@ -2,8 +2,44 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createServerSupabaseClient } from '@/lib/supabase';
 import { UpcomingMeeting } from '@/types/calendar';
 
+// Type definitions
+interface RawEventData {
+  summary?: string;
+  title?: string;
+  description?: string;
+  location?: string;
+  hangoutLink?: string;
+  attendees?: Array<{
+    email?: string;
+    displayName?: string;
+    name?: string;
+    responseStatus?: string;
+    response_status?: string;
+    organizer?: boolean;
+  }>;
+  organizer?: {
+    email?: string;
+  };
+  conferenceData?: {
+    entryPoints?: Array<{
+      entryPointType?: string;
+      uri?: string;
+    }>;
+  };
+}
+
+interface RecallEvent {
+  id?: string;
+  platform_id?: string;
+  start_time?: string;
+  end_time?: string;
+  meeting_url?: string;
+  is_deleted?: boolean;
+  raw?: string | RawEventData;
+}
+
 // Simple in-memory cache for calendar events
-const eventsCache = new Map<string, { data: any; timestamp: number }>();
+const eventsCache = new Map<string, { data: unknown; timestamp: number }>();
 const CACHE_DURATION = 30 * 1000; // 30 seconds
 
 export async function GET(request: NextRequest) {
@@ -67,7 +103,7 @@ export async function GET(request: NextRequest) {
     const autoJoinEnabled = calendarPrefs?.auto_join_enabled || false;
 
     // Transform the data to match our TypeScript types
-    const upcomingMeetings: UpcomingMeeting[] = (meetings || []).map((meeting: any) => ({
+    const upcomingMeetings: UpcomingMeeting[] = (meetings || []).map((meeting: Record<string, unknown>) => ({
       event_id: meeting.event_id,
       title: meeting.title,
       description: meeting.description,
@@ -196,13 +232,20 @@ export async function POST(request: NextRequest) {
       next: recallEvents.next,
       previous: recallEvents.previous,
       resultsCount: recallEvents.results?.length || 0,
-      events: recallEvents.results?.map((event: any) => ({
-        id: event.id,
-        title: event.raw?.summary || event.raw?.title || 'Unknown',
-        start_time: event.start_time,
-        platform_id: event.platform_id,
-        is_deleted: event.is_deleted || false
-      }))
+      events: recallEvents.results?.map((event: RecallEvent) => {
+        let title = 'Unknown';
+        if (event.raw) {
+          const rawData = typeof event.raw === 'string' ? JSON.parse(event.raw) as RawEventData : event.raw;
+          title = rawData.summary || rawData.title || 'Unknown';
+        }
+        return {
+          id: event.id,
+          title,
+          start_time: event.start_time,
+          platform_id: event.platform_id,
+          is_deleted: event.is_deleted || false
+        };
+      })
     });
 
     // Update last_synced_at
@@ -221,7 +264,7 @@ export async function POST(request: NextRequest) {
 
     // Always clear existing events for this connection first
     // This ensures deleted events are removed
-    const { error: deleteError, count: deletedCount } = await supabase
+    const { count: deletedCount } = await supabase
       .from('calendar_events')
       .delete()
       .eq('calendar_connection_id', connectionId);
@@ -231,7 +274,7 @@ export async function POST(request: NextRequest) {
     // Process and store events in calendar_events table
     if (recallEvents.results && recallEvents.results.length > 0) {
       // Filter out deleted events - Recall.ai marks deleted events with is_deleted flag
-      const activeEvents = recallEvents.results.filter((event: any) => !event.is_deleted);
+      const activeEvents = recallEvents.results.filter((event: RecallEvent) => !event.is_deleted);
       
       console.log(`Filtered events: ${recallEvents.results.length} total, ${activeEvents.length} active (${recallEvents.results.length - activeEvents.length} deleted)`);
       
@@ -239,10 +282,16 @@ export async function POST(request: NextRequest) {
       const sixtyDaysAgo = new Date();
       sixtyDaysAgo.setDate(sixtyDaysAgo.getDate() - 60);
       
-      const validEvents = activeEvents.filter((event: any) => {
+      const validEvents = activeEvents.filter((event: RecallEvent) => {
+        if (!event.start_time) return false;
         const eventDate = new Date(event.start_time);
         if (eventDate < sixtyDaysAgo) {
-          console.warn(`Filtering out stale event: ${event.raw?.summary || event.raw?.title || 'Untitled'} from ${event.start_time}`);
+          let title = 'Untitled';
+          if (event.raw) {
+            const rawData = typeof event.raw === 'string' ? JSON.parse(event.raw) as RawEventData : event.raw;
+            title = rawData.summary || rawData.title || 'Untitled';
+          }
+          console.warn(`Filtering out stale event: ${title} from ${event.start_time}`);
           return false;
         }
         return true;
@@ -251,28 +300,28 @@ export async function POST(request: NextRequest) {
       console.log(`After date filtering: ${validEvents.length} valid events (filtered ${activeEvents.length - validEvents.length} stale events)`);
       
       // Insert new events
-      const eventsToInsert = validEvents.map((event: any) => {
+      const eventsToInsert = validEvents.map((event: RecallEvent) => {
         // Parse the raw field to get the actual event details
         let title = 'Untitled Event';
         let description: string | null = null;
-        let attendees: any[] = [];
+        let attendees: Array<Record<string, unknown>> = [];
         let location: string | null = null;
         let organizer_email = connection.email;
 
         // Hold parsed raw event for reuse
-        let rawData: any = null;
+        let rawData: RawEventData | null = null;
         
         // The raw field contains the platform-specific data
         if (event.raw) {
           try {
-            rawData = typeof event.raw === 'string' ? JSON.parse(event.raw) : event.raw;
+            rawData = typeof event.raw === 'string' ? JSON.parse(event.raw) as RawEventData : event.raw;
             title = rawData.summary || rawData.title || event.platform_id || 'Untitled Event';
             description = rawData.description || null;
             location = rawData.location || null;
             
             // Extract attendees from raw data
             if (rawData.attendees && Array.isArray(rawData.attendees)) {
-              attendees = rawData.attendees.map((att: any) => ({
+              attendees = rawData.attendees.map((att) => ({
                 email: att.email,
                 name: att.displayName || att.name || null,
                 response_status: att.responseStatus || att.response_status || 'accepted',
@@ -298,7 +347,7 @@ export async function POST(request: NextRequest) {
 
           // conferenceData.entryPoints -> pick the *video* URL if present
           if (!meetingUrl && rawData.conferenceData?.entryPoints) {
-            const videoEntry = rawData.conferenceData.entryPoints.find((ep: any) => ep.entryPointType === 'video');
+            const videoEntry = rawData.conferenceData.entryPoints.find((ep) => ep.entryPointType === 'video');
             if (videoEntry?.uri) {
               meetingUrl = videoEntry.uri;
             }

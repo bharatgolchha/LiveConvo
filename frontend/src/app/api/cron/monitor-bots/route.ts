@@ -2,6 +2,13 @@ import { createServerSupabaseClient } from '@/lib/supabase';
 import { NextRequest, NextResponse } from 'next/server';
 import { RecallAIClient } from '@/lib/recall-ai/client';
 
+interface SessionData {
+  recall_bot_id: string;
+  title: string;
+  user_id: string;
+  organization_id?: string;
+}
+
 /**
  * Real-time bot monitoring service
  * Runs every 30 seconds to check for stuck bots and fix them immediately
@@ -66,7 +73,7 @@ export async function GET(request: NextRequest) {
       checked: 0,
       updated: 0,
       errors: 0,
-      details: [] as any[]
+      details: [] as { botId: string; status: string; updated?: boolean; error?: string }[]
     };
 
     // Check each active bot
@@ -76,7 +83,13 @@ export async function GET(request: NextRequest) {
       try {
         // Get bot status from Recall.ai
         const recallBot = await recallClient.getBot(botRecord.bot_id);
-        const botData = recallBot as any;
+        const botData = recallBot as unknown as { 
+          status?: { code?: string; sub_code?: string; message?: string }; 
+          id?: string; 
+          meeting_ended_at?: string;
+          completed_at?: string;
+          status_changes?: Array<{ code: string }>;
+        };
         
         // Determine current status from Recall.ai
         let recallStatus = 'unknown';
@@ -123,7 +136,7 @@ export async function GET(request: NextRequest) {
               .eq('bot_id', botRecord.bot_id);
             
             // Update session
-            const session = botRecord.sessions as any;
+            const session = botRecord.sessions as unknown as SessionData;
             await supabase
               .from('sessions')
               .update({
@@ -190,7 +203,7 @@ export async function GET(request: NextRequest) {
               })
               .eq('bot_id', botRecord.bot_id);
             
-            const session = botRecord.sessions as any;
+            const session = botRecord.sessions as SessionData;
             await supabase
               .from('sessions')
               .update({

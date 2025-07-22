@@ -186,7 +186,7 @@ export async function GET(request: NextRequest) {
           .lt('created_at', periodEnd.toISOString());
 
         if (!subUsageErr) {
-          const subMinutes = subUsageData?.reduce((sum: number, r: any) => sum + (r.billable_minutes || 0), 0) || 0;
+          const subMinutes = subUsageData?.reduce((sum: number, r: { billable_minutes?: number }) => sum + (r.billable_minutes || 0), 0) || 0;
           console.log('🔄 Re-computed minutes since subscription start:', { subMinutes });
           // Update minutesUsed/remaining only if differs
           if (subMinutes !== minutesUsed) {

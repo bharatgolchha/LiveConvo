@@ -91,7 +91,7 @@ async function handleAutoJoin(request: NextRequest) {
       processed: 0,
       sessions_created: 0,
       bots_deployed: 0,
-      errors: [] as any[]
+      errors: [] as Record<string, unknown>[]
     };
 
     for (const prefs of eligibleUsers) {
@@ -320,13 +320,13 @@ async function handleAutoJoin(request: NextRequest) {
               p_action_url: `/dashboard/session/${session.id}`
             });
 
-          } catch (botError: any) {
+          } catch (botError) {
             console.error(`Error deploying bot for meeting ${meeting.id}:`, botError);
             results.errors.push({
               meeting_id: meeting.id,
               session_id: session.id,
               error: 'Failed to deploy bot',
-              details: botError.message
+              details: botError instanceof Error ? botError.message : 'Unknown error'
             });
 
             await supabase
@@ -341,7 +341,7 @@ async function handleAutoJoin(request: NextRequest) {
               p_bot_id: null,
               p_action: 'bot_deployed',
               p_status: 'failure',
-              p_error_message: botError.message
+              p_error_message: botError instanceof Error ? botError.message : 'Unknown error'
             });
 
             await supabase.rpc('create_meeting_notification', {
@@ -355,12 +355,12 @@ async function handleAutoJoin(request: NextRequest) {
             });
           }
         }
-      } catch (userError: any) {
+      } catch (userError) {
         console.error(`Error processing user ${prefs.user_id}:`, userError);
         results.errors.push({
           user_id: prefs.user_id,
           error: 'Failed to process user',
-          details: userError.message
+          details: userError instanceof Error ? userError.message : 'Unknown error'
         });
       }
     }
@@ -371,11 +371,11 @@ async function handleAutoJoin(request: NextRequest) {
       results
     });
 
-  } catch (error: any) {
+  } catch (error) {
     console.error('Auto-join worker error:', error);
     return NextResponse.json({ 
       error: 'Internal server error',
-      details: error.message 
+      details: error instanceof Error ? error.message : 'Unknown error' 
     }, { status: 500 });
   }
 }

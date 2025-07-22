@@ -88,7 +88,7 @@ export const CalendarPermissionModal: React.FC<CalendarPermissionModalProps> = (
                 <div className="flex gap-3">
                   <AlertCircle className="h-5 w-5 text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" />
                   <p className="text-sm text-blue-800 dark:text-blue-200">
-                    <span className="font-medium">Remember:</span> Enable "Auto-join meetings" after connecting
+                    <span className="font-medium">Remember:</span> Enable &quot;Auto-join meetings&quot; after connecting
                   </p>
                 </div>
               </div>

@@ -48,14 +48,14 @@ export async function GET(request: NextRequest) {
     // Initialize Recall client
     const recallClient = new RecallAIClient({
       apiKey: process.env.RECALL_API_KEY!,
-      region: (process.env.RECALL_REGION as any) || 'us-west-2',
+      region: (process.env.RECALL_REGION || 'us-west-2') as 'us-west-2' | 'us-east-1' | 'eu-west-1',
     });
 
     const results = {
       processed: 0,
       updated: 0,
       failed: 0,
-      errors: [] as any[]
+      errors: [] as { sessionId: string; error: string }[]
     };
 
     // Process each session
@@ -190,7 +190,7 @@ export async function POST(request: NextRequest) {
     // Initialize Recall client
     const recallClient = new RecallAIClient({
       apiKey: process.env.RECALL_API_KEY!,
-      region: (process.env.RECALL_REGION as any) || 'us-west-2',
+      region: (process.env.RECALL_REGION || 'us-west-2') as 'us-west-2' | 'us-east-1' | 'eu-west-1',
     });
 
     // Get bot with recordings

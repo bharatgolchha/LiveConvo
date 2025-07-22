@@ -6,6 +6,7 @@ import { serialize } from 'next-mdx-remote/serialize'
 import { useEffect, useState } from 'react'
 import { BlogPostMeta, BlogPost } from '@/types/blog'
 import { Calendar, Clock, ChevronLeft, Tag, Share2, Twitter, Linkedin, Copy } from 'lucide-react'
+import { HTMLAttributes, DetailedHTMLProps } from 'react'
 import { Header } from '@/components/layout/Header'
 import { Footer } from '@/components/layout/Footer'
 import { BlogJsonLd } from '@/components/blog/BlogJsonLd'
@@ -19,32 +20,41 @@ interface BlogPostContentProps {
   relatedPosts: BlogPost[]
 }
 
+type HeadingProps = DetailedHTMLProps<HTMLAttributes<HTMLHeadingElement>, HTMLHeadingElement>;
+type ParagraphProps = DetailedHTMLProps<HTMLAttributes<HTMLParagraphElement>, HTMLParagraphElement>;
+type ListProps = DetailedHTMLProps<HTMLAttributes<HTMLUListElement>, HTMLUListElement>;
+type ListItemProps = DetailedHTMLProps<HTMLAttributes<HTMLLIElement>, HTMLLIElement>;
+type BlockquoteProps = DetailedHTMLProps<HTMLAttributes<HTMLQuoteElement>, HTMLQuoteElement>;
+type CodeProps = DetailedHTMLProps<HTMLAttributes<HTMLElement>, HTMLElement> & { inline?: boolean };
+type PreProps = DetailedHTMLProps<HTMLAttributes<HTMLPreElement>, HTMLPreElement>;
+type AnchorProps = DetailedHTMLProps<HTMLAttributes<HTMLAnchorElement>, HTMLAnchorElement>;
+
 const components = {
-  h1: (props: any) => <h1 className="text-3xl font-bold mt-8 mb-4 text-foreground" {...props} />,
-  h2: (props: any) => <h2 className="text-2xl font-semibold mt-6 mb-3 text-foreground" {...props} />,
-  h3: (props: any) => <h3 className="text-xl font-semibold mt-4 mb-2 text-foreground" {...props} />,
-  p: (props: any) => <p className="mb-4 text-muted-foreground leading-relaxed" {...props} />,
-  ul: (props: any) => <ul className="mb-4 ml-6 list-disc text-muted-foreground" {...props} />,
-  ol: (props: any) => <ol className="mb-4 ml-6 list-decimal text-muted-foreground" {...props} />,
-  li: (props: any) => <li className="mb-2" {...props} />,
-  blockquote: (props: any) => (
+  h1: (props: HeadingProps) => <h1 className="text-3xl font-bold mt-8 mb-4 text-foreground" {...props} />,
+  h2: (props: HeadingProps) => <h2 className="text-2xl font-semibold mt-6 mb-3 text-foreground" {...props} />,
+  h3: (props: HeadingProps) => <h3 className="text-xl font-semibold mt-4 mb-2 text-foreground" {...props} />,
+  p: (props: ParagraphProps) => <p className="mb-4 text-muted-foreground leading-relaxed" {...props} />,
+  ul: (props: ListProps) => <ul className="mb-4 ml-6 list-disc text-muted-foreground" {...props} />,
+  ol: (props: ListProps) => <ol className="mb-4 ml-6 list-decimal text-muted-foreground" {...props} />,
+  li: (props: ListItemProps) => <li className="mb-2" {...props} />,
+  blockquote: (props: BlockquoteProps) => (
     <blockquote className="border-l-4 border-primary pl-4 italic my-4 text-muted-foreground" {...props} />
   ),
-  code: ({ inline, ...props }: any) => 
+  code: ({ inline, ...props }: CodeProps) => 
     inline ? (
       <code className="bg-muted px-1 py-0.5 rounded text-sm font-mono" {...props} />
     ) : (
       <code className="block bg-card border border-border text-foreground p-4 rounded-lg overflow-x-auto font-mono text-sm" {...props} />
     ),
-  pre: (props: any) => <pre className="mb-4" {...props} />,
-  a: (props: any) => (
+  pre: (props: PreProps) => <pre className="mb-4" {...props} />,
+  a: (props: AnchorProps) => (
     <a className="text-primary hover:text-primary/80 underline" target="_blank" rel="noopener noreferrer" {...props} />
   ),
   ROICalculator: ROICalculator,
 }
 
 export default function BlogPostContent({ post, relatedPosts }: BlogPostContentProps) {
-  const [mdxSource, setMdxSource] = useState<any>(null)
+  const [mdxSource, setMdxSource] = useState<{ compiledSource: string; frontmatter?: Record<string, unknown> } | null>(null)
   const [copied, setCopied] = useState(false)
 
   useEffect(() => {

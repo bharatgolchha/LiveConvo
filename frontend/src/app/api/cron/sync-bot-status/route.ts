@@ -27,7 +27,7 @@ export async function GET(request: NextRequest) {
     if (orphanError) {
       console.error('❌ Error running orphan detection:', orphanError);
     } else if (orphanResults && orphanResults.length > 0) {
-      console.log(`🔄 Auto-completed ${orphanResults.filter((r: any) => r.action_taken === 'completed').length} orphaned recordings`);
+      console.log(`🔄 Auto-completed ${orphanResults.filter((r: { action_taken?: string }) => r.action_taken === 'completed').length} orphaned recordings`);
     }
     
     // Find all bot usage records that might be stuck
@@ -61,14 +61,18 @@ export async function GET(request: NextRequest) {
       try {
         // Fetch bot status from Recall.ai
         const recallBot = await recallClient.getBot(bot.bot_id);
-        const botData = recallBot as any;
+        const botData = recallBot as {
+          status?: { code?: string };
+          status_changes?: Array<{ code?: string }>;
+          completed_at?: string;
+        };
 
         // Check if bot is actually done
         const isDone = botData.status?.code === 'done' || 
                       botData.status?.code === 'call_ended' ||
                       botData.status?.code === 'fatal' ||
                       (botData.status_changes && 
-                       botData.status_changes.some((s: any) => 
+                       botData.status_changes.some((s: { code?: string }) => 
                          s.code === 'done' || s.code === 'call_ended' || s.code === 'fatal'
                       ));
 
@@ -207,7 +211,7 @@ export async function GET(request: NextRequest) {
       success: true,
       message: 'Bot status sync completed',
       duration,
-      orphansFixed: orphanResults?.filter((r: any) => r.action_taken === 'completed').length || 0,
+      orphansFixed: orphanResults?.filter((r: { action_taken?: string }) => r.action_taken === 'completed').length || 0,
       botsChecked: stuckBots.length,
       botsUpdated: updatedCount,
       webhookHealth: webhookHealth?.slice(0, 5) || [],

@@ -79,7 +79,14 @@ export async function POST(request: NextRequest) {
     // Generate embedding for the query
     const queryEmbedding = await generateQueryEmbedding(searchRequest.query);
 
-    let results: any[] = [];
+    interface SearchResult {
+      id: string;
+      type: 'session' | 'summary';
+      score: number;
+      [key: string]: unknown;
+    }
+    
+    let results: SearchResult[] = [];
     let searchType = searchRequest.type;
 
     if (searchRequest.type === 'sessions' || searchRequest.type === 'hybrid') {
@@ -104,11 +111,11 @@ export async function POST(request: NextRequest) {
           }, { status: 503 });
         }
       } else {
-        results.push(...(sessionResults || []).map((result: any) => ({
+        results.push(...(sessionResults || []).map((result: Record<string, unknown>) => ({
           ...result,
-          type: 'session',
-          score: result.combined_score || result.similarity
-        })));
+          type: 'session' as const,
+          score: (result.combined_score as number) || (result.similarity as number)
+        } as SearchResult)));
       }
     }
 
@@ -130,11 +137,11 @@ export async function POST(request: NextRequest) {
           // Don't return error here, just skip summary search
         }
       } else {
-        results.push(...(summaryResults || []).map((result: any) => ({
+        results.push(...(summaryResults || []).map((result: Record<string, unknown>) => ({
           ...result,
-          type: 'summary',
-          score: result.similarity
-        })));
+          type: 'summary' as const,
+          score: result.similarity as number
+        } as SearchResult)));
       }
     }
 

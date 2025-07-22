@@ -190,7 +190,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Get the free plan (create if missing)
-    let freePlan: any = null;
+    let freePlan: Record<string, unknown> | null = null;
     const { data: fetchedPlan, error: planError } = await serviceClient
       .from('plans')
       .select('*')
@@ -270,7 +270,7 @@ export async function POST(request: NextRequest) {
       console.log('🏢 User already owns an organization, using existing one');
       const existingOwnership = existingOwnedOrgs[0];
       // Cast to any due to type inference limitations of joined column
-      organization = existingOwnership.organizations as any;
+      organization = existingOwnership.organizations as unknown as Record<string, unknown>;
       
       // Get the actual membership record
       const { data: existingMembership } = await serviceClient
@@ -351,8 +351,8 @@ export async function POST(request: NextRequest) {
         slug: organizationSlug,
         default_timezone: timezone,
         monthly_audio_hours_limit: freePlan?.monthly_audio_hours_limit ?? null,
-        max_members: freePlan.max_organization_members || 1,
-        max_sessions_per_month: freePlan.max_sessions_per_month,
+        max_members: freePlan?.max_organization_members || 1,
+        max_sessions_per_month: freePlan?.max_sessions_per_month || null,
         is_active: true
       });
       
@@ -371,8 +371,8 @@ export async function POST(request: NextRequest) {
             slug: currentSlug,
             default_timezone: timezone,
             monthly_audio_hours_limit: freePlan?.monthly_audio_hours_limit ?? null,
-            max_members: freePlan.max_organization_members || 1,
-            max_sessions_per_month: freePlan.max_sessions_per_month,
+            max_members: freePlan?.max_organization_members || 1,
+            max_sessions_per_month: freePlan?.max_sessions_per_month || null,
             is_active: true
           })
           .select()
@@ -427,7 +427,7 @@ export async function POST(request: NextRequest) {
           role: 'owner',
           status: 'active',
           monthly_audio_hours_limit: freePlan?.monthly_audio_hours_limit ?? null,
-          max_sessions_per_month: freePlan.max_sessions_per_month
+          max_sessions_per_month: freePlan?.max_sessions_per_month || null
         })
         .select()
         .single();
@@ -451,7 +451,7 @@ export async function POST(request: NextRequest) {
 
           if (existingOwnerMembership) {
             membership = existingOwnerMembership;
-            organization = existingOwnerMembership.organizations as any;
+            organization = existingOwnerMembership.organizations as Record<string, unknown>;
             console.log('ℹ️ Fallback to existing organization after ownership constraint violation');
           } else {
             return NextResponse.json(
@@ -492,7 +492,7 @@ export async function POST(request: NextRequest) {
         .insert({
           organization_id: organization.id,
           user_id: user.id,
-          plan_id: freePlan.id,
+          plan_id: freePlan?.id || null,
           plan_type: 'monthly',
           status: 'active',
           current_period_start: new Date().toISOString(),

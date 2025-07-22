@@ -75,7 +75,12 @@ export async function GET(
           ?.filter(c => c.user_id && !c.is_guest)
           .map(c => c.user_id) || [];
         
-        let users: any[] = [];
+        interface UserData {
+          id: string;
+          full_name?: string;
+          email?: string;
+        }
+        let users: UserData[] = [];
         if (userIds.length > 0) {
           const { data: userData } = await supabase
             .from('users')
@@ -226,7 +231,7 @@ export async function POST(
     }
 
     // Create the comment
-    const commentData: any = {
+    const commentData: Record<string, unknown> = {
       session_id: shareRecord.session_id,
       content: content.trim(),
       section_id: sectionId || section || null,

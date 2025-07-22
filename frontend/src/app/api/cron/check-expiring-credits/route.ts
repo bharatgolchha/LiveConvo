@@ -53,13 +53,13 @@ export async function GET(request: NextRequest) {
         acc[credit.user_id].earliestExpiry = credit.expires_at;
       }
       return acc;
-    }, {} as Record<string, any>);
+    }, {} as Record<string, { email: string; totalAmount: number; earliestExpiry: string; credits: typeof expiringCredits }>);
 
     // Send warning emails
     const emailsSent = [];
     for (const [userId, userData] of Object.entries(creditsByUser)) {
       try {
-        const userCredits = userData as { email: string; totalAmount: number; earliestExpiry: string; credits: any[] };
+        const userCredits = userData as { email: string; totalAmount: number; earliestExpiry: string; credits: Array<{ id: string }> };
         // Send email notification
         await sendReferralEmail({
           type: 'credits_expiring',
@@ -69,7 +69,7 @@ export async function GET(request: NextRequest) {
         });
 
         // Mark credits as warned
-        const creditIds = userCredits.credits.map((c: any) => c.id);
+        const creditIds = userCredits.credits.map((c) => c.id);
         await supabase
           .from('user_credits')
           .update({ expiry_warning_sent: true })

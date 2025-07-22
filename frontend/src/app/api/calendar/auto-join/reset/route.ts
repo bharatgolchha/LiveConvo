@@ -36,11 +36,11 @@ export async function POST(request: NextRequest) {
       message: 'Event reset successfully. You can now trigger auto-join again.'
     });
 
-  } catch (error: any) {
+  } catch (error) {
     console.error('Reset error:', error);
     return NextResponse.json({ 
       error: 'Internal server error',
-      details: error.message 
+      details: error instanceof Error ? error.message : 'Unknown error' 
     }, { status: 500 });
   }
 }

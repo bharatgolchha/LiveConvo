@@ -18,7 +18,14 @@ interface SmartNotesTabProps {
   contextText?: string;
   previousConversationIds?: string[];
   transcript?: string;
-  summary?: any; // Pass summary data for better suggestions
+  summary?: {
+    tldr?: string;
+    key_points?: string[];
+    action_items?: string[];
+    decisions?: string[];
+    insights?: string[];
+    [key: string]: unknown;
+  }; // Pass summary data for better suggestions
   participantMe?: string;
   participantThem?: string;
 }

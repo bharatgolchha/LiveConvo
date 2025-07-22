@@ -63,7 +63,7 @@ export const CalendarPreferences: React.FC<CalendarPreferencesProps> = ({
             <div className="flex-1">
               <p className="font-medium">Auto-join meetings</p>
               <p className="text-sm text-muted-foreground">
-                Automatically open meeting links when it's time to join
+                Automatically open meeting links when it&apos;s time to join
               </p>
             </div>
             <Switch

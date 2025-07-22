@@ -123,13 +123,19 @@ ${getCurrentDateContext()}
       
       // Validate and clean the items
       const validItems = checklistItems
-        .filter((item: any) => item.text && item.text.trim().length > 0)
+        .filter((item: unknown) => {
+          const typedItem = item as { text?: string };
+          return typedItem.text && typedItem.text.trim().length > 0;
+        })
         .slice(0, 5) // Max 5 items
-        .map((item: any) => ({
-          text: item.text.trim().substring(0, 100),
-          priority: ['high', 'medium', 'low'].includes(item.priority) ? item.priority : 'medium',
-          type: ['preparation', 'followup', 'research', 'decision', 'action'].includes(item.type) ? item.type : 'action'
-        }))
+        .map((item: unknown) => {
+          const typedItem = item as { text?: string; priority?: string; type?: string };
+          return {
+            text: (typedItem.text || '').trim().substring(0, 100),
+            priority: ['high', 'medium', 'low'].includes(typedItem.priority || '') ? typedItem.priority : 'medium',
+            type: ['preparation', 'followup', 'research', 'decision', 'action'].includes(typedItem.type || '') ? typedItem.type : 'action'
+          };
+        })
 
       return NextResponse.json({ items: validItems })
     } catch (parseError) {

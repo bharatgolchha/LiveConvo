@@ -42,7 +42,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Transform into key-value object
-    const settings = rows?.reduce<Record<string, any>>((acc, row) => {
+    const settings = rows?.reduce<Record<string, unknown>>((acc, row) => {
       acc[row.key] = row.value;
       return acc;
     }, {}) || {};

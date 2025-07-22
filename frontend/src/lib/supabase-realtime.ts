@@ -38,9 +38,9 @@ export function getRealtimeClient() {
 
 // Clean up function for hot module reloading
 if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
-  // @ts-ignore
+  // @ts-expect-error - module.hot is not available in TypeScript types but exists in webpack HMR
   if (module.hot) {
-    // @ts-ignore
+    // @ts-expect-error - module.hot.dispose is a webpack HMR API that's not in TypeScript types
     module.hot.dispose(() => {
       if (realtimeClient) {
         console.log('🧹 Cleaning up real-time client for HMR');

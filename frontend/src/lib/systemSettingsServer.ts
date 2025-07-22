@@ -5,7 +5,7 @@ import { createServerSupabaseClient } from '@/lib/supabase';
  * Uses the service-role Supabase client so RLS is bypassed and
  * no user token is required.
  */
-export async function getSystemSetting<T = any>(key: string): Promise<T | null> {
+export async function getSystemSetting<T = unknown>(key: string): Promise<T | null> {
   const supabase = createServerSupabaseClient();
   const { data, error } = await supabase
     .from('system_settings')

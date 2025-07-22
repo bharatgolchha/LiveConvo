@@ -33,7 +33,14 @@ export default function AdminRecordingsPage() {
   const [sessions, setSessions] = useState<SessionWithRecording[]>([]);
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
-  const [syncResults, setSyncResults] = useState<any>(null);
+  const [syncResults, setSyncResults] = useState<{
+    message: string;
+    results?: {
+      processed: number;
+      updated: number;
+      failed: number;
+    };
+  } | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {

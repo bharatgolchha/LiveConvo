@@ -61,7 +61,7 @@ export async function GET(
     if (calendarParticipants.length > 0) {
       // Use calendar participants if available
       const seen = new Set<string>();
-      const participants = calendarParticipants.flatMap((p: any) => {
+      const participants = calendarParticipants.flatMap((p: string | { name?: string; email?: string }) => {
         // Support two shapes:
         // 1) String ("Jane Doe") coming from sessions.participants JSON array
         // 2) Object from calendar attendee list { name, email, response_status, ... }

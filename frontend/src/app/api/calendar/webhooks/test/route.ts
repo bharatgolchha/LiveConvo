@@ -27,8 +27,10 @@ export async function GET(request: NextRequest) {
     }
     
     // Analyze webhook patterns
-    const webhooksByCalendarId = recentWebhooks?.reduce((acc: any, webhook: any) => {
-      const calendarId = webhook.payload?.data?.calendar_id;
+    const webhooksByCalendarId = recentWebhooks?.reduce((acc: Record<string, unknown>, webhook: Record<string, unknown>) => {
+      const payload = webhook.payload as Record<string, unknown> | undefined;
+      const data = payload?.data as Record<string, unknown> | undefined;
+      const calendarId = data?.calendar_id as string | undefined;
       if (calendarId) {
         if (!acc[calendarId]) {
           acc[calendarId] = {
@@ -37,8 +39,9 @@ export async function GET(request: NextRequest) {
             events: []
           };
         }
-        acc[calendarId].count++;
-        acc[calendarId].events.push({
+        const calendarData = acc[calendarId] as { count: number; events: unknown[]; lastSeen: unknown };
+        calendarData.count++;
+        calendarData.events.push({
           type: webhook.event_type,
           time: webhook.processed_at
         });

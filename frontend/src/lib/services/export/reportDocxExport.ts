@@ -1,7 +1,71 @@
 import { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType, Table, TableRow, TableCell, WidthType, BorderStyle } from 'docx';
 
+interface Participant {
+  name: string;
+  role?: string;
+  keyContributions?: string[];
+  commitments?: Array<{ task: string; dueDate?: string }>;
+}
+
+interface EffectivenessScore {
+  overall: number;
+  breakdown?: Record<string, number>;
+  strengths?: string[];
+  improvements?: (string | { area: string; better?: string; how?: string })[];
+}
+
+interface RiskItem {
+  risk: string;
+  impact: string;
+  probability: string;
+}
+
+interface FollowUpStrategy {
+  immediate_actions?: string[];
+  short_term?: string[];
+}
+
+interface ReportSummary {
+  tldr: string;
+  effectiveness: {
+    overall: number;
+  };
+  keyDecisions?: (string | { decision: string; rationale?: string })[];
+  actionItems: (string | {
+    description?: string;
+    action?: string;
+    task?: string;
+    owner?: string;
+    dueDate?: string;
+    deadline?: string;
+    priority?: string;
+  })[];
+  insights?: (string | { observation: string; recommendation?: string })[];
+  participants?: Participant[];
+  riskAssessment?: {
+    immediate?: RiskItem[];
+  };
+  follow_up_strategy?: FollowUpStrategy;
+  effectivenessScore?: EffectivenessScore;
+}
+
+interface Report {
+  title: string;
+  type: string;
+  startedAt: string;
+  duration: number;
+  participants: {
+    me: string;
+    them: string;
+  };
+  summary: ReportSummary;
+  analytics: {
+    wordCount: number;
+  };
+}
+
 interface ReportExportOptions {
-  report: any; // Full report object from the report page
+  report: Report;
   includeTimestamp?: boolean;
 }
 
@@ -266,7 +330,7 @@ export async function exportReportToDocx(options: ReportExportOptions): Promise<
       })
     );
     
-    report.summary.keyDecisions.forEach((decision: any, index: number) => {
+    report.summary.keyDecisions.forEach((decision, index) => {
       const decisionText = typeof decision === 'string' ? decision : decision.decision;
       
       children.push(
@@ -334,7 +398,7 @@ export async function exportReportToDocx(options: ReportExportOptions): Promise<
       })
     );
     
-    const actionItemsRows = report.summary.actionItems.map((item: any) => {
+    const actionItemsRows = report.summary.actionItems.map((item) => {
       const itemText = typeof item === 'string' ? item : (item.description || item.action || item.task);
       const cells = [
         new TableCell({
@@ -424,7 +488,7 @@ export async function exportReportToDocx(options: ReportExportOptions): Promise<
       })
     );
     
-    report.summary.insights.forEach((insight: any, index: number) => {
+    report.summary.insights.forEach((insight, index) => {
       const insightText = typeof insight === 'string' ? insight : insight.observation;
       
       children.push(
@@ -488,7 +552,7 @@ export async function exportReportToDocx(options: ReportExportOptions): Promise<
       })
     );
     
-    report.summary.participants.forEach((participant: any) => {
+    report.summary.participants.forEach((participant) => {
       children.push(
         new Paragraph({
           children: [
@@ -541,7 +605,7 @@ export async function exportReportToDocx(options: ReportExportOptions): Promise<
           })
         );
         
-        participant.commitments.forEach((commitment: any) => {
+        participant.commitments.forEach((commitment) => {
           const commitmentText = typeof commitment === 'string' ? commitment : commitment.commitment;
           children.push(
             new Paragraph({
@@ -601,7 +665,7 @@ export async function exportReportToDocx(options: ReportExportOptions): Promise<
     
     // Breakdown scores
     if (report.summary.effectivenessScore.breakdown) {
-      const breakdownRows = Object.entries(report.summary.effectivenessScore.breakdown).map(([key, value]: [string, any]) => {
+      const breakdownRows = Object.entries(report.summary.effectivenessScore.breakdown).map(([key, value]: [string, number]) => {
         const label = key.replace(/([A-Z])/g, ' $1').trim();
         return new TableRow({
           children: [
@@ -681,7 +745,7 @@ export async function exportReportToDocx(options: ReportExportOptions): Promise<
         })
       );
       
-      report.summary.effectivenessScore.improvements.forEach((improvement: any) => {
+      report.summary.effectivenessScore.improvements.forEach((improvement) => {
         if (typeof improvement === 'string') {
           children.push(
             new Paragraph({
@@ -740,7 +804,7 @@ export async function exportReportToDocx(options: ReportExportOptions): Promise<
       })
     );
     
-    const riskRows = report.summary.riskAssessment.immediate.map((risk: any) => {
+    const riskRows = report.summary.riskAssessment.immediate.map((risk) => {
       return new TableRow({
         children: [
           new TableCell({

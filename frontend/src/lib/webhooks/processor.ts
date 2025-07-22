@@ -7,7 +7,7 @@ export interface WebhookEvent {
   userId?: string;
   organizationId?: string;
   status?: string;
-  data: any;
+  data: Record<string, unknown>;
   timestamp: string;
 }
 
@@ -88,7 +88,10 @@ export class WebhookEventProcessor {
   static async processTranscriptEvent(event: {
     sessionId: string;
     userId?: string;
-    transcriptData: any;
+    transcriptData: {
+      words?: Array<{ word: string; start: number; end: number; confidence: number; speaker?: string }>;
+      [key: string]: unknown;
+    };
   }) {
     broadcastWebhookEvent({
       type: 'transcript_update',
@@ -106,7 +109,11 @@ export class WebhookEventProcessor {
     sessionId: string;
     userId?: string;
     action: string;
-    participant: any;
+    participant: {
+      id?: string;
+      name?: string;
+      [key: string]: unknown;
+    };
   }) {
     let message = '';
     

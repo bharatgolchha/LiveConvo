@@ -6,7 +6,7 @@ import { RecallAIClient } from '@/lib/recall-ai/client';
 
 interface RecallWebhookEvent {
   event: 'transcript.data' | 'transcript.partial_data' | 'participant_events.join' | 'participant_events.leave' | 'participant_events.update' | 'participant_events.speech_on' | 'participant_events.speech_off' | 'participant_events.webcam_on' | 'participant_events.webcam_off' | 'participant_events.screenshare_on' | 'participant_events.screenshare_off' | 'participant_events.chat_message';
-  data: any;
+  data: unknown;
 }
 
 // Interface for participant event data structure
@@ -91,9 +91,9 @@ interface TranscriptData {
 async function handleBotStatusChange(
   sessionId: string,
   botId: string,
-  eventData: any,
-  session: any,
-  supabase: any
+  eventData: unknown,
+  session: unknown,
+  supabase: ReturnType<typeof createServerSupabaseClient>
 ): Promise<void> {
   const status = eventData?.status;
   const timestamp = eventData?.timestamp || new Date().toISOString();
@@ -206,8 +206,8 @@ async function handleBotStatusChange(
 async function ensureBotUsageRecord(
   sessionId: string,
   botId: string,
-  session: any,
-  supabase: any
+  session: { user_id: string; organization_id: string },
+  supabase: ReturnType<typeof createServerSupabaseClient>
 ): Promise<void> {
   const { data: existing } = await supabase
     .from('bot_usage_tracking')
@@ -238,7 +238,7 @@ async function ensureBotUsageRecord(
 async function ensureBotUsageTrackingFromTranscript(
   sessionId: string,
   botId: string,
-  supabase: any
+  supabase: ReturnType<typeof createServerSupabaseClient>
 ): Promise<void> {
   // Get session data
   const { data: session } = await supabase
@@ -300,7 +300,7 @@ async function updateBotUsageStatus(
   botId: string,
   status: string,
   timestamp: string,
-  supabase: any
+  supabase: ReturnType<typeof createServerSupabaseClient>
 ): Promise<void> {
   await supabase
     .from('bot_usage_tracking')
@@ -317,7 +317,7 @@ async function updateBotUsageStatus(
 async function markRecordingStarted(
   botId: string,
   timestamp: string,
-  supabase: any
+  supabase: ReturnType<typeof createServerSupabaseClient>
 ): Promise<void> {
   await supabase
     .from('bot_usage_tracking')
@@ -337,8 +337,8 @@ async function markRecordingStarted(
 async function markRecordingCompleted(
   botId: string,
   timestamp: string,
-  session: any,
-  supabase: any
+  session: { user_id: string; organization_id: string },
+  supabase: ReturnType<typeof createServerSupabaseClient>
 ): Promise<boolean> {
   try {
     // Get current bot usage data
@@ -417,8 +417,8 @@ async function finalizeRecordingUsage(
   durationSeconds: number,
   billableMinutes: number,
   sessionId: string,
-  session: any,
-  supabase: any
+  session: { user_id: string; organization_id: string },
+  supabase: ReturnType<typeof createServerSupabaseClient>
 ): Promise<void> {
   console.log(`🎯 Finalizing bot usage: ${durationSeconds}s = ${billableMinutes} minutes`);
 
@@ -472,7 +472,7 @@ async function createUsageTrackingEntries(
   sessionId: string,
   startedAt: string,
   durationSeconds: number,
-  supabase: any
+  supabase: ReturnType<typeof createServerSupabaseClient>
 ): Promise<void> {
   const entries = [];
   let remainingSeconds = durationSeconds;
@@ -511,8 +511,8 @@ async function createUsageTrackingEntries(
 async function handleRecordingDone(
   sessionId: string,
   botId: string,
-  eventData: any,
-  supabase: any
+  eventData: unknown,
+  supabase: ReturnType<typeof createServerSupabaseClient>
 ): Promise<void> {
   try {
     console.log('🎬 Recording.done webhook received:', {
@@ -555,7 +555,7 @@ async function handleRecordingDone(
 async function fetchAndStoreRecordingUrl(
   botId: string,
   sessionId: string,
-  supabase: any
+  supabase: ReturnType<typeof createServerSupabaseClient>
 ): Promise<void> {
   try {
     console.log(`🎬 Fetching recording URL for bot ${botId}`);
@@ -1015,7 +1015,7 @@ async function handleParticipantEvent(sessionId: string, eventType: string, data
   }
 }
 
-async function handleBotStatusChanged(sessionId: string, data: any) {
+async function handleBotStatusChanged(sessionId: string, data: unknown) {
   const supabase = createServerSupabaseClient();
   
   // Update session based on bot status

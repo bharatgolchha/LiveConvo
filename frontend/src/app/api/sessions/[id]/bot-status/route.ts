@@ -175,7 +175,7 @@ export async function GET(
         completedAt: (bot as any).completed_at ?? undefined,
         localStatus: botUsage?.status // Include local status for debugging
       });
-    } catch (recallError: any) {
+    } catch (recallError) {
       console.error('Recall.ai API error:', recallError);
       
       // If bot not found, it might have been deleted

@@ -67,7 +67,7 @@ export async function GET(request: NextRequest) {
       .then(async (result) => {
         if (result.error) throw result.error;
 
-        const statusCounts = result.data.reduce((acc: any, record: any) => {
+        const statusCounts = result.data.reduce((acc: Record<string, number>, record: { status: string }) => {
           acc[record.status] = (acc[record.status] || 0) + 1;
           return acc;
         }, {});
@@ -78,12 +78,12 @@ export async function GET(request: NextRequest) {
           .select('recall_bot_status, bot_recording_minutes')
           .not('recall_bot_id', 'is', null);
 
-        const sessionStatusCounts = sessionStats?.reduce((acc: any, record: any) => {
+        const sessionStatusCounts = sessionStats?.reduce((acc: Record<string, number>, record: { recall_bot_status?: string; bot_recording_minutes?: number }) => {
           acc[record.recall_bot_status || 'unknown'] = (acc[record.recall_bot_status || 'unknown'] || 0) + 1;
           return acc;
         }, {}) || {};
 
-        const totalMinutes = sessionStats?.reduce((sum: number, record: any) => sum + (record.bot_recording_minutes || 0), 0) || 0;
+        const totalMinutes = sessionStats?.reduce((sum: number, record: { bot_recording_minutes?: number }) => sum + (record.bot_recording_minutes || 0), 0) || 0;
 
         return { 
           data: {

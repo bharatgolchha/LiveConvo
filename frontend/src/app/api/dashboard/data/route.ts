@@ -467,7 +467,7 @@ async function fetchSessions(
   const transcriptSpeakersData = sessionIds.length > 0 ? await getTranscriptSpeakers(sessionIds, authClient) : new Map();
 
   // Check which sessions are shared (for own sessions view)
-  let sharedStatusMap = new Map();
+  const sharedStatusMap = new Map();
   if (filter !== 'shared' && sessionIds.length > 0) {
     const { data: sharedData } = await authClient
       .from('shared_meetings')

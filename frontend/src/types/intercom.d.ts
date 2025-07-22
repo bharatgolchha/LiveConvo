@@ -1,7 +1,7 @@
 interface Window {
-  Intercom?: (command: string, ...args: any[]) => void;
+  Intercom?: (command: string, ...args: unknown[]) => void;
   intercomSettings?: {
     app_id?: string;
-    [key: string]: any;
+    [key: string]: unknown;
   };
 }

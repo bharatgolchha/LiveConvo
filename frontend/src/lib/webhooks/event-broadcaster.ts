@@ -6,7 +6,7 @@ export function broadcastWebhookEvent(event: {
   type: string;
   sessionId?: string;
   userId?: string;
-  data: any;
+  data: Record<string, unknown>;
 }) {
   const encoder = new TextEncoder();
   const message = encoder.encode(`data: ${JSON.stringify({

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createServerSupabaseClient } from '@/lib/supabase';
 
 // Simple in-memory cache for calendar connections
-const connectionCache = new Map<string, { data: any; timestamp: number }>();
+const connectionCache = new Map<string, { data: unknown; timestamp: number }>();
 const CACHE_DURATION = 30 * 1000; // 30 seconds
 
 export async function GET(request: NextRequest) {

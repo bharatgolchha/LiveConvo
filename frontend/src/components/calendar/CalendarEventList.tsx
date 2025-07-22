@@ -140,7 +140,7 @@ export const CalendarEventList: React.FC<CalendarEventListProps> = ({
               size="sm"
               className="mt-2"
             >
-              View this week's meetings
+              View this week&apos;s meetings
             </Button>
           )}
         </div>

@@ -9,7 +9,7 @@ export interface OngoingMeetingStatus {
     end_time: string;
     meeting_url: string;
     organizer_email: string | null;
-    attendees: any[];
+    attendees: { email?: string; displayName?: string; optional?: boolean }[];
   };
   session: {
     id: string;
@@ -195,11 +195,11 @@ export async function GET(request: NextRequest) {
       auto_join_enabled: autoJoinEnabled
     });
 
-  } catch (error: any) {
+  } catch (error) {
     console.error('Meeting status error:', error);
     return NextResponse.json({ 
       error: 'Internal server error',
-      details: error.message 
+      details: error instanceof Error ? error.message : 'Unknown error'
     }, { status: 500 });
   }
 }

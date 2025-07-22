@@ -39,13 +39,13 @@ describe('Custom Report Export Functions', () => {
     
     jest.spyOn(document, 'createElement').mockImplementation((tag) => {
       if (tag === 'a') {
-        return mockAnchor as any;
+        return mockAnchor as unknown as HTMLElement;
       }
       return document.createElement(tag);
     });
     
-    jest.spyOn(document.body, 'appendChild').mockImplementation(() => null as any);
-    jest.spyOn(document.body, 'removeChild').mockImplementation(() => null as any);
+    jest.spyOn(document.body, 'appendChild').mockImplementation(() => null as unknown as Node);
+    jest.spyOn(document.body, 'removeChild').mockImplementation(() => null as unknown as Node);
   });
 
   afterEach(() => {

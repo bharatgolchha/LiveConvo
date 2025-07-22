@@ -13,7 +13,7 @@ import { Button } from '@/components/ui/Button';
 import { ActionItemCard } from './ActionItemCard';
 import { ActionItemForm } from './ActionItemForm';
 import { useActionItems } from '@/hooks/useActionItems';
-import type { ActionItem } from '@/types/collaboration';
+import type { ActionItem, CreateActionItemData } from '@/types/collaboration';
 
 interface ActionItemsListProps {
   sessionId: string;
@@ -39,7 +39,7 @@ export function ActionItemsList({ sessionId, onCommentConvert }: ActionItemsList
     fetchActionItems(filterStatus, filterAssignee);
   }, [filterStatus, filterAssignee]);
 
-  const handleCreate = async (data: any) => {
+  const handleCreate = async (data: CreateActionItemData) => {
     await createActionItem(data);
     setShowForm(false);
   };

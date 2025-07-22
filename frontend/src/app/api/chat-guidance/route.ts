@@ -203,19 +203,42 @@ export async function POST(request: NextRequest) {
     const BodySchema = z.object({
       message: z.string(),
       transcript: z.string().default(''),
-      chatHistory: z.any().default([]),
+      chatHistory: z.array(z.object({
+        id: z.string(),
+        type: z.enum(['user', 'ai', 'system', 'auto-guidance']),
+        content: z.string(),
+        timestamp: z.union([z.date(), z.string()]),
+        metadata: z.object({
+          confidence: z.number().optional(),
+          guidanceType: z.string().optional(),
+          isResponse: z.boolean().optional()
+        }).optional()
+      })).default([]),
       conversationType: z.string().optional(),
       sessionId: z.string().optional(),
       textContext: z.string().nullable().optional(),
       conversationTitle: z.string().nullable().optional(),
       meetingUrl: z.string().nullable().optional().default(''),
-      summary: z.any().optional(),
-      uploadedFiles: z.any().optional(),
-      selectedPreviousConversations: z.any().optional(),
+      summary: z.object({
+        tldr: z.string().optional(),
+        key_points: z.array(z.string()).optional(),
+        sentiment: z.string().optional()
+      }).optional(),
+      uploadedFiles: z.array(z.object({
+        name: z.string(),
+        type: z.string(),
+        size: z.number()
+      })).optional(),
+      selectedPreviousConversations: z.array(z.string()).optional(),
       personalContext: z.string().nullable().optional(),
       participantMe: z.string().optional(),
       participantThem: z.string().optional(),
-      smartNotes: z.array(z.any()).optional(),
+      smartNotes: z.array(z.object({
+        category: z.string().optional(),
+        content: z.string().optional(),
+        text: z.string().optional(),
+        importance: z.string().optional()
+      })).optional(),
       stage: z.enum(['opening','discovery','demo','pricing','closing','discussion']).optional(),
       isRecording: z.boolean().optional(),
       transcriptLength: z.number().optional(),
@@ -226,7 +249,68 @@ export async function POST(request: NextRequest) {
         personalContext: z.string().nullable()
       }).optional(),
       mode: z.enum(['meeting', 'dashboard']).optional().default('meeting'),
-      dashboardContext: z.any().optional()
+      dashboardContext: z.object({
+        recentMeetings: z.array(z.object({
+          id: z.string(),
+          title: z.string(),
+          created_at: z.string(),
+          summary: z.string().nullable(),
+          decisions: z.array(z.string()).nullable(),
+          actionItems: z.array(z.string()).nullable(),
+          url: z.string().optional(),
+          participants: z.array(z.string()).optional()
+        })).optional(),
+        actionItems: z.array(z.object({
+          id: z.string(),
+          title: z.string(),
+          status: z.string(),
+          priority: z.string().nullable(),
+          dueDate: z.string().nullable(),
+          sessionId: z.string()
+        })).optional(),
+        upcomingEvents: z.array(z.object({
+          id: z.string(),
+          title: z.string(),
+          startTime: z.string(),
+          endTime: z.string(),
+          description: z.string().nullable()
+        })).optional(),
+        searchResults: z.array(z.object({
+          type: z.string(),
+          title: z.string(),
+          date: z.string().optional(),
+          created_at: z.string().optional(),
+          tldr: z.string().optional(),
+          summary: z.string().optional(),
+          score: z.number().optional(),
+          similarity: z.number().optional(),
+          key_decisions: z.array(z.union([
+            z.string(),
+            z.object({
+              decision: z.string().optional(),
+              text: z.string().optional(),
+              title: z.string().optional()
+            })
+          ])).optional(),
+          action_items: z.array(z.union([
+            z.string(),
+            z.object({
+              task: z.string().optional(),
+              text: z.string().optional(),
+              title: z.string().optional()
+            })
+          ])).optional(),
+          relevance: z.object({
+            explanation: z.string(),
+            score: z.number()
+          }).optional(),
+          metadata: z.object({
+            key_decisions: z.array(z.string()).optional(),
+            action_items: z.array(z.string()).optional()
+          }).optional()
+        })).optional(),
+        searchQuery: z.string().optional()
+      }).optional()
     }).passthrough();
 
     let parsedBody;
@@ -512,7 +596,10 @@ export async function POST(request: NextRequest) {
     const chatMessages = buildChatMessages(
       parsedContext.userMessage,
       effectiveTranscript,
-      chatHistory,
+      chatHistory.map(msg => ({
+        ...msg,
+        timestamp: typeof msg.timestamp === 'string' ? new Date(msg.timestamp) : msg.timestamp
+      })),
       effectiveConversationType,
       runningSummary,
       finalPersonalContext || undefined,
@@ -541,7 +628,7 @@ export async function POST(request: NextRequest) {
     
     // For meeting mode, only perform search when query analysis indicates it's needed
     const shouldSearch = mode === 'dashboard' 
-      ? await shouldPerformAgenticSearch(parsedContext.userMessage, dashboardContext)
+      ? await shouldPerformAgenticSearch(parsedContext.userMessage, dashboardContext || {})
       : await shouldPerformMeetingSearch(parsedContext.userMessage);
     
     console.log('🔍 RAG Search Debug:', {

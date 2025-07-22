@@ -191,7 +191,7 @@ function renderFormattedTextWithOffset(text: string, doc: jsPDF, xOffset: number
   // Split text into segments based on formatting
   const segments = parseInlineFormatting(text);
   let currentX = xOffset;
-  let lines: Array<Array<{text: string, bold: boolean, italic: boolean, code: boolean, x: number}>> = [[]];
+  const lines: Array<Array<{text: string, bold: boolean, italic: boolean, code: boolean, x: number}>> = [[]];
   let currentLineWidth = 0;
   
   doc.setFontSize(fontSize);
@@ -335,7 +335,7 @@ function parseInlineFormatting(text: string): Array<{text: string, bold: boolean
   const segments: Array<{text: string, bold: boolean, italic: boolean, code: boolean}> = [];
   
   // First, handle markdown links [text](url)
-  let processedText = text;
+  const processedText = text;
   const linkRegex = /\[([^\]]+)\]\(([^)]+)\)/g;
   let match;
   let lastIndex = 0;

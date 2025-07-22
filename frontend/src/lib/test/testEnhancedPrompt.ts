@@ -3,7 +3,7 @@ import { mockTranscripts } from './mockTranscripts';
 import type { MeetingContext, SummaryPromptConfig } from '../prompts/summaryPrompts';
 
 // Mock AI response simulator
-function simulateEnhancedAIResponse(promptLength: number, meetingType: string): any {
+function simulateEnhancedAIResponse(promptLength: number, meetingType: string): Record<string, unknown> {
   const baseResponse = {
     executiveSummary: {
       oneLineSummary: `Successfully ${meetingType === 'sales' ? 'qualified lead with $150K budget' : 'aligned on Q2 priorities and resource allocation'}`,
@@ -506,7 +506,7 @@ export async function testEnhancedPromptGeneration() {
     // Test data richness
     console.log('\n📊 Data Richness Metrics:');
     const totalDataPoints = 
-      mockResponse.participants.reduce((sum: number, p: any) => 
+      mockResponse.participants.reduce((sum: number, p: { keyContributions: unknown[]; commitments: unknown[]; concerns: unknown[] }) => 
         sum + p.keyContributions.length + p.commitments.length + p.concerns.length, 0) +
       mockResponse.actionItems.length * 8 + // Each action item has 8 fields
       mockResponse.insights.length * 5 + // Each insight has 5 fields

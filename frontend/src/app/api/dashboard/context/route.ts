@@ -94,10 +94,33 @@ export async function GET(request: NextRequest) {
     ]);
 
     // Extract data from Promise.allSettled results
-    let meetingsData: any[] = [];
-    let actionsData: any[] = [];
-    let eventsData: any[] = [];
-    let userData: any = null;
+    let meetingsData: Array<{
+      id: string;
+      title: string;
+      created_at: string;
+      final_summary: string | null;
+      url?: string;
+    }> = [];
+    let actionsData: Array<{
+      id: string;
+      title: string;
+      status: string;
+      priority: string | null;
+      due_date: string | null;
+      sessions: { id: string; title: string };
+    }> = [];
+    let eventsData: Array<{
+      id: string;
+      title: string;
+      description: string | null;
+      start_time: string;
+      end_time: string;
+      attendees: string[] | null;
+      meeting_url: string | null;
+      organizer_email: string | null;
+      location: string | null;
+    }> = [];
+    let userData: { personal_context: string | null } | null = null;
 
     if (meetingsResult.status === 'fulfilled' && meetingsResult.value.data) {
       meetingsData = meetingsResult.value.data;

@@ -119,7 +119,12 @@ export class BotUsageCalculator {
   /**
    * Backfill usage data for a specific session
    */
-  private async backfillSessionUsage(session: any): Promise<void> {
+  private async backfillSessionUsage(session: {
+    id: string;
+    recall_bot_id: string;
+    user_id: string;
+    organization_id: string | null;
+  }): Promise<void> {
     const usage = await this.calculateBotUsage(session.recall_bot_id);
     
     if (!usage || usage.billableMinutes === 0) {
@@ -171,12 +176,17 @@ export class BotUsageCalculator {
   /**
    * Extract status changes from bot data
    */
-  private extractStatusChanges(botData: any): Array<{timestamp: Date, status: string}> {
+  private extractStatusChanges(botData: {
+    status_changes?: Array<{
+      created_at?: string;
+      code?: string;
+    }>;
+  }): Array<{timestamp: Date, status: string}> {
     if (!botData.status_changes || !Array.isArray(botData.status_changes)) {
       return [];
     }
 
-    return botData.status_changes.map((change: any) => ({
+    return botData.status_changes.map((change) => ({
       timestamp: new Date(change.created_at),
       status: change.code
     }));

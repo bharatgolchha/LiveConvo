@@ -136,7 +136,7 @@ Instructions:
       );
     }
 
-    const data = await response.json();
+    const data = await response.json() as { choices?: Array<{ message?: { content?: string } }> };
     console.log('✅ OpenRouter response received:', { 
       hasChoices: !!data.choices, 
       choicesLength: data.choices?.length,

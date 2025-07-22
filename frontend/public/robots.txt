@@ -17,3 +17,4 @@ Host: https://liveprompt.ai
 
 # Sitemaps
 Sitemap: https://liveprompt.ai/sitemap.xml
+Sitemap: https://liveprompt.ai/server-sitemap.xml

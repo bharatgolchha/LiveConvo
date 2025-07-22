@@ -34,7 +34,7 @@ async function checkSummariesTable() {
     console.log('\nTable constraints:', constraints);
 
     // Check for session_id unique constraint
-    const hasSessionIdConstraint = constraints?.some((c: any) => 
+    const hasSessionIdConstraint = constraints?.some((c: { constraint_type: string; column_name: string }) => 
       c.constraint_type === 'UNIQUE' && c.column_name === 'session_id'
     );
 

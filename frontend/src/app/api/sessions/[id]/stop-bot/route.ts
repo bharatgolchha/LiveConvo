@@ -8,7 +8,7 @@ import { RecallSessionManager } from '@/lib/recall-ai/session-manager';
 async function finalizeBotUsageOnStop(
   sessionId: string,
   botId: string,
-  supabase: any
+  supabase: ReturnType<typeof createServerSupabaseClient>
 ): Promise<void> {
   console.log(`🎯 Finalizing bot usage on manual stop for bot ${botId}`);
 

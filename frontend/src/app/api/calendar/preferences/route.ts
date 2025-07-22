@@ -88,7 +88,7 @@ export async function PUT(request: NextRequest) {
     const validUpdates: Partial<CalendarPreferences> = {};
     for (const field of allowedFields) {
       if (field in updates) {
-        (validUpdates as any)[field] = updates[field];
+        (validUpdates as Record<string, unknown>)[field] = updates[field];
       }
     }
 

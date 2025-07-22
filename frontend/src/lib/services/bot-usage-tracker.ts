@@ -79,7 +79,7 @@ export class BotUsageTracker {
     botId: string,
     status: string,
     timestamp: string,
-    metadata?: any
+    metadata?: Record<string, unknown>
   ): Promise<void> {
     console.log(`🔄 Processing bot status change: ${botId} -> ${status} at ${timestamp}`);
 
@@ -116,7 +116,11 @@ export class BotUsageTracker {
    */
   async processRecordingCompleted(
     botId: string,
-    recordingData: any
+    recordingData: {
+      started_at?: string;
+      completed_at?: string;
+      duration_seconds?: number;
+    }
   ): Promise<void> {
     console.log(`🎬 Processing recording completion for bot ${botId}`);
 

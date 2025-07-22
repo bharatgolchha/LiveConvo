@@ -208,13 +208,13 @@ ${hasTranscript ? 'Since the meeting is in progress, make prompts tactical and i
       const prompts = parsedResponse.suggestedActions.slice(0, 4);
       
       // Add default impact scores if missing
-      const validatedPrompts = prompts.map((p: any, index: number) => ({
+      const validatedPrompts = prompts.map((p: { text?: string; prompt?: string; impact?: number }, index: number) => ({
         text: p.text || '🎯 Get guidance',
         prompt: p.prompt || 'How can you help me with this meeting?',
         impact: p.impact || (95 - index * 5)
       }));
 
-      console.log('✅ Generated initial prompts:', validatedPrompts.map((p: any) => p.text));
+      console.log('✅ Generated initial prompts:', validatedPrompts.map((p: { text: string }) => p.text));
       return NextResponse.json({ suggestedActions: validatedPrompts });
 
     } catch (parseError) {

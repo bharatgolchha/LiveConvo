@@ -62,7 +62,7 @@ export async function testPromptGeneration() {
 }
 
 // Simulate AI response based on meeting type
-async function simulateAIResponse(prompt: string, type: string): Promise<any> {
+async function simulateAIResponse(prompt: string, type: string): Promise<Record<string, unknown>> {
   // This simulates what the AI might return based on the prompt structure
   const baseResponse = {
     executiveSummary: {

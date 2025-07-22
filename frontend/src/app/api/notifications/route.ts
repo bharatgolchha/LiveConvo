@@ -42,11 +42,11 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ notifications: notifications || [] });
 
-  } catch (error: any) {
+  } catch (error) {
     console.error('Notifications API error:', error);
     return NextResponse.json({ 
       error: 'Internal server error',
-      details: error.message 
+      details: error instanceof Error ? error.message : 'Unknown error' 
     }, { status: 500 });
   }
 }
@@ -113,11 +113,11 @@ export async function PATCH(request: NextRequest) {
       error: 'Invalid request body' 
     }, { status: 400 });
 
-  } catch (error: any) {
+  } catch (error) {
     console.error('Notifications update error:', error);
     return NextResponse.json({ 
       error: 'Internal server error',
-      details: error.message 
+      details: error instanceof Error ? error.message : 'Unknown error' 
     }, { status: 500 });
   }
 }

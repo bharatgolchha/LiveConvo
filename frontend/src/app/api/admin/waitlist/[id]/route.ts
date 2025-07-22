@@ -53,7 +53,7 @@ export async function PATCH(
     }
 
     // Update waitlist entry
-    const updateData: any = { status };
+    const updateData: { status: string; approved_at?: string } = { status };
     if (status === 'approved') {
       updateData.approved_at = new Date().toISOString();
     }

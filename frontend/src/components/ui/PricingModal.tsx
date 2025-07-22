@@ -109,7 +109,7 @@ export const PricingModal: React.FC<PricingModalProps> = ({ isOpen, onClose, rea
     try {
       const response = await fetch('/api/pricing');
       if (!response.ok) throw new Error('Failed to fetch pricing');
-      const data = await response.json();
+      const data = await response.json() as { plans: Plan[] };
       console.log('Pricing plans loaded:', data.plans);
       setPlans(data.plans);
     } catch (error) {
@@ -151,7 +151,7 @@ export const PricingModal: React.FC<PricingModalProps> = ({ isOpen, onClose, rea
       });
       
       if (response.ok) {
-        const data = await response.json();
+        const data = await response.json() as { balance?: number };
         setCreditBalance(data.balance || 0);
       }
     } catch (error) {
@@ -294,7 +294,7 @@ export const PricingModal: React.FC<PricingModalProps> = ({ isOpen, onClose, rea
       });
 
       if (!response.ok) {
-        let errorData: any = { error: 'Unknown error' };
+        let errorData: { error: string; details?: string } = { error: 'Unknown error' };
         let responseText = '';
         
         try {
@@ -349,7 +349,7 @@ export const PricingModal: React.FC<PricingModalProps> = ({ isOpen, onClose, rea
       // Redirect to Stripe checkout
       window.location.href = url;
       
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error creating checkout session:', error);
       
       // Fallback to signup page

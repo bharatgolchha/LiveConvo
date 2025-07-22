@@ -229,10 +229,10 @@ export async function POST(request: NextRequest) {
             message: 'Bot stopped successfully'
           });
 
-        } catch (error: any) {
+        } catch (error) {
           return NextResponse.json({ 
             error: 'Failed to stop bot',
-            details: error.message 
+            details: error instanceof Error ? error.message : 'Unknown error' 
           }, { status: 500 });
         }
 
@@ -242,11 +242,11 @@ export async function POST(request: NextRequest) {
         }, { status: 400 });
     }
 
-  } catch (error: any) {
+  } catch (error) {
     console.error('Auto-join override error:', error);
     return NextResponse.json({ 
       error: 'Internal server error',
-      details: error.message 
+      details: error instanceof Error ? error.message : 'Unknown error' 
     }, { status: 500 });
   }
 }

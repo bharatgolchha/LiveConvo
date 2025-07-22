@@ -9,7 +9,7 @@ interface CustomReport {
   generated_content?: string;
   created_at: string;
   updated_at: string;
-  metadata?: any;
+  metadata?: Record<string, unknown>;
 }
 
 interface CustomReportExportOptions {

@@ -24,7 +24,7 @@ export async function GET(request: Request) {
     
     // Filter old bots
     const oldBots = bots.filter(bot => {
-      const createdAt = new Date(bot.created_at);
+      const createdAt = new Date(bot.created_at as string | number | Date);
       return createdAt < cutoffDate;
     });
 
@@ -67,8 +67,13 @@ export async function GET(request: Request) {
   }
 }
 
-async function fetchAllBots(): Promise<any[]> {
-  const bots: any[] = [];
+interface Bot {
+  id: string;
+  [key: string]: unknown;
+}
+
+async function fetchAllBots(): Promise<Bot[]> {
+  const bots: Bot[] = [];
   let nextUrl: string | null = `${RECALL_BASE_URL}/bot/`;
   
   const headers = {

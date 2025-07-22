@@ -472,7 +472,16 @@ async function getLinkedConversations(sessionIds: string[], organizationId: stri
     // Process the linked conversations data
     if (linkedData && linkedData.length > 0) {
       // Group by session_id
-      linkedData.forEach((link: any) => {
+      linkedData.forEach((link: {
+        session_id: string;
+        linked_session_id: string;
+        linked_session: {
+          id: string;
+          title: string;
+          created_at: string;
+          conversation_type: string;
+        } | null;
+      }) => {
         const sessionId = link.session_id;
         const linkedSession = link.linked_session;
         
@@ -523,7 +532,7 @@ async function getLinkedConversations(sessionIds: string[], organizationId: stri
               
               context.context_metadata.selectedPreviousConversations.forEach((id: string) => {
                 if (!existingIds.has(id)) {
-                  const sessionTitle = sessionTitles.find((s: any) => s.id === id);
+                  const sessionTitle = sessionTitles.find((s: { id: string; title: string }) => s.id === id);
                   existingData.conversations.push({
                     id,
                     title: sessionTitle?.title || 'Untitled Conversation'

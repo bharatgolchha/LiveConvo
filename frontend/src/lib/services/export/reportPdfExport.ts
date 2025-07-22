@@ -1,7 +1,70 @@
 import jsPDF from 'jspdf';
 
+interface Participant {
+  name: string;
+  role?: string;
+  keyContributions?: string[];
+}
+
+interface EffectivenessScore {
+  overall: number;
+  breakdown?: Record<string, number>;
+  strengths?: string[];
+  improvements?: (string | { area: string; better?: string; how?: string })[];
+}
+
+interface RiskItem {
+  risk: string;
+  impact: string;
+  probability: string;
+}
+
+interface FollowUpStrategy {
+  immediate_actions?: string[];
+  short_term?: string[];
+}
+
+interface ReportSummary {
+  tldr: string;
+  effectiveness: {
+    overall: number;
+  };
+  keyDecisions?: (string | { decision: string; rationale?: string })[];
+  actionItems: (string | {
+    description?: string;
+    action?: string;
+    task?: string;
+    owner?: string;
+    dueDate?: string;
+    deadline?: string;
+    priority?: string;
+  })[];
+  insights?: (string | { observation: string; recommendation?: string })[];
+  participants?: Participant[];
+  riskAssessment?: {
+    immediate?: RiskItem[];
+  };
+  follow_up_strategy?: FollowUpStrategy;
+  effectivenessScore?: EffectivenessScore;
+}
+
+interface Report {
+  title: string;
+  type: string;
+  startedAt: string;
+  duration: number;
+  participants: {
+    me: string;
+    them: string;
+  };
+  summary: ReportSummary;
+  analytics: {
+    wordCount: number;
+  };
+}
+
 interface ReportExportOptions {
-  report: any; // Full report object from the report page
+  report: Report;
   includeTimestamp?: boolean;
 }
 
@@ -167,7 +230,7 @@ export async function exportReportToPDF(options: ReportExportOptions): Promise<v
     doc.setFontSize(10);
     doc.setFont('helvetica', 'normal');
     
-    report.summary.keyDecisions.forEach((decision: any, index: number) => {
+    report.summary.keyDecisions.forEach((decision, index) => {
       yPosition = checkPageBreak(25);
       const decisionText = typeof decision === 'string' ? decision : decision.decision;
       doc.setTextColor(75, 85, 99);
@@ -198,7 +261,7 @@ export async function exportReportToPDF(options: ReportExportOptions): Promise<v
     doc.setFontSize(10);
     doc.setFont('helvetica', 'normal');
     
-    report.summary.actionItems.forEach((item: any) => {
+    report.summary.actionItems.forEach((item) => {
       yPosition = checkPageBreak(20);
       const itemText = typeof item === 'string' ? item : (item.description || item.action || item.task);
       
@@ -240,7 +303,7 @@ export async function exportReportToPDF(options: ReportExportOptions): Promise<v
     
     doc.setFontSize(10);
     
-    report.summary.insights.forEach((insight: any, index: number) => {
+    report.summary.insights.forEach((insight, index) => {
       yPosition = checkPageBreak(25);
       doc.setFont('helvetica', 'bold');
       doc.setTextColor(59, 130, 246);
@@ -272,7 +335,7 @@ export async function exportReportToPDF(options: ReportExportOptions): Promise<v
     doc.text('Participant Contributions', margin, yPosition);
     yPosition += 10;
     
-    report.summary.participants.forEach((participant: any) => {
+    report.summary.participants.forEach((participant) => {
       yPosition = checkPageBreak(30);
       doc.setFontSize(11);
       doc.setFont('helvetica', 'bold');
@@ -310,7 +373,7 @@ export async function exportReportToPDF(options: ReportExportOptions): Promise<v
     doc.setFontSize(10);
     doc.setFont('helvetica', 'normal');
     
-    report.summary.riskAssessment.immediate.forEach((risk: any) => {
+    report.summary.riskAssessment.immediate.forEach((risk) => {
       yPosition = checkPageBreak(20);
       doc.setTextColor(75, 85, 99);
       doc.text('⚠', margin + 5, yPosition);
@@ -418,7 +481,7 @@ export async function exportReportToPDF(options: ReportExportOptions): Promise<v
       
       doc.setFontSize(10);
       doc.setFont('helvetica', 'normal');
-      Object.entries(report.summary.effectivenessScore.breakdown).forEach(([key, value]: [string, any]) => {
+      Object.entries(report.summary.effectivenessScore.breakdown).forEach(([key, value]) => {
         const label = key.replace(/([A-Z])/g, ' $1').trim();
         doc.text(`${label}:`, margin + 5, yPosition);
         doc.setFont('helvetica', 'bold');
@@ -462,7 +525,7 @@ export async function exportReportToPDF(options: ReportExportOptions): Promise<v
       doc.setFontSize(10);
       doc.setFont('helvetica', 'normal');
       doc.setTextColor(75, 85, 99);
-      report.summary.effectivenessScore.improvements.forEach((improvement: any) => {
+      report.summary.effectivenessScore.improvements.forEach((improvement) => {
         yPosition = checkPageBreak(20);
         if (typeof improvement === 'string') {
           doc.text('→', margin + 5, yPosition);

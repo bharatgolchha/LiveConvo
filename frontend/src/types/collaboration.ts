@@ -69,7 +69,7 @@ export interface Activity {
   session_id: string;
   user_id: string;
   activity_type: ActivityType;
-  details: Record<string, any>;
+  details: Record<string, unknown>;
   created_at: string;
   user: User;
 }
@@ -108,7 +108,13 @@ export interface ReportBookmark {
   section_id?: string;
   content_snippet?: string;
   color: 'yellow' | 'green' | 'blue' | 'pink' | 'purple';
-  position_data?: any;
+  position_data?: {
+    x?: number;
+    y?: number;
+    width?: number;
+    height?: number;
+    [key: string]: unknown;
+  };
   created_at: string;
 }
 
