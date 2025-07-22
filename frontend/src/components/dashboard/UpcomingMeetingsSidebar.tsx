@@ -26,6 +26,7 @@ import { CalendarErrorHandler, CalendarError, parseCalendarError } from '@/compo
 import { CalendarQuickActions } from '@/components/calendar/CalendarQuickActions';
 import { CalendarPermissionModal } from '@/components/calendar/CalendarPermissionModal';
 import { useAuth } from '@/contexts/AuthContext';
+import { fetchWithCache } from '@/lib/utils/fetchCache';
 import { UpcomingMeeting } from '@/types/calendar';
 
 interface UpcomingMeetingsSidebarProps {
@@ -110,10 +111,9 @@ export const UpcomingMeetingsSidebar: React.FC<UpcomingMeetingsSidebarProps> = (
         'Authorization': `Bearer ${session?.access_token}`
       };
 
-      const response = await fetch('/api/calendar/connections', { headers });
+      const data = await fetchWithCache('/api/calendar/connections', { headers, ttl: 60_000 });
       
-      if (response.ok) {
-        const data = await response.json();
+      if (data) {
         const activeConnections = data.connections?.filter((c: any) => c.is_active) || [];
         setHasCalendarConnection(activeConnections.length > 0);
         if (activeConnections.length > 0) {
@@ -170,11 +170,9 @@ export const UpcomingMeetingsSidebar: React.FC<UpcomingMeetingsSidebarProps> = (
         'Authorization': `Bearer ${session?.access_token}`
       };
 
-      const response = await fetch('/api/calendar/preferences', { headers });
-      
-      if (response.ok) {
-        const data = await response.json();
-        setCalendarPreferences(data.preferences);
+      const prefData = await fetchWithCache('/api/calendar/preferences', { headers, ttl: 60_000 });
+      if (prefData) {
+        setCalendarPreferences(prefData.preferences);
       }
     } catch (error) {
       console.error('Failed to load calendar preferences:', error);
@@ -239,10 +237,8 @@ export const UpcomingMeetingsSidebar: React.FC<UpcomingMeetingsSidebarProps> = (
         'Authorization': `Bearer ${session?.access_token}`
       };
 
-      const response = await fetch(`/api/calendar/events?filter=${filter}`, { headers });
-      
-      if (response.ok) {
-        const data = await response.json();
+      const data = await fetchWithCache(`/api/calendar/events?filter=${filter}`, { headers, ttl: 60_000 });
+      if (data) {
         setMeetings(data.meetings || []);
         setLastRefreshTime(new Date());
       }
@@ -277,15 +273,15 @@ export const UpcomingMeetingsSidebar: React.FC<UpcomingMeetingsSidebarProps> = (
       setSyncProgress(20);
       
       // Get calendar connections
-      const connectionsResponse = await fetch('/api/calendar/connections', { headers });
-      if (!connectionsResponse.ok) {
+      const connectionsResponse = await fetchWithCache('/api/calendar/connections', { headers, ttl: 60_000 });
+      if (!connectionsResponse) {
         throw new Error('Failed to get calendar connections');
       }
       
       setSyncProgress(40);
       setSyncMessage('Found calendar connection...');
       
-      const { connections } = await connectionsResponse.json();
+      const { connections } = connectionsResponse;
       if (!connections || connections.length === 0) {
         console.error('No calendar connections found');
         setSyncStatus('error');
@@ -304,7 +300,7 @@ export const UpcomingMeetingsSidebar: React.FC<UpcomingMeetingsSidebarProps> = (
       setSyncMessage('Syncing with Google Calendar...');
       
       // Use the refresh endpoint to force Recall.ai to sync with Google Calendar
-      const refreshResponse = await fetch('/api/calendar/refresh', {
+      const refreshResponse = await fetchWithCache('/api/calendar/refresh', {
         method: 'POST',
         headers: {
           ...headers,
@@ -315,9 +311,9 @@ export const UpcomingMeetingsSidebar: React.FC<UpcomingMeetingsSidebarProps> = (
       
       setSyncProgress(80);
       
-      if (!refreshResponse.ok) {
+      if (!refreshResponse) {
         // Fallback to regular sync if refresh endpoint doesn't exist
-        const syncResponse = await fetch('/api/calendar/events', {
+        const syncResponse = await fetchWithCache('/api/calendar/events', {
           method: 'POST',
           headers: {
             ...headers,
@@ -326,7 +322,7 @@ export const UpcomingMeetingsSidebar: React.FC<UpcomingMeetingsSidebarProps> = (
           body: JSON.stringify({ connectionId: activeConnection.id })
         });
         
-        if (!syncResponse.ok) {
+        if (!syncResponse) {
           throw new Error('Failed to sync calendar');
         }
       }

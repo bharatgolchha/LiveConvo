@@ -12,6 +12,7 @@ const mockProps = {
   durationSec: 1800, // 30 minutes
   tldr: 'This is a test summary that is long enough to test the expand/collapse functionality. It should be more than 150 characters to trigger the show more/less button. Here is some additional text to make it even longer.',
   selected: false,
+  participants: ['Test User', 'Alice Smith'],
   onSelect: jest.fn(),
   onOpen: jest.fn(),
   onFollowUp: jest.fn(),

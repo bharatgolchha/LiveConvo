@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { UpcomingMeeting } from '@/types/calendar';
+import { fetchWithCache } from '@/lib/utils/fetchCache';
 
 interface UseUpcomingMeetingsResult {
   meetings: UpcomingMeeting[];
@@ -32,27 +33,29 @@ export const useUpcomingMeetings = (): UseUpcomingMeetingsResult => {
         setError(null);
 
         // Check calendar connection
-        const connectionsResponse = await fetch('/api/calendar/connections', {
+        const connectionsResponse = await fetchWithCache('/api/calendar/connections', {
           headers: {
             'Authorization': `Bearer ${session.access_token}`
-          }
+          },
+          ttl: 60_000 // 1-minute cache
         });
 
-        if (connectionsResponse.ok) {
-          const connectionsData = await connectionsResponse.json();
+        if (connectionsResponse) {
+          const connectionsData = connectionsResponse;
           const activeConnections = connectionsData.connections?.filter((c: any) => c.is_active) || [];
           setHasCalendarConnection(activeConnections.length > 0);
 
           if (activeConnections.length > 0) {
             // Fetch upcoming meetings for the week
-            const eventsResponse = await fetch('/api/calendar/events?filter=week', {
+            const eventsResponse = await fetchWithCache('/api/calendar/events?filter=week', {
               headers: {
                 'Authorization': `Bearer ${session.access_token}`
-              }
+              },
+              ttl: 60_000 // 1-minute cache
             });
 
-            if (eventsResponse.ok) {
-              const eventsData = await eventsResponse.json();
+            if (eventsResponse) {
+              const eventsData = eventsResponse;
               setMeetings(eventsData.meetings || []);
             }
           }

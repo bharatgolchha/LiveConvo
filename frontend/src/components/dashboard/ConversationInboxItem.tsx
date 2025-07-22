@@ -55,6 +55,15 @@ const ConversationInboxItem: React.FC<Props> = ({
 }) => {
   // Helper function to get unique participants from transcript speakers data only
   const getParticipants = useMemo(() => {
+    // Use aggregated participant data from dashboard API when available
+    if (session.participants_count !== undefined) {
+      if (session.first_participant_name) {
+        return [session.first_participant_name];
+      }
+      return [];
+    }
+    
+    // Fallback to existing logic for backward compatibility
     // Use transcript_speakers as the single source of truth for participants
     if (session.transcript_speakers && Array.isArray(session.transcript_speakers)) {
       const uniqueSpeakers = session.transcript_speakers
@@ -66,7 +75,7 @@ const ConversationInboxItem: React.FC<Props> = ({
     
     // Return empty array if no transcript speakers available
     return [];
-  }, [session.transcript_speakers]);
+  }, [session.transcript_speakers, session.participants_count, session.first_participant_name]);
 
   // Helper function to get participant initials for avatar
   const getInitials = (name: string): string => {

@@ -9,6 +9,7 @@ import { Menu, X, ChevronDown, FileText, BookOpen, HelpCircle, Sparkles } from '
 import { UserCircleIcon, Cog6ToothIcon, ArrowRightOnRectangleIcon } from '@heroicons/react/24/outline'
 import { UseCasesDropdown } from '@/components/landing/UseCasesModal'
 import { useAuth } from '@/contexts/AuthContext'
+import { useTheme } from '@/contexts/ThemeContext'
 import { supabase } from '@/lib/supabase'
 
 interface NavItem {
@@ -69,6 +70,7 @@ export function Header() {
   const [userMenuOpen, setUserMenuOpen] = useState(false)
   const [userData, setUserData] = useState<any>(null)
   const { user, signOut } = useAuth()
+  const { resolvedTheme } = useTheme()
 
   useEffect(() => {
     const handleScroll = () => {
@@ -150,11 +152,12 @@ export function Header() {
           {/* Logo */}
           <Link href="/" className="flex items-center gap-2 group">
             <Image 
-              src="https://ucvfgfbjcrxbzppwjpuu.supabase.co/storage/v1/object/public/images//DarkMode2.png"
+              src={resolvedTheme === 'dark' ? '/Logos/DarkMode.png' : '/Logos/LightMode.png'}
               alt="liveprompt.ai - AI-powered conversation intelligence platform"
-              width={140}
-              height={32}
+              width={160}
+              height={40}
               className="object-contain transition-transform group-hover:scale-105"
+              priority
             />
             <span className="hidden sm:inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs bg-app-success/10 border border-app-success/30 text-app-success">
               <Sparkles className="w-3 h-3" />

@@ -13,6 +13,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { AuthLayout } from '@/components/auth/AuthLayout'
 import { GoogleAuthButton } from '@/components/auth/GoogleAuthButton'
 import { EmailAuthToggle, BackToGoogleButton } from '@/components/auth/EmailAuthToggle'
+import { supabase } from '@/lib/supabase'
 
 function LoginContent() {
   const [email, setEmail] = useState('')
@@ -55,11 +56,30 @@ function LoginContent() {
     }
   }, [searchParams])
 
+  // If the user is already authenticated, route them based on onboarding status
   useEffect(() => {
-    if (user) {
-      router.push('/dashboard')
-    }
-  }, [user, router])
+    const handleAuthenticatedRedirect = async () => {
+      if (!user) return;
+      try {
+        const { data: userProfile } = await supabase
+          .from('users')
+          .select('has_completed_onboarding')
+          .eq('id', user.id)
+          .single();
+
+        if (userProfile?.has_completed_onboarding) {
+          router.push('/dashboard');
+        } else {
+          router.push('/onboarding');
+        }
+      } catch (err) {
+        console.error('Failed to fetch user profile:', err);
+        router.push('/dashboard');
+      }
+    };
+
+    handleAuthenticatedRedirect();
+  }, [user, router]);
 
   const handleEmailLogin = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -67,11 +87,33 @@ function LoginContent() {
     setError(null)
 
     const { error } = await signIn(email, password)
-    
+
     if (error) {
       setError(error.message)
     } else {
-      router.push('/dashboard')
+      try {
+        const { data: { session: currentSession } } = await supabase.auth.getSession()
+        const userId = currentSession?.user?.id
+
+        if (userId) {
+          const { data: userProfile } = await supabase
+            .from('users')
+            .select('has_completed_onboarding')
+            .eq('id', userId)
+            .single()
+
+          if (userProfile?.has_completed_onboarding) {
+            router.push('/dashboard')
+          } else {
+            router.push('/onboarding')
+          }
+        } else {
+          router.push('/dashboard')
+        }
+      } catch (err) {
+        console.error('Error checking onboarding status:', err)
+        router.push('/dashboard')
+      }
     }
     
     setLoading(false)

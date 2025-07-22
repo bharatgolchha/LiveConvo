@@ -22,13 +22,14 @@ export const MeetingCardAdapter = React.memo(({
   onReport,
   onShare,
 }: MeetingCardAdapterProps) => {
-  // Fetch summary data for completed sessions that likely have summaries
-  const shouldFetchSummary = session.status === 'completed' && 
-                            session.recording_duration_seconds && 
-                            session.recording_duration_seconds > 60 // At least 1 minute of recording
+  // Only fetch full summary if we don't have a snippet and need detailed data
+  const shouldFetchFullSummary = session.status === 'completed' && 
+                                 session.recording_duration_seconds && 
+                                 session.recording_duration_seconds > 60 && // At least 1 minute of recording
+                                 !(session.summaries && session.summaries.length > 0 && session.summaries[0].tldr) // Only fetch if no summary from API
   
   const { summary, loading: summaryLoading } = useSummary(
-    shouldFetchSummary ? session.id : ''
+    shouldFetchFullSummary ? session.id : ''
   )
 
 
@@ -37,26 +38,57 @@ export const MeetingCardAdapter = React.memo(({
     // Helper to clean and normalise participant names
     const cleanNames = (names: string[] | null | undefined) => {
       if (!Array.isArray(names)) return []
-      return names
+      const uniqueNames = [...new Set(names)] // Remove duplicates
+      return uniqueNames
         .filter(name => name && name.trim() && !['me', 'them', 'user', 'other'].includes(name.toLowerCase()))
         .map(name => name.trim())
     }
 
-    const transcriptSpeakers = cleanNames(session.transcript_speakers)
+    // Use aggregated participant data from dashboard API when available
+    let finalParticipants: string[] = []
+    let participantCount = 0
+    
+    // Process participants from JSONB data
+    if (session.participants && Array.isArray(session.participants)) {
+      // Extract names from participants JSONB array
+      const participantNames = session.participants
+        .map((p: any) => {
+          if (typeof p === 'string') return p
+          if (typeof p === 'object' && p.name) return p.name
+          if (typeof p === 'object' && p.email) return p.email.split('@')[0]
+          return null
+        })
+        .filter(Boolean)
+        .map(name => name.trim())
+        .filter(name => name.length > 0)
+      
+      finalParticipants = cleanNames(participantNames)
+      participantCount = session.participants.length
+    } else {
+      // Fallback to existing logic for backwards compatibility
+      // Clean participant names from various sources  
+      let participantSources = [
+        session.participant_me,
+        session.participant_them
+      ]
+      
+      // Add transcript speakers if available
+      const transcriptSpeakers = session.transcript_speakers
+      if (Array.isArray(transcriptSpeakers)) {
+        participantSources.push(...transcriptSpeakers)
+      }
+      
+      // Process all sources
+      const allNames = participantSources
+        .filter(name => name && typeof name === 'string')
+        .map(name => name.trim())
+        .filter(name => name.length > 0)
+      
+      finalParticipants = cleanNames(allNames)
+      participantCount = finalParticipants.length
+    }
 
-    // Names that might have come from calendar attendees (saved in `participants` column)
-    const calendarParticipants = cleanNames(session.participants)
-
-    // Merge lists and de-duplicate while preserving order
-    const merged = [...new Set([...transcriptSpeakers, ...calendarParticipants])]
-
-    const finalParticipants = merged.length > 0
-      ? merged
-      : session.participant_them
-        ? [session.participant_them.trim()]
-        : []
-
-    const hasParticipants = finalParticipants.length > 0
+    const hasParticipants = participantCount > 0
     
     // Map session status to MeetingCard status
     const getCardStatus = (sessionStatus: Session['status']) => {
@@ -140,16 +172,23 @@ export const MeetingCardAdapter = React.memo(({
     
     // Create TLDR from session summary or context
     const getTldr = (): string | undefined => {
-      const participantCount = finalParticipants.length
+      // participantCount is already calculated above
       const duration = session.recording_duration_seconds || 0
       const hasRecording = duration > 0
       
       // For completed sessions, use the actual TLDR from summaries table
       if (session.status === 'completed') {
+        // First, try to use the summary from the joined summaries data
+        if (session.summaries && session.summaries.length > 0 && session.summaries[0].tldr) {
+          return session.summaries[0].tldr
+        }
+        
+        // If fetching full summary and still loading, show loading state
         if (summaryLoading) {
           return undefined // This will show the loading skeleton
         }
         
+        // Use full summary TLDR if available
         if (summary?.tldr) {
           return summary.tldr
         }

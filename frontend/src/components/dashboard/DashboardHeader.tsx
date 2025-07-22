@@ -84,13 +84,9 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({ user, onSearch, onNav
             </button>
           )}
           <img
-            src={
-              resolvedTheme === 'dark'
-                ? 'https://ucvfgfbjcrxbzppwjpuu.supabase.co/storage/v1/object/public/images//DarkMode2.png'
-                : 'https://ucvfgfbjcrxbzppwjpuu.supabase.co/storage/v1/object/public/images//LightMode2.png'
-            }
+            src={resolvedTheme === 'dark' ? '/Logos/DarkMode.png' : '/Logos/LightMode.png'}
             alt="liveprompt.ai"
-            className="h-6 sm:h-8 w-auto object-contain"
+            className="h-8 sm:h-10 w-auto object-contain"
           />
         </div>
 

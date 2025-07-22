@@ -4,6 +4,7 @@ import React from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { motion } from 'framer-motion'
+import { useTheme } from '@/contexts/ThemeContext'
 
 interface AuthLayoutProps {
   children: React.ReactNode
@@ -12,6 +13,8 @@ interface AuthLayoutProps {
 }
 
 export function AuthLayout({ children, title, subtitle }: AuthLayoutProps) {
+  const { resolvedTheme } = useTheme()
+  
   return (
     <div className="min-h-screen bg-background flex flex-col justify-center px-4 sm:px-6 lg:px-8">
       {/* Logo */}
@@ -23,12 +26,12 @@ export function AuthLayout({ children, title, subtitle }: AuthLayoutProps) {
       >
         <Link href="/" className="flex items-center gap-2">
           <Image 
-            src="https://ucvfgfbjcrxbzppwjpuu.supabase.co/storage/v1/object/public/images//DarkMode2.png"
+            src={resolvedTheme === 'dark' ? '/Logos/DarkMode.png' : '/Logos/LightMode.png'}
             alt="liveprompt.ai"
-            width={180}
-            height={40}
+            width={200}
+            height={50}
             className="object-contain"
-            unoptimized
+            priority
           />
         </Link>
       </motion.div>

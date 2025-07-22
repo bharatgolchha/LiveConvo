@@ -249,7 +249,9 @@ async function fetchSessions(
           meeting_url,
           meeting_platform,
           user_id,
-          visibility
+          visibility,
+          participants,
+          summaries!left(tldr)
         ),
         users!shared_meetings_shared_by_fkey (
           id,
@@ -358,7 +360,9 @@ async function fetchSessions(
           meeting_url,
           meeting_platform,
           user_id,
-          visibility
+          visibility,
+          participants,
+          summaries!left(tldr)
         ),
         users!organization_shared_meetings_shared_by_fkey (
           id,
@@ -414,7 +418,9 @@ async function fetchSessions(
         meeting_url,
         meeting_platform,
         visibility,
-        user_id
+        user_id,
+        participants,
+        summaries!left(tldr)
       `,
         { count: 'exact' }
       )

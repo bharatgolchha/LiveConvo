@@ -16,17 +16,24 @@ interface ParticipantsListProps {
     me: string;
     them: string;
   };
+  participants?: Participant[]; // Pre-loaded participants data to avoid API calls
 }
 
-export function ParticipantsList({ sessionId, showLabel = true, maxVisible, fallbackParticipants }: ParticipantsListProps) {
-  const [participants, setParticipants] = useState<Participant[]>([]);
-  const [loading, setLoading] = useState(true);
+export function ParticipantsList({ sessionId, showLabel = true, maxVisible, fallbackParticipants, participants: providedParticipants }: ParticipantsListProps) {
+  const [participants, setParticipants] = useState<Participant[]>(providedParticipants || []);
+  const [loading, setLoading] = useState(!providedParticipants);
   const [expanded, setExpanded] = useState(false);
   const { session } = useAuth();
 
   useEffect(() => {
-    fetchParticipants();
-  }, [sessionId]);
+    // Only fetch if participants are not provided
+    if (!providedParticipants) {
+      fetchParticipants();
+    } else {
+      setParticipants(providedParticipants);
+      setLoading(false);
+    }
+  }, [sessionId, providedParticipants]);
 
   const fetchParticipants = async () => {
     try {

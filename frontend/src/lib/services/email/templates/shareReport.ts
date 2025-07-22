@@ -232,7 +232,7 @@ export function generateShareReportEmail(data: ShareReportEmailData): { html: st
     <div class="container">
       <div class="header">
         <div class="logo">
-          <img src="https://ucvfgfbjcrxbzppwjpuu.supabase.co/storage/v1/object/public/images//DarkMode2.png" alt="LivePrompt AI" />
+          <img src="https://liveprompt.ai/Logos/DarkMode.png" alt="LivePrompt AI" />
         </div>
         <h1>${reportTitle}</h1>
         <p>Shared with you by ${senderName}</p>

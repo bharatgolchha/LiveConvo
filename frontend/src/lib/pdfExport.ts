@@ -54,13 +54,12 @@ export async function generatePDF(options: ExportOptions) {
         border-bottom: 2px solid #e5e7eb;
       }
       .logo {
-        font-size: 24px;
-        font-weight: 800;
-        background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
-        -webkit-background-clip: text;
-        background-clip: text;
-        -webkit-text-fill-color: transparent;
         margin-bottom: 10px;
+      }
+      .logo img {
+        height: 40px;
+        width: auto;
+        object-fit: contain;
       }
       .title {
         font-size: 20px;
@@ -175,7 +174,7 @@ export async function generatePDF(options: ExportOptions) {
   let html = `
     ${styles}
     <div class="header">
-      <div class="logo">liveprompt.ai</div>
+      <div class="logo"><img src="https://liveprompt.ai/Logos/DarkMode.png" alt="liveprompt.ai" /></div>
       <div class="tagline" style="color: #6b7280; font-size: 14px;">Your AI Conversation Coach</div>
     </div>
     

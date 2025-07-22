@@ -140,6 +140,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         email,
         password,
         options: {
+          // Ensure users return to our auth callback after verifying email so we can route them correctly
+          emailRedirectTo: typeof window !== 'undefined' ? `${window.location.origin}/auth/callback` : undefined,
           data: {
             full_name: fullName,
             referral_code: referralCode,

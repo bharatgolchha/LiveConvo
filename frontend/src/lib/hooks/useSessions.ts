@@ -20,11 +20,6 @@ export interface Session {
   hasSummary?: boolean;
   linkedConversationsCount?: number;
   linkedConversations?: Array<{ id: string, title: string }>;
-  summaries?: Array<{
-    id: string;
-    generation_status: string;
-    created_at: string;
-  }>;
   participant_me?: string;
   participant_them?: string;
   transcript_speakers?: string[];
@@ -36,6 +31,9 @@ export interface Session {
   meeting_platform?: 'zoom' | 'google_meet' | 'teams';
   recall_bot_id?: string;
   recall_bot_status?: 'created' | 'joining' | 'in_call' | 'recording' | 'waiting' | 'permission_denied' | 'completed' | 'failed' | 'timeout' | 'cancelled';
+  // New aggregated fields from dashboard API to reduce per-row requests
+  summaries?: Array<{ id: string; tldr?: string; generation_status?: string; created_at: string }>;
+  // For sharing functionality
   is_shared?: boolean;
   is_shared_with_me?: boolean;
   shared_by?: {

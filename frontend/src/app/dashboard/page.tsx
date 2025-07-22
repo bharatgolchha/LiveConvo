@@ -48,6 +48,8 @@ import { Pagination } from '@/components/ui/Pagination';
 import { DashboardChatProvider } from '@/contexts/DashboardChatContext';
 import { DashboardChatbot } from '@/components/dashboard/DashboardChatbot';
 import { ShareMeetingModal } from '@/components/meeting/ShareMeetingModal';
+import { MeetingListTabs } from '@/components/dashboard/MeetingListTabs';
+import { filterSessionsByView, getSessionCounts } from '@/lib/utils/meeting-utils';
 import dynamic from 'next/dynamic';
 
 // Dynamically load smaller components to reduce initial bundle size
@@ -118,6 +120,12 @@ const DashboardPage: React.FC = () => {
   const [sessionToShare, setSessionToShare] = useState<Session | null>(null);
   const [sharedMeetingsCount, setSharedMeetingsCount] = useState(0);
   const [isEligibleForTrial, setIsEligibleForTrial] = useState(false);
+  
+  // Initialize meeting view from URL params or localStorage
+  const viewParam = searchParams.get('view') as 'live' | 'all' | null;
+  const savedView = typeof window !== 'undefined' ? localStorage.getItem('dashboardMeetingView') as 'live' | 'all' | null : null;
+  const initialView = viewParam || savedView || 'all';
+  const [meetingView, setMeetingView] = useState<'live' | 'all'>(initialView);
 
   // Get all dashboard data from unified hook
   const { 
@@ -266,16 +274,44 @@ const DashboardPage: React.FC = () => {
     checkTrialEligibility();
   }, [authSession, planType]);
 
-  // Update URL when activePath changes
+  // Update URL when activePath or meetingView changes
   useEffect(() => {
     const newSearchParams = new URLSearchParams(searchParams.toString());
+    
+    // Handle tab parameter
     if (activePath && activePath !== 'conversations') {
       newSearchParams.set('tab', activePath);
     } else {
       newSearchParams.delete('tab');
     }
+    
+    // Handle view parameter (only when on conversations tab)
+    if (activePath === 'conversations' && meetingView !== 'all') {
+      newSearchParams.set('view', meetingView);
+    } else {
+      newSearchParams.delete('view');
+    }
+    
     const newUrl = `${window.location.pathname}${newSearchParams.toString() ? '?' + newSearchParams.toString() : ''}`;
     window.history.replaceState({}, '', newUrl);
+  }, [activePath, meetingView, searchParams]);
+  
+  // Save meeting view preference to localStorage
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('dashboardMeetingView', meetingView);
+    }
+  }, [meetingView]);
+  
+  // Reset meeting view when leaving conversations tab
+  useEffect(() => {
+    if (activePath !== 'conversations') {
+      // Don't change the state, just remove from URL when not on conversations
+      const newSearchParams = new URLSearchParams(searchParams.toString());
+      newSearchParams.delete('view');
+      const newUrl = `${window.location.pathname}${newSearchParams.toString() ? '?' + newSearchParams.toString() : ''}`;
+      window.history.replaceState({}, '', newUrl);
+    }
   }, [activePath, searchParams]);
 
   // Debug subscription status
@@ -302,14 +338,21 @@ const DashboardPage: React.FC = () => {
   }, [sessionsError, router]);
 
   // For paginated data, we use the current sessions directly since filtering is done server-side
+  // But apply client-side filtering for live/completed views
   const filtered = useMemo(() => {
-    // Always use list view with original sessions (server-side filtered)
-    return { sessions: sessions };
-  }, [sessions]);
+    // Apply view filtering on top of server-side filtering
+    const viewFilteredSessions = filterSessionsByView(sessions, meetingView);
+    return { sessions: viewFilteredSessions };
+  }, [sessions, meetingView]);
   
   // Use totalCount from API response for pagination
-  // Always use the API's totalCount for accurate pagination
-  const totalFilteredCount = totalCount || sessions.length;
+  // When filtering by view, use the filtered count instead
+  const totalFilteredCount = meetingView === 'all' 
+    ? (totalCount || sessions.length)
+    : filtered.sessions.length;
+  
+  // Get session counts for tabs
+  const sessionCounts = useMemo(() => getSessionCounts(sessions), [sessions]);
 
   const handleSearch = (query: string) => {
     setSearchQuery(query);
@@ -896,6 +939,15 @@ const DashboardPage: React.FC = () => {
               <EmptyState onNewConversation={handleNewConversation} onNewMeeting={handleNewMeeting} />
             ) : (
               <div className="flex flex-col flex-1">
+                {/* Meeting View Tabs - Only show when not in archive or shared view */}
+                {activePath === 'conversations' && (
+                  <MeetingListTabs
+                    view={meetingView}
+                    onViewChange={setMeetingView}
+                    counts={sessionCounts}
+                  />
+                )}
+
                 {/* Search Results Header */}
                 {searchQuery && (
                   <motion.div
@@ -1004,7 +1056,7 @@ const DashboardPage: React.FC = () => {
                     {/* Meeting List */}
                     <div className="flex-1 p-3 sm:p-4 space-y-2 sm:space-y-3">
                       {/* Always render as list view */}
-                      {sessions?.map((session) => (
+                      {filtered.sessions?.map((session) => (
                         <MeetingCardAdapter
                           key={`session-${session.id}`}
                           session={session}
@@ -1080,22 +1132,39 @@ const DashboardPage: React.FC = () => {
                           </p>
                         </>
                       ) : (
-                        <>
-                          <MagnifyingGlassIcon className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
-                          <h3 className="text-lg font-medium text-foreground mb-2">No results found</h3>
-                          <p className="text-muted-foreground mb-6">
-                            {searchQuery 
-                              ? `No meetings match your search for "${searchQuery}"`
-                              : "Try adjusting your search terms or start a new meeting."}
-                          </p>
-                          <Button
-                            onClick={handleNewConversation}
-                            className="bg-primary hover:bg-primary/90 text-primary-foreground"
-                          >
-                            <PlusIcon className="w-4 h-4 mr-2" />
-                            Start New Meeting
-                          </Button>
-                        </>
+                        meetingView === 'live' ? (
+                          <>
+                            <MicrophoneIcon className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
+                            <h3 className="text-lg font-medium text-foreground mb-2">No active meetings</h3>
+                            <p className="text-muted-foreground mb-6">
+                              No meetings are currently in progress. Start a new meeting to see it here.
+                            </p>
+                            <Button
+                              onClick={handleNewMeeting}
+                              className="bg-primary hover:bg-primary/90 text-primary-foreground"
+                            >
+                              <PlusIcon className="w-4 h-4 mr-2" />
+                              Start New Meeting
+                            </Button>
+                          </>
+                        ) : (
+                          <>
+                            <MagnifyingGlassIcon className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
+                            <h3 className="text-lg font-medium text-foreground mb-2">No results found</h3>
+                            <p className="text-muted-foreground mb-6">
+                              {searchQuery 
+                                ? `No meetings match your search for "${searchQuery}"`
+                                : "Try adjusting your search terms or start a new meeting."}
+                            </p>
+                            <Button
+                              onClick={handleNewConversation}
+                              className="bg-primary hover:bg-primary/90 text-primary-foreground"
+                            >
+                              <PlusIcon className="w-4 h-4 mr-2" />
+                              Start New Meeting
+                            </Button>
+                          </>
+                        )
                       )}
                     </div>
                   </motion.div>

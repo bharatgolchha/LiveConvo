@@ -82,7 +82,48 @@ export const MeetingCard = React.memo(({
 }: MeetingCardProps) => {
   const [tldrExpanded, setTldrExpanded] = useState(false)
 
-  // (Participant avatar helpers removed – now handled by ParticipantsList)
+  // Helper functions for participant data
+  const getInitials = (name: string): string => {
+    const words = name.trim().split(' ').filter(w => w.length > 0);
+    if (words.length === 0) return '??';
+    if (words.length === 1) {
+      return words[0].substring(0, 2).toUpperCase();
+    }
+    // Get first letter of first and last name
+    return (words[0][0] + words[words.length - 1][0]).toUpperCase();
+  };
+
+  const getColorForName = (name: string): string => {
+    // Generate a consistent color based on the name using theme colors
+    const colorClasses = [
+      'bg-primary',
+      'bg-secondary',
+      'bg-accent',
+      'bg-blue-500',
+      'bg-green-500',
+      'bg-purple-500',
+      'bg-pink-500',
+      'bg-indigo-500',
+      'bg-teal-500',
+      'bg-orange-500'
+    ];
+    
+    let hash = 0;
+    for (let i = 0; i < name.length; i++) {
+      hash = name.charCodeAt(i) + ((hash << 5) - hash);
+    }
+    
+    return colorClasses[Math.abs(hash) % colorClasses.length];
+  };
+
+  // Transform participants array into the format expected by ParticipantsList
+  const participantObjects = React.useMemo(() => {
+    return participants.map((name) => ({
+      name,
+      initials: getInitials(name),
+      color: getColorForName(name)
+    }));
+  }, [participants]);
 
   // Helper function to get bot status display
   const getBotStatusDisplay = () => {
@@ -227,11 +268,12 @@ export const MeetingCard = React.memo(({
           <span className="text-xs rounded-full bg-muted px-2 py-0.5 text-muted-foreground">
             {meetingType}
           </span>
-          {/* Participant pills fetched from API for consistent display */}
+          {/* Participant pills - use pre-loaded data to avoid API calls */}
           <ParticipantsList 
             sessionId={id} 
             showLabel={false}
             maxVisible={3}
+            participants={participantObjects}
             fallbackParticipants={
               participantMe || participantThem ? { me: participantMe || '', them: participantThem || '' } : undefined
             }

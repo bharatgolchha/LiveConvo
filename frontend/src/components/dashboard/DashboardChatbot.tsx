@@ -224,11 +224,22 @@ export function DashboardChatbot() {
         headers['Authorization'] = `Bearer ${session.access_token}`;
       }
       
+      // Convert messages to the format expected by the API (exclude system messages)
+      const chatHistory = [...messages, userMessage]
+        .filter(m => m.role !== 'system')
+        .slice(-10) // Limit to last 10 messages
+        .map(m => ({
+          id: m.id,
+          type: (m.role === 'user' ? 'user' : 'ai') as 'user' | 'ai',
+          content: m.content,
+          timestamp: m.timestamp
+        }));
+
       const requestBody = {
         message: messageToSend,
         mode: 'dashboard',
         dashboardContext,
-        chatHistory: messages.filter(m => m.role !== 'system').slice(-10) // Last 10 messages
+        chatHistory // Provide formatted chat history
       };
       
       console.log('🚀 Dashboard chatbot sending request:', {
@@ -320,8 +331,20 @@ export function DashboardChatbot() {
         title: m.title,
         created_at: m.created_at,
         summary: m.tldr,
-        decisions: m.key_decisions?.slice(0, 3),
-        actionItems: m.action_items?.slice(0, 3),
+        decisions: m.key_decisions?.slice(0, 3).map((d: string | { decision?: string; text?: string; title?: string; impact?: string; rationale?: string; decisionMaker?: string }) => {
+          if (typeof d === 'string') return d;
+          if (d && typeof d === 'object') {
+            return d.decision || d.text || d.title || JSON.stringify(d);
+          }
+          return String(d);
+        }) || [],
+        actionItems: m.action_items?.slice(0, 3).map((a: string | { task?: string; text?: string; title?: string; owner?: string; deadline?: string; priority?: string; dependencies?: string[]; businessImpact?: string }) => {
+          if (typeof a === 'string') return a;
+          if (a && typeof a === 'object') {
+            return a.task || a.text || a.title || JSON.stringify(a);
+          }
+          return String(a);
+        }) || [],
         url: `/report/${m.session_id}`
       })),
       actionItems: actionItems.slice(0, 20).map(a => ({

@@ -27,9 +27,11 @@ import SeoJsonLd from '@/components/SeoJsonLd';
 import { Header } from '@/components/layout/Header';
 import { Button } from '@/components/ui/Button';
 import { LandingAuthSection } from '@/components/landing/LandingAuthSection';
+import { useTheme } from '@/contexts/ThemeContext';
 
 export default function LandingPage() {
   const router = useRouter();
+  const { resolvedTheme } = useTheme();
   const [expandedFaq, setExpandedFaq] = useState<number | null>(null);
   const [showFloatingCTA, setShowFloatingCTA] = useState(false);
   const [showScheduleModal, setShowScheduleModal] = useState(false);
@@ -1789,11 +1791,12 @@ export default function LandingPage() {
               <div className="col-span-1 md:col-span-2">
                 <div className="flex items-center gap-2 mb-4">
                   <Image 
-                    src="https://ucvfgfbjcrxbzppwjpuu.supabase.co/storage/v1/object/public/images//DarkMode2.png"
+                    src={resolvedTheme === 'dark' ? '/Logos/DarkMode.png' : '/Logos/LightMode.png'}
                     alt="liveprompt.ai logo - AI-powered real-time conversation intelligence platform"
-                    width={150}
-                    height={32}
+                    width={180}
+                    height={45}
                     className="object-contain"
+                    priority
                   />
                 </div>
                 <p className="mb-4 text-muted-foreground">
