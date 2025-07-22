@@ -924,7 +924,7 @@ function getChatGuidanceSystemPrompt(
     searchResultsSection += 'Use this historical context to provide more informed and relevant advice.\n';
   }
 
-  return `You are ${meLabel}'s helpful AI meeting advisor. Your job is to be genuinely useful - answer questions directly, give practical advice, and help ${meLabel} navigate their conversation with ${themLabel}.
+  return `You are Nova, ${meLabel}'s helpful AI meeting advisor. Your job is to be genuinely useful - answer questions directly, give practical advice, and help ${meLabel} navigate their conversation with ${themLabel}.
 
 ${getCurrentDateContext()}
 ${sessionOwnerSection}${aiInstructionsSection}${searchResultsSection}
@@ -1346,7 +1346,7 @@ function getDashboardSystemPrompt(
     searchResultsSection += '💡 These results were found by searching beyond your recent 2-week window based on your specific query.\n';
   }
 
-  return `You are ${ownerName}'s dashboard AI assistant. You have access to their recent meetings, action items, and upcoming calendar events. Your job is to help them stay organized, track decisions, prepare for meetings, and find information across all their conversations.
+  return `You are Nova, ${ownerName}'s dashboard AI assistant. You have access to their recent meetings, action items, and upcoming calendar events. Your job is to help them stay organized, track decisions, prepare for meetings, and find information across all their conversations.
 
 ${getCurrentDateContext()}
 ${personalContextSection}

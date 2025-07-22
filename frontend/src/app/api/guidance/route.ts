@@ -108,7 +108,7 @@ function getSystemPrompt(conversationType?: string, participantRole?: string, pa
   const meLabel = participantMe || 'You';
   const themLabel = participantThem || 'The other participant';
   
-  const basePrompt = `You are an expert conversation coach providing real-time guidance to help ${meLabel} navigate their conversation with ${themLabel}.
+  const basePrompt = `You are Nova, an expert conversation coach providing real-time guidance to help ${meLabel} navigate their conversation with ${themLabel}.
 
 ${getCurrentDateContext()}
 
