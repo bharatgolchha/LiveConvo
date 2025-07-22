@@ -205,7 +205,7 @@ export default function LandingPage() {
                  lineHeight: '1.5'
                }}
             >
-              <span className="text-app-success">Nova joins every call</span>
+              <span className="text-app-success">AI joins every call</span>
               <span className="mx-3 text-muted-foreground/60">•</span>
               <span className="text-app-info">Captures every word</span>
               <span className="mx-3 text-muted-foreground/60">•</span>

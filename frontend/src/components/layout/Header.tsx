@@ -19,10 +19,15 @@ interface NavItem {
 }
 
 const primaryNavItems: NavItem[] = [
+  // Hidden for now
+  // {
+  //   label: 'Use Cases',
+  //   dropdown: true,
+  //   component: <UseCasesDropdown />
+  // },
   {
-    label: 'Use Cases',
-    dropdown: true,
-    component: <UseCasesDropdown />
+    label: 'Blog',
+    href: '/blog'
   },
   {
     label: 'Pricing',
@@ -189,8 +194,8 @@ export function Header() {
                 </div>
               ))}
 
-              {/* Resources Dropdown */}
-              <div className="relative">
+              {/* Resources Dropdown - Hidden for now */}
+              {/* <div className="relative">
                 <button
                   onClick={() => setIsResourcesOpen(!isResourcesOpen)}
                   onBlur={() => setTimeout(() => setIsResourcesOpen(false), 200)}
@@ -235,7 +240,7 @@ export function Header() {
                     </motion.div>
                   )}
                 </AnimatePresence>
-              </div>
+              </div> */}
             </div>
           </div>
 
@@ -353,7 +358,8 @@ export function Header() {
                 </div>
               ))}
 
-              <div className="border-t pt-2 border-border">
+              {/* Resources section - Hidden for now */}
+              {/* <div className="border-t pt-2 border-border">
                 <div className="px-4 py-2 text-xs font-medium uppercase text-muted-foreground">
                   Resources
                 </div>
@@ -366,7 +372,7 @@ export function Header() {
                     {item.label}
                   </button>
                 ))}
-              </div>
+              </div> */}
 
               <div className="border-t pt-4 space-y-2 border-border">
                 {user && userData ? (

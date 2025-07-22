@@ -55,9 +55,10 @@ export function MeetingContextStep({
 
   return (
     <motion.div
-      initial={{ opacity: 0, x: -20 }}
-      animate={{ opacity: 1, x: 0 }}
-      exit={{ opacity: 0, x: -20 }}
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.2 }}
       className="space-y-8"
     >
       {/* Context/Agenda */}
@@ -156,12 +157,7 @@ export function MeetingContextStep({
       )}
 
       {/* Tips */}
-      <motion.div 
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.2 }}
-        className="bg-gradient-to-br from-primary/5 to-secondary/5 rounded-2xl border border-primary/10 overflow-hidden"
-      >
+      <div className="bg-primary/5 rounded-2xl border border-primary/10 overflow-hidden">
         <button
           onClick={() => setShowTips(!showTips)}
           className="w-full p-4 sm:p-5 flex items-center justify-between hover:bg-primary/5 transition-colors"
@@ -218,7 +214,7 @@ export function MeetingContextStep({
             </motion.div>
           )}
         </AnimatePresence>
-      </motion.div>
+      </div>
     </motion.div>
   );
 }

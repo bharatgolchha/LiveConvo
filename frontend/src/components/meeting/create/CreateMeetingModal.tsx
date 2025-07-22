@@ -91,72 +91,46 @@ export function CreateMeetingModal({ isOpen, onClose, onStart }: CreateMeetingMo
           {/* Modal */}
           <div className="fixed inset-0 flex items-center justify-center p-4 sm:p-6 md:p-8">
             <motion.div
-              initial={{ scale: 0.95, opacity: 0, y: 20 }}
-              animate={{ scale: 1, opacity: 1, y: 0 }}
-              exit={{ scale: 0.95, opacity: 0, y: 20 }}
-              transition={{ type: "spring", duration: 0.3 }}
-              className="relative bg-gradient-to-br from-background via-card to-background rounded-3xl shadow-2xl max-w-3xl w-full border border-border/30 overflow-hidden flex flex-col max-h-[90vh] sm:max-h-[85vh]"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 10 }}
+              transition={{ duration: 0.2 }}
+              className="relative bg-card rounded-2xl shadow-xl max-w-3xl w-full border border-border/50 overflow-hidden flex flex-col max-h-[90vh] sm:max-h-[85vh]"
             >
               {/* Header */}
-              <div className="relative px-6 sm:px-8 md:px-10 py-6 sm:py-8 bg-gradient-to-br from-primary/5 via-transparent to-secondary/5 border-b border-border/20 flex-shrink-0">
+              <div className="relative px-6 sm:px-8 py-4 sm:py-5 bg-background/80 backdrop-blur-sm border-b border-border/50 flex-shrink-0">
                 <button
                   onClick={handleClose}
                   disabled={isStarting}
-                  className="absolute right-4 sm:right-6 md:right-8 top-4 sm:top-6 md:top-8 p-2.5 hover:bg-muted/30 rounded-xl transition-all duration-200 disabled:opacity-50 group"
+                  className="absolute right-4 sm:right-6 top-4 sm:top-5 p-2 hover:bg-muted/50 rounded-lg transition-colors disabled:opacity-50"
                 >
-                  <XMarkIcon className="w-5 h-5 text-muted-foreground group-hover:text-foreground transition-colors" />
+                  <XMarkIcon className="w-5 h-5 text-muted-foreground hover:text-foreground" />
                 </button>
 
-                <div className="pr-16">
-                  <div className="flex items-center gap-4 mb-6">
-                    <div className="p-3 bg-gradient-to-br from-primary to-primary-dark rounded-2xl shadow-lg shadow-primary/20">
-                      <img 
-                        src="https://ucvfgfbjcrxbzppwjpuu.supabase.co/storage/v1/object/public/images//LogoTransparent.png" 
-                        alt="Company Logo" 
-                        className="w-7 h-7 object-contain"
-                      />
-                    </div>
-                    <div>
-                      <h2 className="text-3xl font-bold text-foreground tracking-tight">
-                        New Meeting
-                      </h2>
-                      <p className="text-sm text-muted-foreground mt-1">
-                        Set up your conversation in just a few steps
-                      </p>
-                    </div>
+                <div className="pr-12">
+                  <div className="flex items-center gap-3">
+                    <h2 className="text-xl sm:text-2xl font-semibold text-foreground">
+                      New Meeting
+                    </h2>
                   </div>
                   
                   {/* Progress Indicator */}
-                  <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-2 mt-3">
                     {[0, 1, 2].map((i) => (
                       <div key={i} className="flex items-center">
-                        <motion.div
-                          initial={false}
-                          animate={{
-                            scale: i === step ? 1.1 : 1,
-                            backgroundColor: i <= step ? 'hsl(var(--primary))' : 'hsl(var(--border))'
-                          }}
-                          className={`h-2.5 transition-all duration-300 ${
-                            i === step ? 'w-12' : 'w-8'
-                          } rounded-full relative overflow-hidden`}
-                        >
-                          {i <= step && (
-                            <motion.div
-                              initial={{ x: '-100%' }}
-                              animate={{ x: '0%' }}
-                              transition={{ duration: 0.4, ease: 'easeOut' }}
-                              className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent"
-                            />
-                          )}
-                        </motion.div>
+                        <div
+                          className={`h-1.5 w-8 rounded-full transition-colors duration-200 ${
+                            i <= step ? 'bg-primary' : 'bg-border'
+                          }`}
+                        />
                         {i < 2 && (
-                          <div className={`w-8 h-0.5 transition-colors duration-300 ${
+                          <div className={`w-6 h-0.5 transition-colors duration-200 ${
                             i < step ? 'bg-primary' : 'bg-border'
                           }`} />
                         )}
                       </div>
                     ))}
-                    <span className="ml-4 text-sm font-medium text-foreground">
+                    <span className="ml-3 text-sm text-muted-foreground">
                       {stepTitles[step]}
                     </span>
                   </div>
@@ -264,14 +238,7 @@ export function CreateMeetingModal({ isOpen, onClose, onStart }: CreateMeetingMo
                             <span className="relative">Starting Meeting...</span>
                           </>
                         ) : (
-                          <>
-                            <span className="relative">Start Meeting</span>
-                            <img 
-                              src="https://ucvfgfbjcrxbzppwjpuu.supabase.co/storage/v1/object/public/images//LogoTransparent.png" 
-                              alt="Company Logo" 
-                              className="w-4 h-4 object-contain group-hover:scale-110 transition-transform relative"
-                            />
-                          </>
+                          <span className="relative">Start Meeting</span>
                         )}
                       </motion.button>
                     )}

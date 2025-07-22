@@ -40,7 +40,7 @@ module.exports = {
       },
     ],
     additionalSitemaps: [
-      'https://liveprompt.ai/sitemap.xml',
+      'https://liveprompt.ai/server-sitemap.xml',
     ],
   },
   transform: async (config, path) => {
@@ -53,7 +53,7 @@ module.exports = {
       '/solutions/recruiting': 0.8,
       '/solutions/consulting': 0.8,
       '/about': 0.7,
-      '/blog': 0.7,
+      '/blog': 0.8,
       '/contact': 0.6,
       '/terms': 0.5,
       '/privacy': 0.5,
@@ -63,8 +63,18 @@ module.exports = {
     const changefreq = {
       '/': 'daily',
       '/pricing': 'weekly',
-      '/blog': 'weekly',
+      '/blog': 'daily',
     };
+    
+    // Blog posts have high priority and frequent updates
+    if (path.startsWith('/blog/') && path !== '/blog') {
+      return {
+        loc: path,
+        changefreq: 'weekly',
+        priority: 0.7,
+        lastmod: new Date().toISOString(),
+      };
+    }
     
     return {
       loc: path,
@@ -73,4 +83,4 @@ module.exports = {
       lastmod: new Date().toISOString(),
     };
   },
-}; 
+};

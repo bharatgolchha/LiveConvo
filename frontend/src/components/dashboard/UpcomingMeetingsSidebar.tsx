@@ -656,14 +656,12 @@ export const UpcomingMeetingsSidebar: React.FC<UpcomingMeetingsSidebarProps> = (
 const getMeetingPlatformLogo = (meetingUrl: string | null) => {
   if (!meetingUrl) return null;
   
-  const baseUrl = 'https://ucvfgfbjcrxbzppwjpuu.supabase.co/storage/v1/object/public/images/Logos/';
-  
   if (meetingUrl.includes('zoom.us')) {
-    return `${baseUrl}zoom.png`;
+    return '/platform-logos/zoom.png';
   } else if (meetingUrl.includes('teams.microsoft.com')) {
-    return `${baseUrl}teams.png`;
+    return '/platform-logos/teams.png';
   } else if (meetingUrl.includes('meet.google.com')) {
-    return `${baseUrl}meet.png`;
+    return '/platform-logos/meet.png';
   }
   
   return null;

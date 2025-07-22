@@ -17,9 +17,9 @@ export function MeetingStatus() {
     if (!meeting?.meetingUrl || !meeting.platform) return null;
     
     const logos = {
-      zoom: 'https://ucvfgfbjcrxbzppwjpuu.storage.supabase.co/v1/object/public/images/Logos/zoom.png',
-      google_meet: 'https://ucvfgfbjcrxbzppwjpuu.storage.supabase.co/v1/object/public/images/Logos/meet.png',
-      teams: 'https://ucvfgfbjcrxbzppwjpuu.storage.supabase.co/v1/object/public/images/Logos/teams.png'
+      zoom: '/platform-logos/zoom.png',
+      google_meet: '/platform-logos/meet.png',
+      teams: '/platform-logos/teams.png'
     };
     
     return logos[meeting.platform];
