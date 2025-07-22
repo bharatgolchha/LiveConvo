@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { CheckCircle, Loader2, AlertTriangle, Circle, CheckCircle2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -60,6 +61,12 @@ export function EndMeetingStatus({
   const [progressPercentage, setProgressPercentage] = useState(0);
   const [startTime] = useState(() => Date.now());
   const [elapsedTime, setElapsedTime] = useState(0);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+    return () => setMounted(false);
+  }, []);
 
   useEffect(() => {
     if (!isVisible) {
@@ -132,38 +139,45 @@ export function EndMeetingStatus({
 
   if (!isVisible) return null;
 
-  const getStepIcon = (status: ProcessStep['status']) => {
-    switch (status) {
-      case 'completed':
-        return <CheckCircle2 className="w-4 h-4 text-green-500" />;
-      case 'in-progress':
-        return <Loader2 className="w-4 h-4 text-blue-500 animate-spin" />;
-      case 'error':
-        return <AlertTriangle className="w-4 h-4 text-red-500" />;
-      default:
-        return <Circle className="w-4 h-4 text-gray-300 dark:text-gray-600" />;
-    }
-  };
+  // Unused function - kept for potential future use
+  // const getStepIcon = (status: ProcessStep['status']) => {
+  //   switch (status) {
+  //     case 'completed':
+  //       return <CheckCircle2 className="w-4 h-4 text-app-success" />;
+  //     case 'in-progress':
+  //       return <Loader2 className="w-4 h-4 text-primary animate-spin" />;
+  //     case 'error':
+  //       return <AlertTriangle className="w-4 h-4 text-destructive" />;
+  //     default:
+  //       return <Circle className="w-4 h-4 text-muted-foreground/50" />;
+  //   }
+  // };
 
-  return (
-    <div className="fixed inset-0 z-[10000] bg-black/60 backdrop-blur-md">
-      <div className="min-h-screen flex items-center justify-center p-4">
-        <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl shadow-xl p-6 w-full max-w-sm animate-in fade-in-0 zoom-in-95 duration-200">
+  if (!isVisible || !mounted) return null;
+
+  const modalContent = (
+    <div className="fixed inset-0 z-[99999] isolate">
+      {/* Backdrop with proper blur */}
+      <div className="fixed inset-0 bg-black/75 backdrop-blur-xl" />
+      
+      {/* Modal container */}
+      <div className="fixed inset-0 flex items-center justify-center p-4 z-[100000]">
+        <div className="bg-card border border-border rounded-xl shadow-2xl p-6 w-full max-w-sm animate-in fade-in-0 zoom-in-95 duration-200">
           {/* Header */}
           <div className="text-center mb-4">
-            <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-blue-100 dark:bg-blue-900/20 mb-3">
+            <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-primary/10 mb-3">
               {error ? (
-                <AlertTriangle className="w-6 h-6 text-red-500" />
+                <AlertTriangle className="w-6 h-6 text-destructive" />
               ) : isSuccess ? (
-                <CheckCircle className="w-6 h-6 text-green-500" />
+                <CheckCircle className="w-6 h-6 text-app-success" />
               ) : (
-                <Loader2 className="w-6 h-6 text-blue-500 animate-spin" />
+                <Loader2 className="w-6 h-6 text-primary animate-spin" />
               )}
             </div>
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+            <h2 className="text-lg font-semibold text-foreground">
               {error ? 'Error Occurred' : isSuccess ? 'Meeting Ended' : 'Ending Meeting'}
             </h2>
-            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+            <p className="text-xs text-muted-foreground mt-1">
               {error ? 'Something went wrong' : 'Processing...'}
             </p>
           </div>
@@ -175,28 +189,28 @@ export function EndMeetingStatus({
                 key={stepItem.id} 
                 className={cn(
                   "flex items-center gap-2.5 p-2 rounded-lg transition-all duration-300",
-                  stepItem.status === 'in-progress' && "bg-blue-50 dark:bg-blue-900/10",
+                  stepItem.status === 'in-progress' && "bg-primary/5",
                   stepItem.status === 'completed' && "opacity-60"
                 )}
               >
                 <div className="flex-shrink-0">
                   {stepItem.status === 'completed' ? (
-                    <CheckCircle2 className="w-4 h-4 text-green-500" />
+                    <CheckCircle2 className="w-4 h-4 text-app-success" />
                   ) : stepItem.status === 'in-progress' ? (
-                    <Loader2 className="w-4 h-4 text-blue-500 animate-spin" />
+                    <Loader2 className="w-4 h-4 text-primary animate-spin" />
                   ) : stepItem.status === 'error' ? (
-                    <AlertTriangle className="w-4 h-4 text-red-500" />
+                    <AlertTriangle className="w-4 h-4 text-destructive" />
                   ) : (
-                    <Circle className="w-4 h-4 text-gray-300 dark:text-gray-600" />
+                    <Circle className="w-4 h-4 text-muted-foreground/50" />
                   )}
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className={cn(
                     "text-sm",
-                    stepItem.status === 'completed' && "text-gray-500 dark:text-gray-400",
-                    stepItem.status === 'in-progress' && "text-gray-900 dark:text-white font-medium",
-                    stepItem.status === 'error' && "text-red-600 dark:text-red-400",
-                    stepItem.status === 'pending' && "text-gray-400 dark:text-gray-500"
+                    stepItem.status === 'completed' && "text-muted-foreground",
+                    stepItem.status === 'in-progress' && "text-foreground font-medium",
+                    stepItem.status === 'error' && "text-destructive",
+                    stepItem.status === 'pending' && "text-muted-foreground/60"
                   )}>
                     {stepItem.label}
                   </div>
@@ -207,15 +221,15 @@ export function EndMeetingStatus({
 
           {/* Progress Bar - Simplified */}
           <div className="mb-4">
-            <div className="flex justify-between text-xs text-gray-500 dark:text-gray-400 mb-1.5">
+            <div className="flex justify-between text-xs text-muted-foreground mb-1.5">
               <span>{Math.round(progressPercentage)}%</span>
               {!isSuccess && !error && (
                 <span>{elapsedTime}s</span>
               )}
             </div>
-            <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-1.5 overflow-hidden">
+            <div className="w-full bg-muted rounded-full h-1.5 overflow-hidden">
               <div 
-                className="h-full bg-blue-500 rounded-full transition-all duration-500 ease-out"
+                className="h-full bg-primary rounded-full transition-all duration-500 ease-out"
                 style={{ width: `${progressPercentage}%` }}
               />
             </div>
@@ -223,18 +237,18 @@ export function EndMeetingStatus({
 
           {/* Error Message */}
           {error && (
-            <div className="bg-red-100 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-3 mb-4">
-              <p className="text-xs text-red-700 dark:text-red-300">{error}</p>
+            <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-3 mb-4">
+              <p className="text-xs text-destructive">{error}</p>
             </div>
           )}
 
           {/* Success Message */}
           {isSuccess && (
             <div className="text-center">
-              <p className="text-xs text-gray-600 dark:text-gray-400">
+              <p className="text-xs text-muted-foreground">
                 Meeting ended successfully
               </p>
-              <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">
+              <p className="text-xs text-primary mt-1">
                 Redirecting...
               </p>
             </div>
@@ -242,7 +256,7 @@ export function EndMeetingStatus({
 
           {/* Current Status (for non-error, non-success states) */}
           {!error && !isSuccess && step && (
-            <p className="text-xs text-center text-gray-500 dark:text-gray-400">
+            <p className="text-xs text-center text-muted-foreground">
               {step}
             </p>
           )}
@@ -250,4 +264,6 @@ export function EndMeetingStatus({
       </div>
     </div>
   );
+
+  return createPortal(modalContent, document.body);
 }
