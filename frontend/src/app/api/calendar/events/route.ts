@@ -254,15 +254,18 @@ export async function POST(request: NextRequest) {
       const eventsToInsert = validEvents.map((event: any) => {
         // Parse the raw field to get the actual event details
         let title = 'Untitled Event';
-        let description = null;
-        let attendees = [];
-        let location = null;
+        let description: string | null = null;
+        let attendees: any[] = [];
+        let location: string | null = null;
         let organizer_email = connection.email;
+
+        // Hold parsed raw event for reuse
+        let rawData: any = null;
         
         // The raw field contains the platform-specific data
         if (event.raw) {
           try {
-            const rawData = typeof event.raw === 'string' ? JSON.parse(event.raw) : event.raw;
+            rawData = typeof event.raw === 'string' ? JSON.parse(event.raw) : event.raw;
             title = rawData.summary || rawData.title || event.platform_id || 'Untitled Event';
             description = rawData.description || null;
             location = rawData.location || null;
@@ -286,6 +289,30 @@ export async function POST(request: NextRequest) {
           }
         }
         
+        // Determine the best possible meeting URL
+        let meetingUrl: string | null = event.meeting_url || null;
+
+        // Google Meet / Zoom links often live in nested fields
+        if (!meetingUrl && rawData) {
+          meetingUrl = rawData.hangoutLink || null;
+
+          // conferenceData.entryPoints -> pick the *video* URL if present
+          if (!meetingUrl && rawData.conferenceData?.entryPoints) {
+            const videoEntry = rawData.conferenceData.entryPoints.find((ep: any) => ep.entryPointType === 'video');
+            if (videoEntry?.uri) {
+              meetingUrl = videoEntry.uri;
+            }
+          }
+        }
+
+        // Last-ditch: pull first https:// URL from location string
+        if (!meetingUrl && typeof location === 'string') {
+          const urlMatch = location.match(/https?:\/\/[\w./?=&%\-+#]+/);
+          if (urlMatch) {
+            meetingUrl = urlMatch[0];
+          }
+        }
+
         return {
           calendar_connection_id: connectionId,
           external_event_id: event.id,
@@ -293,7 +320,7 @@ export async function POST(request: NextRequest) {
           description: description,
           start_time: event.start_time,
           end_time: event.end_time,
-          meeting_url: event.meeting_url,
+          meeting_url: meetingUrl,
           attendees: attendees,
           location: location,
           organizer_email: organizer_email,
