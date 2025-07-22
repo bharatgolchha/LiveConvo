@@ -135,128 +135,116 @@ export function EndMeetingStatus({
   const getStepIcon = (status: ProcessStep['status']) => {
     switch (status) {
       case 'completed':
-        return <CheckCircle2 className="w-5 h-5 text-green-500" />;
+        return <CheckCircle2 className="w-4 h-4 text-green-500" />;
       case 'in-progress':
-        return <Loader2 className="w-5 h-5 text-blue-500 animate-spin" />;
+        return <Loader2 className="w-4 h-4 text-blue-500 animate-spin" />;
       case 'error':
-        return <AlertTriangle className="w-5 h-5 text-red-500" />;
+        return <AlertTriangle className="w-4 h-4 text-red-500" />;
       default:
-        return <Circle className="w-5 h-5 text-gray-300 dark:text-gray-600" />;
+        return <Circle className="w-4 h-4 text-gray-300 dark:text-gray-600" />;
     }
   };
 
   return (
-    <div className="fixed inset-0 z-[1000] bg-black/50 backdrop-blur-sm">
+    <div className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-md">
       <div className="min-h-screen flex items-center justify-center p-4">
-        <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl shadow-2xl p-8 w-full max-w-md animate-in fade-in-0 zoom-in-95 duration-200">
+        <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl shadow-xl p-6 w-full max-w-sm animate-in fade-in-0 zoom-in-95 duration-200">
           {/* Header */}
-          <div className="text-center mb-6">
-            <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-blue-100 dark:bg-blue-900/20 mb-4">
+          <div className="text-center mb-4">
+            <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-blue-100 dark:bg-blue-900/20 mb-3">
               {error ? (
-                <AlertTriangle className="w-8 h-8 text-red-500" />
+                <AlertTriangle className="w-6 h-6 text-red-500" />
               ) : isSuccess ? (
-                <CheckCircle className="w-8 h-8 text-green-500" />
+                <CheckCircle className="w-6 h-6 text-green-500" />
               ) : (
-                <Loader2 className="w-8 h-8 text-blue-500 animate-spin" />
+                <Loader2 className="w-6 h-6 text-blue-500 animate-spin" />
               )}
             </div>
-            <h2 className="text-2xl font-semibold text-gray-900 dark:text-white">
-              {error ? 'Error Occurred' : isSuccess ? 'Meeting Ended Successfully!' : 'Ending Meeting'}
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+              {error ? 'Error Occurred' : isSuccess ? 'Meeting Ended' : 'Ending Meeting'}
             </h2>
-            <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
-              {error ? 'Something went wrong while ending the meeting' : 'Please wait while we process your meeting'}
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+              {error ? 'Something went wrong' : 'Processing...'}
             </p>
           </div>
 
-          {/* Progress Steps */}
-          <div className="space-y-3 mb-6">
+          {/* Progress Steps - Compact */}
+          <div className="space-y-2 mb-4">
             {steps.map((stepItem) => (
               <div 
                 key={stepItem.id} 
                 className={cn(
-                  "flex items-start gap-3 p-3 rounded-lg transition-all duration-300",
-                  stepItem.status === 'in-progress' && "bg-blue-50 dark:bg-blue-900/10 border border-blue-200 dark:border-blue-800",
-                  stepItem.status === 'completed' && "bg-green-50 dark:bg-green-900/10",
-                  stepItem.status === 'error' && "bg-red-50 dark:bg-red-900/10 border border-red-200 dark:border-red-800"
+                  "flex items-center gap-2.5 p-2 rounded-lg transition-all duration-300",
+                  stepItem.status === 'in-progress' && "bg-blue-50 dark:bg-blue-900/10",
+                  stepItem.status === 'completed' && "opacity-60"
                 )}
               >
-                <div className="flex-shrink-0 mt-0.5">
-                  {getStepIcon(stepItem.status)}
+                <div className="flex-shrink-0">
+                  {stepItem.status === 'completed' ? (
+                    <CheckCircle2 className="w-4 h-4 text-green-500" />
+                  ) : stepItem.status === 'in-progress' ? (
+                    <Loader2 className="w-4 h-4 text-blue-500 animate-spin" />
+                  ) : stepItem.status === 'error' ? (
+                    <AlertTriangle className="w-4 h-4 text-red-500" />
+                  ) : (
+                    <Circle className="w-4 h-4 text-gray-300 dark:text-gray-600" />
+                  )}
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className={cn(
-                    "font-medium text-sm",
-                    stepItem.status === 'completed' && "text-green-700 dark:text-green-400",
-                    stepItem.status === 'in-progress' && "text-blue-700 dark:text-blue-400",
-                    stepItem.status === 'error' && "text-red-700 dark:text-red-400",
-                    stepItem.status === 'pending' && "text-gray-500 dark:text-gray-400"
+                    "text-sm",
+                    stepItem.status === 'completed' && "text-gray-500 dark:text-gray-400",
+                    stepItem.status === 'in-progress' && "text-gray-900 dark:text-white font-medium",
+                    stepItem.status === 'error' && "text-red-600 dark:text-red-400",
+                    stepItem.status === 'pending' && "text-gray-400 dark:text-gray-500"
                   )}>
                     {stepItem.label}
-                  </div>
-                  <div className={cn(
-                    "text-xs mt-0.5",
-                    stepItem.status === 'pending' ? "text-gray-400 dark:text-gray-500" : "text-gray-600 dark:text-gray-400"
-                  )}>
-                    {stepItem.description}
                   </div>
                 </div>
               </div>
             ))}
           </div>
 
-          {/* Progress Bar */}
-          <div className="mb-6">
-            <div className="flex justify-between text-xs text-gray-500 dark:text-gray-400 mb-2">
-              <span>Progress</span>
-              <div className="flex items-center gap-3">
-                <span>{Math.round(progressPercentage)}%</span>
-                {!isSuccess && !error && (
-                  <span className="text-gray-400 dark:text-gray-500">
-                    {elapsedTime}s elapsed
-                  </span>
-                )}
-              </div>
+          {/* Progress Bar - Simplified */}
+          <div className="mb-4">
+            <div className="flex justify-between text-xs text-gray-500 dark:text-gray-400 mb-1.5">
+              <span>{Math.round(progressPercentage)}%</span>
+              {!isSuccess && !error && (
+                <span>{elapsedTime}s</span>
+              )}
             </div>
-            <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2.5 overflow-hidden relative">
+            <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-1.5 overflow-hidden">
               <div 
-                className="h-full bg-gradient-to-r from-blue-500 to-blue-600 rounded-full transition-all duration-500 ease-out relative"
+                className="h-full bg-blue-500 rounded-full transition-all duration-500 ease-out"
                 style={{ width: `${progressPercentage}%` }}
-              >
-                {/* Animated shimmer effect */}
-                {!isSuccess && !error && (
-                  <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent animate-shimmer" />
-                )}
-              </div>
+              />
             </div>
           </div>
 
           {/* Error Message */}
           {error && (
-            <div className="bg-red-100 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4 mb-6">
-              <p className="text-sm text-red-700 dark:text-red-300">{error}</p>
+            <div className="bg-red-100 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-3 mb-4">
+              <p className="text-xs text-red-700 dark:text-red-300">{error}</p>
             </div>
           )}
 
           {/* Success Message */}
           {isSuccess && (
             <div className="text-center">
-              <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">
-                Your meeting has been successfully processed
+              <p className="text-xs text-gray-600 dark:text-gray-400">
+                Meeting ended successfully
               </p>
-              <div className="inline-flex items-center gap-2 text-sm font-medium text-green-600 dark:text-green-400">
-                <span className="animate-pulse">🎉</span>
-                <span>Redirecting to your report...</span>
-              </div>
+              <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">
+                Redirecting...
+              </p>
             </div>
           )}
 
           {/* Current Status (for non-error, non-success states) */}
           {!error && !isSuccess && step && (
-            <div className="text-center">
-              <p className="text-sm text-gray-600 dark:text-gray-400 animate-pulse">
-                {step}
-              </p>
-            </div>
+            <p className="text-xs text-center text-gray-500 dark:text-gray-400">
+              {step}
+            </p>
           )}
         </div>
       </div>

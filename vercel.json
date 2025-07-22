@@ -37,6 +37,10 @@
     {
       "path": "/api/cron/cleanup-recall-calls",
       "schedule": "0 0 * * *"
+    },
+    {
+      "path": "/api/calendar/auto-join/worker",
+      "schedule": "*/1 * * * *"
     }
   ]
 } 

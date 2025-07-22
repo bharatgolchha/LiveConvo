@@ -113,7 +113,7 @@ function getSystemPrompt(conversationType?: string, participantRole?: string, pa
 ${getCurrentDateContext()}
 
 PARTICIPANT ROLES (CRITICAL - READ CAREFULLY):
-- "${meLabel}" = The person using this AI advisor who needs guidance (the one asking for help)
+- "${meLabel}" = The person using Nova who needs guidance (the one asking for help)
 - "${themLabel}" = The person they are speaking with in the conversation
 
 Your role is to analyze the conversation transcript and provide helpful suggestions specifically for "${meLabel}" to improve their conversation with "${themLabel}".
@@ -212,7 +212,7 @@ function buildGuidancePrompt(request: {
 CONVERSATION ANALYSIS REQUEST:
 
 PARTICIPANTS IN THIS CONVERSATION:
-- "${meLabel}" is the person who needs guidance (the user of this AI advisor)
+- "${meLabel}" is the person who needs guidance (the user of Nova)
 - "${themLabel}" is the person they are speaking with
 
 CONTEXT DOCUMENTS:

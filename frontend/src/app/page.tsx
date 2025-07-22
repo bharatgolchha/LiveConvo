@@ -41,13 +41,13 @@ export default function LandingPage() {
       type: 'image', // Change to 'video' when you have the video file
       src: '/feature-images/s1.png',
       videoSrc: '/feature-videos/ai-advisor-demo.mp4', // Add your video path here
-      alt: 'AI Advisor Chat Interface - Real-time Q&A during conversations'
+      alt: 'Nova Chat Interface - Real-time Q&A during conversations'
     },
     liveSuggestions: {
       type: 'image', // Change to 'video' when you have the video file
       src: '/feature-images/s2.png',
       videoSrc: '/feature-videos/live-suggestions-demo.mp4', // Add your video path here
-      alt: 'Live AI Suggestions - Real-time response recommendations during calls'
+      alt: 'Live Nova Suggestions - Real-time response recommendations during calls'
     },
     liveTranscription: {
       type: 'video',
@@ -59,7 +59,7 @@ export default function LandingPage() {
       type: 'image',
       src: '/feature-images/s4.png',
       videoSrc: '/feature-videos/reports-demo.mp4',
-      alt: 'Reports and Summaries - AI-generated custom reports and meeting summaries'
+      alt: 'Reports and Summaries - Nova-generated custom reports and meeting summaries'
     }
   };
 
@@ -94,16 +94,16 @@ export default function LandingPage() {
       answer: 'We provide real-time transcription in 10 major languages: English, Spanish, French, German, Hindi, Russian, Portuguese, Japanese, Italian, and Dutch. You can even switch between languages during your conversation, and our AI will keep up! This makes liveprompt.ai perfect for international teams, global sales calls, and multilingual customer support.'
     },
     {
-      question: 'How does the AI bot join my meetings?',
-      answer: 'After connecting your calendar, our AI teammate automatically joins your scheduled meetings on Zoom, Google Meet, or Teams. You can also manually add meeting URLs or record in-person conversations directly from your browser. The bot appears as "Liveprompt.ai" in your participant list.'
+      question: 'How does Nova join my meetings?',
+      answer: 'After connecting your calendar, Nova automatically joins your scheduled meetings on Zoom, Google Meet, or Teams. You can also manually add meeting URLs or record in-person conversations directly from your browser. Nova appears as "Nova by Liveprompt.ai" in your participant list.'
     },
     {
       question: 'What happens during a live conversation?',
-      answer: 'You get real-time transcription with 95% accuracy, instant AI suggestions tailored to your conversation context, and an interactive chat where you can ask questions and get immediate guidance. Everything updates in under 2 seconds, helping you respond perfectly in the moment.'
+      answer: 'You get real-time transcription with 95% accuracy, instant suggestions from Nova tailored to your conversation context, and an interactive chat where you can ask Nova questions and get immediate guidance. Everything updates in under 2 seconds, helping you respond perfectly in the moment.'
     },
     {
       question: 'Is my conversation data secure and private?',
-      answer: 'Absolutely. We\'re SOC 2 compliant with bank-level encryption. Your data is processed in real-time and deleted after each session - we don\'t store recordings. Only you can see the AI suggestions during calls. Your conversations are never used to train AI models.'
+      answer: 'Absolutely. We\'re SOC 2 compliant with bank-level encryption. Your data is processed in real-time and deleted after each session - we don\'t store recordings. Only you can see Nova\'s suggestions during calls. Your conversations are never used to train AI models.'
     },
     {
       question: 'How do the usage limits work?',
@@ -115,7 +115,7 @@ export default function LandingPage() {
     },
     {
       question: 'What kind of reports and summaries do I get?',
-      answer: 'After each meeting, you receive AI-generated summaries with key decisions, action items, and follow-up questions. You can generate custom reports focused on specific topics, export transcripts as PDF/CSV, and share professional meeting recaps with attendees.'
+      answer: 'After each meeting, Nova creates comprehensive summaries with key decisions, action items, and follow-up questions. You can ask Nova to generate custom reports focused on specific topics, export transcripts as PDF/CSV, and share professional meeting recaps with attendees.'
     },
     {
       question: 'Does it work for team collaboration?',
@@ -145,11 +145,8 @@ export default function LandingPage() {
           <div className="relative z-10">
             <div className="max-w-4xl mx-auto text-center px-6 sm:px-8 lg:px-12">
             <div className="flex flex-wrap items-center justify-center gap-3 mb-6">
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-app-success/10 border border-app-success/30">
-                <span className="text-sm font-medium text-app-success">#1 AI Teammate</span>
-              </div>
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-app-info/10 border border-app-info/30">
-                <span className="text-sm font-medium text-app-info">🌐 10 Languages Supported</span>
+              <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-gradient-to-r from-app-success/10 to-app-info/10">
+                <span className="text-sm font-medium bg-gradient-to-r from-app-success to-app-info bg-clip-text text-transparent">✨ Meet Nova - Your Multilingual AI Agent</span>
               </div>
             </div>
             
@@ -208,7 +205,7 @@ export default function LandingPage() {
                  lineHeight: '1.5'
                }}
             >
-              <span className="text-app-success">Joins every call</span>
+              <span className="text-app-success">Nova joins every call</span>
               <span className="mx-3 text-muted-foreground/60">•</span>
               <span className="text-app-info">Captures every word</span>
               <span className="mx-3 text-muted-foreground/60">•</span>
@@ -277,21 +274,22 @@ export default function LandingPage() {
               className="text-center"
             >
               <p className="text-2xl sm:text-3xl lg:text-4xl leading-relaxed font-light text-foreground/90">
-                Meet your{' '}
+                Meet{' '}
                 <span 
                   style={{
                     fontFamily: "'Raleway', 'Montserrat', 'Helvetica Neue', sans-serif",
-                    fontWeight: '200',
+                    fontWeight: '300',
                     background: 'linear-gradient(135deg, #16a34a 0%, #22d3ee 50%, #16a34a 100%)',
                     WebkitBackgroundClip: 'text',
                     WebkitTextFillColor: 'transparent',
                     backgroundClip: 'text',
-                    letterSpacing: '0.04em'
+                    letterSpacing: '0.06em',
+                    fontSize: '1.1em'
                   }}
                 >
-                  AI teammate
-                </span>{' '}
-                that automatically joins every meeting, remembers past conversations, and delivers{' '}
+                  Nova
+                </span>
+                , your AI teammate that automatically joins every meeting, remembers past conversations, and delivers{' '}
                 <span 
                   style={{
                     fontFamily: "'Raleway', 'Montserrat', 'Helvetica Neue', sans-serif",
@@ -305,7 +303,7 @@ export default function LandingPage() {
                 >
                   perfect responses
                 </span>{' '}
-                in real-time. While you focus on the human connection, liveprompt handles the{' '}
+                in real-time. While you focus on the human connection, Nova handles the{' '}
                 <span 
                   style={{
                     fontFamily: "'Raleway', 'Montserrat', 'Helvetica Neue', sans-serif",
@@ -616,10 +614,10 @@ export default function LandingPage() {
               >
                 <div className="relative z-10">
                   <h2 className="text-2xl font-bold mb-4 text-foreground">
-                    Questions when you need them
+                    Ask Nova anything
                   </h2>
                   <p className="text-muted-foreground mb-6">
-                    Ask any question during the call, get insights and ideas, instantly. AI Advisor helps in real-time.
+                    Get instant insights and ideas during your call. Nova helps you navigate conversations in real-time.
                   </p>
                   
                   {/* Mobile mockup - video or image */}
@@ -663,7 +661,7 @@ export default function LandingPage() {
                     Live suggestions that win deals
                   </h2>
                   <p className="text-muted-foreground mb-6">
-                    Our AI listens and provides perfect responses in real-time — only you can see them.
+                    Nova listens and provides perfect responses in real-time — only you can see them.
                   </p>
                   
                   {/* Video call with AI suggestions - video or image */}
@@ -1510,7 +1508,7 @@ export default function LandingPage() {
                   </li>
                   <li className="flex items-center gap-2">
                     <Check className="w-4 h-4 text-app-info" />
-                    <span className="text-sm text-muted-foreground">Real-time AI coaching & suggestions</span>
+                    <span className="text-sm text-muted-foreground">Real-time coaching from Nova</span>
                   </li>
                   <li className="flex items-center gap-2">
                     <Check className="w-4 h-4 text-app-info" />
@@ -1560,7 +1558,7 @@ export default function LandingPage() {
                   </li>
                   <li className="flex items-center gap-2">
                     <Check className="w-4 h-4 text-app-info" />
-                    <span className="text-sm text-muted-foreground">Real-time AI coaching & suggestions</span>
+                    <span className="text-sm text-muted-foreground">Real-time coaching from Nova</span>
                   </li>
                   <li className="flex items-center gap-2">
                     <Check className="w-4 h-4 text-app-info" />
@@ -1681,7 +1679,7 @@ export default function LandingPage() {
                   ))}
                 </div>
                 <p className="mb-4 text-muted-foreground">
-                  "I catch inconsistencies I would have missed before. The AI suggestions for behavioral questions are game-changing."
+                  "I catch inconsistencies I would have missed before. Nova's suggestions for behavioral questions are game-changing."
                 </p>
                 <div>
                   <p className="font-semibold text-foreground">Marcus Johnson</p>

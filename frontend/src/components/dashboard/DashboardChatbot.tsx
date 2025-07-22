@@ -18,7 +18,9 @@ import {
   DocumentTextIcon,
   ArrowsPointingOutIcon,
   ArrowsPointingInIcon,
-  TrashIcon
+  TrashIcon,
+  ClipboardDocumentIcon,
+  ClipboardDocumentCheckIcon
 } from '@heroicons/react/24/outline';
 import { ChartBarIcon } from '@heroicons/react/24/solid';
 import ReactMarkdown from 'react-markdown';
@@ -52,6 +54,7 @@ export function DashboardChatbot() {
   const [dynamicSuggestions, setDynamicSuggestions] = useState<SuggestedAction[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [showSuggestions, setShowSuggestions] = useState(true);
+  const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -87,7 +90,7 @@ export function DashboardChatbot() {
   useEffect(() => {
     if (messages.length === 0) {
       const userName = user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'there';
-      let welcomeContent = `👋 Hi ${userName}! I'm your AI Wizard. I can help you:\n\n• 🔍 **Search** meetings & conversations\n• 📊 **Analyze** decisions & insights\n• ✅ **Track** action items & tasks\n• 📅 **Prepare** for upcoming meetings\n\nTry: "Find meetings with Sarah" or "Show Q4 action items"\n\nWhat would you like to know?`;
+      let welcomeContent = `👋 Hi ${userName}! I'm Nova, your AI assistant. I can help you:\n\n• 🔍 **Search** meetings & conversations\n• 📊 **Analyze** decisions & insights\n• ✅ **Track** action items & tasks\n• 📅 **Prepare** for upcoming meetings\n\nTry: "Find meetings with Sarah" or "Show Q4 action items"\n\nWhat would you like to know?`;
       
       if (contextError) {
         welcomeContent += `\n\n⚠️ Note: I'm currently having trouble accessing some of your data. I can still help answer your questions!`;
@@ -351,6 +354,16 @@ export function DashboardChatbot() {
     });
   };
 
+  const handleCopyMessage = async (messageId: string, content: string) => {
+    try {
+      await navigator.clipboard.writeText(content);
+      setCopiedMessageId(messageId);
+      setTimeout(() => setCopiedMessageId(null), 2000);
+    } catch (err) {
+      console.error('Failed to copy message:', err);
+    }
+  };
+
   // Don't render if not expanded (for performance)
   if (!isExpanded) {
     return (
@@ -403,7 +416,7 @@ export function DashboardChatbot() {
               <div className="w-7 h-7 rounded-full bg-gradient-to-br from-primary to-primary/80 flex items-center justify-center shadow-lg shadow-primary/20">
                 <SparklesIcon className="w-4 h-4 text-primary-foreground" />
               </div>
-              <span className="font-medium text-sm">AI Wizard</span>
+              <span className="font-medium text-sm">Nova</span>
             </div>
             <div className="flex items-center gap-1">
               {!isMinimized && messages.length > 1 && (
@@ -415,7 +428,7 @@ export function DashboardChatbot() {
                       localStorage.removeItem('dashboardChatState');
                       // Re-add welcome message
                       const userName = user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'there';
-                      let welcomeContent = `👋 Hi ${userName}! I'm your AI Wizard. I can help you:\n\n• 🔍 **Search** meetings & conversations\n• 📊 **Analyze** decisions & insights\n• ✅ **Track** action items & tasks\n• 📅 **Prepare** for upcoming meetings\n\nTry: "Find meetings with Sarah" or "Show Q4 action items"\n\nWhat would you like to know?`;
+                      let welcomeContent = `👋 Hi ${userName}! I'm Nova, your AI assistant. I can help you:\n\n• 🔍 **Search** meetings & conversations\n• 📊 **Analyze** decisions & insights\n• ✅ **Track** action items & tasks\n• 📅 **Prepare** for upcoming meetings\n\nTry: "Find meetings with Sarah" or "Show Q4 action items"\n\nWhat would you like to know?`;
                       if (contextError) {
                         welcomeContent += `\n\n⚠️ Note: I'm currently having trouble accessing some of your data. I can still help answer your questions!`;
                       }
@@ -481,7 +494,7 @@ export function DashboardChatbot() {
                         initial={{ opacity: 0, y: 10 }}
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0, y: -10 }}
-                        className={`flex gap-2 ${
+                        className={`flex gap-2 group ${
                           message.role === 'user' ? 'flex-row-reverse' : 'flex-row'
                         }`}
                       >
@@ -582,11 +595,26 @@ export function DashboardChatbot() {
                             </div>
                           </div>
                           
-                          <div className={`flex items-center gap-1 mt-1 text-xs text-muted-foreground ${
+                          <div className={`flex items-center gap-2 mt-1 text-xs text-muted-foreground ${
                             message.role === 'user' ? 'justify-end' : 'justify-start'
                           }`}>
-                            <ClockIcon className="w-3 h-3" />
-                            <span>{formatTime(message.timestamp)}</span>
+                            <div className="flex items-center gap-1">
+                              <ClockIcon className="w-3 h-3" />
+                              <span>{formatTime(message.timestamp)}</span>
+                            </div>
+                            {message.role === 'assistant' && !message.isError && (
+                              <button
+                                onClick={() => handleCopyMessage(message.id, message.content)}
+                                className="p-0.5 hover:text-foreground transition-colors"
+                                title="Copy message"
+                              >
+                                {copiedMessageId === message.id ? (
+                                  <ClipboardDocumentCheckIcon className="w-3.5 h-3.5 text-green-500" />
+                                ) : (
+                                  <ClipboardDocumentIcon className="w-3.5 h-3.5" />
+                                )}
+                              </button>
+                            )}
                           </div>
                         </div>
                       </motion.div>

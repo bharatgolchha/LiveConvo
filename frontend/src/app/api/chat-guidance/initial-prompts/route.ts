@@ -119,7 +119,7 @@ export async function POST(request: NextRequest) {
       contextInfo += `Previous conversations: ${linkedConversations.map(c => c.title).join(', ')}\n`;
     }
 
-    const systemPrompt = `You are an AI meeting advisor generating initial conversation prompts for ${meLabel} to get started.
+    const systemPrompt = `You are Nova, an AI meeting assistant generating initial conversation prompts for ${meLabel} to get started.
 
 ${getCurrentDateContext()}
 
@@ -129,7 +129,7 @@ MEETING DETAILS:
 ${contextInfo}
 - Status: ${hasTranscript ? 'Meeting in progress' : 'Before meeting starts'}
 
-Generate EXACTLY 4 contextual prompts that ${meLabel} can use to get helpful guidance from their AI advisor. Each prompt should be:
+Generate EXACTLY 4 contextual prompts that ${meLabel} can use to get helpful guidance from Nova. Each prompt should be:
 1. RELEVANT: Specific to the meeting type and context
 2. ACTIONABLE: Helps ${meLabel} prepare or navigate the conversation
 3. VALUABLE: Addresses common challenges or opportunities
@@ -142,10 +142,10 @@ The response must be valid JSON starting with { and ending with }
 Return exactly this format:
 {
   "suggestedActions": [
-    {"text": "<emoji> 3-4 word label", "prompt": "Full question for the AI advisor", "impact": 90},
-    {"text": "<emoji> 3-4 word label", "prompt": "Full question for the AI advisor", "impact": 85},
-    {"text": "<emoji> 3-4 word label", "prompt": "Full question for the AI advisor", "impact": 80},
-    {"text": "<emoji> 3-4 word label", "prompt": "Full question for the AI advisor", "impact": 75}
+    {"text": "<emoji> 3-4 word label", "prompt": "Full question for Nova", "impact": 90},
+    {"text": "<emoji> 3-4 word label", "prompt": "Full question for Nova", "impact": 85},
+    {"text": "<emoji> 3-4 word label", "prompt": "Full question for Nova", "impact": 80},
+    {"text": "<emoji> 3-4 word label", "prompt": "Full question for Nova", "impact": 75}
   ]
 }
 

@@ -109,7 +109,7 @@ export async function POST(
       sessionOwnerContext += `\nIMPORTANT: Generate suggestions specifically tailored for ${sessionOwner.fullName || sessionOwner.email}.\n`;
     }
 
-    const systemPrompt = `You are an AI advisor that generates smart, actionable suggestions for meeting participants.
+    const systemPrompt = `You are Nova, an AI assistant that generates smart, actionable suggestions for meeting participants.
 
 ${getCurrentDateContext()}
 ${sessionOwnerContext}
@@ -149,7 +149,7 @@ Return ONLY a JSON array with this format:
 [
   {
     "text": "Short action description (max 40 chars)",
-    "prompt": "Full question/request for AI advisor",
+    "prompt": "Full question/request for Nova",
     "category": "follow_up|action_item|insight|question",
     "priority": "high|medium|low",
     "impact": 85

@@ -175,7 +175,7 @@ export function AIAdvisorPanel({
             </div>
             {!isMinimized && (
               <div>
-                <h2 className="font-semibold text-foreground text-sm">AI Advisor</h2>
+                <h2 className="font-semibold text-foreground text-sm">Nova</h2>
                 <p className="text-xs text-muted-foreground">
                   {botStatus?.status === 'in_call' ? 'Active guidance' : 'Ready to help'}
                 </p>
@@ -389,7 +389,7 @@ function AdvisorSettings() {
         <h3 className="font-medium text-sm mb-3">AI Behavior Instructions</h3>
         <div className="space-y-2">
           <label className="text-xs text-muted-foreground">
-            Customize how the AI advisor behaves during this meeting
+            Customize how Nova behaves during this meeting
           </label>
           <textarea
             value={aiInstructions}
@@ -414,7 +414,7 @@ function AdvisorSettings() {
       </div>
 
       <div className="pt-3 border-t border-border">
-        <h4 className="text-sm font-medium mb-3">Advisor Preferences</h4>
+        <h4 className="text-sm font-medium mb-3">Nova Preferences</h4>
         <div className="space-y-3">
           <label className="flex items-center justify-between">
             <span className="text-sm">Auto-suggestions</span>

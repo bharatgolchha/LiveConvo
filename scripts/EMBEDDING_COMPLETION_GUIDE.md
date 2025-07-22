@@ -165,7 +165,7 @@ After processing completes, you should see:
 1. **All 55 records** have embeddings generated
 2. **Queue status** shows 55 completed, 0 pending
 3. **Search functionality** working with vector similarity
-4. **AI Wizard** can find and analyze content semantically
+4. **Nova** can find and analyze content semantically
 
 ## 🚨 Troubleshooting
 
@@ -189,7 +189,7 @@ After processing completes, you should see:
 
 Once complete, test the search functionality:
 
-1. **AI Wizard Search**: Try queries like "Find meetings about X"
+1. **Nova Search**: Try queries like "Find meetings about X"
 2. **Dashboard Search**: Use the search features 
 3. **Semantic Similarity**: Verify related content is found
 
