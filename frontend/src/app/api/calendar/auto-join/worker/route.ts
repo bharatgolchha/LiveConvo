@@ -149,30 +149,17 @@ async function handleAutoJoin(request: NextRequest) {
 
           const meetingTitle = meeting.title || 'Untitled Meeting';
           
-          // Determine the session owner - if user is organizer, use their ID
-          // Otherwise, try to find the organizer's user account
+          // Determine the session owner:
+          // If the current user is the organizer, assign to them.
+          // Otherwise, create the session for the current user (attendee).
+          // This ensures each LivePrompt user gets their own copy instead of all sessions
+          // being routed back to the organizer.
           let sessionUserId = user.id;
           let sessionOrgId = user.current_organization_id || user.id;
           
           if (meeting.is_organizer) {
-            // Current user is the organizer, use their info
             sessionUserId = user.id;
             sessionOrgId = user.current_organization_id || user.id;
-          } else if (meeting.organizer_email) {
-            // Try to find the organizer's user account
-            const { data: organizerUser } = await supabase
-              .from('users')
-              .select('id, current_organization_id')
-              .eq('email', meeting.organizer_email.toLowerCase())
-              .single();
-            
-            if (organizerUser) {
-              sessionUserId = organizerUser.id;
-              sessionOrgId = organizerUser.current_organization_id || organizerUser.id;
-              console.log(`Assigning session to organizer: ${meeting.organizer_email} (${organizerUser.id})`);
-            } else {
-              console.log(`Organizer ${meeting.organizer_email} not found in system, using calendar owner`);
-            }
           }
           
           const sessionData = {
