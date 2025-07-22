@@ -654,7 +654,7 @@ export async function POST(request: NextRequest) {
         );
 
     // Debug: Log the system prompt
-    console.log('🤖 AI Advisor System Prompt:');
+    console.log('🤖 Nova System Prompt:');
     console.log('='.repeat(80));
     console.log(systemPrompt);
     console.log('='.repeat(80));

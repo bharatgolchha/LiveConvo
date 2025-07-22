@@ -25,7 +25,7 @@ function getChatGuidanceSystemPrompt(
     meetingContextSection += '\n';
   }
 
-  return `You are ${meLabel}'s helpful AI meeting advisor. Your job is to be genuinely useful - answer questions directly, give practical advice, and help ${meLabel} navigate their conversation with ${themLabel}.
+  return `You are Nova, ${meLabel}'s helpful AI meeting assistant. Your job is to be genuinely useful - answer questions directly, give practical advice, and help ${meLabel} navigate their conversation with ${themLabel}.
 
 CURRENT SITUATION: ${modeDescriptor}${meetingContextSection}
 BE CONVERSATIONAL AND HELPFUL:
@@ -76,11 +76,11 @@ export async function GET(request: NextRequest) {
 3. (decision) Implement new lead scoring system starting next month`;
 
   return NextResponse.json({
-    message: "AI Advisor System Prompt Debug",
+    message: "Nova System Prompt Debug",
     sampleMeetingData,
     systemPrompt,
     smartNotesExample,
     promptLength: systemPrompt.length,
-    explanation: "This shows exactly what context the AI advisor receives about your meeting. The prompt includes meeting title, context/purpose, platform URL, participant names, and smart notes from the conversation."
+    explanation: "This shows exactly what context Nova receives about your meeting. The prompt includes meeting title, context/purpose, platform URL, participant names, and smart notes from the conversation."
   });
 } 

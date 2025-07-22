@@ -134,7 +134,7 @@ function MeetingPageContent() {
               }`}
             >
               <SparklesIcon className="w-5 h-5" />
-              <span>AI Advisor</span>
+              <span>Nova</span>
             </button>
             </div>
           </div>
@@ -161,7 +161,7 @@ function MeetingPageContent() {
           />
           )}
           
-          {/* Right Panel - AI Advisor */}
+          {/* Right Panel - Nova */}
           <div 
             className="flex-shrink-0 overflow-hidden"
             style={{ width: `${rightPanelWidth}%` }}
