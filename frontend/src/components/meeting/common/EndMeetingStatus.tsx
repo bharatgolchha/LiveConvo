@@ -146,7 +146,7 @@ export function EndMeetingStatus({
   };
 
   return (
-    <div className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-md">
+    <div className="fixed inset-0 z-[10000] bg-black/60 backdrop-blur-md">
       <div className="min-h-screen flex items-center justify-center p-4">
         <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl shadow-xl p-6 w-full max-w-sm animate-in fade-in-0 zoom-in-95 duration-200">
           {/* Header */}
