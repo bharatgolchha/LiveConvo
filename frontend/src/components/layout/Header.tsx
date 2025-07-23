@@ -152,7 +152,7 @@ export function Header() {
           {/* Logo */}
           <Link href="/" className="flex items-center gap-2 group">
             <Image 
-              src={resolvedTheme === 'dark' ? '/Logos/DarkMode.png' : '/Logos/LightMode.png'}
+              src={pathname === '/' ? '/Logos/DarkMode.png' : (resolvedTheme === 'dark' ? '/Logos/DarkMode.png' : '/Logos/LightMode.png')}
               alt="liveprompt.ai - AI-powered conversation intelligence platform"
               width={160}
               height={40}

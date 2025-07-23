@@ -16,7 +16,7 @@ import {
 
 export function SharedReportHeader() {
   const { user, signOut } = useAuth();
-  const { resolvedTheme } = useTheme();
+  const { theme } = useTheme();
   const router = useRouter();
 
   const handleSignOut = async () => {
@@ -31,10 +31,10 @@ export function SharedReportHeader() {
           {/* Logo and Brand */}
           <Link href="/" className="flex items-center gap-2 group">
             <Image 
-              src={resolvedTheme === 'dark' ? '/Logos/DarkMode.png' : '/Logos/LightMode.png'}
+              src={theme === 'dark' ? '/Logos/DarkMode.png' : '/Logos/LightMode.png'}
               alt="liveprompt.ai - AI-powered conversation intelligence platform"
-              width={160}
-              height={40}
+              width={140}
+              height={32}
               className="object-contain transition-transform group-hover:scale-105"
               priority
             />

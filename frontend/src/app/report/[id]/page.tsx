@@ -130,16 +130,21 @@ export default function MeetingReportPage() {
     total: number;
   } | null>(null);
   const [shareModalOpen, setShareModalOpen] = useState(false);
+  const [hasInitiallyLoaded, setHasInitiallyLoaded] = useState(false);
 
   useEffect(() => {
-    if (user && session) {
+    if (user && session && !hasInitiallyLoaded) {
       fetchMeetingReport();
+      setHasInitiallyLoaded(true);
     }
-  }, [meetingId, user, session]);
+  }, [user, session, hasInitiallyLoaded, meetingId]);
 
   const fetchMeetingReport = async () => {
     try {
-      setLoading(true);
+      // Only set loading on initial load, not on refresh
+      if (!hasInitiallyLoaded) {
+        setLoading(true);
+      }
       setError(null);
 
       const headers: HeadersInit = { 'Content-Type': 'application/json' };
@@ -197,9 +202,9 @@ export default function MeetingReportPage() {
             });
 
             if (finalizeResponse.ok) {
-              console.log('✅ Session finalized successfully, reloading...');
-              // Reload the page to fetch the new summary
-              window.location.reload();
+              console.log('✅ Session finalized successfully, refreshing data...');
+              // Re-fetch the report data instead of reloading the page
+              await fetchMeetingReport();
               return;
             } else {
               let errorData;
@@ -368,7 +373,10 @@ export default function MeetingReportPage() {
       console.error('Failed to fetch meeting report:', err);
       setError(err instanceof Error ? err.message : 'Failed to load meeting report');
     } finally {
-      setLoading(false);
+      // Only set loading false if we were loading
+      if (!hasInitiallyLoaded || loading) {
+        setLoading(false);
+      }
     }
   };
 
@@ -483,8 +491,10 @@ export default function MeetingReportPage() {
               
               if (data.complete) {
                 console.log('✅ Report generation complete');
-                // Reload the page to fetch the new summary
-                window.location.reload();
+                // Re-fetch the report data instead of reloading the page
+                await fetchMeetingReport();
+                setFinalizing(false);
+                setFinalizationProgress(null);
                 return;
               }
               
@@ -579,8 +589,8 @@ export default function MeetingReportPage() {
             <Link href="/" className="flex items-center gap-2 group">
               <Image 
                 src={theme === 'dark' 
-                  ? "https://ucvfgfbjcrxbzppwjpuu.supabase.co/storage/v1/object/public/images//DarkMode2.png"
-                  : "https://ucvfgfbjcrxbzppwjpuu.supabase.co/storage/v1/object/public/images//LightMode2.png"
+                  ? "/Logos/DarkMode.png"
+                  : "/Logos/LightMode.png"
                 }
                 alt="liveprompt.ai - AI-powered conversation intelligence platform"
                 width={140}
@@ -708,6 +718,7 @@ export default function MeetingReportPage() {
             activeTab={activeTab}
             setActiveTab={setActiveTab}
             handleManualFinalize={handleManualFinalize}
+            handleRefreshData={fetchMeetingReport}
             finalizing={finalizing}
             finalizationProgress={finalizationProgress}
           />

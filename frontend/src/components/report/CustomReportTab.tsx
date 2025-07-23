@@ -56,6 +56,7 @@ export function CustomReportTab({
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [deletingReportId, setDeletingReportId] = useState<string | null>(null);
   const [reportToDelete, setReportToDelete] = useState<CustomReport | null>(null);
+  const [hasInitiallyLoaded, setHasInitiallyLoaded] = useState(false);
 
   // Debug logging
   useEffect(() => {
@@ -69,14 +70,18 @@ export function CustomReportTab({
   }, [subscription, subscriptionLoading, sharedToken, session]);
 
   useEffect(() => {
-    if (sharedToken && customReports) {
-      // For shared reports, use the provided custom reports
-      setReportHistory(customReports);
-      setIsLoading(false);
-    } else if (sessionId && !sharedToken) {
-      fetchReportHistory();
+    // Only fetch data once on initial mount
+    if (!hasInitiallyLoaded) {
+      if (sharedToken && customReports) {
+        // For shared reports, use the provided custom reports
+        setReportHistory(customReports);
+        setIsLoading(false);
+      } else if (sessionId && !sharedToken && session?.access_token) {
+        fetchReportHistory();
+      }
+      setHasInitiallyLoaded(true);
     }
-  }, [sessionId, sharedToken, customReports]);
+  }, [sessionId, sharedToken, customReports, hasInitiallyLoaded, session?.access_token]);
 
   const fetchReportHistory = async () => {
     if (!session?.access_token) return;

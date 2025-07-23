@@ -46,11 +46,13 @@ export function TranscriptTab({ sessionId, sharedToken }: TranscriptTabProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [isRefreshing, setIsRefreshing] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const [hasInitiallyLoaded, setHasInitiallyLoaded] = useState(false);
   
   const hasRecordingAccess = hasFeature('hasRecordingAccess');
 
   useEffect(() => {
-    if (sessionId && (sharedToken || session?.access_token)) {
+    // Only fetch data once on initial mount
+    if (sessionId && (sharedToken || session?.access_token) && !hasInitiallyLoaded) {
       fetchTranscript();
       // Only fetch recording if subscription is loaded and user has access (or it's a shared view)
       if (!subscriptionLoading && (hasRecordingAccess || sharedToken)) {
@@ -60,8 +62,9 @@ export function TranscriptTab({ sessionId, sharedToken }: TranscriptTabProps) {
         setRecording(null);
         setRecordingLoading(false);
       }
+      setHasInitiallyLoaded(true);
     }
-  }, [sessionId, session?.access_token, sharedToken, subscriptionLoading, hasRecordingAccess]);
+  }, [sessionId, session?.access_token, sharedToken, subscriptionLoading, hasRecordingAccess, hasInitiallyLoaded]);
 
   const fetchTranscript = async () => {
     if (!sessionId) return;

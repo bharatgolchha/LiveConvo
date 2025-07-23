@@ -55,14 +55,21 @@ export default function SharedReportPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<string>('overview');
+  const [hasInitiallyLoaded, setHasInitiallyLoaded] = useState(false);
 
   useEffect(() => {
-    fetchSharedReport();
-  }, [token]);
+    if (!hasInitiallyLoaded) {
+      fetchSharedReport();
+      setHasInitiallyLoaded(true);
+    }
+  }, [hasInitiallyLoaded, token]);
 
   const fetchSharedReport = async () => {
     try {
-      setLoading(true);
+      // Only set loading on initial load, not on refresh
+      if (!hasInitiallyLoaded) {
+        setLoading(true);
+      }
       setError(null);
 
       const response = await fetch(`/api/reports/shared/${token}`);
@@ -115,7 +122,10 @@ export default function SharedReportPage() {
       console.error('Failed to fetch shared report:', err);
       setError(err instanceof Error ? err.message : 'Failed to load shared report');
     } finally {
-      setLoading(false);
+      // Only set loading false if we were loading
+      if (!hasInitiallyLoaded || loading) {
+        setLoading(false);
+      }
     }
   };
 

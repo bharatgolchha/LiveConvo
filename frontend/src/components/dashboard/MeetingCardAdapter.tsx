@@ -206,7 +206,7 @@ export const MeetingCardAdapter = React.memo(({
         const activeFor = session.recording_started_at 
           ? Math.floor((Date.now() - new Date(session.recording_started_at).getTime()) / 60000)
           : 0
-        return `Meeting in progress${activeFor > 0 ? ` for ${activeFor} minute${activeFor === 1 ? '' : 's'}` : ''}. ${participantCount > 0 ? `${participantCount} participant${participantCount === 1 ? '' : 's'} joined.` : 'Waiting for participants.'}`
+        return `Meeting in progress${activeFor > 0 ? ` for ${activeFor} minute${activeFor === 1 ? '' : 's'}` : ''}.`
       }
       
       // For draft/created sessions

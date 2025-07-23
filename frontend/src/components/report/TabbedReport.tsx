@@ -110,6 +110,7 @@ interface TabbedReportProps {
   activeTab: string;
   setActiveTab: (tab: string) => void;
   handleManualFinalize?: () => void;
+  handleRefreshData?: () => void;
   finalizing?: boolean;
   finalizationProgress?: {
     step: string;
@@ -120,7 +121,7 @@ interface TabbedReportProps {
   sharedToken?: string;
 }
 
-export function TabbedReport({ report, activeTab, setActiveTab, handleManualFinalize, finalizing, finalizationProgress, hideNavigation = false, sharedToken }: TabbedReportProps) {
+export function TabbedReport({ report, activeTab, setActiveTab, handleManualFinalize, handleRefreshData, finalizing, finalizationProgress, hideNavigation = false, sharedToken }: TabbedReportProps) {
   const tabs = [
     { id: 'overview', label: 'Overview', icon: FileText },
     { id: 'insights', label: 'Insights & Decisions', icon: Lightbulb },
@@ -327,23 +328,27 @@ export function TabbedReport({ report, activeTab, setActiveTab, handleManualFina
                         <p className="text-sm text-muted-foreground">
                           The AI is still processing this meeting. Please refresh the page in a few moments to see the complete summary.
                         </p>
-                        {handleManualFinalize && (
+                        {(handleManualFinalize || handleRefreshData) && (
                           <div className="flex gap-2 mt-3">
-                            <Button 
-                              onClick={() => window.location.reload()} 
-                              variant="outline" 
-                              size="sm"
-                            >
-                              Refresh Page
-                            </Button>
-                            <Button 
-                              onClick={handleManualFinalize} 
-                              variant="primary" 
-                              size="sm"
-                              disabled={finalizing}
-                            >
-                              {finalizing ? 'Generating...' : 'Generate Summary Now'}
-                            </Button>
+                            {handleRefreshData && (
+                              <Button 
+                                onClick={handleRefreshData} 
+                                variant="outline" 
+                                size="sm"
+                              >
+                                Refresh Data
+                              </Button>
+                            )}
+                            {handleManualFinalize && (
+                              <Button 
+                                onClick={handleManualFinalize} 
+                                variant="primary" 
+                                size="sm"
+                                disabled={finalizing}
+                              >
+                                {finalizing ? 'Generating...' : 'Generate Summary Now'}
+                              </Button>
+                            )}
                           </div>
                         )}
                       </div>
