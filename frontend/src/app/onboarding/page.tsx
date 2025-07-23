@@ -11,6 +11,7 @@ import { CalendarStep } from '@/components/onboarding/CalendarStep';
 import { UpgradeStep } from '@/components/onboarding/UpgradeStep';
 import { useOnboarding } from '@/lib/hooks/useOnboarding';
 import { supabase } from '@/lib/supabase';
+import { CheckoutSuccessHandler } from '@/components/checkout/CheckoutSuccessHandler';
 
 interface OnboardingData {
   organization_name: string;
@@ -308,19 +309,22 @@ function OnboardingContent() {
   }
 
   return (
-    <OnboardingLayout currentStep={currentStep} totalSteps={totalSteps}>
-      <AnimatePresence mode="wait">
-        <motion.div
-          key={currentStep}
-          initial={{ opacity: 0, x: 20 }}
-          animate={{ opacity: 1, x: 0 }}
-          exit={{ opacity: 0, x: -20 }}
-          transition={{ duration: 0.3 }}
-        >
-          {renderStep()}
-        </motion.div>
-      </AnimatePresence>
-    </OnboardingLayout>
+    <>
+      <CheckoutSuccessHandler />
+      <OnboardingLayout currentStep={currentStep} totalSteps={totalSteps}>
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={currentStep}
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -20 }}
+            transition={{ duration: 0.3 }}
+          >
+            {renderStep()}
+          </motion.div>
+        </AnimatePresence>
+      </OnboardingLayout>
+    </>
   );
 }
 

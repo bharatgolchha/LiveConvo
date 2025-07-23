@@ -50,6 +50,7 @@ import { DashboardChatbot } from '@/components/dashboard/DashboardChatbot';
 import { ShareMeetingModal } from '@/components/meeting/ShareMeetingModal';
 import { MeetingListTabs } from '@/components/dashboard/MeetingListTabs';
 import { filterSessionsByView, getSessionCounts } from '@/lib/utils/meeting-utils';
+import { CheckoutSuccessHandler } from '@/components/checkout/CheckoutSuccessHandler';
 import dynamic from 'next/dynamic';
 
 // Dynamically load smaller components to reduce initial bundle size
@@ -892,6 +893,7 @@ const DashboardPage: React.FC = () => {
 
   return (
     <DashboardChatProvider>
+      <CheckoutSuccessHandler />
       <div className="h-screen bg-background flex flex-col relative overflow-hidden">
         <DashboardHeader 
           user={currentUser} 

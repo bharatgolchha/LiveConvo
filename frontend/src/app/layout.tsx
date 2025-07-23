@@ -155,7 +155,7 @@ export default function RootLayout({
         <meta name="msapplication-TileColor" content="#0B3D2E" />
         <meta name="theme-color" content="#0B3D2E" />
       </head>
-      {/* Google Analytics 4 */}
+      {/* Google Analytics 4 and Google Ads */}
       <Script
         src="https://www.googletagmanager.com/gtag/js?id=G-YYPP67HS2H"
         strategy="afterInteractive"
@@ -165,8 +165,9 @@ export default function RootLayout({
         function gtag(){dataLayer.push(arguments);}
         gtag('js', new Date());
         gtag('config', 'G-YYPP67HS2H');
+        gtag('config', 'AW-17380711971');
       `}</Script>
-      {/* End Google Analytics 4 */}
+      {/* End Google Analytics 4 and Google Ads */}
       
       {/* Referral Code Capture Script */}
       <Script id="referral-capture" strategy="afterInteractive">{`

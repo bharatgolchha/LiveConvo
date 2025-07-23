@@ -4,7 +4,6 @@ import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { ArrowRight, Sparkles, Zap, Shield, ChevronLeft } from 'lucide-react';
-import { PricingModal } from '@/components/ui/PricingModal';
 import { supabase } from '@/lib/supabase';
 import { motion } from 'framer-motion';
 import { useRouter } from 'next/navigation';
@@ -17,7 +16,6 @@ interface UpgradeStepProps {
 }
 
 export function UpgradeStep({ onUpgrade, onSkip, onBack, isLoading }: UpgradeStepProps) {
-  const [showPricingModal, setShowPricingModal] = useState(false);
   const [isEligibleForTrial, setIsEligibleForTrial] = useState(true);
   const [checkingEligibility, setCheckingEligibility] = useState(true);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -91,7 +89,9 @@ export function UpgradeStep({ onUpgrade, onSkip, onBack, isLoading }: UpgradeSte
       }
       
       const origin = window.location.origin;
-      const returnUrl = `${origin}/onboarding?step=complete&subscribed=true`;
+      // Return to onboarding to complete the process AND track the conversion
+      // Stripe will automatically replace {CHECKOUT_SESSION_ID} with the actual session ID
+      const returnUrl = `${origin}/onboarding?step=complete&subscribed=true&session_id={CHECKOUT_SESSION_ID}`;
 
       // Create checkout session with return URL
       const checkoutResponse = await fetch('/api/checkout/create-session', {
@@ -120,15 +120,6 @@ export function UpgradeStep({ onUpgrade, onSkip, onBack, isLoading }: UpgradeSte
       alert('Failed to start trial. Please try again.');
       setIsProcessing(false);
     }
-  };
-
-  const handlePricingModalClose = () => {
-    setShowPricingModal(false);
-  };
-
-  const handlePricingModalSuccess = () => {
-    setShowPricingModal(false);
-    onUpgrade();
   };
 
   return (
@@ -242,13 +233,6 @@ export function UpgradeStep({ onUpgrade, onSkip, onBack, isLoading }: UpgradeSte
             </Button>
         </div>
       </div>
-
-      {showPricingModal && (
-        <PricingModal
-          isOpen={showPricingModal}
-          onClose={handlePricingModalClose}
-        />
-      )}
     </div>
   );
 }

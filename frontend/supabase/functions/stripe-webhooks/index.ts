@@ -98,6 +98,42 @@ Deno.serve(async (req: Request) => {
           
           console.log('User found:', userData.id);
           
+          // Store checkout session data for conversion tracking
+          try {
+            // For trials, get the actual subscription price (not the payment amount which is 0)
+            let conversionAmount = session.amount_total || 0;
+            if (subscription.trial_end && session.amount_total === 0) {
+              // This is a trial - use the subscription price instead
+              const price = subscription.items.data[0]?.price;
+              if (price && price.unit_amount) {
+                conversionAmount = price.unit_amount; // This is the actual subscription price in cents
+                console.log('Trial subscription - using actual price:', conversionAmount);
+              }
+            }
+            
+            const { error: checkoutError } = await supabase
+              .from('checkout_sessions')
+              .upsert({
+                stripe_session_id: session.id,
+                user_id: userData.id,
+                amount_total: conversionAmount, // Use actual subscription price for trials
+                currency: session.currency || 'usd',
+                payment_status: session.payment_status,
+                subscription_id: session.subscription as string,
+                processed_at: new Date().toISOString(),
+              }, {
+                onConflict: 'stripe_session_id'
+              });
+
+            if (checkoutError) {
+              console.error('Failed to store checkout session:', checkoutError);
+            } else {
+              console.log('Checkout session stored successfully:', session.id);
+            }
+          } catch (err) {
+            console.error('Error storing checkout session:', err);
+          }
+          
           // Get price details
           const priceId = subscription.items.data[0]?.price.id;
           

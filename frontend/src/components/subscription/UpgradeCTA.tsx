@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React from 'react';
+import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/Button';
-import { PricingModal } from '@/components/ui/PricingModal';
 import {
   Sparkles,
   Lock,
@@ -28,13 +28,13 @@ export function UpgradeCTA({
   buttonText = 'Upgrade to Pro',
   onUpgradeClick,
 }: UpgradeCTAProps) {
-  const [showPricingModal, setShowPricingModal] = useState(false);
+  const router = useRouter();
 
   const handleUpgradeClick = () => {
     if (onUpgradeClick) {
       onUpgradeClick();
     } else {
-      setShowPricingModal(true);
+      router.push('/pricing');
     }
   };
 
@@ -111,7 +111,7 @@ export function UpgradeCTA({
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={() => setShowPricingModal(true)}
+                  onClick={() => router.push('/pricing')}
                 >
                   View all features
                 </Button>
@@ -149,7 +149,7 @@ export function UpgradeCTA({
             <Button
               variant="outline"
               size="sm"
-              onClick={() => setShowPricingModal(true)}
+              onClick={() => router.push('/pricing')}
             >
               Compare plans
             </Button>
