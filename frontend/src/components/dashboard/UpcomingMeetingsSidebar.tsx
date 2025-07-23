@@ -440,7 +440,7 @@ export const UpcomingMeetingsSidebar: React.FC<UpcomingMeetingsSidebarProps> = (
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <CalendarIcon className="w-5 h-5 text-primary" />
-                  <h2 className="text-lg font-semibold">Upcoming Meetings</h2>
+                  <h2 className="text-sm font-semibold">Upcoming Meetings</h2>
                 </div>
                 <div className="flex items-center gap-1">
                   <CalendarSyncStatus

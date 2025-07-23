@@ -28,7 +28,7 @@ const tabs = [
   },
   {
     id: 'summary' as const,
-    label: 'Summary',
+    label: 'AI Insights',
     icon: DocumentTextIcon,
     description: 'AI-generated meeting summary'
   },
@@ -71,10 +71,10 @@ export function ConversationTabs() {
   return (
     <div className="flex flex-col h-full">
       {/* Tab Navigation */}
-      <div className="border-b border-border bg-card/50">
+      <div className="border-b border-border bg-card/50 py-2">
         <div 
           ref={scrollContainerRef}
-          className={`flex ${isMobile ? 'overflow-x-auto scrollbar-hide' : ''}`}
+          className={`flex ${isMobile ? 'overflow-x-auto scrollbar-hide px-2' : 'px-4'}`}
           style={isMobile ? { WebkitOverflowScrolling: 'touch' } : {}}
         >
           {tabs.map((tab) => {
@@ -92,14 +92,14 @@ export function ConversationTabs() {
                 key={tab.id}
                 ref={isActive ? activeTabRef : null}
                 onClick={() => setActiveTab(tab.id)}
-                className={`relative flex items-center gap-1.5 sm:gap-2 px-3 sm:px-6 py-3 sm:py-4 transition-all whitespace-nowrap ${
+                className={`relative flex items-center gap-1.5 px-3 sm:px-4 py-2 sm:py-2.5 transition-all whitespace-nowrap ${
                   isActive 
                     ? 'text-foreground' 
                     : 'text-muted-foreground hover:text-foreground'
                 }`}
               >
-                <Icon className="w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0" />
-                <span className="text-sm sm:text-base font-medium">{isMobile && tab.id === 'transcript' ? 'Transcript' : tab.label}</span>
+                <Icon className="w-3.5 h-3.5 sm:w-4 sm:h-4 flex-shrink-0" />
+                <span className="text-xs sm:text-sm font-medium">{isMobile && tab.id === 'transcript' ? 'Transcript' : tab.label}</span>
                 
                 {/* Show lock icon for recording tab if no access (only after loading) */}
                 {tab.id === 'recording' && !subscriptionLoading && !hasRecordingAccess && (
@@ -107,13 +107,13 @@ export function ConversationTabs() {
                 )}
                 
                 {showBadge && (
-                  <span className="ml-1 px-1.5 py-0.5 text-xs bg-primary text-primary-foreground rounded-full">
+                  <span className="ml-1 px-1 py-0.5 text-[10px] bg-primary text-primary-foreground rounded-full leading-none">
                     {linkedConversations.length}
                   </span>
                 )}
                 
                 {showRecordingBadge && (
-                  <span className="ml-1 w-2 h-2 bg-green-500 rounded-full"></span>
+                  <span className="ml-1 w-1.5 h-1.5 bg-green-500 rounded-full"></span>
                 )}
                 
                 {isActive && (

@@ -174,12 +174,7 @@ export function AIAdvisorPanel({
               <SparklesIcon className="w-5 h-5 text-primary" />
             </div>
             {!isMinimized && (
-              <div>
-                <h2 className="font-semibold text-foreground text-sm">Nova</h2>
-                <p className="text-xs text-muted-foreground">
-                  {botStatus?.status === 'in_call' ? 'Active guidance' : 'Ready to help'}
-                </p>
-              </div>
+              <h2 className="font-semibold text-foreground text-sm">Nova</h2>
             )}
           </div>
           <div className="flex items-center gap-1">

@@ -1,7 +1,6 @@
-import React, { useEffect, useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import React, { useState } from 'react';
+import { motion } from 'framer-motion';
 import { 
-  VideoIcon, 
   Loader2, 
   CheckCircle2, 
   XCircle, 
@@ -46,7 +45,6 @@ export function MeetingBotStatus({
   className
 }: MeetingBotStatusProps) {
   const [participantCount, setParticipantCount] = useState(0);
-  const [showDetails, setShowDetails] = useState(true);
 
   // Don't show anything if no meeting URL
   if (!meetingUrl) return null;
@@ -122,112 +120,47 @@ export function MeetingBotStatus({
   const isActive = recallStatus === 'in_call' || recallStatus === 'joining' || recallStatus === 'created' || recallStatus === 'waiting';
 
   return (
-    <AnimatePresence>
-      {showDetails && (
-        <motion.div
-          initial={{ opacity: 0, y: -10 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: -10 }}
-          className={cn(
-            "rounded-lg border shadow-sm overflow-hidden",
-            getStatusColor(),
-            "border-current/20",
-            className
-          )}
+    <div className={cn("flex items-center gap-2", className)}>
+      {/* Compact status display */}
+      <div className={cn(
+        "flex items-center gap-2 px-3 py-1 rounded-md text-xs",
+        getStatusColor()
+      )}>
+        {getStatusIcon()}
+        <span className="font-medium">{getStatusMessage()}</span>
+        {recallStatus === 'in_call' && participantCount > 0 && (
+          <>
+            <span className="text-[10px] opacity-75">•</span>
+            <Users className="w-3 h-3" />
+            <span>{participantCount}</span>
+          </>
+        )}
+      </div>
+
+      {/* Actions */}
+      {isActive && onStopBot && (
+        <Button
+          size="sm"
+          variant="ghost"
+          onClick={onStopBot}
+          className="h-6 px-2 text-xs text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/30"
         >
-          <div className="p-4">
-            <div className="flex items-start justify-between gap-4">
-              <div className="flex-1 space-y-2">
-                {/* Header */}
-                <div className="flex items-center gap-2">
-                  <VideoIcon className="w-5 h-5" />
-                  <h3 className="font-medium flex items-center gap-2">
-                    {meetingPlatform && (
-                      <>
-                        <span className="text-lg">{platformIcons[meetingPlatform]}</span>
-                        <span>{platformNames[meetingPlatform]} Meeting</span>
-                      </>
-                    )}
-                  </h3>
-                </div>
-
-                {/* Status */}
-                <div className="flex items-center gap-2 text-sm">
-                  {getStatusIcon()}
-                  <span>{getStatusMessage()}</span>
-                </div>
-
-                {/* Meeting URL */}
-                <div className="text-xs opacity-75 truncate max-w-xs">
-                  {meetingUrl}
-                </div>
-
-                {/* Participant count (when in call) */}
-                {recallStatus === 'in_call' && participantCount > 0 && (
-                  <div className="flex items-center gap-2 text-sm">
-                    <Users className="w-4 h-4" />
-                    <span>{participantCount} participants</span>
-                  </div>
-                )}
-              </div>
-
-              {/* Actions */}
-              <div className="flex items-center gap-2">
-                {isActive && onStopBot && (
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={onStopBot}
-                    className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/30"
-                  >
-                    <PhoneOff className="w-4 h-4 mr-1" />
-                    Stop AI Bot
-                  </Button>
-                )}
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  onClick={() => setShowDetails(false)}
-                  className="w-8 h-8 p-0"
-                >
-                  ×
-                </Button>
-              </div>
-            </div>
-          </div>
-
-          {/* Progress indicator for joining */}
-          {(recallStatus === 'created' || recallStatus === 'joining' || recallStatus === 'waiting') && (
-            <div className="h-1 bg-current/10 relative overflow-hidden">
-              <motion.div
-                className="h-full bg-current/30"
-                initial={{ x: '-100%' }}
-                animate={{ x: '100%' }}
-                transition={{ repeat: Infinity, duration: 1.5, ease: 'linear' }}
-              />
-            </div>
-          )}
-        </motion.div>
+          <PhoneOff className="w-3 h-3 mr-1" />
+          Stop
+        </Button>
       )}
 
-      {/* Minimized state */}
-      {!showDetails && isActive && (
-        <motion.button
-          initial={{ opacity: 0, scale: 0.8 }}
-          animate={{ opacity: 1, scale: 1 }}
-          onClick={() => setShowDetails(true)}
-          className={cn(
-            "fixed bottom-4 right-4 px-4 py-2 rounded-full shadow-lg flex items-center gap-2",
-            getStatusColor(),
-            "border border-current/20 hover:scale-105 transition-transform"
-          )}
-        >
-          {getStatusIcon()}
-          <span className="text-sm font-medium">
-            {platformNames[meetingPlatform || 'zoom']} Bot Active
-          </span>
-        </motion.button>
+      {/* Progress indicator */}
+      {(recallStatus === 'created' || recallStatus === 'joining' || recallStatus === 'waiting') && (
+        <div className="w-20 h-1 bg-current/10 rounded-full relative overflow-hidden">
+          <motion.div
+            className="h-full bg-current/30 rounded-full"
+            initial={{ x: '-100%' }}
+            animate={{ x: '100%' }}
+            transition={{ repeat: Infinity, duration: 1.5, ease: 'linear' }}
+          />
+        </div>
       )}
-    </AnimatePresence>
+    </div>
   );
 }

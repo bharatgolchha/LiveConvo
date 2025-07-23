@@ -29,7 +29,7 @@ export function RealtimeSummaryTab() {
           <div className="w-16 h-16 border-4 border-primary/20 border-t-primary rounded-full animate-spin" />
           <SparklesIcon className="w-8 h-8 text-primary absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2" />
         </div>
-        <h3 className="text-lg font-semibold mt-6 mb-2">Generating AI Summary</h3>
+        <h3 className="text-lg font-semibold mt-6 mb-2">Generating AI Insights</h3>
         <p className="text-sm text-muted-foreground text-center max-w-sm">
           Our AI is analyzing the conversation to extract key insights, decisions, and action items...
         </p>
@@ -43,9 +43,9 @@ export function RealtimeSummaryTab() {
         <div className="w-16 h-16 bg-destructive/10 rounded-full flex items-center justify-center mb-6">
           <ExclamationCircleIcon className="w-8 h-8 text-destructive" />
         </div>
-        <h3 className="text-lg font-semibold mb-2">Summary Generation Failed</h3>
+        <h3 className="text-lg font-semibold mb-2">Insights Generation Failed</h3>
         <p className="text-sm text-muted-foreground text-center max-w-sm mb-6">
-          {error.message || 'Something went wrong while generating the summary. Please try again.'}
+          {error.message || 'Something went wrong while generating the insights. Please try again.'}
         </p>
         <button
           onClick={refreshSummary}
@@ -61,25 +61,22 @@ export function RealtimeSummaryTab() {
 
   if (!summary) {
     return (
-      <div className="flex flex-col items-center justify-center h-full p-8">
-        <div className="w-16 h-16 bg-muted/20 rounded-full flex items-center justify-center mb-6">
-          <SparklesIcon className="w-8 h-8 text-muted-foreground" />
-        </div>
-        <h3 className="text-lg font-semibold mb-2">No Summary Yet</h3>
-        <p className="text-sm text-muted-foreground text-center max-w-sm mb-6">
+      <div className="flex flex-col items-center justify-center h-full p-6">
+        <SparklesIcon className="w-6 h-6 text-muted-foreground mb-3" />
+        <p className="text-sm font-medium text-muted-foreground text-center">
           {isRecordingActive 
-            ? 'Continue the conversation to gather enough content for an AI summary...'
-            : 'Generate an AI summary of the conversation content.'
+            ? 'Insights will appear as the conversation progresses'
+            : 'No insights available yet'
           }
         </p>
         {!isRecordingActive && (
           <button
             onClick={refreshSummary}
             disabled={loading}
-            className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 disabled:opacity-50 transition-colors"
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-primary text-primary-foreground rounded-md text-xs font-medium hover:bg-primary/90 disabled:opacity-50 transition-colors mt-3"
           >
-            <SparklesIcon className="w-4 h-4" />
-            Generate Summary
+            <SparklesIcon className="w-3 h-3" />
+            Generate Insights
           </button>
         )}
       </div>
@@ -89,7 +86,7 @@ export function RealtimeSummaryTab() {
   const sections = [
     {
       id: 'tldr',
-      title: 'Executive Summary',
+      title: 'Executive Insights',
       description: 'Quick overview of the conversation',
       icon: LightBulbIcon,
       content: summary.tldr,
@@ -131,38 +128,31 @@ export function RealtimeSummaryTab() {
 
   return (
     <div className="h-full flex flex-col bg-background">
-      {/* Header */}
-      <div className="flex-shrink-0 p-6 border-b border-border bg-card z-[100] relative">
-        <div className="flex items-start justify-between">
-          <div className="flex items-start gap-3">
-            <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-primary/20 to-primary/10 flex items-center justify-center">
-              <SparklesIcon className="w-5 h-5 text-primary" />
-            </div>
-            <div>
-              <h2 className="text-lg font-semibold text-foreground">AI Meeting Summary</h2>
-              <p className="text-sm text-muted-foreground">
-                Automatically generated insights and analysis
-              </p>
-              {summary.lastUpdated && (
-                <div className="flex items-center gap-1 mt-1">
-                  <div className="w-1.5 h-1.5 rounded-full bg-primary" />
-                  <span className="text-xs text-muted-foreground">
-                    Updated {new Date(summary.lastUpdated).toLocaleTimeString()}
-                  </span>
-                </div>
-              )}
-            </div>
-          </div>
+      {/* Compact Header */}
+      <div className="flex-shrink-0 px-4 py-2 border-b border-border bg-card/50 z-[100] relative">
+        <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
+            <SparklesIcon className="w-4 h-4 text-primary" />
+            <h2 className="text-sm font-semibold text-foreground">AI Insights</h2>
+            {summary.lastUpdated && (
+              <>
+                <span className="text-muted-foreground/50">•</span>
+                <span className="text-xs text-muted-foreground">
+                  {new Date(summary.lastUpdated).toLocaleTimeString()}
+                </span>
+              </>
+            )}
+          </div>
+          <div className="flex items-center gap-1">
             <ExportMenu />
             <button
               onClick={refreshSummary}
               disabled={loading}
-              className="flex items-center gap-2 px-3 py-2 bg-muted/50 hover:bg-muted border border-border/30 rounded-lg text-sm font-medium text-foreground transition-all hover:scale-105 disabled:opacity-50 disabled:hover:scale-100"
+              className="flex items-center gap-1 px-2 py-1 hover:bg-muted/50 rounded text-xs font-medium text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50"
               title="Refresh summary"
             >
-              <ArrowPathIcon className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-              <span className="hidden sm:inline">{loading ? 'Updating...' : 'Refresh'}</span>
+              <ArrowPathIcon className={`w-3 h-3 ${loading ? 'animate-spin' : ''}`} />
+              <span className="hidden sm:inline">{loading ? 'Updating' : 'Refresh'}</span>
             </button>
           </div>
         </div>

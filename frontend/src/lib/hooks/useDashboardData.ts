@@ -44,6 +44,7 @@ export interface DashboardDataHookReturn {
   refreshData: () => Promise<void>;
   addSession: (session: Session) => void;
   removeSession: (sessionId: string) => void;
+  updateSessionLocal: (sessionId: string, updates: Partial<Session>) => void;
 }
 
 // Request deduplication
@@ -375,6 +376,21 @@ export function useDashboardData(): DashboardDataHookReturn {
     });
   }, []);
 
+  /**
+   * Update a session in local state only (for real-time updates)
+   * This does NOT make an API call
+   */
+  const updateSessionLocal = useCallback((sessionId: string, updates: Partial<Session>) => {
+    setData(prev => {
+      if (!prev) return prev;
+      
+      return {
+        ...prev,
+        sessions: prev.sessions.map(s => s.id === sessionId ? { ...s, ...updates } : s)
+      };
+    });
+  }, []);
+
   // Cleanup abort controller on unmount
   useEffect(() => {
     return () => {
@@ -394,5 +410,6 @@ export function useDashboardData(): DashboardDataHookReturn {
     refreshData,
     addSession,
     removeSession,
+    updateSessionLocal,
   };
 }

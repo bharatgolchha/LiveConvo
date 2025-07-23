@@ -92,98 +92,89 @@ export function MeetingUrlEditor({
 
   if (isEditing) {
     return (
-      <div className={cn("space-y-2", className)}>
-        <div className="flex items-center gap-2">
-          <Link className="w-4 h-4 text-muted-foreground" />
-          <input
-            type="url"
-            value={editingUrl}
-            onChange={(e) => {
-              setEditingUrl(e.target.value);
-              validateUrl(e.target.value);
-            }}
-            placeholder="Enter meeting URL (Zoom, Google Meet, or Teams)"
-            className="flex-1 px-3 py-2 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
-            disabled={isLoading}
-          />
-          <Button
-            size="sm"
-            variant="ghost"
-            onClick={handleSave}
-            disabled={isLoading || !!error}
-            className="text-green-600 hover:text-green-700"
-          >
-            <Save className="w-4 h-4" />
-          </Button>
-          <Button
-            size="sm"
-            variant="ghost"
-            onClick={handleCancel}
-            disabled={isLoading}
-            className="text-red-600 hover:text-red-700"
-          >
-            <X className="w-4 h-4" />
-          </Button>
-        </div>
+      <div className={cn("flex items-center gap-1", className)}>
+        <Link className="w-3.5 h-3.5 text-muted-foreground" />
+        <input
+          type="url"
+          value={editingUrl}
+          onChange={(e) => {
+            setEditingUrl(e.target.value);
+            validateUrl(e.target.value);
+          }}
+          placeholder="Enter meeting URL"
+          className="flex-1 px-2 py-1 text-xs border rounded-md focus:outline-none focus:ring-1 focus:ring-primary"
+          disabled={isLoading}
+        />
+        <Button
+          size="sm"
+          variant="ghost"
+          onClick={handleSave}
+          disabled={isLoading || !!error}
+          className="h-6 w-6 p-0 text-green-600 hover:text-green-700"
+        >
+          <Save className="w-3 h-3" />
+        </Button>
+        <Button
+          size="sm"
+          variant="ghost"
+          onClick={handleCancel}
+          disabled={isLoading}
+          className="h-6 w-6 p-0 text-red-600 hover:text-red-700"
+        >
+          <X className="w-3 h-3" />
+        </Button>
         {error && (
-          <div className="flex items-center gap-2 text-sm text-red-600">
-            <AlertCircle className="w-4 h-4" />
-            <span>{error}</span>
-          </div>
+          <span className="text-[10px] text-red-600 ml-2">
+            <AlertCircle className="w-3 h-3 inline mr-1" />
+            {error}
+          </span>
         )}
       </div>
     );
   }
 
   return (
-    <div className={cn("flex items-center gap-2", className)}>
+    <div className={cn("flex items-center gap-1", className)}>
       {meetingUrl ? (
         <>
-          <div className="flex items-center gap-2 flex-1">
-            <VideoIcon className="w-4 h-4 text-muted-foreground" />
-            <span className="text-sm">
-              {meetingPlatform && (
-                <>
-                  <span className="mr-1">{platformIcons[meetingPlatform]}</span>
-                  <span className="font-medium">{platformNames[meetingPlatform]}:</span>
-                </>
-              )}
+          <VideoIcon className="w-3.5 h-3.5 text-muted-foreground" />
+          {meetingPlatform && (
+            <span className="text-xs font-medium">
+              {platformIcons[meetingPlatform]} {platformNames[meetingPlatform]}
             </span>
-            <a 
-              href={meetingUrl} 
-              target="_blank" 
-              rel="noopener noreferrer"
-              className="text-sm text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 underline truncate max-w-xs"
-            >
-              {meetingUrl}
-            </a>
-          </div>
+          )}
+          <a 
+            href={meetingUrl} 
+            target="_blank" 
+            rel="noopener noreferrer"
+            className="text-xs text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 underline truncate max-w-[200px]"
+          >
+            {meetingUrl}
+          </a>
           {isEditable && (
             <Button
               size="sm"
               variant="ghost"
               onClick={handleEdit}
-              className="text-muted-foreground hover:text-foreground"
+              className="h-6 w-6 p-0 text-muted-foreground hover:text-foreground ml-auto"
             >
-              <Edit2 className="w-4 h-4" />
+              <Edit2 className="w-3 h-3" />
             </Button>
           )}
         </>
       ) : (
         <>
-          <div className="flex items-center gap-2 flex-1 text-muted-foreground">
-            <VideoIcon className="w-4 h-4" />
-            <span className="text-sm">No meeting URL</span>
-          </div>
+          <VideoIcon className="w-3.5 h-3.5 text-muted-foreground" />
+          <span className="text-xs text-muted-foreground">No meeting URL</span>
           {isEditable && (
             <Button
               size="sm"
               variant="ghost"
               onClick={handleEdit}
-              className="text-primary hover:text-primary/80"
+              className="h-6 px-2 text-xs text-primary hover:text-primary/80 ml-auto"
             >
-              <Edit2 className="w-4 h-4 mr-1" />
-              Add URL
+              <Edit2 className="w-3 h-3 mr-1" />
+              Add
             </Button>
           )}
         </>

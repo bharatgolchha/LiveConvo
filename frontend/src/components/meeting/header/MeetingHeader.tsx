@@ -55,13 +55,13 @@ export function MeetingHeader() {
   const getThemeIcon = () => {
     switch (theme) {
       case 'light':
-        return <SunIcon className="w-5 h-5" />;
+        return <SunIcon className="w-4 h-4" />;
       case 'dark':
-        return <MoonIcon className="w-5 h-5" />;
+        return <MoonIcon className="w-4 h-4" />;
       case 'system':
-        return <ComputerDesktopIcon className="w-5 h-5" />;
+        return <ComputerDesktopIcon className="w-4 h-4" />;
       default:
-        return <SunIcon className="w-5 h-5" />;
+        return <SunIcon className="w-4 h-4" />;
     }
   };
 
@@ -183,22 +183,22 @@ export function MeetingHeader() {
 
   // Desktop Layout
   return (
-    <header className="min-h-20 px-8 py-4 border-b border-border/50 bg-background/95 backdrop-blur-lg shadow-sm z-50 relative">
-      <div className="min-h-[3rem] max-w-full flex items-center justify-between gap-6">
+    <header className="px-4 py-2 border-b border-border/50 bg-background/95 backdrop-blur-lg shadow-sm z-50 relative">
+      <div className="flex items-center justify-between gap-4">
         
         {/* Left Section - Navigation & Meeting Info */}
-        <div className="flex items-center gap-2 sm:gap-6 min-w-0 flex-1">
+        <div className="flex items-center gap-3 min-w-0 flex-1">
           {/* Back Button */}
           <button
             onClick={() => router.push('/dashboard')}
-            className="group p-2 sm:p-2.5 hover:bg-muted/80 rounded-xl transition-all duration-200 shrink-0 hover:scale-105"
+            className="group p-1.5 hover:bg-muted/80 rounded-lg transition-all duration-200 shrink-0"
             title="Back to Dashboard"
           >
-            <ArrowLeftIcon className="w-5 h-5 text-muted-foreground group-hover:text-foreground transition-colors" />
+            <ArrowLeftIcon className="w-4 h-4 text-muted-foreground group-hover:text-foreground transition-colors" />
           </button>
           
           {/* Meeting Info */}
-          <div className="flex items-center gap-2 sm:gap-4 min-w-0">
+          <div className="flex items-center gap-3 min-w-0">
             {/* Platform Icon with Status - Only show if URL exists */}
             <AnimatePresence mode="wait">
               {hasUrl && (
@@ -209,25 +209,25 @@ export function MeetingHeader() {
                   exit={{ opacity: 0, scale: 0.8 }}
                   transition={{ duration: 0.2 }}
                 >
-                  <div className="p-2 sm:p-3 bg-muted/50 rounded-xl border border-border/50">
+                  <div className="p-1.5 bg-muted/50 rounded-lg border border-border/50">
                     {getPlatformLogo() ? (
                       <Image
                         src={getPlatformLogo()!}
                         alt={getPlatformName(meeting.platform)}
-                        width={32}
-                        height={32}
-                        className="w-6 h-6 sm:w-8 sm:h-8"
+                        width={20}
+                        height={20}
+                        className="w-5 h-5"
                       />
                     ) : (
-                      <span className="text-2xl">
+                      <span className="text-lg">
                         {getPlatformIcon(meeting.platform)}
                       </span>
                     )}
                   </div>
                   {/* Live Recording Indicator */}
                   {finalIsActive && (
-                    <div className="absolute -top-1 -right-1">
-                      <div className="w-4 h-4 bg-red-500 rounded-full animate-pulse border-2 border-background">
+                    <div className="absolute -top-0.5 -right-0.5">
+                      <div className="w-3 h-3 bg-red-500 rounded-full animate-pulse border-2 border-background">
                         <div className="w-full h-full bg-red-400 rounded-full animate-ping opacity-75" />
                       </div>
                     </div>
@@ -238,20 +238,20 @@ export function MeetingHeader() {
             
             {/* Meeting Details */}
             <div className="min-w-0 flex-1">
-              <h1 className="text-base sm:text-xl font-bold text-foreground truncate leading-tight flex items-center gap-2">
+              <h1 className="text-base font-semibold text-foreground truncate flex items-center gap-2">
                 {meeting.title.includes('Engagement with Liveprompt.ai') && (
-                  <Badge variant="secondary" className="text-xs px-1.5 py-0">
+                  <Badge variant="secondary" className="text-[10px] px-1 py-0">
                     Auto
                   </Badge>
                 )}
                 <span className="truncate">{meeting.title}</span>
               </h1>
               {hasUrl ? (
-                <div className="flex items-center gap-2 mt-1">
+                <div className="flex items-center gap-2">
                   {meeting.platform && !isMobile && (
                     <>
-                      <span className="text-sm font-medium text-muted-foreground">
-                        {getPlatformName(meeting.platform)} Meeting
+                      <span className="text-xs text-muted-foreground">
+                        {getPlatformName(meeting.platform)}
                       </span>
                       <span className="text-muted-foreground/60">•</span>
                     </>
@@ -268,62 +268,56 @@ export function MeetingHeader() {
           {!hasUrl ? (
             <motion.div 
               key="setup"
-              className="flex-1 max-w-2xl"
-              initial={{ opacity: 0, y: 10 }}
+              className="flex-1 max-w-xl"
+              initial={{ opacity: 0, y: 5 }}
               animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              transition={{ duration: 0.2 }}
+              exit={{ opacity: 0, y: -5 }}
+              transition={{ duration: 0.15 }}
             >
               <MeetingSetupPrompt />
             </motion.div>
           ) : (
             <motion.div 
               key="controls"
-              className="flex items-center gap-2 sm:gap-6 px-0 sm:px-6"
-              initial={{ opacity: 0, y: 10 }}
+              className="flex items-center gap-3"
+              initial={{ opacity: 0, y: 5 }}
               animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              transition={{ duration: 0.2 }}
+              exit={{ opacity: 0, y: -5 }}
+              transition={{ duration: 0.15 }}
             >
               {/* Recording Status */}
               <div className="flex items-center">
-              {finalIsActive ? (
-                <div className="flex items-center gap-2 px-3 sm:px-4 py-2 sm:py-2.5 bg-destructive/10 border border-destructive/20 rounded-xl shadow-sm">
-                  <div className="w-2.5 h-2.5 bg-destructive rounded-full animate-pulse" />
-                  <span className="text-xs sm:text-sm font-semibold text-destructive">
-                    LIVE
-                  </span>
-                </div>
-              ) : finalIsCompleted ? (
-                <div className="flex items-center gap-2 sm:gap-3 px-3 sm:px-4 py-2 sm:py-2.5 bg-primary/10 border border-primary/20 rounded-xl shadow-sm">
-                  <VideoCameraIcon className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-primary" />
-                  <span className="text-xs sm:text-sm font-semibold text-primary">
-                    {isMobile ? 'DONE' : 'COMPLETED'}
-                  </span>
-                  <div className="w-px h-4 bg-primary/30" />
-                  <MeetingTimer 
-                    isActive={false}
-                    isCompleted={finalIsCompleted}
-                    meetingDurationSeconds={meeting.recordingDurationSeconds}
-                  />
-                </div>
-              ) : (
-                <div className="flex items-center gap-3 px-4 py-2.5 bg-muted/60 border border-border/50 rounded-xl">
-                  <VideoCameraIcon className="w-4 h-4 text-muted-foreground" />
-                  <span className="text-sm font-medium text-muted-foreground">
-                    Ready to Record
-                  </span>
-                </div>
-              )}
-            </div>
+                {finalIsActive ? (
+                  <div className="flex items-center gap-1.5 px-2 py-1 bg-destructive/10 border border-destructive/20 rounded-md">
+                    <div className="w-2 h-2 bg-destructive rounded-full animate-pulse" />
+                    <span className="text-xs font-medium text-destructive">LIVE</span>
+                  </div>
+                ) : finalIsCompleted ? (
+                  <div className="flex items-center gap-2 px-2 py-1 bg-primary/10 border border-primary/20 rounded-md">
+                    <VideoCameraIcon className="w-3 h-3 text-primary" />
+                    <span className="text-xs font-medium text-primary">COMPLETED</span>
+                    <div className="w-px h-3 bg-primary/30" />
+                    <MeetingTimer 
+                      isActive={false}
+                      isCompleted={finalIsCompleted}
+                      meetingDurationSeconds={meeting.recordingDurationSeconds}
+                    />
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2 px-2 py-1 bg-muted/60 border border-border/50 rounded-md">
+                    <VideoCameraIcon className="w-3 h-3 text-muted-foreground" />
+                    <span className="text-xs font-medium text-muted-foreground">Ready</span>
+                  </div>
+                )}
+              </div>
             
               {/* Bot Control or View Report - Only for desktop */}
               {!isMobile && (
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2">
                   {finalIsCompleted ? (
                     <button
                       onClick={() => router.push(`/report/${meeting?.id}`)}
-                      className="flex items-center gap-2 px-3 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors font-medium"
+                      className="flex items-center gap-2 px-3 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-all font-medium hover:scale-105"
                       title="View meeting report"
                     >
                       <CheckCircleIcon className="w-4 h-4" />
@@ -342,12 +336,12 @@ export function MeetingHeader() {
         </AnimatePresence>
 
         {/* Right Section - Theme Toggle & Actions */}
-        <div className="flex items-center gap-2 sm:gap-4 shrink-0">
+        <div className="flex items-center gap-2 shrink-0">
           {/* Theme Toggle - Hidden on mobile */}
           {!isMobile && (
             <button
               onClick={cycleTheme}
-              className="group p-2.5 hover:bg-muted/80 rounded-xl transition-all duration-200 hover:scale-105"
+              className="group p-1.5 hover:bg-muted/80 rounded-lg transition-all duration-200"
               title={`Current theme: ${theme}. Click to cycle themes.`}
             >
               <div className="text-muted-foreground group-hover:text-foreground transition-colors">
@@ -357,7 +351,7 @@ export function MeetingHeader() {
           )}
           
           {/* Meeting Actions */}
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1">
             <MeetingActions />
           </div>
         </div>

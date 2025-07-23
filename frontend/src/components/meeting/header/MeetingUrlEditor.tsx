@@ -1,9 +1,15 @@
 import React, { useState } from 'react';
-import { PencilIcon, CheckIcon, XMarkIcon, LinkIcon, PlusIcon } from '@heroicons/react/24/outline';
+import { PencilIcon, CheckIcon, XMarkIcon, LinkIcon, PlusIcon, QuestionMarkCircleIcon } from '@heroicons/react/24/outline';
 import { useMeetingContext } from '@/lib/meeting/context/MeetingContext';
 import { supabase } from '@/lib/supabase';
 import { detectMeetingPlatform } from '@/lib/meeting/utils/platform-detector';
 import { useIsMobile } from '@/lib/hooks/useMediaQuery';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 
 export function MeetingUrlEditor() {
   const { meeting, setMeeting, botStatus } = useMeetingContext();
@@ -129,14 +135,35 @@ export function MeetingUrlEditor() {
     return (
       <div className="flex items-center gap-2">
         {canEdit ? (
-          <button
-            onClick={handleStartEditing}
-            className={`flex items-center gap-1.5 ${isMobile ? 'px-2 py-1' : 'px-3 py-1.5'} text-sm bg-primary text-primary-foreground hover:bg-primary/90 rounded-lg transition-all font-medium`}
-            title="Add meeting URL"
-          >
-            <PlusIcon className={isMobile ? "w-3 h-3" : "w-4 h-4"} />
-            <span className={isMobile ? "text-xs" : ""}>Add meeting link</span>
-          </button>
+          <>
+            <button
+              onClick={handleStartEditing}
+              className={`flex items-center gap-1.5 ${isMobile ? 'px-2 py-1' : 'px-3 py-1.5'} text-sm bg-primary text-primary-foreground hover:bg-primary/90 rounded-lg transition-all font-medium`}
+              title="Add meeting URL"
+            >
+              <PlusIcon className={isMobile ? "w-3 h-3" : "w-4 h-4"} />
+              <span className={isMobile ? "text-xs" : ""}>Add meeting link</span>
+            </button>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button className="p-1 text-muted-foreground hover:text-foreground transition-colors">
+                    <QuestionMarkCircleIcon className={isMobile ? "w-3.5 h-3.5" : "w-4 h-4"} />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" className="max-w-[250px]">
+                  <p className="text-sm">
+                    Meeting links must be from:
+                  </p>
+                  <ul className="mt-1 space-y-0.5 text-sm">
+                    <li>• Zoom</li>
+                    <li>• Google Meet</li>
+                    <li>• Microsoft Teams</li>
+                  </ul>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          </>
         ) : (
           <span className={`${isMobile ? 'text-xs' : 'text-sm'} text-muted-foreground`}>No meeting link</span>
         )}

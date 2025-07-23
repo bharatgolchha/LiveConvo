@@ -341,51 +341,43 @@ export const ConversationContent: React.FC<ConversationContentProps> = ({
 
   return (
     <div className="h-full max-h-full flex flex-col overflow-hidden bg-gradient-to-br from-background via-background to-muted/20">
-      {/* Enhanced Tab Header */}
-      <div className="flex-shrink-0 z-10 bg-background/95 backdrop-blur-sm border-b border-border/50 shadow-sm">
-        <div className="px-6 py-4">
+      {/* Compact Professional Header */}
+      <div className="flex-shrink-0 z-10 bg-background/95 backdrop-blur-sm border-b border-border/50">
+        <div className="px-4 py-2">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-6">
-              {/* Main Tabs - Now includes Transcript first, then Summary */}
-              <div className="flex bg-muted/50 rounded-xl p-1.5 shadow-inner">
+            <div className="flex items-center gap-4">
+              {/* Streamlined Tab Navigation */}
+              <div className="flex bg-muted/30 rounded-lg p-1">
                 <button 
                   onClick={() => setActiveTab('transcript')}
                   className={cn(
-                    "flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium transition-all duration-200",
+                    "flex items-center gap-2 px-3 py-1.5 rounded-md text-xs font-medium transition-all duration-200",
                     activeTab === 'transcript' 
-                      ? "bg-background text-app-primary shadow-md ring-1 ring-app-primary/20" 
-                      : "text-muted-foreground hover:text-foreground hover:bg-background/50"
+                      ? "bg-background text-app-primary shadow-sm" 
+                      : "text-muted-foreground hover:text-foreground"
                   )}
                 >
-                  <Mic className="w-4 h-4" />
-                  <span>Live Transcript</span>
+                  <Mic className="w-3.5 h-3.5" />
+                  <span>Transcript</span>
                   {groupedTranscript.length > 0 && (
                     <span className={cn(
-                      "px-1.5 py-0.5 rounded-full text-xs font-semibold",
+                      "px-1 py-0.5 rounded text-[10px] font-semibold",
                       activeTab === 'transcript' ? "bg-app-primary/10 text-app-primary" : "bg-muted text-muted-foreground"
                     )}>
                       {groupedTranscript.length}
                     </span>
                   )}
-                  {conversationState === 'recording' && (
-                    <div className={cn(
-                      "flex items-center",
-                      activeTab === 'transcript' ? "text-app-primary" : "text-muted-foreground"
-                    )}>
-                      <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
-                    </div>
-                  )}
                 </button>
                 <button 
                   onClick={() => setActiveTab('summary')}
                   className={cn(
-                    "flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium transition-all duration-200",
+                    "flex items-center gap-2 px-3 py-1.5 rounded-md text-xs font-medium transition-all duration-200",
                     activeTab === 'summary' 
-                      ? "bg-background text-app-primary shadow-md ring-1 ring-app-primary/20" 
-                      : "text-muted-foreground hover:text-foreground hover:bg-background/50"
+                      ? "bg-background text-app-primary shadow-sm" 
+                      : "text-muted-foreground hover:text-foreground"
                   )}
                 >
-                  <FileText className="w-4 h-4" />
+                  <FileText className="w-3.5 h-3.5" />
                   <span>Summary</span>
                   {(isSummaryLoading || summary) && (
                     <div className={cn(
@@ -393,38 +385,37 @@ export const ConversationContent: React.FC<ConversationContentProps> = ({
                       activeTab === 'summary' ? "text-app-primary" : "text-muted-foreground"
                     )}>
                       {isSummaryLoading ? (
-                        <RefreshCw className="w-3 h-3 animate-spin" />
+                        <RefreshCw className="w-2.5 h-2.5 animate-spin ml-1" />
                       ) : summary ? (
-                        <CheckCircle className="w-3 h-3" />
+                        <CheckCircle className="w-2.5 h-2.5 ml-1" />
                       ) : null}
                     </div>
                   )}
                 </button>
-
                 <button 
                   onClick={() => setActiveTab('checklist')}
                   className={cn(
-                    "flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium transition-all duration-200",
+                    "flex items-center gap-2 px-3 py-1.5 rounded-md text-xs font-medium transition-all duration-200",
                     activeTab === 'checklist' 
-                      ? "bg-background text-app-primary shadow-md ring-1 ring-app-primary/20" 
-                      : "text-muted-foreground hover:text-foreground hover:bg-background/50"
+                      ? "bg-background text-app-primary shadow-sm" 
+                      : "text-muted-foreground hover:text-foreground"
                   )}
                 >
-                  <CheckSquare className="w-4 h-4" />
-                  <span>Smart Notes</span>
+                  <CheckSquare className="w-3.5 h-3.5" />
+                  <span>Notes</span>
                 </button>
               </div>
 
-              {/* Live Status Indicator */}
+              {/* Compact Live Status */}
               {conversationState === 'recording' && (
-                <div className="flex items-center gap-2 px-3 py-1.5 bg-red-50 dark:bg-red-950/20 rounded-full border border-red-200 dark:border-red-800/30">
-                  <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></div>
-                  <span className="text-xs font-medium text-red-700 dark:text-red-400">LIVE</span>
+                <div className="flex items-center gap-1.5 px-2 py-1 bg-red-500/10 rounded-md">
+                  <div className="w-1.5 h-1.5 bg-red-500 rounded-full animate-pulse"></div>
+                  <span className="text-[10px] font-medium text-red-600 dark:text-red-400">LIVE</span>
                 </div>
               )}
             </div>
             
-            {/* Action Controls */}
+            {/* Compact Action Controls */}
             <div className="flex items-center gap-1">
               <Button 
                 variant="ghost" 
@@ -435,63 +426,68 @@ export const ConversationContent: React.FC<ConversationContentProps> = ({
                   try {
                     await refreshSummary();
                   } finally {
-                    // Show visual feedback for at least 1 second
                     setTimeout(() => setIsRefreshing(false), 1000);
                   }
                 }} 
                 disabled={isRefreshing || isSummaryLoading}
                 className={cn(
-                  "h-9 px-3 hover:bg-muted/80 transition-all duration-200 text-xs",
+                  "h-7 px-2 hover:bg-muted/80 transition-all duration-200",
                   isRefreshing && "pointer-events-none"
                 )}
                 title="Refresh Summary"
               >
-                <RefreshCw className={cn("w-3 h-3 mr-1.5", isRefreshing && "animate-spin")} />
-                {isRefreshing ? 'Refreshing...' : 'Refresh'}
+                <RefreshCw className={cn("w-3 h-3", isRefreshing && "animate-spin")} />
+                {nextRefreshSeconds > 0 && (
+                  <span className="ml-1 text-[10px] text-muted-foreground">
+                    {nextRefreshSeconds}s
+                  </span>
+                )}
               </Button>
-              {nextRefreshSeconds > 0 && (
-                <span className="ml-2 text-xs text-muted-foreground">
-                  {nextRefreshSeconds}s
-                </span>
-              )}
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={handleExportSession}
-                className="h-9 w-9 p-0 hover:bg-muted/80 transition-all duration-200"
-                title="Export Session"
+                className="h-7 w-7 p-0 hover:bg-muted/80 transition-all duration-200"
+                title="Export"
               >
-                <Download className="w-4 h-4" />
+                <Download className="w-3.5 h-3.5" />
               </Button>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Meeting URL Editor */}
-      {sessionId && onUpdateMeetingUrl && (
-        <div className="mx-6 mt-4 mb-2">
-          <MeetingUrlEditor
-            meetingUrl={meetingUrl}
-            meetingPlatform={meetingPlatform}
-            isEditable={!recallBotId || recallBotStatus === 'completed' || recallBotStatus === 'failed' || recallBotStatus === 'timeout'} // Can edit if no bot or bot in terminal state
-            onUpdateUrl={onUpdateMeetingUrl}
-          />
-        </div>
-      )}
+      {/* Meeting Controls - Compact Layout */}
+      {sessionId && (meetingUrl || onUpdateMeetingUrl) && (
+        <div className="flex-shrink-0 bg-muted/30 border-b border-border/50">
+          <div className="px-4 py-2 flex items-center gap-3">
+            {/* Meeting URL Editor - Inline */}
+            {onUpdateMeetingUrl && (
+              <div className="flex-1 max-w-md">
+                <MeetingUrlEditor
+                  meetingUrl={meetingUrl}
+                  meetingPlatform={meetingPlatform}
+                  isEditable={!recallBotId || recallBotStatus === 'completed' || recallBotStatus === 'failed' || recallBotStatus === 'timeout'}
+                  onUpdateUrl={onUpdateMeetingUrl}
+                />
+              </div>
+            )}
 
-      {/* Meeting Bot Status */}
-      {meetingUrl && sessionId && (
-        <div className="mx-6 mt-4">
-          <MeetingBotStatus
-            sessionId={sessionId}
-            meetingUrl={meetingUrl}
-            meetingPlatform={meetingPlatform}
-            botId={recallBotId}
-            recallStatus={recallBotStatus || undefined}
-            detailedStatus={recallBotDetailedStatus}
-            onStopBot={onStopBot}
-          />
+            {/* Meeting Bot Status - Inline */}
+            {meetingUrl && (
+              <div className="flex-1">
+                <MeetingBotStatus
+                  sessionId={sessionId}
+                  meetingUrl={meetingUrl}
+                  meetingPlatform={meetingPlatform}
+                  botId={recallBotId}
+                  recallStatus={recallBotStatus || undefined}
+                  detailedStatus={recallBotDetailedStatus}
+                  onStopBot={onStopBot}
+                />
+              </div>
+            )}
+          </div>
         </div>
       )}
 

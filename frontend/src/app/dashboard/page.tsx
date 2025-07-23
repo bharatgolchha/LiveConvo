@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
@@ -137,7 +137,8 @@ const DashboardPage: React.FC = () => {
     deleteSession,
     refreshData,
     addSession,
-    removeSession
+    removeSession,
+    updateSessionLocal
   } = useDashboardDataWithFallback();
   
   // Extract data from dashboard response
@@ -167,6 +168,9 @@ const DashboardPage: React.FC = () => {
     }
   }, [userStats]);
 
+  // Track sessions that are being updated locally to prevent loops
+  const localUpdateTimeoutsRef = useRef<Map<string, NodeJS.Timeout>>(new Map());
+  
   // Use the final real-time approach with dedicated client
   const { isConnected: realtimeConnected } = useRealtimeSessionsFinal({
     onChange: (session, eventType) => {
@@ -177,7 +181,26 @@ const DashboardPage: React.FC = () => {
           addSession(session);
           break;
         case 'UPDATE':
-          updateSession(session.id, session);
+          // Check if this update was triggered by a local change
+          const isLocalUpdate = localUpdateTimeoutsRef.current.has(session.id);
+          if (isLocalUpdate) {
+            console.log(`⏭️ Skipping real-time update for locally updated session: ${session.id}`);
+            return;
+          }
+          
+          // Check if the updated session should be visible in current view
+          const currentFilters = getCurrentFilters();
+          const shouldBeVisible = 
+            (!currentFilters.status || session.status === currentFilters.status) &&
+            (!currentFilters.filter || (currentFilters.filter === 'shared' && session.is_shared_with_me));
+          
+          if (shouldBeVisible) {
+            // Update only the local state, don't trigger another API call
+            updateSessionLocal(session.id, session);
+          } else {
+            // Session no longer matches current filters, remove it from view
+            removeSession(session.id);
+          }
           break;
         case 'DELETE':
           removeSession(session.id);
@@ -273,6 +296,17 @@ const DashboardPage: React.FC = () => {
     
     checkTrialEligibility();
   }, [authSession, planType]);
+  
+  // Cleanup local update timeouts on unmount
+  useEffect(() => {
+    return () => {
+      // Clear all pending timeouts
+      localUpdateTimeoutsRef.current.forEach((timeout) => {
+        clearTimeout(timeout);
+      });
+      localUpdateTimeoutsRef.current.clear();
+    };
+  }, []);
 
   // Update URL when activePath or meetingView changes
   useEffect(() => {
@@ -507,7 +541,19 @@ const DashboardPage: React.FC = () => {
       const newStatus = session.status === 'archived' 
         ? (session.recording_ended_at ? 'completed' : 'draft')
         : 'archived';
+      
+      // Mark this session as being locally updated to prevent real-time echo
+      const timeout = setTimeout(() => {
+        localUpdateTimeoutsRef.current.delete(sessionId);
+      }, 2000); // Clear after 2 seconds
+      localUpdateTimeoutsRef.current.set(sessionId, timeout);
+      
       await updateSession(sessionId, { status: newStatus });
+      
+      // Always refresh data to ensure proper filtering
+      // - When archiving: removes from current view (if not on archive tab)
+      // - When unarchiving: removes from archive tab view
+      await refreshData();
     }
   };
 
@@ -598,12 +644,22 @@ const DashboardPage: React.FC = () => {
         const newStatus = session.status === 'archived' 
           ? (session.recording_ended_at ? 'completed' : 'draft')
           : 'archived';
+        
+        // Mark this session as being locally updated to prevent real-time echo
+        const timeout = setTimeout(() => {
+          localUpdateTimeoutsRef.current.delete(sessionId);
+        }, 2000); // Clear after 2 seconds
+        localUpdateTimeoutsRef.current.set(sessionId, timeout);
+        
         return updateSession(sessionId, { status: newStatus });
       }
       return Promise.resolve();
     });
     await Promise.all(updatePromises);
     setSelectedSessions(new Set());
+    
+    // Refresh data to reflect changes - archived sessions are filtered out by default
+    await refreshData();
   };
 
   const [bulkDeleteModal, setBulkDeleteModal] = useState({
@@ -842,6 +898,7 @@ const DashboardPage: React.FC = () => {
           onSearch={handleSearch}
           onNavigateToSettings={() => setActivePath('settings')}
           onMenuClick={() => setIsSidebarOpen(!isSidebarOpen)}
+          onNewMeeting={handleNewMeeting}
           realtimeConnected={realtimeConnected}
         />
       
@@ -892,35 +949,6 @@ const DashboardPage: React.FC = () => {
         <main className="flex-1 overflow-hidden flex">
           {/* Main content area */}
           <div className="flex-1 p-4 sm:p-6 flex flex-col overflow-auto">
-            {/* Hero Section */}
-            {hasAnySessions && activePath !== 'settings' && activePath !== 'referrals' && (
-              <motion.div 
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="bg-card border border-border rounded-lg p-4 sm:p-6 mb-4 sm:mb-6 shadow-sm"
-              >
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h1 className="text-lg sm:text-2xl font-bold mb-2 text-foreground">Welcome back, {currentUser.name}!</h1>
-                    <p className="text-sm sm:text-base text-muted-foreground">
-                      {hasCalendar && upcomingMeetingsCount > 0 ? (
-                        todayMeetingsCount > 0 
-                          ? `You have ${todayMeetingsCount} meeting${todayMeetingsCount === 1 ? '' : 's'} today${upcomingMeetingsCount > todayMeetingsCount ? ` and ${upcomingMeetingsCount - todayMeetingsCount} more this week` : ''}`
-                          : `You have ${upcomingMeetingsCount} upcoming meeting${upcomingMeetingsCount === 1 ? '' : 's'} this week`
-                      ) : activeSessions.length > 0 ? (
-                        `You have ${activeSessions.length} active meeting${activeSessions.length === 1 ? '' : 's'}`
-                      ) : (
-                        'Ready to start a new meeting?'
-                      )}
-                    </p>
-                  </div>
-                  <NewConversationButton 
-                    onNewConversation={handleNewConversation}
-                    onNewMeeting={handleNewMeeting}
-                  />
-                </div>
-              </motion.div>
-            )}
 
             {/* Calendar Connection Banner */}
             {activePath === 'conversations' && (
