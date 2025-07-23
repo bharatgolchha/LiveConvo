@@ -47,7 +47,7 @@ serve(async (req) => {
       )
     }
 
-    const { priceId, planId, interval, referralCode, successUrl, cancelUrl, trialDays } = await req.json()
+    const { priceId, planId, interval, referralCode, successUrl, cancelUrl, trialDays, quantity, billingType } = await req.json()
 
     if (!priceId) {
       return new Response(
@@ -56,12 +56,12 @@ serve(async (req) => {
       )
     }
 
-    console.log('Creating checkout session for:', { userId: user.id, priceId, planId, interval, referralCode })
+    console.log('Creating checkout session for:', { userId: user.id, priceId, planId, interval, referralCode, quantity, billingType })
 
     // Get or create Stripe customer
     const { data: userData, error: dbError } = await supabase
       .from('users')
-      .select('stripe_customer_id')
+      .select('stripe_customer_id, current_organization_id')
       .eq('id', user.id)
       .single()
 
@@ -199,7 +199,7 @@ serve(async (req) => {
       mode: 'subscription',
       line_items: [{
         price: priceId,
-        quantity: 1,
+        quantity: quantity || 1,
       }],
       success_url: successUrl || `${origin}/dashboard?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: cancelUrl || `${origin}/dashboard`,
@@ -208,6 +208,9 @@ serve(async (req) => {
           user_id: user.id,
           plan_id: planId,
           interval: interval,
+          billing_type: billingType || 'individual',
+          organization_id: userData?.current_organization_id || '',
+          quantity: quantity || 1,
           ...referralMetadata
         },
         ...(isTrialCheckout ? { trial_period_days: Number(trialDays) } : {}),

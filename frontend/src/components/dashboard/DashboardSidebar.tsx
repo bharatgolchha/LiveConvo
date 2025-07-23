@@ -6,8 +6,9 @@ import {
   XMarkIcon,
   ShareIcon,
 } from '@heroicons/react/24/outline';
-import { Crown, Gift } from 'lucide-react';
+import { Crown, Gift, Users } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import { Badge } from '@/components/ui/badge';
 
 export interface UsageStats {
   monthlyAudioHours: number;
@@ -34,9 +35,11 @@ interface DashboardSidebarProps {
   onCloseMobile?: () => void;
   sharedCount?: number;
   isEligibleForTrial?: boolean;
+  teamMemberCount?: number;
+  userRole?: string;
 }
 
-const DashboardSidebar: React.FC<DashboardSidebarProps> = ({ usageStats, activePath, onNavigate, currentUser, onCloseMobile, sharedCount, isEligibleForTrial }) => {
+const DashboardSidebar: React.FC<DashboardSidebarProps> = ({ usageStats, activePath, onNavigate, currentUser, onCloseMobile, sharedCount, isEligibleForTrial, teamMemberCount, userRole }) => {
   // Debug: Log the usageStats to see what's being passed
   React.useEffect(() => {
     if (usageStats) {
@@ -77,6 +80,7 @@ const DashboardSidebar: React.FC<DashboardSidebarProps> = ({ usageStats, activeP
     { path: 'conversations', label: 'Meetings', icon: MicrophoneIcon, count: activeCount },
     { path: 'shared', label: 'Shared with me', icon: ShareIcon, count: sharedCount },
     { path: 'archive', label: 'Archive', icon: ArchiveBoxIcon, count: archivedCount },
+    { path: 'team', label: 'Team', icon: Users, count: teamMemberCount, badge: userRole === 'owner' ? 'Owner' : userRole === 'admin' ? 'Admin' : undefined },
     { path: 'settings', label: 'Settings', icon: Cog6ToothIcon },
   ];
 
@@ -120,6 +124,11 @@ const DashboardSidebar: React.FC<DashboardSidebarProps> = ({ usageStats, activeP
             <div className="flex items-center space-x-2">
               <item.icon className="w-5 h-5" />
               <span className="text-sm font-medium">{item.label}</span>
+              {item.badge && (
+                <Badge variant="secondary" className="text-xs">
+                  {item.badge}
+                </Badge>
+              )}
             </div>
             {item.count !== undefined && (
               <span className="text-xs bg-primary text-primary-foreground rounded-full px-2 py-0.5">

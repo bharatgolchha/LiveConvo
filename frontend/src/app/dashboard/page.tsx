@@ -311,6 +311,17 @@ const DashboardPage: React.FC = () => {
 
   // Update URL when activePath or meetingView changes
   useEffect(() => {
+    // Handle team navigation – using direct location change for reliability
+    if (activePath === 'team') {
+      // Using window.location to avoid known issues with router.push in some environments
+      if (typeof window !== 'undefined') {
+        window.location.href = '/dashboard/team';
+      } else {
+        router.push('/dashboard/team');
+      }
+      return;
+    }
+    
     const newSearchParams = new URLSearchParams(searchParams.toString());
     
     // Handle tab parameter
@@ -329,7 +340,7 @@ const DashboardPage: React.FC = () => {
     
     const newUrl = `${window.location.pathname}${newSearchParams.toString() ? '?' + newSearchParams.toString() : ''}`;
     window.history.replaceState({}, '', newUrl);
-  }, [activePath, meetingView, searchParams]);
+  }, [activePath, meetingView, searchParams, router]);
   
   // Save meeting view preference to localStorage
   useEffect(() => {
@@ -938,6 +949,13 @@ const DashboardPage: React.FC = () => {
                 router.push('/pricing');
               } else if (path === 'referrals') {
                 router.push('/dashboard/referrals');
+              } else if (path === 'team') {
+                // Direct navigation for consistency
+                if (typeof window !== 'undefined') {
+                  window.location.href = '/dashboard/team';
+                } else {
+                  router.push('/dashboard/team');
+                }
               } else {
                 setActivePath(path);
               }
@@ -965,6 +983,14 @@ const DashboardPage: React.FC = () => {
                   setActivePath('conversations'); // Return to conversations view
                 }}
               />
+            ) : activePath === 'team' ? (
+              // Navigate to team page
+              <div className="flex-1 flex items-center justify-center">
+                <div className="text-center">
+                  <div className="w-8 h-8 border-2 border-app-primary border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+                  <p className="text-muted-foreground">Redirecting to team management...</p>
+                </div>
+              </div>
             ) : !hasAnySessions && activePath !== 'archive' && activePath !== 'shared' && !searchQuery ? (
               <EmptyState onNewConversation={handleNewConversation} onNewMeeting={handleNewMeeting} />
             ) : (

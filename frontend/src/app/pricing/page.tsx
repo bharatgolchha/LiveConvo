@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Check, X, Sparkles, Zap, Shield, Star, Crown, Rocket, Heart, Gift, Settings } from 'lucide-react';
+import { Check, X, Sparkles, Zap, Shield, Star, Crown, Rocket, Heart, Gift, Settings, Users, Plus, Minus } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/badge';
@@ -22,6 +22,12 @@ interface PricingPlan {
     monthly: number | null;
     yearly: number | null;
     currency: string;
+  };
+  teamPricing?: {
+    monthlyPerSeat: number | null;
+    yearlyPerSeat: number | null;
+    minimumSeats: number;
+    maximumSeats: number | null;
   };
   limits: {
     monthlyAudioHours: number | null;
@@ -44,6 +50,8 @@ interface PricingPlan {
   stripe: {
     monthlyPriceId: string | null;
     yearlyPriceId: string | null;
+    teamMonthlyPriceId?: string | null;
+    teamYearlyPriceId?: string | null;
   };
   display: {
     isActive: boolean;
@@ -57,6 +65,7 @@ interface PricingPlan {
     enabled: boolean;
     days: number;
   };
+  supportsTeamBilling?: boolean;
 }
 
 interface TrialStatus {
@@ -69,6 +78,7 @@ export default function PricingPage() {
   const [plans, setPlans] = useState<PricingPlan[]>([]);
   const [loading, setLoading] = useState(true);
   const [billingPeriod, setBillingPeriod] = useState<'monthly' | 'yearly'>('monthly');
+  const [teamSize, setTeamSize] = useState(1); // Default to 1 seat since all plans are team-based
   const [currentUserPlan, setCurrentUserPlan] = useState<string | null>(null);
   const [trialStatus, setTrialStatus] = useState<TrialStatus>({ isEligible: false, hasUsedTrial: false });
   
@@ -111,7 +121,14 @@ export default function PricingPage() {
             is_featured,
             sort_order,
             trial_enabled,
-            trial_days
+            trial_days,
+            supports_team_billing,
+            team_price_per_seat_monthly,
+            team_price_per_seat_yearly,
+            team_minimum_seats,
+            team_maximum_seats,
+            team_stripe_price_id_monthly,
+            team_stripe_price_id_yearly
           `)
           .eq('is_active', true)
           .order('sort_order');
@@ -132,6 +149,12 @@ export default function PricingPage() {
             yearly: plan.price_yearly,
             currency: 'USD'
           },
+          teamPricing: plan.supports_team_billing ? {
+            monthlyPerSeat: plan.team_price_per_seat_monthly,
+            yearlyPerSeat: plan.team_price_per_seat_yearly,
+            minimumSeats: plan.team_minimum_seats || 2,
+            maximumSeats: plan.team_maximum_seats
+          } : undefined,
           limits: {
             monthlyAudioHours: plan.monthly_audio_hours_limit,
             maxDocumentsPerSession: plan.max_documents_per_session,
@@ -152,7 +175,9 @@ export default function PricingPage() {
           },
           stripe: {
             monthlyPriceId: plan.stripe_price_id_monthly,
-            yearlyPriceId: plan.stripe_price_id_yearly
+            yearlyPriceId: plan.stripe_price_id_yearly,
+            teamMonthlyPriceId: plan.team_stripe_price_id_monthly,
+            teamYearlyPriceId: plan.team_stripe_price_id_yearly
           },
           display: {
             isActive: plan.is_active,
@@ -165,7 +190,8 @@ export default function PricingPage() {
           trial: {
             enabled: plan.trial_enabled || false,
             days: plan.trial_days || 0
-          }
+          },
+          supportsTeamBilling: plan.supports_team_billing || false
         }));
 
         setPlans(formattedPlans);
@@ -255,14 +281,26 @@ export default function PricingPage() {
         return;
       }
 
-      // Get the correct price ID based on billing period
-      const priceId = billingPeriod === 'monthly' 
-        ? plan.stripe.monthlyPriceId 
-        : plan.stripe.yearlyPriceId;
+      // Always use team pricing since all plans are team-based now
+      const priceId = billingPeriod === 'monthly' ? plan.stripe.teamMonthlyPriceId : plan.stripe.teamYearlyPriceId;
 
       if (!priceId) {
         alert(`This plan is not yet available for ${billingPeriod} billing. Please contact support or try a different plan.`);
         return;
+      }
+
+      const checkoutBody: any = {
+        priceId: priceId,
+        billingCycle: billingPeriod,
+        planId: plan.id,
+        planSlug: plan.slug,
+        referralCode: undefined, // Add this if you have referral functionality
+      };
+
+      // Add team-specific parameters
+      if (isTeamCheckout) {
+        checkoutBody.quantity = teamSize;
+        checkoutBody.billingType = 'team_seats';
       }
 
       const response = await fetch('/api/checkout/create-session', {
@@ -271,13 +309,7 @@ export default function PricingPage() {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${session.access_token}`,
         },
-        body: JSON.stringify({
-          priceId: priceId,
-          billingCycle: billingPeriod,
-          planId: plan.id,
-          planSlug: plan.slug,
-          referralCode: undefined, // Add this if you have referral functionality
-        }),
+        body: JSON.stringify(checkoutBody),
       });
 
       if (!response.ok) {
@@ -394,22 +426,29 @@ export default function PricingPage() {
   const getFeaturesList = (plan: PricingPlan) => {
     const features = [];
     
-    // Add usage limits with improved descriptions
+    // Add usage limits with improved descriptions (always show per seat since all plans are team-based)
     features.push({
       text: plan.limits.monthlyAudioHours
         ? plan.limits.monthlyAudioHours < 1 
-          ? `${plan.limits.monthlyAudioHours * 60} minutes of AI transcription/month`
-          : `${plan.limits.monthlyAudioHours} hours of AI transcription/month`
-        : 'Unlimited AI transcription hours',
+          ? `${plan.limits.monthlyAudioHours * 60} minutes of AI transcription per seat/month`
+          : `${plan.limits.monthlyAudioHours} hours of AI transcription per seat/month`
+        : `Unlimited AI transcription hours per seat`,
       included: true
     });
     
     features.push({
       text: plan.limits.maxSessionsPerMonth
-        ? `${plan.limits.maxSessionsPerMonth} conversation sessions/month`
-        : 'Unlimited conversation sessions',
+        ? `${plan.limits.maxSessionsPerMonth} conversation sessions per seat/month`
+        : `Unlimited conversation sessions per seat`,
       included: true
     });
+
+    // Add team-specific features (always included since all plans are team-based)
+    features.push({ text: 'Centralized team billing & management', included: true });
+    features.push({ text: 'Team member invitation system', included: true });
+    features.push({ text: 'Role-based access control', included: true });
+    features.push({ text: 'Shared conversations & insights', included: true });
+    features.push({ text: 'Team usage analytics dashboard', included: true });
 
     // Add key features with improved descriptions
     if (plan.features.hasRealTimeGuidance) {
@@ -497,44 +536,134 @@ export default function PricingPage() {
             </motion.div>
             
             <h1 className="text-3xl md:text-4xl lg:text-5xl font-bold mb-4 bg-gradient-to-r from-foreground via-foreground to-foreground/70 bg-clip-text text-transparent leading-tight">
-              Simple, Transparent Pricing
+              Simple, Transparent Team Pricing
             </h1>
             <p className="text-lg lg:text-xl text-muted-foreground mb-10 max-w-3xl mx-auto leading-relaxed">
-              Start free and upgrade as you grow. No hidden fees, no surprises.
+              Start with one seat and scale as you grow. Add team members anytime.
             </p>
             
-            {/* Billing Toggle */}
-            <motion.div
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ duration: 0.4, delay: 0.3 }}
-              className="inline-flex items-center p-1.5 bg-muted/70 backdrop-blur-sm rounded-2xl border border-border/50 shadow-lg"
-            >
-              <button
-                onClick={() => setBillingPeriod('monthly')}
-                className={`px-8 py-4 rounded-xl font-medium transition-all duration-300 ${
-                  billingPeriod === 'monthly'
-                    ? 'bg-primary text-primary-foreground shadow-lg shadow-primary/25 scale-105'
-                    : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
-                }`}
+            {/* Professional Pricing Controls */}
+            <div className="flex flex-col items-center gap-6">
+
+              {/* Billing Period Toggle - More Compact */}
+              <motion.div
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.4, delay: 0.3 }}
+                className="flex items-center gap-3"
               >
-                Monthly
-              </button>
-              <button
-                onClick={() => setBillingPeriod('yearly')}
-                className={`px-8 py-4 rounded-xl font-medium transition-all duration-300 flex items-center gap-2 ${
-                  billingPeriod === 'yearly'
-                    ? 'bg-primary text-primary-foreground shadow-lg shadow-primary/25 scale-105'
-                    : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
-                }`}
+                <button
+                  onClick={() => setBillingPeriod('monthly')}
+                  className={`px-4 py-2 rounded-lg font-medium text-sm transition-all duration-200 ${
+                    billingPeriod === 'monthly'
+                      ? 'text-foreground'
+                      : 'text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  Monthly billing
+                </button>
+                <div className="w-12 h-6 bg-muted rounded-full p-1 cursor-pointer" onClick={() => setBillingPeriod(billingPeriod === 'monthly' ? 'yearly' : 'monthly')}>
+                  <motion.div
+                    className="w-4 h-4 bg-primary rounded-full"
+                    animate={{ x: billingPeriod === 'yearly' ? 24 : 0 }}
+                    transition={{ type: "spring", stiffness: 300, damping: 20 }}
+                  />
+                </div>
+                <button
+                  onClick={() => setBillingPeriod('yearly')}
+                  className={`px-4 py-2 rounded-lg font-medium text-sm transition-all duration-200 flex items-center gap-2 ${
+                    billingPeriod === 'yearly'
+                      ? 'text-foreground'
+                      : 'text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  Annual billing
+                  <Badge variant="secondary" className="bg-green-500/10 text-green-600 border-green-500/20">
+                    Save 17%
+                  </Badge>
+                </button>
+              </motion.div>
+
+              {/* Team Size Selector */}
+              <motion.div
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.4, delay: 0.4 }}
+                className="flex flex-col items-center gap-3"
               >
-                Yearly
-                <Badge className="bg-green-500 text-white border-0 shadow-md px-2 py-0.5">Save 17%</Badge>
-              </button>
-            </motion.div>
+                <div className="flex items-center gap-4 bg-card p-3 rounded-2xl border border-border/50 shadow-sm">
+                  <button
+                    onClick={() => setTeamSize(Math.max(1, teamSize - 1))}
+                    className="w-10 h-10 rounded-xl bg-muted hover:bg-muted/80 transition-all duration-200 flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed hover:scale-105"
+                    disabled={teamSize <= 1}
+                  >
+                    <Minus className="w-4 h-4" />
+                  </button>
+                  <div className="flex flex-col items-center min-w-[100px]">
+                    <span className="text-2xl font-bold">{teamSize}</span>
+                    <span className="text-xs text-muted-foreground">team {teamSize === 1 ? 'member' : 'members'}</span>
+                  </div>
+                  <button
+                    onClick={() => setTeamSize(teamSize + 1)}
+                    className="w-10 h-10 rounded-xl bg-muted hover:bg-muted/80 transition-all duration-200 flex items-center justify-center hover:scale-105"
+                  >
+                    <Plus className="w-4 h-4" />
+                  </button>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Easily add or remove seats anytime
+                </p>
+              </motion.div>
+            </div>
           </motion.div>
         </div>
       </div>
+
+      {/* Team Benefits Section */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4 }}
+        className="container mx-auto px-4 pb-12"
+      >
+        <div className="max-w-6xl mx-auto">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {[
+              {
+                icon: Users,
+                title: "Flexible Team Size",
+                description: "Start with one seat and scale as your team grows"
+              },
+              {
+                icon: Shield,
+                title: "Team Collaboration",
+                description: "Share insights and conversations across your organization"
+              },
+              {
+                icon: Zap,
+                title: "Volume Discounts",
+                description: "Contact us for custom pricing on 10+ seats"
+              }
+            ].map((benefit, index) => (
+              <motion.div
+                key={index}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: index * 0.1 }}
+                className="flex items-start gap-4 p-4 rounded-xl bg-primary/5 border border-primary/10"
+              >
+                <div className="p-2 rounded-lg bg-primary/10">
+                  <benefit.icon className="w-5 h-5 text-primary" />
+                </div>
+                <div>
+                  <h4 className="font-semibold text-sm mb-1">{benefit.title}</h4>
+                  <p className="text-xs text-muted-foreground">{benefit.description}</p>
+                </div>
+              </motion.div>
+            ))}
+          </div>
+        </div>
+      </motion.div>
 
       {/* Current Subscription Banner */}
       {user && currentUserPlan && currentUserPlan !== 'individual_free' && (
@@ -570,9 +699,15 @@ export default function PricingPage() {
       <div className="container mx-auto px-4 pb-20 pt-8 flex justify-center">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8 lg:gap-10 max-w-[1200px]">
           {displayedPlans.map((plan, index) => {
-            const price = billingPeriod === 'monthly' ? plan.pricing.monthly : plan.pricing.yearly;
-            const monthlyPrice = plan.pricing.monthly;
-            const yearlyPrice = plan.pricing.yearly;
+            // All plans are now team-based
+            const price = plan.teamPricing 
+              ? (billingPeriod === 'monthly' ? plan.teamPricing.monthlyPerSeat : plan.teamPricing.yearlyPerSeat)
+              : (billingPeriod === 'monthly' ? plan.pricing.monthly : plan.pricing.yearly);
+            
+            const totalTeamPrice = price ? price * teamSize : null;
+            
+            const monthlyPrice = plan.teamPricing ? plan.teamPricing.monthlyPerSeat : plan.pricing.monthly;
+            const yearlyPrice = plan.teamPricing ? plan.teamPricing.yearlyPerSeat : plan.pricing.yearly;
             const savings = getYearlySavings(monthlyPrice, yearlyPrice);
             // Determine upgrade vs downgrade relative to current plan
             const currentPlanObj = plans.find(p => p.slug === currentUserPlan);
@@ -638,34 +773,55 @@ export default function PricingPage() {
 
                   {/* Pricing */}
                   <div className="text-center mb-6 py-4 border-y border-border/50 relative z-10">
-                    <div className="flex items-baseline justify-center gap-1 mb-2">
-                      <span className="text-4xl lg:text-5xl font-bold tracking-tight bg-gradient-to-br from-foreground to-foreground/80 bg-clip-text text-transparent">
-                        {formatPrice(price)}
-                      </span>
-                      {price !== null && price > 0 && (
-                        <span className="text-muted-foreground text-lg">
-                          /{billingPeriod === 'monthly' ? 'mo' : 'yr'}
-                        </span>
+                    <div className="space-y-3">
+                      <div>
+                        <div className="flex items-baseline justify-center gap-1">
+                          <span className="text-3xl lg:text-4xl font-bold tracking-tight">
+                            {formatPrice(price)}
+                          </span>
+                          {price !== null && price > 0 && (
+                            <span className="text-muted-foreground text-sm">
+                              per seat/{billingPeriod === 'monthly' ? 'month' : 'year'}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      
+                      {totalTeamPrice !== null && (
+                        <div className="bg-muted/50 rounded-lg px-3 py-2">
+                          <div className="text-xs text-muted-foreground mb-0.5">Total for {teamSize} seats:</div>
+                          <div className="text-lg font-semibold">
+                            {formatPrice(totalTeamPrice)}/{billingPeriod === 'monthly' ? 'month' : 'year'}
+                          </div>
+                        </div>
                       )}
                     </div>
                     {billingPeriod === 'yearly' && savings > 0 && (
                       <motion.p 
                         initial={{ opacity: 0, scale: 0.8 }}
                         animate={{ opacity: 1, scale: 1 }}
-                        className="text-xs text-green-600 dark:text-green-400 font-medium flex items-center justify-center gap-1"
+                        className="text-xs text-green-600 dark:text-green-400 font-medium flex items-center justify-center gap-1 mt-2"
                       >
                         <Sparkles className="w-3 h-3" />
                         Save {savings}% with annual billing
                       </motion.p>
                     )}
-                    {plan.trial?.enabled && trialStatus.isEligible && currentUserPlan !== plan.slug && (
+                    {plan.teamPricing && (
                       <motion.div 
                         initial={{ opacity: 0, scale: 0.8 }}
                         animate={{ opacity: 1, scale: 1 }}
-                        className="mt-2 inline-flex items-center gap-1 px-3 py-1.5 bg-blue-500/10 text-blue-600 rounded-full text-xs font-medium"
+                        className="mt-3 flex items-center justify-center gap-2 text-xs text-muted-foreground"
                       >
-                        <Gift className="w-3 h-3" />
-                        {plan.trial.days}-day free trial included
+                        <span className="inline-flex items-center gap-1">
+                          <Users className="w-3 h-3" />
+                          Min {plan.teamPricing.minimumSeats} seats
+                        </span>
+                        {plan.teamPricing.maximumSeats && (
+                          <>
+                            <span className="text-border">•</span>
+                            <span>Max {plan.teamPricing.maximumSeats} seats</span>
+                          </>
+                        )}
                       </motion.div>
                     )}
                   </div>
@@ -720,15 +876,11 @@ export default function PricingPage() {
 
                         if (plan.slug === 'org_enterprise') return 'Contact Sales';
 
-                        if (plan.trial?.enabled && trialStatus.isEligible && currentUserPlan === 'individual_free') {
-                          return 'Start Free Trial';
-                        }
-
                         if (currentUserPlan && currentUserPlan !== 'individual_free') {
                           return isUpgradeOption ? 'Upgrade Plan' : 'Downgrade Plan';
                         }
 
-                        return 'Upgrade Now';
+                        return `Get Started with ${teamSize} ${teamSize === 1 ? 'Seat' : 'Seats'}`;
                       })()}
                       {!currentUserPlan || currentUserPlan !== plan.slug ? (
                         <Sparkles className="w-4 h-4 ml-2 inline-flex" />
@@ -816,11 +968,11 @@ export default function PricingPage() {
             },
             {
               question: "Is there a free trial?",
-              answer: "Yes! New users get a free trial for eligible paid plans. No credit card required to start. Our Individual Free plan is also free forever with 1 hour per month."
+              answer: "Yes! New users get a free trial for eligible paid plans. No credit card required to start. You can begin with one seat and scale up as needed."
             },
             {
-              question: "How do team plans work?",
-              answer: "Team plans allow multiple users to share a subscription. Admins can invite team members, manage permissions, and view consolidated analytics."
+              question: "How does seat-based pricing work?",
+              answer: "All our plans use seat-based pricing. Start with one seat and add team members as you grow. You can invite team members via email, manage their roles, and add/remove seats anytime. Each team member gets their own login with the same plan benefits. Billing is centralized to one account."
             }
           ].map((faq, index) => (
             <motion.div

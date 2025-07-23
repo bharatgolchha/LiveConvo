@@ -240,7 +240,12 @@ Deno.serve(async (req: Request) => {
             trial_end: trialEnd,
             is_trial: isTrialing,
             has_used_trial: !!trialEnd,
-            updated_at: new Date().toISOString()
+            updated_at: new Date().toISOString(),
+            // Team billing fields
+            quantity: subscription.items.data[0].quantity || 1,
+            billing_type: subscription.metadata?.billing_type || 'individual',
+            price_per_seat: subscription.metadata?.billing_type === 'team_seats' ? 
+              (subscription.items.data[0].price.unit_amount ? subscription.items.data[0].price.unit_amount / 100 : null) : null
           };
           
           // Log warning if organization_id is missing
@@ -846,7 +851,12 @@ Deno.serve(async (req: Request) => {
           trial_end: trialEnd,
           is_trial: isTrialing,
           has_used_trial: !!trialEnd,
-          updated_at: new Date().toISOString()
+          updated_at: new Date().toISOString(),
+          // Team billing fields
+          quantity: subscription.items.data[0].quantity || 1,
+          billing_type: subscription.metadata?.billing_type || 'individual',
+          price_per_seat: subscription.metadata?.billing_type === 'team_seats' ? 
+            (subscription.items.data[0].price.unit_amount ? subscription.items.data[0].price.unit_amount / 100 : null) : null
         };
         
         // Log warning if organization_id is missing

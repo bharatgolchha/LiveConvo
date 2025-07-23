@@ -8,6 +8,7 @@ interface OnboardingData {
   acquisition_source?: string;
   referral_code?: string;
   device_id?: string;
+  invitation_token?: string;
 }
 
 interface OnboardingResponse {
@@ -82,6 +83,7 @@ export function useOnboarding(): UseOnboardingReturn {
           acquisition_source: data.acquisition_source,
           referral_code: data.referral_code || localStorage.getItem('ref_code'),
           device_id: data.device_id,
+          invitation_token: data.invitation_token,
         }),
       });
 

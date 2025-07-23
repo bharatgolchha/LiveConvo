@@ -26,6 +26,9 @@ function SignUpPageContent() {
   const [agreedToTerms, setAgreedToTerms] = useState(false)
   const [isEmailMode, setIsEmailMode] = useState(false)
   const [referralCode, setReferralCode] = useState('')
+  const [invitationToken, setInvitationToken] = useState('')
+  const [invitationData, setInvitationData] = useState<any>(null)
+  const [loadingInvitation, setLoadingInvitation] = useState(true)
   const { signUp, signInWithGoogle, user } = useAuth()
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -37,20 +40,50 @@ function SignUpPageContent() {
   }, [user, router])
 
   useEffect(() => {
-    // Check URL params for referral code
-    const refFromUrl = searchParams.get('ref')
-    if (refFromUrl) {
-      setReferralCode(refFromUrl)
-      // Store in localStorage for persistence
-      localStorage.setItem('ref_code', refFromUrl)
+    // Check URL params for invitation token
+    const inviteToken = searchParams.get('invitation')
+    if (inviteToken) {
+      setInvitationToken(inviteToken)
+      // Fetch invitation details
+      fetchInvitationDetails(inviteToken)
     } else {
-      // Check localStorage for referral code
-      const storedRef = localStorage.getItem('ref_code')
-      if (storedRef) {
-        setReferralCode(storedRef)
+      // Check URL params for referral code
+      const refFromUrl = searchParams.get('ref')
+      if (refFromUrl) {
+        setReferralCode(refFromUrl)
+        // Store in localStorage for persistence
+        localStorage.setItem('ref_code', refFromUrl)
+      } else {
+        // Check localStorage for referral code
+        const storedRef = localStorage.getItem('ref_code')
+        if (storedRef) {
+          setReferralCode(storedRef)
+        }
       }
+      setLoadingInvitation(false)
     }
   }, [searchParams])
+
+  const fetchInvitationDetails = async (token: string) => {
+    try {
+      const response = await fetch(`/api/teams/invitations/verify/${token}`)
+      if (response.ok) {
+        const data = await response.json()
+        setInvitationData(data)
+        setEmail(data.email)
+        setAgreedToTerms(true) // Auto-check terms for invited users
+      } else {
+        const errorData = await response.json()
+        setError(errorData.error || 'Invalid or expired invitation')
+        setInvitationToken('')
+      }
+    } catch (err) {
+      setError('Failed to verify invitation')
+      setInvitationToken('')
+    } finally {
+      setLoadingInvitation(false)
+    }
+  }
 
   const handleEmailSignUp = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -102,10 +135,23 @@ function SignUpPageContent() {
     setLoading(false)
   }
 
+  if (loadingInvitation) {
+    return (
+      <AuthLayout
+        title="Verifying invitation..."
+        subtitle="Please wait"
+      >
+        <div className="flex justify-center items-center py-12">
+          <Loader2 className="w-8 h-8 animate-spin text-primary" />
+        </div>
+      </AuthLayout>
+    )
+  }
+
   return (
     <AuthLayout
-      title="Create your account"
-      subtitle="Join the future of AI-powered conversations"
+      title={invitationData ? `Join ${invitationData.organizationName}` : "Create your account"}
+      subtitle={invitationData ? `You've been invited to join the team` : "Join the future of AI-powered conversations"}
     >
 
       {error && (
@@ -116,6 +162,23 @@ function SignUpPageContent() {
         >
           <Alert className="border-destructive/50 bg-destructive/10 text-destructive">
             {error}
+          </Alert>
+        </motion.div>
+      )}
+
+      {invitationData && (
+        <motion.div
+          initial={{ opacity: 0, height: 0 }}
+          animate={{ opacity: 1, height: 'auto' }}
+          className="mb-6"
+        >
+          <Alert className="border-primary/50 bg-primary/10">
+            <div className="text-sm">
+              <p className="font-medium mb-1">Invitation from {invitationData.invitedBy}</p>
+              <p className="text-muted-foreground">
+                You'll join as a {invitationData.role} of {invitationData.organizationName}
+              </p>
+            </div>
           </Alert>
         </motion.div>
       )}
@@ -207,7 +270,8 @@ function SignUpPageContent() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
-                className="mt-2 h-12 bg-input border-border text-foreground placeholder-muted-foreground focus:border-primary focus:ring-0 rounded-lg"
+                disabled={!!invitationData}
+                className="mt-2 h-12 bg-input border-border text-foreground placeholder-muted-foreground focus:border-primary focus:ring-0 rounded-lg disabled:opacity-60 disabled:cursor-not-allowed"
                 placeholder="you@example.com"
               />
             </div>

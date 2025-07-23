@@ -252,7 +252,11 @@ export function Header() {
             {user && userData ? (
               <>
                 <button
-                  onClick={() => router.push('/dashboard')}
+                  onClick={() => {
+                    console.log('Dashboard button clicked');
+                    console.log('Navigating to dashboard...');
+                    window.location.href = '/dashboard';
+                  }}
                   className="px-4 py-2 text-sm font-medium transition-colors bg-primary text-primary-foreground hover:bg-primary/90 rounded-lg"
                 >
                   Dashboard

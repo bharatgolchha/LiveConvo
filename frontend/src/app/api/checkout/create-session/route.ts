@@ -8,6 +8,8 @@ interface CheckoutRequest {
   returnUrl?: string;
   planId?: string;
   trialDays?: number;
+  quantity?: number;
+  billingType?: string;
 }
 
 export async function POST(request: NextRequest) {
@@ -26,7 +28,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body: CheckoutRequest = await request.json();
-    const { priceId, billingCycle, referralCode, returnUrl, planId, trialDays } = body;
+    const { priceId, billingCycle, referralCode, returnUrl, planId, trialDays, quantity, billingType } = body;
 
     // Use the current Supabase URL from environment
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -62,7 +64,9 @@ export async function POST(request: NextRequest) {
         referralCode: referralCode,
         successUrl: returnUrl || `${origin}/dashboard?session_id={CHECKOUT_SESSION_ID}`,
         cancelUrl: returnUrl || `${origin}/dashboard`,
-        trialDays: trialDays
+        trialDays: trialDays,
+        quantity: quantity || 1,
+        billingType: billingType || 'team_seats'
       })
     });
 

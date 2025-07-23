@@ -28,6 +28,7 @@ function OnboardingContent() {
   const searchParams = useSearchParams();
   const { user, session } = useAuth();
   const { completeOnboarding, isLoading, error: onboardingError } = useOnboarding();
+  const [invitationToken, setInvitationToken] = useState('');
   
   const [currentStep, setCurrentStep] = useState(() => {
     // Try to restore current step from sessionStorage
@@ -44,6 +45,7 @@ function OnboardingContent() {
     return 1;
   });
   const [checkingStatus, setCheckingStatus] = useState(true);
+  const [invitationData, setInvitationData] = useState<any>(null);
   const [onboardingData, setOnboardingData] = useState<OnboardingData>(() => {
     // Try to restore from sessionStorage
     if (typeof window !== 'undefined') {
@@ -70,10 +72,18 @@ function OnboardingContent() {
     };
   });
 
-  const totalSteps = 4;
+  const totalSteps = invitationToken ? 2 : 4; // Invited users skip some steps
   const redirectUrl = searchParams.get('redirect') || '/dashboard';
   const stepParam = searchParams.get('step');
   const subscribedParam = searchParams.get('subscribed');
+  const invitationParam = searchParams.get('invitation');
+
+  useEffect(() => {
+    // Set invitation token if present
+    if (invitationParam) {
+      setInvitationToken(invitationParam);
+    }
+  }, [invitationParam]);
 
   useEffect(() => {
     // Check if user has already completed onboarding
@@ -195,7 +205,8 @@ function OnboardingContent() {
         organization_name: onboardingData.organization_name,
         timezone: onboardingData.timezone,
         use_case: onboardingData.use_case,
-        acquisition_source: onboardingData.acquisition_source
+        acquisition_source: onboardingData.acquisition_source,
+        invitation_token: invitationToken || undefined
       });
       
       console.log('✅ Onboarding completed successfully:', result);
@@ -254,6 +265,35 @@ function OnboardingContent() {
   }, [stepParam, subscribedParam, user, checkingStatus, handleComplete]);
 
   const renderStep = () => {
+    // For invited users, show simplified flow
+    if (invitationToken) {
+      switch (currentStep) {
+        case 1:
+          return (
+            <WelcomeStep
+              data={onboardingData}
+              updateData={updateData}
+              onNext={handleNext}
+              isInvited={true}
+              invitationData={invitationData}
+            />
+          );
+        case 2:
+          return (
+            <UseCaseStep
+              data={onboardingData}
+              updateData={updateData}
+              onNext={handleComplete}
+              onBack={handleBack}
+              isLastStep={true}
+            />
+          );
+        default:
+          return null;
+      }
+    }
+
+    // Regular onboarding flow
     switch (currentStep) {
       case 1:
         return (

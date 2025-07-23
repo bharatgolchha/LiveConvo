@@ -19,7 +19,7 @@ import { supabase, createServerSupabaseClient } from '@/lib/supabase';
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { organization_name, timezone = 'UTC', use_case, acquisition_source, referral_code, device_id } = body;
+    const { organization_name, timezone = 'UTC', use_case, acquisition_source, referral_code, device_id, invitation_token } = body;
 
     // Get current user from Supabase auth
     const authHeader = request.headers.get('authorization');
@@ -81,6 +81,78 @@ export async function POST(request: NextRequest) {
     }
 
     // Use the userProfile object for the rest of the onboarding flow
+
+    // Handle invitation token if provided
+    if (invitation_token) {
+      console.log('🎫 Processing invitation token:', invitation_token);
+      
+      // Accept the invitation using the database function
+      const { data: inviteResult, error: inviteError } = await serviceClient
+        .rpc('process_team_invitation', {
+          p_invitation_token: invitation_token,
+          p_user_id: user.id
+        });
+
+      if (inviteError) {
+        console.error('❌ Error processing invitation:', inviteError);
+        return NextResponse.json(
+          { error: 'Invalid invitation', message: inviteError.message },
+          { status: 400 }
+        );
+      }
+
+      if (inviteResult && inviteResult.length > 0 && inviteResult[0].success) {
+        const result = inviteResult[0];
+        
+        // Update user to mark onboarding as complete
+        const { data: updatedUser, error: userUpdateError } = await serviceClient
+          .from('users')
+          .update({
+            has_completed_onboarding: true,
+            has_completed_organization_setup: true,
+            current_organization_id: result.organization_id,
+            timezone: timezone,
+            use_case: use_case || null,
+            acquisition_source: acquisition_source || null,
+            onboarding_completed_at: new Date().toISOString()
+          })
+          .eq('id', user.id)
+          .select()
+          .single();
+
+        if (userUpdateError) {
+          console.error('User update error:', userUpdateError);
+          return NextResponse.json(
+            { error: 'Database error', message: 'Failed to update user' },
+            { status: 500 }
+          );
+        }
+
+        // Get organization details
+        const { data: organization } = await serviceClient
+          .from('organizations')
+          .select('*')
+          .eq('id', result.organization_id)
+          .single();
+
+        // Get membership details
+        const { data: membership } = await serviceClient
+          .from('organization_members')
+          .select('*')
+          .eq('organization_id', result.organization_id)
+          .eq('user_id', user.id)
+          .single();
+
+        return NextResponse.json({
+          message: 'Successfully joined team via invitation',
+          user: updatedUser,
+          organization,
+          membership,
+          subscription: null, // Team member doesn't need individual subscription
+          isInvited: true
+        }, { status: 200 });
+      }
+    }
 
     // ALWAYS check if user already has an organization membership first
     // This prevents creating duplicate organizations

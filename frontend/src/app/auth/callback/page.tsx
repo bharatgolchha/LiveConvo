@@ -60,6 +60,9 @@ export default function AuthCallbackPage() {
           try {
             await fetch('/api/auth/update-last-login', { 
               method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${session.access_token}`,
+              },
               credentials: 'include'
             })
           } catch (err) {
@@ -210,10 +213,15 @@ export default function AuthCallbackPage() {
         }
 
         // Redirect based on onboarding status
+        console.log('User data:', userData)
+        console.log('Has completed onboarding:', userData?.has_completed_onboarding)
+        
         if (userData?.has_completed_onboarding) {
-          router.replace('/dashboard')
+          console.log('Redirecting to dashboard...')
+          window.location.href = '/dashboard'
         } else {
-          router.replace('/onboarding')
+          console.log('Redirecting to onboarding...')
+          window.location.href = '/onboarding'
         }
       } catch (error) {
         console.error('Callback error:', error)

@@ -9,10 +9,13 @@ import {
   AlertCircle, 
   ExternalLink,
   Crown,
-  Clock
+  Clock,
+  Users,
+  UserPlus
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { format } from 'date-fns';
+import { useRouter } from 'next/navigation';
 
 interface SubscriptionData {
   plan: {
@@ -36,6 +39,12 @@ interface SubscriptionData {
     currentSessions: number;
     limitSessions: number | null;
   };
+  team?: {
+    totalSeats: number;
+    usedSeats: number;
+    billingType: 'individual' | 'team_seats';
+    pricePerSeat: number | null;
+  };
 }
 
 interface PlanDetails {
@@ -57,14 +66,17 @@ interface PlanDetails {
 }
 
 export const SubscriptionManager: React.FC = () => {
+  const router = useRouter();
   const [subscriptionData, setSubscriptionData] = useState<SubscriptionData | null>(null);
   const [planDetails, setPlanDetails] = useState<{ [key: string]: PlanDetails }>({});
   const [loading, setLoading] = useState(true);
   const [managingSubscription, setManagingSubscription] = useState(false);
+  const [teamData, setTeamData] = useState<any>(null);
 
   useEffect(() => {
     fetchSubscriptionData();
     fetchPlanDetails();
+    fetchTeamData();
   }, []);
 
   const fetchSubscriptionData = async () => {
@@ -106,6 +118,27 @@ export const SubscriptionManager: React.FC = () => {
       }
     } catch (error) {
       console.error('Error fetching plan details:', error);
+    }
+  };
+
+  const fetchTeamData = async () => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+
+      const response = await fetch('/api/teams/organization', {
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`
+        }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        console.log('📊 Team data:', data);
+        setTeamData(data);
+      }
+    } catch (error) {
+      console.error('Error fetching team data:', error);
     }
   };
 
@@ -346,6 +379,43 @@ export const SubscriptionManager: React.FC = () => {
           </div>
         </div>
 
+        {/* Team Information */}
+        {teamData?.seatUsage && (
+          <div className="mb-6">
+            <h3 className="text-lg font-medium text-foreground mb-3">Team Information</h3>
+            <div className="p-4 border border-border rounded-lg">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2">
+                  <Users className="w-5 h-5 text-primary" />
+                  <span className="text-sm font-medium">Team Seats</span>
+                </div>
+                <Badge variant="secondary">
+                  {teamData.seatUsage.used_seats} / {teamData.seatUsage.total_seats} seats used
+                </Badge>
+              </div>
+              
+              {teamData.subscription?.billing_type === 'team_seats' && teamData.subscription?.price_per_seat && (
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-muted-foreground">Price per seat</span>
+                  <span className="font-medium">${teamData.subscription.price_per_seat}/month</span>
+                </div>
+              )}
+              
+              <div className="mt-4">
+                <Button
+                  onClick={() => router.push('/dashboard/team')}
+                  size="sm"
+                  variant="outline"
+                  className="w-full gap-2"
+                >
+                  <UserPlus className="w-4 h-4" />
+                  Manage Team
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Management Actions */}
         <div className="space-y-4">
           {isPro && subscription.id && (
@@ -511,6 +581,21 @@ export const SubscriptionManager: React.FC = () => {
                 : 'text-muted-foreground'
             }>
               Email summaries
+            </span>
+          </div>
+          
+          <div className="flex items-center gap-3">
+            <CheckCircle className={`w-5 h-5 ${
+              planDetails[plan.name]?.features?.hasTeamCollaboration 
+                ? 'text-green-500' 
+                : 'text-muted-foreground'
+            }`} />
+            <span className={
+              planDetails[plan.name]?.features?.hasTeamCollaboration 
+                ? 'text-foreground' 
+                : 'text-muted-foreground'
+            }>
+              Team collaboration
             </span>
           </div>
         </div>
