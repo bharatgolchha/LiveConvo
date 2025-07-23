@@ -8,7 +8,9 @@ import {
   ExclamationTriangleIcon,
   BoltIcon,
   Cog6ToothIcon,
-  MagnifyingGlassIcon
+  MagnifyingGlassIcon,
+  ClipboardDocumentIcon,
+  CheckIcon
 } from '@heroicons/react/24/outline';
 import ReactMarkdown from 'react-markdown';
 import { useMeetingContext } from '@/lib/meeting/context/MeetingContext';
@@ -47,6 +49,7 @@ export const EnhancedAIChat = forwardRef<EnhancedAIChatRef>((props, ref) => {
   const [hasLoadedInitialPrompts, setHasLoadedInitialPrompts] = useState(false);
   const [aiInstructions, setAiInstructions] = useState<string | null>(null);
   const [isSearching, setIsSearching] = useState(false);
+  const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -529,6 +532,19 @@ export const EnhancedAIChat = forwardRef<EnhancedAIChatRef>((props, ref) => {
     return SparklesIcon;
   };
 
+  const handleCopyMessage = async (messageId: string, content: string) => {
+    try {
+      await navigator.clipboard.writeText(content);
+      setCopiedMessageId(messageId);
+      
+      // Reset the copied state after 2 seconds
+      setTimeout(() => {
+        setCopiedMessageId(null);
+      }, 2000);
+    } catch (error) {
+      console.error('Failed to copy message:', error);
+    }
+  };
 
   return (
     <div className="flex flex-col h-full">
@@ -577,7 +593,7 @@ export const EnhancedAIChat = forwardRef<EnhancedAIChatRef>((props, ref) => {
                   <div className={`flex-1 max-w-[85%] ${
                     message.role === 'user' ? 'text-right' : 'text-left'
                   }`}>
-                    <div className={`inline-block px-4 py-3 rounded-2xl ${
+                    <div className={`inline-block px-4 py-3 rounded-2xl relative group ${
                       message.role === 'user'
                         ? 'bg-primary/10 text-foreground border border-primary/20'
                         : message.isError
@@ -673,6 +689,20 @@ export const EnhancedAIChat = forwardRef<EnhancedAIChatRef>((props, ref) => {
                           {message.content}
                         </ReactMarkdown>
                       </div>
+                      {/* Copy button for AI messages */}
+                      {message.role === 'assistant' && !message.isError && (
+                        <button
+                          onClick={() => handleCopyMessage(message.id, message.content)}
+                          className="absolute top-2 right-2 p-1.5 rounded-lg bg-background/80 hover:bg-muted border border-border/50 opacity-0 group-hover:opacity-100 transition-all duration-200"
+                          title="Copy message"
+                        >
+                          {copiedMessageId === message.id ? (
+                            <CheckIcon className="w-3.5 h-3.5 text-green-500" />
+                          ) : (
+                            <ClipboardDocumentIcon className="w-3.5 h-3.5 text-muted-foreground" />
+                          )}
+                        </button>
+                      )}
                     </div>
                     
                     <div className={`flex items-center gap-1 mt-1 text-xs text-muted-foreground ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}>
