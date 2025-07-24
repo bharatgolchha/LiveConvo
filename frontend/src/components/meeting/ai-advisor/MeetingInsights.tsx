@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { 
   ChartBarIcon, 
@@ -32,6 +32,9 @@ export function MeetingInsights() {
   const { meeting, transcript, botStatus } = useMeetingContext();
   const [insights, setInsights] = useState<any>(null);
   const [loading, setLoading] = useState(false);
+
+  // Track last insights generation time to avoid excessive API calls
+  const lastInsightsTime = useRef<number>(0);
 
   // Calculate real-time stats from transcript
   const stats = useMemo(() => {
@@ -132,7 +135,16 @@ export function MeetingInsights() {
 
   useEffect(() => {
     if (stats && transcript.length > 10 && transcript.length % 20 === 0) {
-      generateInsights();
+      const now = Date.now();
+      // Minimum 2-minute interval between AI insight requests
+      if (now - lastInsightsTime.current >= 120000) {
+        generateInsights();
+        lastInsightsTime.current = now;
+      } else {
+        console.log(
+          `⏰ Skipping insights generation – last run ${(now - lastInsightsTime.current) / 1000}s ago (<120s)`
+        );
+      }
     }
   }, [transcript.length, stats]);
 

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useMeetingContext } from '../context/MeetingContext';
 import { RealtimeSummary } from '../types/transcript.types';
 import { supabase } from '@/lib/supabase';
@@ -9,6 +9,11 @@ export function useRealtimeSummary(sessionId: string) {
   const [error, setError] = useState<Error | null>(null);
   const [lastSummaryLength, setLastSummaryLength] = useState(0);
   const [hasLoadedCache, setHasLoadedCache] = useState(false);
+
+  // Track the timestamp of the last successful AI summary generation to avoid
+  // calling the AI service too frequently. We enforce a **minimum 60-second**
+  // gap between successive calls unless the user explicitly forces a refresh.
+  const lastRefreshTime = useRef<number>(0);
 
   // Check if we should auto-refresh based on recording state
   const isRecordingActive = botStatus?.status === 'in_call' || botStatus?.status === 'joining';
@@ -50,6 +55,15 @@ export function useRealtimeSummary(sessionId: string) {
     
     if (transcript.length === 0) {
       console.warn('⚠️ Cannot generate summary: No transcript messages');
+      return;
+    }
+
+    // Enforce a minimum 60-second interval between generations (unless forced)
+    const now = Date.now();
+    if (!forceRefresh && now - lastRefreshTime.current < 60000) {
+      console.log(
+        `⏰ Skipping summary generation – last run ${(now - lastRefreshTime.current) / 1000}s ago (<60s)`
+      );
       return;
     }
 
@@ -213,6 +227,8 @@ export function useRealtimeSummary(sessionId: string) {
         .eq('id', sessionId);
 
       setSummary(summary);
+      // Update the last refresh timestamp only after a successful generation
+      lastRefreshTime.current = now;
       setLastSummaryLength(transcript.length);
       
       console.log('✅ Generated summary from full transcript', {
