@@ -21,7 +21,8 @@ interface Recording {
 
 export function MultipleRecordingsTab() {
   console.log('MultipleRecordingsTab rendering');
-  const { meeting } = useMeetingContext();
+  // Access meeting data and updater so we can patch new recording URL without full reload
+  const { meeting, setMeeting } = useMeetingContext();
   const { session } = useAuth();
   const { hasFeature, loading: subscriptionLoading } = useSubscription();
   const [recordings, setRecordings] = useState<Recording[]>([]);
@@ -164,8 +165,17 @@ export function MultipleRecordingsTab() {
           
           // If we got a recording URL, reload the meeting data
           if (data.recording?.url) {
-            console.log('🎉 Recording URL found, reloading page...');
-            window.location.reload();
+            console.log('🎉 Recording URL found, updating state without reload...');
+
+            // Persist the fresh URL into global meeting context so any components relying on it update.
+            if (meeting) {
+              setMeeting({ ...meeting, recallRecordingUrl: data.recording.url });
+            }
+
+            // Optionally pull the latest recordings list so UI reflects new entry.
+            await fetchRecordings(true);
+
+            setRefreshing(false);
             return;
           }
         } else {

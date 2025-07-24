@@ -80,7 +80,6 @@ export const MeetingCard = React.memo(({
   onReport,
   onShare,
 }: MeetingCardProps) => {
-  const [tldrExpanded, setTldrExpanded] = useState(false)
 
   // Helper functions for participant data
   const getInitials = (name: string): string => {
@@ -307,32 +306,9 @@ export const MeetingCard = React.memo(({
           {tldr === undefined ? (
             <div className="animate-pulse h-4 bg-muted rounded w-3/4" />
           ) : (
-            <div className="relative">
-              <p
-                className={cn(
-                  'text-sm text-muted-foreground leading-5',
-                  !tldrExpanded && 'line-clamp-3 overflow-hidden'
-                )}
-              >
-                {tldr}
-              </p>
-              {tldr.length > 150 && (
-                <>
-                  {!tldrExpanded && (
-                    <div className="absolute inset-x-0 bottom-6 h-5 bg-gradient-to-b from-transparent to-card pointer-events-none" />
-                  )}
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      setTldrExpanded(!tldrExpanded)
-                    }}
-                    className="text-xs text-primary hover:text-primary/80 mt-1 relative z-10 cursor-pointer"
-                  >
-                    {tldrExpanded ? 'Show less' : 'Show more'}
-                  </button>
-                </>
-              )}
-            </div>
+            <p className="text-sm text-muted-foreground leading-5">
+              {tldr}
+            </p>
           )}
         </div>
 
