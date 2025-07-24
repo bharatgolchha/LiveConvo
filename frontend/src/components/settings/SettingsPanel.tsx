@@ -33,6 +33,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ onSessionsDeleted 
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState('');
   const [organizationId, setOrganizationId] = useState<string | undefined>();
+  const [exporting, setExporting] = useState(false);
 
   const loadPersonalContext = async () => {
     try {
@@ -177,6 +178,39 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ onSessionsDeleted 
   const handleChangePassword = () => {
     if (typeof window !== 'undefined') {
       window.location.href = '/auth/change-password';
+    }
+  };
+
+  const handleDownloadData = async () => {
+    if (!session?.access_token) {
+      alert('You must be logged in to export your data.');
+      return;
+    }
+
+    try {
+      setExporting(true);
+      const response = await fetch('/api/users/export-data', {
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+        },
+      });
+
+      if (!response.ok) throw new Error('Failed to export data');
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = 'liveconvo_data_export.json';
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Data export failed:', error);
+      alert('Failed to export data');
+    } finally {
+      setExporting(false);
     }
   };
 
@@ -393,8 +427,8 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ onSessionsDeleted 
                 <p className="text-sm text-muted-foreground mb-3">
                   Download all your data including conversations, transcripts, and settings.
                 </p>
-                <Button variant="outline">
-                  Download All Data
+                <Button variant="outline" onClick={handleDownloadData} disabled={exporting}>
+                  {exporting ? 'Preparing...' : 'Download All Data'}
                 </Button>
               </div>
               

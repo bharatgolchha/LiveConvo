@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
+import { supabase, createAuthenticatedSupabaseClient } from '@/lib/supabase';
 
 export async function DELETE(request: NextRequest) {
   try {
@@ -12,20 +12,47 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Delete all sessions for the user
-    const { error } = await supabase
+    const authed = createAuthenticatedSupabaseClient(token);
+
+    // Fetch all session IDs that belong to this user
+    const { data: sessions, error: sessionFetchError } = await authed
       .from('sessions')
-      .delete()
+      .select('id')
       .eq('user_id', user.id);
 
-    if (error) {
-      console.error('Error deleting sessions:', error);
-      return NextResponse.json(
-        { error: 'Failed to delete sessions' },
-        { status: 500 }
-      );
+    if (sessionFetchError) {
+      console.error('Error loading sessions:', sessionFetchError);
+      return NextResponse.json({ error: 'Failed to delete sessions' }, { status: 500 });
     }
 
+    const sessionIds = (sessions || []).map((s: any) => s.id);
+
+    if (sessionIds.length) {
+      // Delete dependent data first
+      const tablesToClean = ['transcripts', 'summaries', 'guidance', 'session_context', 'report_comments', 'report_activity', 'smart_notes'];
+
+      for (const table of tablesToClean) {
+        const { error } = await authed
+          .from(table)
+          .delete()
+          .in('session_id', sessionIds);
+        if (error) {
+          console.warn(`⚠️ Failed to delete from ${table}:`, error.message);
+        }
+      }
+
+      // Finally delete the sessions themselves
+      const { error: deleteSessionsError } = await authed
+        .from('sessions')
+        .delete()
+        .in('id', sessionIds);
+
+      if (deleteSessionsError) {
+        console.error('Error deleting sessions:', deleteSessionsError);
+        return NextResponse.json({ error: 'Failed to delete sessions' }, { status: 500 });
+      }
+    }
+ 
     return NextResponse.json({ success: true, message: 'All sessions deleted' });
   } catch (error) {
     console.error('Error in delete sessions endpoint:', error);
