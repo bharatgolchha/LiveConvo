@@ -6,15 +6,17 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    console.log('📡 GET /api/meeting/[id] - Request received');
-    
-    // Debug environment variables
-    console.log('🔧 Environment check:', {
-      NEXT_PUBLIC_SUPABASE_URL: !!process.env.NEXT_PUBLIC_SUPABASE_URL,
-      NEXT_PUBLIC_SUPABASE_ANON_KEY: !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
-      SUPABASE_SERVICE_ROLE_KEY: !!process.env.SUPABASE_SERVICE_ROLE_KEY,
-      NODE_ENV: process.env.NODE_ENV
-    });
+    if (process.env.NODE_ENV !== 'production') {
+      console.log('📡 GET /api/meeting/[id] - Request received');
+      
+      // Debug environment variables (development only)
+      console.log('🔧 Environment check:', {
+        NEXT_PUBLIC_SUPABASE_URL: !!process.env.NEXT_PUBLIC_SUPABASE_URL,
+        NEXT_PUBLIC_SUPABASE_ANON_KEY: !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+        SUPABASE_SERVICE_ROLE_KEY: !!process.env.SUPABASE_SERVICE_ROLE_KEY,
+        NODE_ENV: process.env.NODE_ENV,
+      });
+    }
     
     // Get auth token from request headers
     const authHeader = req.headers.get('authorization');

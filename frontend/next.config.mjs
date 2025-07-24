@@ -42,6 +42,12 @@ const nextConfig = {
       },
     ],
   },
+  // Remove all console.* calls except console.error and console.warn in production client bundles
+  compiler: {
+    removeConsole: {
+      exclude: ['error', 'warn'],
+    },
+  },
 }
 
 const withMDX = createMDX({

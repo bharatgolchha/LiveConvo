@@ -33,11 +33,14 @@ import { sendPostCallNotification } from '@/lib/services/email/postCallNotificat
 import { triggerEmbeddingsGenerationAsync } from '@/lib/services/embeddings';
 
 const openrouterApiKey = process.env.OPENROUTER_API_KEY;
-console.log('🔍 Environment check:', {
-  hasOpenRouterKey: !!openrouterApiKey,
-  keyLength: openrouterApiKey?.length,
-  nodeEnv: process.env.NODE_ENV
-});
+// Conditionally log environment details only during development to avoid leaking sensitive info or noisy logs in production
+if (process.env.NODE_ENV !== 'production') {
+  console.log('🔍 Environment check:', {
+    hasOpenRouterKey: !!openrouterApiKey,
+    keyLength: openrouterApiKey?.length,
+    nodeEnv: process.env.NODE_ENV,
+  });
+}
 
 interface FinalSummaryRequest {
   conversationType?: string;
