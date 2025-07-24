@@ -38,6 +38,7 @@ import type { Session } from '@/lib/hooks/useSessions';
 import { useUpcomingMeetings } from '@/lib/hooks/useUpcomingMeetings';
 import { useRealtimeSessionsFinal } from '@/lib/hooks/useRealtimeSessionsFinal';
 import { useAutoRefresh } from '@/lib/hooks/useAutoRefresh';
+import { useMyActionItems } from '@/hooks/useMyActionItems';
 import { DeleteConfirmationModal } from '@/components/ui/DeleteConfirmationModal';
 import { SettingsPanel } from '@/components/settings/SettingsPanel';
 import { ConversationListDate } from '@/components/ui/ConversationDateIndicator';
@@ -68,6 +69,7 @@ const ContextUploadWidget = dynamic(() => import('@/components/dashboard/Context
 const NewConversationButton = dynamic(() => import('@/components/dashboard/NewConversationButton').then(mod => ({ default: mod.NewConversationButton })));
 const CreateMeetingModal = dynamic(() => import('@/components/meeting/create/CreateMeetingModal').then(mod => ({ default: mod.CreateMeetingModal })));
 const UsageWarningBanner = dynamic(() => import('@/components/dashboard/UsageWarningBanner').then(mod => ({ default: mod.UsageWarningBanner })));
+const ActionItemsBoard = dynamic(() => import('@/components/dashboard/ActionItemsBoard').then(mod=>({default:mod.ActionItemsBoard})),{ssr:false});
 
 // Types (using Session from useSessions hook)
 
@@ -117,6 +119,18 @@ const DashboardPage: React.FC = () => {
   // Removed groupByThread state - always use list view
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(20); // Number of items per page
+
+  // Action items for pending count
+  const { items: myActionItems, fetchMyActionItems } = useMyActionItems();
+  const pendingActionCountRaw = useMemo(() => myActionItems.filter((it:any)=> it.status==='pending').length, [myActionItems]);
+  const pendingActionCount = pendingActionCountRaw > 0 ? pendingActionCountRaw : undefined;
+
+  useEffect(() => {
+    // Fetch on mount once
+    // @ts-ignore
+    fetchMyActionItems(false);
+  }, [fetchMyActionItems]);
+
   const [shareModalOpen, setShareModalOpen] = useState(false);
   const [sessionToShare, setSessionToShare] = useState<Session | null>(null);
   const [sharedMeetingsCount, setSharedMeetingsCount] = useState(0);
@@ -944,6 +958,7 @@ const DashboardPage: React.FC = () => {
             }}
             currentUser={currentUser}
             isEligibleForTrial={isEligibleForTrial}
+            pendingCount={pendingActionCount}
             onCloseMobile={() => setIsSidebarOpen(false)}
           />
         </div>
@@ -961,10 +976,12 @@ const DashboardPage: React.FC = () => {
             {activePath === 'settings' ? (
               <SettingsPanel 
                 onSessionsDeleted={() => {
-                  refreshData(); // Refresh dashboard data after deletion
-                  setActivePath('conversations'); // Return to conversations view
+                  refreshData();
+                  setActivePath('conversations');
                 }}
               />
+            ) : activePath === 'action_items' ? (
+              <ActionItemsBoard />
             ) : !hasAnySessions && activePath !== 'archive' && activePath !== 'shared' && !searchQuery ? (
               <EmptyState onNewConversation={handleNewConversation} onNewMeeting={handleNewMeeting} />
             ) : (
@@ -1205,6 +1222,8 @@ const DashboardPage: React.FC = () => {
           
           {/* Upcoming Meetings Sidebar - Desktop */}
           <UpcomingMeetingsSidebar className="hidden xl:flex" />
+          {/* My Action Items Widget - Desktop */}
+          {/* <div className="hidden xl:flex w-72"><MyActionItemsWidget /></div> */}
         </main>
       </div>
 

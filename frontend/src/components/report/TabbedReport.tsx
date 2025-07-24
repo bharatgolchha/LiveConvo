@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   FileText,
   Lightbulb,
@@ -18,7 +18,9 @@ import {
   Filter,
   Search,
   X,
-  Sparkles
+  Sparkles,
+  CheckCircle2,
+  Circle
 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { EnhancedReportSection } from './EnhancedReportSection';
@@ -41,6 +43,8 @@ import type {
   SummaryDecision,
   SummaryActionItem
 } from '@/types/api';
+import { useAuth } from '@/contexts/AuthContext';
+import { toast } from 'sonner';
 
 interface TabbedReportProps {
   report: {
@@ -202,6 +206,117 @@ export function TabbedReport({ report, activeTab, setActiveTab, handleManualFina
       default: return 'bg-muted text-muted-foreground border-border';
     }
   };
+
+  const { session } = useAuth();
+  const [addingTaskIdx, setAddingTaskIdx] = useState<number | null>(null);
+  const [addedTasks, setAddedTasks] = useState<Set<number>>(new Set());
+  const [existingTasksMap, setExistingTasksMap] = useState<Map<string,{id:string,status:'pending'|'in_progress'|'completed'|'cancelled'}>>(new Map()); // desc -> {id,status}
+
+  // Fetch personal tasks once when component mounts (or when user opens Actions tab)
+  useEffect(() => {
+    if (activeTab !== 'actions') return;
+    const fetchExisting = async () => {
+      try {
+        const headers: HeadersInit = {};
+        if (session?.access_token) headers['Authorization'] = `Bearer ${session.access_token}`;
+        const res = await fetch('/api/my/action-items', { headers });
+        if (!res.ok) return;
+        const data = await res.json();
+        const map = new Map<string,{id:string,status:'pending'|'in_progress'|'completed'|'cancelled'}>();
+        (data.actionItems || []).forEach((it: any) => {
+          if (it.title) {
+            map.set(it.title.toLowerCase().trim(), { id: it.id, status: it.status });
+          }
+        });
+        setExistingTasksMap(map);
+      } catch (err) {
+        console.error('Failed to fetch existing tasks', err);
+      }
+    };
+    fetchExisting();
+  }, [activeTab, session?.access_token]);
+
+  const handleAddToMyTasks = async (item: any, idx: number) => {
+    const desc = (typeof item === 'string' ? item : item.description || item.action || item.task || '').toLowerCase().trim();
+    if (!report.id || addedTasks.has(idx) || existingTasksMap.has(desc)) return;
+    try {
+      setAddingTaskIdx(idx);
+      const headers: HeadersInit = { 'Content-Type': 'application/json' };
+      if (session?.access_token) headers['Authorization'] = `Bearer ${session.access_token}`;
+      // Build request body
+      const rawPriority = typeof item !== 'string' && item.priority ? (item.priority as string).toLowerCase() : 'medium';
+      const priorityMap: Record<string,string> = { critical: 'urgent' };
+      const normalized = priorityMap[rawPriority] || rawPriority;
+      const allowedPriorities = ['low','medium','high','urgent'];
+      const priority = allowedPriorities.includes(normalized) ? normalized as any : 'medium';
+      console.log('🐛 Item being exported:', item);
+      const body = {
+        tasks: [
+          {
+            title: typeof item === 'string' ? item : item.description || item.action || item.task,
+            description: typeof item !== 'string' ? (item.description || '') : '',
+            priority,
+            dueDate: typeof item !== 'string' ? (item.deadline || item.dueDate || item.due_date || item.timeline) : undefined,
+            owner: typeof item !== 'string' ? item.owner : undefined,
+          },
+        ],
+      };
+      const res = await fetch(`/api/reports/${report.id}/action-items/export`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) {
+        throw new Error('Failed to add task');
+      }
+      const data = await res.json();
+      const createdId = data.taskIds?.[0];
+      setAddedTasks((prev) => new Set(prev).add(idx));
+      setExistingTasksMap((prev) => {
+        const newMap = new Map(prev);
+        newMap.set(desc, { id: createdId, status: 'pending' });
+        return newMap;
+      });
+      toast.success('Task added to your Action Items');
+    } catch (err) {
+      console.error(err);
+      toast.error('Could not add task');
+    } finally {
+      setAddingTaskIdx(null);
+    }
+  };
+
+  const handleRemoveTask = async (item:any, idx:number) => {
+    const desc = (typeof item === 'string' ? item : item.description || item.action || item.task || '').toLowerCase().trim();
+    const actionData = existingTasksMap.get(desc);
+    const actionId = actionData?.id;
+    if (!actionId) return;
+    try {
+      setAddingTaskIdx(idx);
+      const headers: HeadersInit = {};
+      if (session?.access_token) headers['Authorization'] = `Bearer ${session.access_token}`;
+      await fetch(`/api/action-items/${actionId}/subscribe`, {
+        method: 'DELETE',
+        headers,
+      });
+      setAddedTasks((prev)=>{
+        const newSet = new Set(prev);
+        newSet.delete(idx);
+        return newSet;
+      });
+      setExistingTasksMap((prev)=>{
+        const newMap = new Map(prev);
+        newMap.delete(desc);
+        return newMap;
+      });
+      toast.success('Task removed from your Action Items');
+    } catch(err){
+      console.error(err);
+      toast.error('Could not remove task');
+    } finally {
+      setAddingTaskIdx(null);
+    }
+  }
 
   return (
     <>
@@ -749,40 +864,67 @@ export function TabbedReport({ report, activeTab, setActiveTab, handleManualFina
             {/* Action Items Grid */}
             {filteredActionItems.length > 0 ? (
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                {filteredActionItems.map((item: any, index: number) => (
-                  <div key={index} className="p-6 bg-card border border-border rounded-lg shadow-sm">
-                    <div className="flex items-start gap-3">
-                      <div className="w-8 h-8 bg-accent rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
-                        <span className="text-accent-foreground text-sm font-bold">✓</span>
-                      </div>
-                      <div className="flex-1">
-                        <p className="text-foreground font-medium mb-3">
-                          {typeof item === 'string' 
-                            ? item 
-                            : item.description || item.action || item.task || JSON.stringify(item)}
-                        </p>
-                        <div className="flex items-center gap-2 flex-wrap">
-                          {typeof item !== 'string' && item.priority && (
-                            <span className={`px-2 py-1 rounded-full text-xs font-medium border ${getPriorityColor(item.priority)}`}>
-                              {item.priority.toUpperCase()}
-                            </span>
+                {filteredActionItems.map((item: any, index: number) => {
+                  const descKey = (typeof item === 'string' ? item : item.description || item.action || item.task || '').toLowerCase().trim();
+                  const data = existingTasksMap.get(descKey);
+                  const isExisting = !!data;
+                  const isCompleted = data?.status === 'completed';
+
+                  return (
+                    <div key={index} className="relative p-6 pr-14 pb-10 bg-card border border-border rounded-lg shadow-sm">
+                      <div className="flex items-start gap-3">
+                        <button
+                          onClick={() => (isExisting ? handleRemoveTask(item, index) : handleAddToMyTasks(item, index))}
+                          className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5 transition-colors ${
+                            isCompleted ? 'bg-primary opacity-40' : isExisting ? 'bg-primary' : 'bg-muted/40 hover:bg-muted'
+                          }`}
+                        >
+                          {isExisting ? (
+                            <CheckCircle2 className="w-4 h-4 text-primary-foreground" />
+                          ) : (
+                            <Circle className="w-4 h-4 text-muted-foreground" />
                           )}
-                          {typeof item !== 'string' && item.owner && (
-                            <span className="px-2 py-1 bg-muted text-muted-foreground rounded-full text-xs">
-                              👤 {item.owner}
+                        </button>
+                        <div className="flex-1">
+                          <p className={`${isCompleted ? 'line-through text-muted-foreground' : 'text-foreground'} font-medium mb-3`}>
+                            {typeof item === 'string'
+                              ? item
+                              : item.description || item.action || item.task || JSON.stringify(item)}
+                          </p>
+                          <div className="flex items-center gap-2 flex-wrap">
+                            {typeof item !== 'string' && item.priority && (
+                              <span className={`px-2 py-1 rounded-full text-xs font-medium border ${getPriorityColor(item.priority)}`}>
+                                {item.priority.toUpperCase()}
+                              </span>
+                            )}
+                            {typeof item !== 'string' && item.owner && (
+                              <span className="px-2 py-1 bg-muted text-muted-foreground rounded-full text-xs">
+                                👤 {item.owner}
+                              </span>
+                            )}
+                            {typeof item !== 'string' && ('timeline' in item ? item.timeline : ((item as any).dueDate || (item as any).deadline)) && (
+                              <span className="px-2 py-1 bg-muted text-muted-foreground rounded-full text-xs">
+                                📅 {item.dueDate || item.deadline}
+                              </span>
+                            )}
+                          </div>
+                          {isCompleted ? (
+                            <span className="absolute bottom-3 right-3 flex items-center gap-1 text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-md">
+                              <CheckCircle2 className="w-3 h-3" /> Completed
                             </span>
-                          )}
-                          {typeof item !== 'string' && ('timeline' in item ? item.timeline : ((item as any).dueDate || (item as any).deadline)) && (
-                            <span className="px-2 py-1 bg-muted text-muted-foreground rounded-full text-xs">
-                              📅 {item.dueDate || item.deadline}
-                            </span>
+                          ) : (
+                            (addedTasks.has(index) || isExisting) && (
+                              <span className="absolute bottom-3 right-3 flex items-center gap-1 text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-md">
+                                <CheckCircle2 className="w-3 h-3" /> Added
+                              </span>
+                            )
                           )}
                         </div>
                       </div>
                     </div>
-                  </div>
-                ))}
-              </div>
+                  );
+                })}
+                </div>
             ) : (
               <div className="text-center py-12">
                 <Target className="w-16 h-16 text-muted-foreground mx-auto mb-4" />

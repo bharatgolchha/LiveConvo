@@ -5,6 +5,7 @@ import {
   Cog6ToothIcon,
   XMarkIcon,
   ShareIcon,
+  ClockIcon,
 } from '@heroicons/react/24/outline';
 import { Crown, Gift } from 'lucide-react';
 import { useRouter } from 'next/navigation';
@@ -34,9 +35,10 @@ interface DashboardSidebarProps {
   onCloseMobile?: () => void;
   sharedCount?: number;
   isEligibleForTrial?: boolean;
+  pendingCount?: number;
 }
 
-const DashboardSidebar: React.FC<DashboardSidebarProps> = ({ usageStats, activePath, onNavigate, currentUser, onCloseMobile, sharedCount, isEligibleForTrial }) => {
+const DashboardSidebar: React.FC<DashboardSidebarProps> = ({ usageStats, activePath, onNavigate, currentUser, onCloseMobile, sharedCount, isEligibleForTrial, pendingCount }) => {
   // Debug: Log the usageStats to see what's being passed
   React.useEffect(() => {
     if (usageStats) {
@@ -75,6 +77,7 @@ const DashboardSidebar: React.FC<DashboardSidebarProps> = ({ usageStats, activeP
 
   const navItems = [
     { path: 'conversations', label: 'Meetings', icon: MicrophoneIcon, count: activeCount },
+    { path: 'action_items', label: 'Action Items', icon: ClockIcon, count: pendingCount },
     { path: 'shared', label: 'Shared with me', icon: ShareIcon, count: sharedCount },
     { path: 'archive', label: 'Archive', icon: ArchiveBoxIcon, count: archivedCount },
     { path: 'settings', label: 'Settings', icon: Cog6ToothIcon },

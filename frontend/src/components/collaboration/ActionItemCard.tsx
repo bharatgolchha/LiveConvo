@@ -9,7 +9,7 @@ import {
   Circle,
   Clock,
   Edit2,
-  Trash2
+  EyeOff
 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { formatDistanceToNow, format } from 'date-fns';
@@ -74,8 +74,12 @@ export function ActionItemCard({
     }
   };
 
+  const titleText = actionItem.title?.trim();
+  const descText = actionItem.description?.trim();
+  const showDesc = descText && descText.toLowerCase() !== titleText?.toLowerCase();
+
   return (
-    <div className={`group border border-border rounded-lg p-4 hover:shadow-sm transition-shadow ${
+    <div className={`group hover:shadow-sm transition-shadow ${
       actionItem.status === 'completed' ? 'opacity-75' : ''
     }`}>
       <div className="flex items-start gap-3">
@@ -128,14 +132,14 @@ export function ActionItemCard({
           ) : (
             <>
               {/* Title */}
-              <h4 className={`font-medium ${actionItem.status === 'completed' ? 'line-through' : ''}`}>
+              <h4 className={`font-medium ${actionItem.status === 'completed' ? 'line-through' : ''} mb-2`}>
                 {actionItem.title}
               </h4>
 
               {/* Description */}
-              {actionItem.description && (
+              {showDesc && (
                 <p className="text-sm text-muted-foreground mt-1">
-                  {actionItem.description}
+                  {descText}
                 </p>
               )}
 
@@ -147,18 +151,20 @@ export function ActionItemCard({
                 </span>
 
                 {/* Assignee */}
-                {actionItem.assigned_to_user && (
-                  <span className="flex items-center gap-1">
-                    <User className="w-3 h-3" />
-                    {actionItem.assigned_to_user.full_name || actionItem.assigned_to_user.email}
+                {(actionItem.assigned_to_user || actionItem.owner_text) && (
+                  <span className="px-2 py-0.5 bg-muted text-muted-foreground rounded-full text-xs flex items-center gap-1">
+                    👤 {actionItem.assigned_to_user ? (actionItem.assigned_to_user.full_name || actionItem.assigned_to_user.email) : actionItem.owner_text}
                   </span>
                 )}
 
                 {/* Due date */}
-                {actionItem.due_date && (
-                  <span className="flex items-center gap-1">
-                    <Calendar className="w-3 h-3" />
-                    {format(new Date(actionItem.due_date), 'MMM d')}
+                {actionItem.due_date ? (
+                  <span className="px-2 py-0.5 bg-muted text-muted-foreground rounded-full text-xs flex items-center gap-1">
+                    📅 {format(new Date(actionItem.due_date), 'MMM d')}
+                  </span>
+                ) : actionItem.due_date_text && (
+                  <span className="px-2 py-0.5 bg-muted text-muted-foreground rounded-full text-xs flex items-center gap-1">
+                    📅 {actionItem.due_date_text}
                   </span>
                 )}
 
@@ -182,43 +188,11 @@ export function ActionItemCard({
           )}
         </div>
 
-        {/* Actions menu */}
-        {!isEditing && (
-          <div className="relative opacity-0 group-hover:opacity-100 transition-opacity">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setShowActions(!showActions)}
-              className="h-8 w-8 p-0"
-            >
-              <MoreVertical className="w-4 h-4" />
-            </Button>
-
-            {showActions && (
-              <div className="absolute right-0 top-8 w-40 bg-popover border border-border rounded-md shadow-md py-1 z-10">
-                <button
-                  onClick={() => {
-                    setIsEditing(true);
-                    setShowActions(false);
-                  }}
-                  className="flex items-center gap-2 px-3 py-1.5 text-sm hover:bg-muted w-full text-left"
-                >
-                  <Edit2 className="w-3 h-3" />
-                  Edit
-                </button>
-                <button
-                  onClick={() => {
-                    handleDelete();
-                    setShowActions(false);
-                  }}
-                  className="flex items-center gap-2 px-3 py-1.5 text-sm hover:bg-muted w-full text-left text-destructive"
-                >
-                  <Trash2 className="w-3 h-3" />
-                  Delete
-                </button>
-              </div>
-            )}
-          </div>
+        {/* Hide icon for completed tasks */}
+        {!isEditing && actionItem.status === 'completed' && (
+          <button onClick={() => onUpdate(actionItem.id, { is_hidden: true })} className="ml-2 text-muted-foreground hover:text-destructive" title="Hide completed task">
+            <EyeOff className="w-4 h-4" />
+          </button>
         )}
       </div>
     </div>

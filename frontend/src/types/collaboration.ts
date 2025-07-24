@@ -59,9 +59,35 @@ export interface ActionItem {
   updated_at: string;
   completed_at?: string;
   completed_by?: string;
+  due_date_text?: string;
   created_by_user: User;
   assigned_to_user?: User;
   completed_by_user?: User;
+  owner_text?: string;
+}
+
+export interface ActionItemComment {
+  id: string;
+  action_item_id: string;
+  user_id: string;
+  parent_comment_id?: string;
+  content: string;
+  is_resolved: boolean;
+  is_edited: boolean;
+  created_at: string;
+  updated_at: string;
+  replyCount?: number;
+  user?: User;
+}
+
+// Extend ActionItem to include count.
+export interface ActionItemWithMeta extends ActionItem {
+  commentCount?: number;
+  session?: {
+    id: string;
+    title: string;
+    created_at: string;
+  };
 }
 
 export interface Activity {
@@ -165,4 +191,5 @@ export interface UpdateActionItemData {
   status?: 'pending' | 'in_progress' | 'completed' | 'cancelled';
   assignedTo?: string;
   dueDate?: string;
+  is_hidden?: boolean;
 }
