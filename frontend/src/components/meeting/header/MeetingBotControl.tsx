@@ -409,26 +409,12 @@ export function MeetingBotControl() {
       case 'in_call':
         return {
           showStartButton: false,
-          statusElement: isMobile ? (
-            // On mobile, just show recording status
+          statusElement: (
+            // Show recording status on both mobile and desktop
             <div className="flex items-center gap-2 px-3 py-1.5 bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800/30 rounded-lg">
               <div className="w-2 h-2 bg-red-600 rounded-full animate-pulse" />
               <span className="text-xs font-medium text-red-700 dark:text-red-400">Recording</span>
             </div>
-          ) : (
-            // On desktop, show stop button
-            <button
-              onClick={() => setShowStopModal(true)}
-              disabled={isStopping}
-              className="flex items-center gap-2 px-4 py-2 bg-transparent border-2 border-red-600 hover:bg-red-50 dark:hover:bg-red-950/20 text-red-600 dark:text-red-500 rounded-lg transition-colors disabled:opacity-50 font-medium"
-            >
-              {isStopping ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                <StopCircleIcon className="w-4 h-4" />
-              )}
-              <span className="text-sm">Stop Recording</span>
-            </button>
           )
         };
 
