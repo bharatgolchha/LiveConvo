@@ -393,12 +393,12 @@ export function DashboardChatbot() {
       <motion.button
         initial={{ scale: 0 }}
         animate={{ scale: 1 }}
-        whileHover={{ scale: 1.1 }}
+        whileHover={{ scale: 1.05 }}
         whileTap={{ scale: 0.95 }}
         onClick={() => setIsExpanded(true)}
-        className="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 w-14 h-14 sm:w-16 sm:h-16 bg-gradient-to-br from-primary to-primary/80 text-primary-foreground rounded-full shadow-2xl shadow-primary/30 flex items-center justify-center hover:from-primary hover:to-primary/70 transition-all z-[100] ring-2 ring-background"
+        className="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 w-12 h-12 sm:w-14 sm:h-14 bg-gradient-to-br from-primary to-primary/90 text-primary-foreground rounded-full shadow-2xl shadow-primary/40 flex items-center justify-center hover:from-primary hover:to-primary/80 hover:shadow-primary/50 transition-all duration-300 z-[100] ring-2 ring-background/80 ring-offset-2 ring-offset-background"
       >
-        <ChatBubbleLeftRightIcon className="w-6 h-6 sm:w-7 sm:h-7" />
+        <SparklesIcon className="w-5 h-5 sm:w-6 sm:h-6" />
       </motion.button>
     );
   }

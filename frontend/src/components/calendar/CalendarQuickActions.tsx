@@ -177,15 +177,7 @@ export const CalendarQuickActions: React.FC<CalendarQuickActionsProps> = ({
                   </button>
                 )}
 
-                <div className="border-t border-border mt-2 pt-2">
-                  <a
-                    href="/settings/calendar"
-                    className="w-full flex items-center gap-3 px-3 py-2 text-sm hover:bg-muted rounded-lg transition-colors"
-                  >
-                    <CalendarIcon className="w-4 h-4 text-muted-foreground" />
-                    <span>Calendar Settings</span>
-                  </a>
-                </div>
+                {/* Removed Calendar Settings link that pointed to deprecated route */}
               </div>
             </motion.div>
           </>

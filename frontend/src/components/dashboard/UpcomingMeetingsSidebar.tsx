@@ -11,7 +11,7 @@ import {
   VideoCameraIcon,
   UserGroupIcon,
   XMarkIcon,
-  CloudArrowDownIcon
+  PlusIcon
 } from '@heroicons/react/24/outline';
 import { format, isToday, isTomorrow, isThisWeek, differenceInMinutes } from 'date-fns';
 import { Card } from '@/components/ui/Card';
@@ -21,10 +21,11 @@ import { Badge } from '@/components/ui/badge';
 import { CalendarEventCard } from '@/components/calendar/CalendarEventCard';
 import { CalendarEmptyState } from '@/components/calendar/CalendarEmptyState';
 import { MeetingCardSkeleton } from '@/components/calendar/MeetingCardSkeleton';
-import { CalendarSyncStatus, CalendarSyncProgress } from '@/components/calendar/CalendarSyncStatus';
+import { CalendarSyncProgress } from '@/components/calendar/CalendarSyncStatus';
 import { CalendarErrorHandler, CalendarError, parseCalendarError } from '@/components/calendar/CalendarErrorHandler';
 import { CalendarQuickActions } from '@/components/calendar/CalendarQuickActions';
 import { CalendarPermissionModal } from '@/components/calendar/CalendarPermissionModal';
+import { ScheduleMeetingModal } from '@/components/calendar/ScheduleMeetingModal';
 import { useAuth } from '@/contexts/AuthContext';
 import { fetchWithCache } from '@/lib/utils/fetchCache';
 import { UpcomingMeeting } from '@/types/calendar';
@@ -50,6 +51,7 @@ export const UpcomingMeetingsSidebar: React.FC<UpcomingMeetingsSidebarProps> = (
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [lastRefreshTime, setLastRefreshTime] = useState<Date | null>(null);
   const [isSyncing, setIsSyncing] = useState(false);
+  const [showScheduleModal, setShowScheduleModal] = useState(false);
   const [syncStatus, setSyncStatus] = useState<'idle' | 'syncing' | 'success' | 'error'>('idle');
   const [hasCalendarConnection, setHasCalendarConnection] = useState<boolean | null>(null);
   const [isConnectingCalendar, setIsConnectingCalendar] = useState(false);
@@ -443,12 +445,7 @@ export const UpcomingMeetingsSidebar: React.FC<UpcomingMeetingsSidebarProps> = (
                   <h2 className="text-sm font-semibold">Upcoming Meetings</h2>
                 </div>
                 <div className="flex items-center gap-1">
-                  <CalendarSyncStatus
-                    status={syncStatus}
-                    onSync={handleSyncCalendar}
-                    isSyncing={isSyncing}
-                    lastSyncTime={lastRefreshTime}
-                  />
+                  
                   {hasCalendarConnection && (
                     <CalendarQuickActions
                       connection={calendarConnection}
@@ -456,6 +453,19 @@ export const UpcomingMeetingsSidebar: React.FC<UpcomingMeetingsSidebarProps> = (
                       onDisconnect={handleDisconnectCalendar}
                       onUpdatePreferences={handleUpdatePreferences}
                     />
+                  )}
+
+                  {/* Schedule Meeting Button - only when connected */}
+                  {hasCalendarConnection && (
+                    <Button
+                      onClick={() => setShowScheduleModal(true)}
+                      variant="ghost"
+                      size="sm"
+                      className="p-1.5"
+                      title="Schedule a meeting"
+                    >
+                      <PlusIcon className="w-4 h-4" />
+                    </Button>
                   )}
                   <Button
                     onClick={handleRefresh}
@@ -643,6 +653,11 @@ export const UpcomingMeetingsSidebar: React.FC<UpcomingMeetingsSidebarProps> = (
         onClose={handlePermissionModalClose}
         onContinue={handlePermissionModalContinue}
         provider="google"
+      />
+      {/* Schedule Meeting Modal */}
+      <ScheduleMeetingModal
+        isOpen={showScheduleModal}
+        onClose={() => setShowScheduleModal(false)}
       />
     </>
   );

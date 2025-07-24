@@ -38,14 +38,14 @@ export const OnboardingLayout: React.FC<OnboardingLayoutProps> = ({
                   <Image
                     src={
                       resolvedTheme === 'dark'
-                        ? 'https://ucvfgfbjcrxbzppwjpuu.supabase.co/storage/v1/object/public/images//DarkMode2.png'
-                        : 'https://ucvfgfbjcrxbzppwjpuu.supabase.co/storage/v1/object/public/images//LightMode2.png'
+                        ? '/Logos/DarkMode.png'
+                        : '/Logos/LightMode.png'
                     }
                     alt="liveprompt.ai"
                     width={200}
                     height={45}
                     className="object-contain"
-                    unoptimized
+                    priority
                   />
                 </motion.div>
               </div>

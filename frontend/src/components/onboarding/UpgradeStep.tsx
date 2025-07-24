@@ -170,7 +170,7 @@ export function UpgradeStep({ onUpgrade, onSkip, onBack, isLoading }: UpgradeSte
                         <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
                       </svg>
                     </div>
-                    <span>Unlimited AI-powered conversations</span>
+                    <span>20 hours AI-powered meeting transcription per month</span>
                   </div>
                   <div className="flex items-center gap-2 text-sm">
                     <div className="w-5 h-5 rounded-full bg-green-500/20 flex items-center justify-center flex-shrink-0">
@@ -178,7 +178,7 @@ export function UpgradeStep({ onUpgrade, onSkip, onBack, isLoading }: UpgradeSte
                         <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
                       </svg>
                     </div>
-                    <span>Personalized AI coaching</span>
+                    <span>Detailed meeting reports</span>
                   </div>
                   <div className="flex items-center gap-2 text-sm">
                     <div className="w-5 h-5 rounded-full bg-green-500/20 flex items-center justify-center flex-shrink-0">
@@ -186,7 +186,7 @@ export function UpgradeStep({ onUpgrade, onSkip, onBack, isLoading }: UpgradeSte
                         <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
                       </svg>
                     </div>
-                    <span>Priority support & early access</span>
+                    <span>Unlimited access to Nova AI wizard</span>
                   </div>
                 </div>
               </div>
