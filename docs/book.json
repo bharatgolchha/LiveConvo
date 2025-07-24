@@ -1,0 +1,50 @@
+{
+  "title": "LivePrompt.ai Documentation",
+  "description": "Complete documentation for LivePrompt.ai - Your AI-powered conversation coach",
+  "author": "LivePrompt.ai Team",
+  "language": "en",
+  "gitbook": ">=3.0.0",
+  "plugins": [
+    "search",
+    "sharing",
+    "fontsettings",
+    "theme-default",
+    "expandable-chapters",
+    "page-toc",
+    "back-to-top-button",
+    "copy-code-button"
+  ],
+  "pluginsConfig": {
+    "theme-default": {
+      "showLevel": true
+    },
+    "fontsettings": {
+      "theme": "white",
+      "family": "sans",
+      "size": 2
+    },
+    "sharing": {
+      "facebook": true,
+      "twitter": true,
+      "google": false,
+      "linkedin": true,
+      "weibo": false,
+      "instapaper": false,
+      "vk": false,
+      "all": ["facebook", "twitter", "linkedin"]
+    },
+    "page-toc": {
+      "selector": ".markdown-section h2, .markdown-section h3",
+      "position": "before-first"
+    }
+  },
+  "links": {
+    "sidebar": {
+      "LivePrompt.ai": "https://liveprompt.ai",
+      "Support": "mailto:support@liveprompt.ai"
+    }
+  },
+  "styles": {
+    "website": "styles/website.css"
+  }
+}

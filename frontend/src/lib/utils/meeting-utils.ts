@@ -4,23 +4,31 @@ import type { Session } from '@/lib/hooks/useSessions';
  * Determines if a session/meeting is currently live/active
  */
 export function isLiveMeeting(session: Session): boolean {
-  // Check if status is active
+  // 1. If the session status is explicitly marked as active, it's live.
   if (session.status === 'active') {
     return true;
   }
-  
-  // Check if recall bot is in an active state
-  const activeBotStates: Session['recall_bot_status'][] = [
-    'joining', 
-    'in_call', 
-    'recording', 
-    'waiting'
+
+  // 2. Derive liveness from the bot state. Historically we only stored singular
+  //    values like "in_call" or "recording", but Recall.AI now returns combined
+  //    states such as "in_call_recording". Instead of keeping a hard-coded list,
+  //    treat any state that *starts with* an active prefix as live. This makes
+  //    the check future-proof if new compound states are introduced (e.g.
+  //    "in_call_transcribing").
+
+  const activePrefixes: Array<Session['recall_bot_status']> = [
+    'joining',
+    'in_call',
+    'recording',
+    'waiting',
   ];
-  
-  if (session.recall_bot_status && activeBotStates.includes(session.recall_bot_status)) {
-    return true;
+
+  if (session.recall_bot_status) {
+    return activePrefixes.some((prefix) =>
+      (session.recall_bot_status as string).startsWith(prefix)
+    );
   }
-  
+
   return false;
 }
 
