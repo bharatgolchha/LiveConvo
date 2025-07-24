@@ -48,6 +48,9 @@ const nextConfig = {
       exclude: ['error', 'warn'],
     },
   },
+  // Bundle the entire app into a single minimal server file instead of hundreds of duplicated Lambdas
+  // This dramatically reduces the upload size/time during the “Deploying outputs” phase on Vercel
+  output: 'standalone',
 }
 
 const withMDX = createMDX({
