@@ -275,8 +275,21 @@ export default function LandingPage() {
               viewport={{ once: true }}
               className="text-center"
             >
-              <p className="text-2xl sm:text-3xl lg:text-4xl leading-relaxed font-light text-foreground/90">
-                Meet{' '}
+              <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold mb-8 text-foreground">
+                Meet Nova — Your{' '}
+                <span
+                  style={{
+                    background: 'linear-gradient(135deg, #22d3ee 0%, #16a34a 50%, #22d3ee 100%)',
+                    WebkitBackgroundClip: 'text',
+                    WebkitTextFillColor: 'transparent',
+                    backgroundClip: 'text',
+                  }}
+                >
+                  Real‑Time Second Brain
+                </span>
+              </h2>
+              <p className="text-xl sm:text-2xl lg:text-3xl leading-relaxed font-light text-foreground/90">
+                Nova automatically joins your meetings, remembers every detail, and whispers the{' '}
                 <span 
                   style={{
                     fontFamily: "'Raleway', 'Montserrat', 'Helvetica Neue', sans-serif",
@@ -285,17 +298,33 @@ export default function LandingPage() {
                     WebkitBackgroundClip: 'text',
                     WebkitTextFillColor: 'transparent',
                     backgroundClip: 'text',
-                    letterSpacing: '0.06em',
-                    fontSize: '1.1em'
+                    letterSpacing: '0.04em'
                   }}
                 >
-                  Nova
+                  perfect response
+                </span>{' '}
+                in under two seconds.
+              </p>
+              <p className="text-xl sm:text-2xl lg:text-3xl leading-relaxed font-light text-foreground/90 mt-6">
+                While you focus on the human connection, Nova pulls context from past conversations, flags opportunities, and captures action items on the fly—so deals move{' '}
+                <span 
+                  style={{
+                    fontFamily: "'Raleway', 'Montserrat', 'Helvetica Neue', sans-serif",
+                    fontWeight: '300',
+                    background: 'linear-gradient(135deg, #16a34a 0%, #22d3ee 50%, #16a34a 100%)',
+                    WebkitBackgroundClip: 'text',
+                    WebkitTextFillColor: 'transparent',
+                    backgroundClip: 'text',
+                    letterSpacing: '0.04em'
+                  }}
+                >
+                  faster
                 </span>
-                , your AI teammate that automatically joins every meeting, remembers past conversations, and delivers{' '}
+                , follow‑ups never fall through, and you always sound{' '}
                 <span 
                   style={{
                     fontFamily: "'Raleway', 'Montserrat', 'Helvetica Neue', sans-serif",
-                    fontWeight: '200',
+                    fontWeight: '300',
                     background: 'linear-gradient(135deg, #16a34a 0%, #22d3ee 50%, #16a34a 100%)',
                     WebkitBackgroundClip: 'text',
                     WebkitTextFillColor: 'transparent',
@@ -303,38 +332,8 @@ export default function LandingPage() {
                     letterSpacing: '0.04em'
                   }}
                 >
-                  perfect responses
-                </span>{' '}
-                in real-time. While you focus on the human connection, Nova handles the{' '}
-                <span 
-                  style={{
-                    fontFamily: "'Raleway', 'Montserrat', 'Helvetica Neue', sans-serif",
-                    fontWeight: '200',
-                    background: 'linear-gradient(135deg, #16a34a 0%, #22d3ee 50%, #16a34a 100%)',
-                    WebkitBackgroundClip: 'text',
-                    WebkitTextFillColor: 'transparent',
-                    backgroundClip: 'text',
-                    letterSpacing: '0.04em'
-                  }}
-                >
-                  heavy lifting
-                </span>—surfacing 
-                relevant context, suggesting winning responses, and ensuring nothing falls through 
-                the cracks. Your{' '}
-                <span 
-                  style={{
-                    fontFamily: "'Raleway', 'Montserrat', 'Helvetica Neue', sans-serif",
-                    fontWeight: '200',
-                    background: 'linear-gradient(135deg, #16a34a 0%, #22d3ee 50%, #16a34a 100%)',
-                    WebkitBackgroundClip: 'text',
-                    WebkitTextFillColor: 'transparent',
-                    backgroundClip: 'text',
-                    letterSpacing: '0.04em'
-                  }}
-                >
-                  unfair advantage
-                </span>{' '}
-                in every call.
+                  one step smarter
+                </span>.
               </p>
             </motion.div>
             

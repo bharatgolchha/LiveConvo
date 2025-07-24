@@ -21,7 +21,6 @@ function TranscriptMessageComponent({ message, previousSpeaker }: TranscriptMess
   const isPrimaryUser = (() => {
     // First, check if message is explicitly marked as owner
     if (message.isOwner) {
-      console.log(`[TranscriptMessage] Speaker "${speakerLabel}" identified as owner via isOwner flag`);
       return true;
     }
     
@@ -32,13 +31,11 @@ function TranscriptMessageComponent({ message, previousSpeaker }: TranscriptMess
       
       // Check against email
       if (sessionOwner.email && speakerLower === sessionOwner.email.toLowerCase()) {
-        console.log(`[TranscriptMessage] Speaker "${speakerLabel}" matched session owner email: ${sessionOwner.email}`);
         return true;
       }
       
       // Check against full name
       if (sessionOwner.fullName && speakerLower === sessionOwner.fullName.toLowerCase()) {
-        console.log(`[TranscriptMessage] Speaker "${speakerLabel}" matched session owner name: ${sessionOwner.fullName}`);
         return true;
       }
       
@@ -46,7 +43,6 @@ function TranscriptMessageComponent({ message, previousSpeaker }: TranscriptMess
       if (sessionOwner.fullName) {
         const nameParts = sessionOwner.fullName.toLowerCase().split(' ').filter(p => p.length > 2);
         if (nameParts.some(part => speakerLower.includes(part))) {
-          console.log(`[TranscriptMessage] Speaker "${speakerLabel}" contains name part from: ${sessionOwner.fullName}`);
           return true;
         }
       }
@@ -55,7 +51,6 @@ function TranscriptMessageComponent({ message, previousSpeaker }: TranscriptMess
       if (sessionOwner.email) {
         const emailUsername = sessionOwner.email.split('@')[0].toLowerCase();
         if (speakerLower.includes(emailUsername)) {
-          console.log(`[TranscriptMessage] Speaker "${speakerLabel}" contains email username: ${emailUsername}`);
           return true;
         }
       }
@@ -63,7 +58,6 @@ function TranscriptMessageComponent({ message, previousSpeaker }: TranscriptMess
     
     // Fallback to participantMe if no session owner (backward compatibility)
     if (speakerLabel === meeting?.participantMe) {
-      console.log(`[TranscriptMessage] Speaker "${speakerLabel}" matched participantMe fallback`);
       return true;
     }
     

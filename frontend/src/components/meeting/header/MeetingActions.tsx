@@ -29,8 +29,6 @@ export function MeetingActions() {
   const [isExporting, setIsExporting] = useState(false);
   const isMobile = useIsMobile();
 
-  console.log('MeetingActions render:', { isExporting, meeting: !!meeting, transcriptCount: transcript?.length || 0 });
-  
   const { 
     endMeeting, 
     isEnding, 
