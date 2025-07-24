@@ -189,6 +189,7 @@ export async function GET(request: NextRequest) {
         auto_join_enabled: false,
         join_buffer_minutes: 2,
         auto_record_enabled: false,
+        auto_email_summary_enabled: true,
         notify_before_join: true,
         notification_minutes: 5
       }, {

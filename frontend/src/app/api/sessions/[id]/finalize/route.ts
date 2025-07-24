@@ -188,6 +188,9 @@ async function processFinalization({
     throw new Error('Unauthorized: Missing authentication token');
   }
 
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const isServiceRole = serviceRoleKey && token === serviceRoleKey;
+
   // Verify Supabase config
   if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
     console.error('❌ CRITICAL: Supabase configuration missing');
@@ -207,10 +210,25 @@ async function processFinalization({
     }
   );
 
-  // Get user
-  const { data: { user }, error: userError } = await authenticatedSupabase.auth.getUser();
-  if (!user || userError) {
-    throw new Error('Unauthorized: Invalid user');
+  // Get user – if called with service-role we fetch the user who owns the session
+  let user = null as any;
+  if (isServiceRole) {
+    const { data: sessionOwner } = await authenticatedSupabase
+      .from('sessions')
+      .select('user_id')
+      .eq('id', sessionId)
+      .single();
+
+    if (!sessionOwner) {
+      throw new Error('Session not found for service-role finalization');
+    }
+    user = { id: sessionOwner.user_id };
+  } else {
+    const { data: { user: authUser }, error: userError } = await authenticatedSupabase.auth.getUser(token);
+    if (!authUser || userError) {
+      throw new Error('Unauthorized: Invalid user');
+    }
+    user = authUser;
   }
 
   sendProgress?.('Fetching session data...', 1);
@@ -413,6 +431,64 @@ async function processFinalization({
       finalized_at: new Date().toISOString()
     })
     .eq('id', sessionId);
+
+  /* ========================================================
+     📧  Auto-email meeting summary to attendees (if enabled)
+     ------------------------------------------------------
+     1. Check host preference in calendar_preferences.
+     2. Pull attendees from calendar_events (preferred) or the
+        sessions.participants array as fallback.
+     3. Enqueue rows in summary_email_queue for a background
+        worker/Edge Function to deliver.
+  ======================================================== */
+
+  try {
+    const { data: hostPrefs } = await authenticatedSupabase
+      .from('calendar_preferences')
+      .select('auto_email_summary_enabled')
+      .eq('user_id', user.id)
+      .single();
+
+    if (hostPrefs?.auto_email_summary_enabled) {
+      // First attempt: attendees via linked calendar event
+      const { data: event } = await authenticatedSupabase
+        .from('calendar_events')
+        .select('attendees')
+        .eq('session_id', sessionId)
+        .single();
+
+      let attendeeEmails: string[] = [];
+
+      if (event?.attendees && Array.isArray(event.attendees)) {
+        attendeeEmails = event.attendees
+          .filter((a: any) => a.email && a.email !== user.email)
+          .map((a: any) => a.email.toLowerCase());
+      }
+
+      // Fallback to participants array on session (when recording without calendar)
+      if (attendeeEmails.length === 0 && sessionData.participants) {
+        attendeeEmails = (sessionData.participants as any[])
+          .filter((e: any) => typeof e === 'string' && e.includes('@'));
+      }
+
+      // De-duplicate
+      attendeeEmails = Array.from(new Set(attendeeEmails));
+
+      if (attendeeEmails.length) {
+        const rows = attendeeEmails.map((email) => ({
+          session_id: sessionId,
+          recipient_email: email
+        }));
+
+        await authenticatedSupabase.from('summary_email_queue').insert(rows);
+        console.log(`📨 Enqueued ${rows.length} summary-emails for session ${sessionId}`);
+      }
+    } else {
+      console.log('ℹ️ Host has disabled auto-email summaries. Skipping email enqueue.');
+    }
+  } catch (emailErr) {
+    console.error('❌ Failed to enqueue summary emails:', emailErr);
+  }
 
   sendProgress?.('Report generation complete!', 8, 8);
 

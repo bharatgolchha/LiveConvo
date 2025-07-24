@@ -19,6 +19,7 @@ interface CalendarStepProps {
     calendar_connected: boolean;
     auto_join_enabled?: boolean;
     auto_record_enabled?: boolean;
+    auto_email_summary_enabled?: boolean;
   };
   updateData: (data: any) => void;
   onComplete?: () => void;
@@ -257,7 +258,7 @@ export const CalendarStep: React.FC<CalendarStepProps> = ({
                 </p>
               </div>
               <Switch
-                checked={data.auto_join_enabled || false}
+                checked={data.auto_join_enabled ?? true}
                 onCheckedChange={(checked) => updateData({ auto_join_enabled: checked })}
               />
             </div>
@@ -271,8 +272,22 @@ export const CalendarStep: React.FC<CalendarStepProps> = ({
                 </p>
               </div>
               <Switch
-                checked={data.auto_record_enabled || false}
+                checked={data.auto_record_enabled ?? true}
                 onCheckedChange={(checked) => updateData({ auto_record_enabled: checked })}
+              />
+            </div>
+
+            {/* Auto-email summary toggle */}
+            <div className="flex items-center justify-between">
+              <div className="flex-1">
+                <p className="font-medium text-foreground">Email summary to attendees</p>
+                <p className="text-sm text-muted-foreground">
+                  Send a post-meeting summary to everyone on the invite
+                </p>
+              </div>
+              <Switch
+                checked={data.auto_email_summary_enabled ?? false}
+                onCheckedChange={(checked) => updateData({ auto_email_summary_enabled: checked })}
               />
             </div>
           </div>

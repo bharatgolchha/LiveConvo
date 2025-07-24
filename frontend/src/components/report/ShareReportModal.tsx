@@ -391,6 +391,32 @@ export function ShareReportModal({ isOpen, onClose, reportId, reportTitle }: Sha
                         className="w-full"
                         maxEmails={10}
                       />
+
+                      {/* Quick-add participants */}
+                      {participants.length > 0 && (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="px-2 py-1 text-xs h-auto"
+                          onClick={() => {
+                            const participantEmails = participants
+                              .map((p) => p.email)
+                              .filter((e): e is string => !!e);
+                            setShareSettings((prev) => {
+                              const merged = [
+                                ...prev.emailRecipients,
+                                ...participantEmails.filter(
+                                  (e) => !prev.emailRecipients.includes(e)
+                                )
+                              ];
+                              return { ...prev, emailRecipients: merged };
+                            });
+                          }}
+                        >
+                          Add all participants ({participants.length})
+                        </Button>
+                      )}
                     </div>
                     
                     <p className="text-xs text-muted-foreground pl-1">

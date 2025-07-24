@@ -201,7 +201,8 @@ export async function POST(request: NextRequest) {
           
           console.log(`Webhook: Filtered ${activeEvents.length} active events to ${validEvents.length} valid events`);
           
-          const eventsToInsert = validEvents.map((event: Record<string, unknown>) => ({
+          // Recall event raw structure is dynamic so we cast to any.
+          const eventsToInsert = validEvents.map((event: any) => ({
             calendar_connection_id: connection.id,
             external_event_id: event.id,
             title: event.raw?.summary || event.raw?.title || 'Untitled Event',
@@ -507,8 +508,10 @@ async function handleRecordingStarted(
     await supabase
       .from('sessions')
       .update({
+        status: 'active',
         recall_bot_status: 'recording',
-        recording_started_at: timestamp
+        recording_started_at: timestamp,
+        updated_at: new Date().toISOString()
       })
       .eq('id', sessionId);
   }
@@ -635,25 +638,23 @@ async function handleBotCompleted(
           .eq('session_id', targetSessionId)
           .single();
           
-        // Get service role token for internal API call
+        // Call the finalize endpoint using the service-role key. The finalize
+        // route now accepts the service-role token and will infer the correct
+        // user from the session owner.
         const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
         if (!serviceRoleKey) {
           console.error('❌ Service role key not configured for auto-finalization');
           return;
         }
-        
-        // Create a JWT token for the user to authenticate the finalization request
-        const { data: { session: authSession } } = await supabase.auth.admin.createSession({
-          user_id: session.user_id
-        });
-        
-        if (!authSession) {
-          console.error('❌ Failed to create auth session for auto-finalization');
-          return;
-        }
-        
-        // Call the finalize endpoint
-        const baseUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.APP_URL || 'http://localhost:3000';
+
+        const baseUrl =
+          process.env.NEXT_PUBLIC_APP_URL ||
+          process.env.APP_URL ||
+          (process.env.NEXT_PUBLIC_VERCEL_URL
+            ? `https://${process.env.NEXT_PUBLIC_VERCEL_URL}`
+            : process.env.VERCEL_URL
+            ? `https://${process.env.VERCEL_URL}`
+            : 'http://localhost:3000');
         const finalizeUrl = `${baseUrl}/api/sessions/${targetSessionId}/finalize`;
         
         const finalizePayload = {
@@ -668,7 +669,7 @@ async function handleBotCompleted(
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${authSession.access_token}`
+            'Authorization': `Bearer ${serviceRoleKey}`
           },
           body: JSON.stringify(finalizePayload)
         });

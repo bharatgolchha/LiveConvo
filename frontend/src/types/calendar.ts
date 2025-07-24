@@ -49,6 +49,7 @@ export interface CalendarPreferences {
   auto_join_enabled: boolean;
   join_buffer_minutes: number;
   auto_record_enabled: boolean;
+  auto_email_summary_enabled: boolean;
   notify_before_join: boolean;
   notification_minutes: number;
   excluded_keywords: string[];

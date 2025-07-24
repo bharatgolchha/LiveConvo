@@ -21,6 +21,7 @@ interface OnboardingData {
   calendar_connected: boolean;
   auto_join_enabled: boolean;
   auto_record_enabled: boolean;
+  auto_email_summary_enabled: boolean;
 }
 
 function OnboardingContent() {
@@ -65,8 +66,9 @@ function OnboardingContent() {
       use_case: '',
       acquisition_source: '',
       calendar_connected: false,
-      auto_join_enabled: false,
-      auto_record_enabled: false
+      auto_join_enabled: true,
+      auto_record_enabled: true,
+      auto_email_summary_enabled: true
     };
   });
 
@@ -213,6 +215,7 @@ function OnboardingContent() {
             body: JSON.stringify({
               auto_join_enabled: onboardingData.auto_join_enabled,
               auto_record_enabled: onboardingData.auto_record_enabled,
+              auto_email_summary_enabled: onboardingData.auto_email_summary_enabled,
               join_buffer_minutes: 2,
               notify_before_join: true,
               notification_minutes: 5

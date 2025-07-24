@@ -112,6 +112,25 @@ export const CalendarPreferences: React.FC<CalendarPreferencesProps> = ({
           </div>
         </div>
 
+        {/* Email Summary Settings */}
+        <div className="space-y-4 border-t pt-6">
+          <h3 className="text-lg font-medium">Post-meeting Emails</h3>
+
+          <div className="flex items-center justify-between">
+            <div className="flex-1">
+              <p className="font-medium">Auto-email meeting summary</p>
+              <p className="text-sm text-muted-foreground">
+                Send the final summary to all attendees after the meeting ends
+              </p>
+            </div>
+            <Switch
+              checked={localPreferences.auto_email_summary_enabled}
+              onCheckedChange={(checked) => handleToggle('auto_email_summary_enabled', checked)}
+              disabled={saving}
+            />
+          </div>
+        </div>
+
         {/* Notification Settings */}
         <div className="space-y-4 border-t pt-6">
           <h3 className="text-lg font-medium">Notifications</h3>
