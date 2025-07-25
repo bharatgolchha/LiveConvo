@@ -993,9 +993,9 @@ async function handleParticipantEvent(sessionId: string, eventType: string, data
     // Store participant events for analytics
     const { error: insertError } = await supabase.from('session_timeline_events').insert({
       session_id: sessionId,
-      event_type: eventType,
-      event_data: data,
-      timestamp: timestamp?.absolute || new Date().toISOString(),
+      type: eventType, // aligns with "type" column in schema
+      event_data: data, // requires that column exists; if missing, consider adding migration
+      event_timestamp: participantData?.timestamp?.absolute || new Date().toISOString(),
     });
     
     if (insertError) {

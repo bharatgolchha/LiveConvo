@@ -75,6 +75,7 @@ export function useMeetingSession(meetingId: string) {
           participantThem: data.participant_them || 'Participant',
           createdAt: data.created_at,
           updatedAt: data.updated_at,
+          finalizedAt: data.finalized_at,
           recordingDurationSeconds: data.recording_duration_seconds,
           recallRecordingUrl: data.recall_recording_url,
           recallRecordingStatus: data.recall_recording_status,

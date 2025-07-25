@@ -49,6 +49,14 @@ export function useMeetingRealtimeSync(meetingId: string) {
               }
             }
             
+            // If finalized_at was set, update meeting finalizedAt
+            if (updates.finalized_at !== undefined && meeting) {
+              console.log('📄 Summary finalized at:', updates.finalized_at);
+              setMeeting({
+                ...meeting,
+                finalizedAt: updates.finalized_at
+              });
+            }
             // If recall_bot_status was updated, update bot status
             if (updates.recall_bot_status !== undefined) {
               console.log('🤖 Bot status updated:', updates.recall_bot_status);

@@ -21,9 +21,11 @@ import {
 } from '@heroicons/react/24/outline';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
+import { useAuth } from '@/contexts/AuthContext';
 
 export function MeetingHeader() {
-  const { meeting, botStatus } = useMeetingContext();
+  const { meeting, botStatus, setMeeting } = useMeetingContext();
+  const { session: authSession } = useAuth();
   const { theme, resolvedTheme, setTheme, toggleTheme } = useTheme();
   const router = useRouter();
   const isMobile = useIsMobile();
@@ -38,7 +40,44 @@ export function MeetingHeader() {
   // If bot status is null and meeting is not completed, it's ready to start
   const finalIsActive = botStatus === null ? false : isActive;
   const finalIsCompleted = botStatus === null ? meeting.status === 'completed' : isCompleted;
+  const isReportReady = finalIsCompleted && !!meeting.finalizedAt;
+  const isGeneratingReport = finalIsCompleted && !meeting.finalizedAt;
   const hasUrl = meeting.meetingUrl && meeting.meetingUrl.trim();
+
+  // Poll every 5 s while report is generating, as a fallback in case realtime update misses.
+  React.useEffect(() => {
+    if (!isGeneratingReport) return;
+
+    let cancelled = false;
+    const poll = async () => {
+      try {
+        const headers: HeadersInit = { 'Content-Type': 'application/json' };
+        if (authSession?.access_token) {
+          headers['Authorization'] = `Bearer ${authSession.access_token}`;
+        }
+
+        const res = await fetch(`/api/meeting/${meeting.id}`, { headers });
+        if (!res.ok) return;
+        const data = await res.json();
+        const finalizedAt = data?.meeting?.finalized_at;
+        const status = data?.meeting?.status;
+        if (finalizedAt && !cancelled) {
+          setMeeting({
+            ...meeting,
+            finalizedAt,
+            status: status || meeting.status
+          });
+        }
+      } catch (_) {}
+    };
+
+    poll(); // immediate
+    const interval = setInterval(poll, 5000);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, [isGeneratingReport, meeting.id, meeting, setMeeting, authSession?.access_token]);
 
   const getPlatformLogo = () => {
     if (!meeting.platform) return null;
@@ -71,6 +110,36 @@ export function MeetingHeader() {
     const nextIndex = (currentIndex + 1) % themes.length;
     setTheme(themes[nextIndex]);
   };
+
+  const [retrying, setRetrying] = React.useState(false);
+
+  const triggerFinalize = async () => {
+    if (retrying) return;
+    setRetrying(true);
+    try {
+      const headers: HeadersInit = { 'Content-Type': 'application/json' };
+      if (authSession?.access_token) headers['Authorization'] = `Bearer ${authSession.access_token}`;
+      await fetch(`/api/sessions/${meeting.id}/finalize`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ regenerate: true })
+      });
+    } catch (e) {
+      console.error('Retry finalization failed', e);
+    } finally {
+      setTimeout(() => setRetrying(false), 5000); // prevent spam
+    }
+  };
+
+  const GeneratingStatus: React.FC<{ onRetry: () => void; compact?: boolean }> = ({ onRetry, compact }) => (
+    <div className={compact ? "flex items-center gap-1 px-2 py-1 bg-muted/40 rounded" : "flex items-center gap-2 text-muted-foreground"}>
+      <div className={compact ? "w-3 h-3 border border-current border-t-transparent rounded-full animate-spin" : "w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin"} />
+      <span className={compact ? "text-xs font-medium text-muted-foreground" : "text-sm"}>Generating…</span>
+      <button onClick={onRetry} disabled={retrying} className="text-primary underline text-xs ml-1 disabled:opacity-50">
+        Retry
+      </button>
+    </div>
+  );
 
   // Mobile-first header design
   if (isMobile) {
@@ -160,8 +229,8 @@ export function MeetingHeader() {
                   )}
                 </div>
                 
-                {/* Bot Control or View Report for mobile */}
-                {finalIsCompleted ? (
+                {/* Bot Control / Report status (mobile) */}
+                {isReportReady ? (
                   <button
                     onClick={() => router.push(`/report/${meeting?.id}`)}
                     className="flex items-center gap-1 px-2 py-1 bg-green-600 hover:bg-green-700 text-white rounded transition-colors"
@@ -170,6 +239,8 @@ export function MeetingHeader() {
                     <CheckCircleIcon className="w-3 h-3" />
                     <span className="text-xs font-medium">View Report</span>
                   </button>
+                ) : isGeneratingReport ? (
+                  <GeneratingStatus onRetry={() => triggerFinalize()} compact />
                 ) : (
                   <MeetingBotControl />
                 )}
@@ -314,7 +385,7 @@ export function MeetingHeader() {
               {/* Bot Control or View Report - Only for desktop */}
               {!isMobile && (
                 <div className="flex items-center gap-2">
-                  {finalIsCompleted ? (
+                  {isReportReady ? (
                     <button
                       onClick={() => router.push(`/report/${meeting?.id}`)}
                       className="flex items-center gap-2 px-3 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-all font-medium hover:scale-105"
@@ -323,6 +394,8 @@ export function MeetingHeader() {
                       <CheckCircleIcon className="w-4 h-4" />
                       <span className="text-sm">View Report</span>
                     </button>
+                  ) : isGeneratingReport ? (
+                    <GeneratingStatus onRetry={() => triggerFinalize()} />
                   ) : (
                     <>
                       <BotMinutesIndicator compact />

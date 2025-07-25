@@ -9,7 +9,8 @@ import {
   ArrowDownTrayIcon,
   ShareIcon,
   CheckCircleIcon,
-  ExclamationTriangleIcon
+  ExclamationTriangleIcon,
+  InformationCircleIcon
 } from '@heroicons/react/24/outline';
 import { useMeetingContext } from '@/lib/meeting/context/MeetingContext';
 import { useRouter } from 'next/navigation';
@@ -19,11 +20,13 @@ import { EndMeetingStatus } from '@/components/meeting/common/EndMeetingStatus';
 import { EndMeetingModal } from '../modals/EndMeetingModal';
 import { exportTranscript, downloadFile, type ExportOptions } from '@/lib/meeting/utils/transcript-export';
 import { toast } from 'sonner';
+import { MeetingInfoModal } from '@/components/meeting/modals/MeetingInfoModal';
 
 export function MeetingActions() {
   const { meeting, botStatus, transcript } = useMeetingContext();
   const router = useRouter();
   const [showMenu, setShowMenu] = useState(false);
+  const [showInfoModal, setShowInfoModal] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [showEndModal, setShowEndModal] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
@@ -149,7 +152,13 @@ export function MeetingActions() {
   };
 
   const isActive = botStatus?.status === 'in_call';
-  const isCompleted = meeting?.status === 'completed';
+  const isCompleted = meeting?.status === 'completed' || botStatus?.status === 'completed';
+  const isGeneratingReport = isCompleted && !meeting?.finalizedAt;
+
+  // While report is generating, hide action buttons to avoid duplicates (header shows status)
+  if (isGeneratingReport) {
+    return null;
+  }
   
   // Mobile-specific render
   if (isMobile) {
@@ -210,6 +219,17 @@ export function MeetingActions() {
                 <button
                   onClick={() => {
                     setShowMenu(false);
+                    setShowInfoModal(true);
+                  }}
+                  className="flex w-full items-center gap-3 px-4 py-2.5 text-sm hover:bg-muted/50 transition-colors"
+                >
+                  <InformationCircleIcon className="w-4 h-4" />
+                  <span>Meeting Info</span>
+                </button>
+                
+                <button
+                  onClick={() => {
+                    setShowMenu(false);
                     handleShare();
                   }}
                   className="flex w-full items-center gap-3 px-4 py-2.5 text-sm hover:bg-muted/50 transition-colors"
@@ -247,6 +267,7 @@ export function MeetingActions() {
         
         {/* Modals */}
         <MeetingSettingsModal isOpen={showSettings} onClose={() => setShowSettings(false)} />
+        <MeetingInfoModal isOpen={showInfoModal} onClose={() => setShowInfoModal(false)} />
         <EndMeetingModal
           isOpen={showEndModal}
           onClose={() => setShowEndModal(false)}
@@ -288,6 +309,17 @@ export function MeetingActions() {
               <div className="fixed top-14 right-6 w-48 bg-card border border-border rounded-lg shadow-lg z-[1200]">
                 <div className="py-1">
                   <button
+                    onClick={() => {
+                      setShowMenu(false);
+                      setShowInfoModal(true);
+                    }}
+                    className="flex w-full items-center gap-3 px-4 py-2 text-sm hover:bg-muted/50 transition-colors"
+                  >
+                    <InformationCircleIcon className="w-4 h-4" />
+                    <span>Meeting Info</span>
+                  </button>
+
+                  <button
                     onClick={handleShare}
                     className="flex w-full items-center gap-3 px-4 py-2 text-sm hover:bg-muted/50 transition-colors"
                   >
@@ -320,6 +352,7 @@ export function MeetingActions() {
         </div>
 
         <MeetingSettingsModal isOpen={showSettings} onClose={() => setShowSettings(false)} />
+        <MeetingInfoModal isOpen={showInfoModal} onClose={() => setShowInfoModal(false)} />
       </div>
     );
   }
@@ -345,6 +378,16 @@ export function MeetingActions() {
             />
             <div className="fixed top-14 right-6 w-48 bg-card border border-border rounded-lg shadow-lg z-[1200]">
               <div className="py-1">
+                <button
+                  onClick={() => {
+                    setShowMenu(false);
+                    setShowInfoModal(true);
+                  }}
+                  className="flex w-full items-center gap-3 px-4 py-2 text-sm hover:bg-muted/50 transition-colors"
+                >
+                  <InformationCircleIcon className="w-4 h-4" />
+                  <span>Meeting Info</span>
+                </button>
                 <button
                   onClick={handleShare}
                   className="flex w-full items-center gap-3 px-4 py-2 text-sm hover:bg-muted/50 transition-colors"
@@ -417,6 +460,7 @@ export function MeetingActions() {
       />
 
       <MeetingSettingsModal isOpen={showSettings} onClose={() => setShowSettings(false)} />
+      <MeetingInfoModal isOpen={showInfoModal} onClose={() => setShowInfoModal(false)} />
       
       {/* Export Transcript Modal */}
       {/* This section is removed as per the edit hint */}

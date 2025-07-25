@@ -1036,7 +1036,7 @@ const DashboardPage: React.FC = () => {
                               activePath === 'archive' 
                                 ? `Archived Meetings (${totalFilteredCount})`
                                 : activePath === 'shared'
-                                ? `Shared with Me (${totalFilteredCount})`
+                                ? `Shared Meetings (${totalFilteredCount})`
                                 : `Meetings (${totalFilteredCount})`
                             )}
                           </h2>

@@ -17,6 +17,7 @@ export interface Meeting {
   participantThem: string;
   createdAt: string;
   updatedAt: string;
+  finalizedAt?: string | null;
   recordingDurationSeconds?: number;
   recallRecordingUrl?: string;
   recallRecordingStatus?: string;

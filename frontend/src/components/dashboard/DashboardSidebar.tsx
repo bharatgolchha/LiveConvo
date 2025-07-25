@@ -78,7 +78,7 @@ const DashboardSidebar: React.FC<DashboardSidebarProps> = ({ usageStats, activeP
   const navItems = [
     { path: 'conversations', label: 'Meetings', icon: MicrophoneIcon, count: activeCount },
     { path: 'action_items', label: 'Action Items', icon: ClockIcon, count: pendingCount },
-    { path: 'shared', label: 'Shared with me', icon: ShareIcon, count: sharedCount },
+    { path: 'shared', label: 'Shared Meetings', icon: ShareIcon, count: sharedCount },
     { path: 'archive', label: 'Archive', icon: ArchiveBoxIcon, count: archivedCount },
     { path: 'settings', label: 'Settings', icon: Cog6ToothIcon },
   ];
