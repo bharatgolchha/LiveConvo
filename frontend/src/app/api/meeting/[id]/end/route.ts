@@ -132,14 +132,13 @@ export async function POST(
       }
     }
 
-    // Step 2: Update session status to completed
+    // Step 2: Mark session completed (do NOT set finalized_at yet)
     const now = new Date().toISOString();
     const { error: updateError } = await authenticatedSupabase
       .from('sessions')
       .update({ 
         status: 'completed',
         recording_ended_at: now,
-        finalized_at: now,
         updated_at: now
       })
       .eq('id', sessionId);
@@ -203,6 +202,12 @@ export async function POST(
             hasTranscript: !!summaryResult.transcript,
             transcriptLength: summaryResult.transcript?.length || 0
           });
+
+          // Set finalized_at now that summary succeeded
+          await authenticatedSupabase
+            .from('sessions')
+            .update({ finalized_at: new Date().toISOString() })
+            .eq('id', sessionId);
         } else {
           const errorData = await finalizeResponse.text();
           console.error('⚠️ Failed to generate summary:', {

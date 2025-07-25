@@ -133,7 +133,17 @@ export function MeetingHeader() {
 
   const GeneratingStatus: React.FC<{ onRetry: () => void; compact?: boolean }> = ({ onRetry, compact }) => (
     <div className={compact ? "flex items-center gap-1 px-2 py-1 bg-muted/40 rounded" : "flex items-center gap-2 text-muted-foreground"}>
-      <div className={compact ? "w-3 h-3 border border-current border-t-transparent rounded-full animate-spin" : "w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin"} />
+      <svg className={compact ? "w-3 h-3 animate-spin-slow" : "w-4 h-4 animate-spin-slow"} viewBox="0 0 24 24">
+        <circle
+          className="opacity-25"
+          cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none"
+        />
+        <path
+          className="opacity-75"
+          fill="currentColor"
+          d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"
+        />
+      </svg>
       <span className={compact ? "text-xs font-medium text-muted-foreground" : "text-sm"}>Generating…</span>
       <button onClick={onRetry} disabled={retrying} className="text-primary underline text-xs ml-1 disabled:opacity-50">
         Retry

@@ -219,20 +219,22 @@ export function EndMeetingStatus({
             ))}
           </div>
 
-          {/* Progress Bar - Simplified */}
-          <div className="mb-4">
-            <div className="flex justify-between text-xs text-muted-foreground mb-1.5">
-              <span>{Math.round(progressPercentage)}%</span>
-              {!isSuccess && !error && (
-                <span>{elapsedTime}s</span>
-              )}
+          {/* Progress Circle + percentage */}
+          <div className="mb-4 flex flex-col items-center justify-center gap-2">
+            <div
+              className="relative w-16 h-16"
+              style={{
+                background: `conic-gradient(theme(colors.primary.DEFAULT) ${progressPercentage}%, theme(colors.muted) ${progressPercentage}%)`,
+                borderRadius: '50%'
+              }}
+            >
+              <div className="absolute inset-1 bg-card rounded-full flex items-center justify-center text-sm font-medium">
+                {Math.round(progressPercentage)}%
+              </div>
             </div>
-            <div className="w-full bg-muted rounded-full h-1.5 overflow-hidden">
-              <div 
-                className="h-full bg-primary rounded-full transition-all duration-500 ease-out"
-                style={{ width: `${progressPercentage}%` }}
-              />
-            </div>
+            {!isSuccess && !error && (
+              <span className="text-xs text-muted-foreground">{elapsedTime}s elapsed</span>
+            )}
           </div>
 
           {/* Error Message */}

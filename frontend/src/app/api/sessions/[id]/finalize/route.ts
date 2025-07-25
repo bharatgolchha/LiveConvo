@@ -303,7 +303,23 @@ async function processFinalization({
 
   if (!transcriptText || transcriptText.trim().length === 0) {
     console.warn('⚠️ No transcript available for session:', sessionId);
-    throw new Error('No transcript data available. Please ensure the conversation has been recorded and transcribed.');
+
+    // Mark session as finalized without a summary
+    await authenticatedSupabase
+      .from('sessions')
+      .update({ finalized_at: new Date().toISOString(), updated_at: new Date().toISOString() })
+      .eq('id', sessionId);
+
+    return {
+      sessionId,
+      summary: null,
+      finalization: 'skipped-no-transcript',
+      transcript: '',
+      conversationType,
+      conversationTitle,
+      finalizedAt: new Date().toISOString(),
+      warning: 'No transcript available – session marked complete without summary.'
+    };
   }
 
   // Calculate session statistics

@@ -94,10 +94,12 @@ export function useEndMeeting(options: UseEndMeetingOptions = {}) {
         options.onSuccess(data);
       }
 
-      // Wait a moment to show success, then redirect
-      setTimeout(() => {
-        router.push(data.redirectUrl);
-      }, 1500);
+      // If summary already generated, redirect to report, otherwise stay and let UI show generating status
+      if (data.summaryGenerated) {
+        setTimeout(() => {
+          router.push(data.redirectUrl);
+        }, 1500);
+      }
 
     } catch (err) {
       const error = err instanceof Error ? err : new Error('Unknown error occurred');
