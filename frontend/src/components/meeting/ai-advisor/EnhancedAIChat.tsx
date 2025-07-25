@@ -17,6 +17,7 @@ import { useMeetingContext } from '@/lib/meeting/context/MeetingContext';
 import { useChatGuidance } from '@/lib/meeting/hooks/useChatGuidance';
 import { supabase } from '@/lib/supabase';
 import { SuggestedPrompts } from './SuggestedPrompts';
+import { MinimalFileInput, MinimalFileAttachments, FileAttachment } from '@/components/meeting/file-upload';
 
 interface ChatMessage {
   id: string;
@@ -37,7 +38,7 @@ export interface EnhancedAIChatRef {
 }
 
 export const EnhancedAIChat = forwardRef<EnhancedAIChatRef>((props, ref) => {
-  const { meeting, transcript, smartNotes, summary, linkedConversations, personalContext } = useMeetingContext();
+  const { meeting, transcript, smartNotes, summary, linkedConversations, personalContext, fileAttachments, setFileAttachments, addFileAttachment, removeFileAttachment, clearFileAttachments } = useMeetingContext();
   const { sendMessage, loading } = useChatGuidance();
   const [input, setInput] = useState('');
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -50,6 +51,7 @@ export const EnhancedAIChat = forwardRef<EnhancedAIChatRef>((props, ref) => {
   const [aiInstructions, setAiInstructions] = useState<string | null>(null);
   const [isSearching, setIsSearching] = useState(false);
   const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null);
+  const [isProcessingFiles, setIsProcessingFiles] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -187,13 +189,16 @@ export const EnhancedAIChat = forwardRef<EnhancedAIChatRef>((props, ref) => {
     // Clear suggested prompts
     setSuggestedPrompts([]);
     
+    // Clear file attachments
+    clearFileAttachments();
+    
     // Reset the flag and fetch new initial prompts
     setHasLoadedInitialPrompts(false);
     fetchInitialPrompts();
     
     // Focus input
     inputRef.current?.focus();
-  }, [fetchInitialPrompts]);
+  }, [fetchInitialPrompts, clearFileAttachments]);
 
   // Expose clear function via ref
   useImperativeHandle(ref, () => ({
@@ -420,7 +425,12 @@ export const EnhancedAIChat = forwardRef<EnhancedAIChatRef>((props, ref) => {
             topics: summary.topics
           } : undefined,
           isRecording: true, // Assume recording if we have transcript
-          sessionOwner: meeting?.sessionOwner
+          sessionOwner: meeting?.sessionOwner,
+          fileAttachments: fileAttachments.map(file => ({
+            type: file.type.startsWith('image/') ? 'image' : 'pdf',
+            dataUrl: file.dataUrl || '',
+            filename: file.name
+          }))
         })
       });
 
@@ -451,6 +461,9 @@ export const EnhancedAIChat = forwardRef<EnhancedAIChatRef>((props, ref) => {
       };
 
       setMessages(prev => [...prev, aiMessage]);
+      
+      // Clear file attachments after successful send
+      clearFileAttachments();
       
       // Update suggested prompts
       if (suggestedActions.length > 0) {
@@ -545,6 +558,127 @@ export const EnhancedAIChat = forwardRef<EnhancedAIChatRef>((props, ref) => {
       console.error('Failed to copy message:', error);
     }
   };
+
+  // File processing functions
+  const processFile = async (file: File): Promise<FileAttachment> => {
+    const id = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    
+    const fileAttachment: FileAttachment = {
+      id,
+      file,
+      name: file.name,
+      type: file.type,
+      size: file.size,
+      status: 'uploading',
+      progress: 0
+    };
+
+    // Create preview for images
+    if (file.type.startsWith('image/')) {
+      try {
+        const preview = await createImagePreview(file);
+        fileAttachment.preview = preview;
+      } catch (error) {
+        console.error('Failed to create image preview:', error);
+      }
+    }
+
+    // Convert to base64 data URL
+    try {
+      const dataUrl = await fileToDataUrl(file);
+      fileAttachment.dataUrl = dataUrl;
+      fileAttachment.status = 'uploaded';
+      fileAttachment.progress = 100;
+    } catch (error) {
+      fileAttachment.status = 'error';
+      fileAttachment.error = 'Failed to process file';
+      console.error('Failed to process file:', error);
+    }
+
+    return fileAttachment;
+  };
+
+  const createImagePreview = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const img = new Image();
+        img.onload = () => {
+          // Create a canvas to resize the image
+          const canvas = document.createElement('canvas');
+          const ctx = canvas.getContext('2d');
+          if (!ctx) {
+            reject(new Error('Failed to get canvas context'));
+            return;
+          }
+
+          // Calculate thumbnail size (max 100x100)
+          const maxSize = 100;
+          let width = img.width;
+          let height = img.height;
+
+          if (width > height) {
+            if (width > maxSize) {
+              height *= maxSize / width;
+              width = maxSize;
+            }
+          } else {
+            if (height > maxSize) {
+              width *= maxSize / height;
+              height = maxSize;
+            }
+          }
+
+          canvas.width = width;
+          canvas.height = height;
+          ctx.drawImage(img, 0, 0, width, height);
+          
+          resolve(canvas.toDataURL(file.type));
+        };
+        img.onerror = () => reject(new Error('Failed to load image'));
+        img.src = e.target?.result as string;
+      };
+      reader.onerror = () => reject(new Error('Failed to read file'));
+      reader.readAsDataURL(file);
+    });
+  };
+
+  const fileToDataUrl = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = () => reject(new Error('Failed to read file'));
+      reader.readAsDataURL(file);
+    });
+  };
+
+  const handleFileSelect = useCallback(async (files: File[]) => {
+    if (fileAttachments.length + files.length > 3) {
+      const remaining = 3 - fileAttachments.length;
+      files = files.slice(0, Math.max(0, remaining));
+    }
+
+    if (files.length === 0) return;
+
+    setIsProcessingFiles(true);
+    
+    try {
+      // Process files
+      const processedFiles = await Promise.all(
+        files.map(async (file) => {
+          const attachment = await processFile(file);
+          return attachment;
+        })
+      );
+
+      // Add to context
+      processedFiles.forEach(file => {
+        addFileAttachment(file);
+      });
+    } finally {
+      setIsProcessingFiles(false);
+    }
+  }, [fileAttachments.length, addFileAttachment]);
 
   return (
     <div className="flex flex-col h-full">
@@ -797,40 +931,55 @@ export const EnhancedAIChat = forwardRef<EnhancedAIChatRef>((props, ref) => {
 
       {/* Input */}
       <div className="flex-shrink-0 p-4 border-t border-border bg-card/50">
-        <form onSubmit={handleSubmit} className="space-y-3">
-          <div className="flex gap-2">
-            <input
-              ref={inputRef}
-              type="text"
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              placeholder="Ask AI anything about the meeting..."
-              className="flex-1 px-4 py-2.5 bg-background border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all text-sm"
-              disabled={loading}
-              maxLength={500}
+        <form onSubmit={handleSubmit} className="space-y-2">
+          {/* File attachments preview - minimal and above input */}
+          {fileAttachments.length > 0 && (
+            <MinimalFileAttachments
+              files={fileAttachments}
+              onRemove={removeFileAttachment}
             />
-            {transcript.length > 0 && (
+          )}
+          
+          <div className="flex gap-2">
+            <div className="flex-1 relative flex items-center bg-background border border-border rounded-xl focus-within:ring-2 focus-within:ring-primary/50 focus-within:border-primary transition-all">
+              <MinimalFileInput
+                onFileSelect={handleFileSelect}
+                disabled={loading || isProcessingFiles || fileAttachments.length >= 3}
+                className="ml-2"
+              />
+              <input
+                ref={inputRef}
+                type="text"
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                placeholder="Ask AI anything about the meeting..."
+                className="flex-1 px-2 py-2.5 bg-transparent focus:outline-none text-sm"
+                disabled={loading}
+                maxLength={500}
+              />
+              {transcript.length > 0 && (
+                <button
+                  type="button"
+                  onClick={handleLivePrompt}
+                  disabled={loading || isLivePrompting}
+                  className="mr-2 p-2 text-amber-500 hover:text-amber-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  title="Quick suggestion - What's next?"
+                >
+                  <BoltIcon className={`w-4 h-4 ${isLivePrompting ? 'animate-pulse' : ''}`} />
+                </button>
+              )}
               <button
-                type="button"
-                onClick={handleLivePrompt}
-                disabled={loading || isLivePrompting}
-                className="px-4 py-2.5 bg-amber-500 text-white rounded-xl hover:bg-amber-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all group relative"
-                title="Quick suggestion - What's next?"
+                type="submit"
+                disabled={!input.trim() || loading}
+                className="mr-2 p-2 text-primary hover:text-primary/80 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
-                <BoltIcon className={`w-4 h-4 ${isLivePrompting ? 'animate-pulse' : 'group-hover:scale-110 transition-transform'}`} />
+                <PaperAirplaneIcon className="w-4 h-4" />
               </button>
-            )}
-            <button
-              type="submit"
-              disabled={!input.trim() || loading}
-              className="px-4 py-2.5 bg-primary text-primary-foreground rounded-xl hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
-            >
-              <PaperAirplaneIcon className="w-4 h-4" />
-            </button>
+            </div>
           </div>
 
           {/* Character count */}
-          <div className="flex justify-between items-center text-xs text-muted-foreground">
+          <div className="flex justify-between items-center text-xs text-muted-foreground px-1">
             <span>
               {transcript.length > 0
                 ? `${transcript.length} transcript lines available`

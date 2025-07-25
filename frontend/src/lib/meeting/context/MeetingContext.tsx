@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useCallback, ReactNode } fr
 import { Meeting, BotStatus } from '../types/meeting.types';
 import { TranscriptMessage, RealtimeSummary, SmartNote } from '../types/transcript.types';
 import { GuidanceItem, ChatMessage } from '../types/guidance.types';
+import { FileAttachment } from '@/components/meeting/file-upload';
 
 interface MeetingContextValue {
   // Meeting data
@@ -48,6 +49,13 @@ interface MeetingContextValue {
   // Personal context
   personalContext: string | null;
   setPersonalContext: (context: string | null) => void;
+  
+  // File attachments
+  fileAttachments: FileAttachment[];
+  setFileAttachments: (files: FileAttachment[]) => void;
+  addFileAttachment: (file: FileAttachment) => void;
+  removeFileAttachment: (id: string) => void;
+  clearFileAttachments: () => void;
 }
 
 const MeetingContext = createContext<MeetingContextValue | undefined>(undefined);
@@ -89,6 +97,9 @@ export function MeetingProvider({ children }: MeetingProviderProps) {
   
   // Personal context
   const [personalContext, setPersonalContext] = useState<string | null>(null);
+  
+  // File attachments
+  const [fileAttachments, setFileAttachments] = useState<FileAttachment[]>([]);
   
   // UI State
   const [activeTab, setActiveTab] = useState<'transcript' | 'summary' | 'notes' | 'previous' | 'recording'>('transcript');
@@ -152,6 +163,25 @@ export function MeetingProvider({ children }: MeetingProviderProps) {
     setChatMessages(prev => [...prev, message]);
   }, []);
 
+  // File attachment methods
+  const addFileAttachment = useCallback((file: FileAttachment) => {
+    setFileAttachments(prev => {
+      // Avoid duplicates
+      if (prev.some(f => f.id === file.id)) {
+        return prev;
+      }
+      return [...prev, file];
+    });
+  }, []);
+
+  const removeFileAttachment = useCallback((id: string) => {
+    setFileAttachments(prev => prev.filter(f => f.id !== id));
+  }, []);
+
+  const clearFileAttachments = useCallback(() => {
+    setFileAttachments([]);
+  }, []);
+
   const value: MeetingContextValue = {
     meeting,
     setMeeting,
@@ -177,7 +207,12 @@ export function MeetingProvider({ children }: MeetingProviderProps) {
     linkedConversations,
     setLinkedConversations,
     personalContext,
-    setPersonalContext
+    setPersonalContext,
+    fileAttachments,
+    setFileAttachments,
+    addFileAttachment,
+    removeFileAttachment,
+    clearFileAttachments
   };
 
   return (

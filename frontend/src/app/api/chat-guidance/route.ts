@@ -151,6 +151,11 @@ interface ChatRequest {
   participantMe?: string;
   participantThem?: string;
   smartNotes?: Array<{ category?: string; content?: string; text?: string; importance?: string }>;
+  fileAttachments?: Array<{
+    type: 'image' | 'pdf';
+    dataUrl: string;
+    filename: string;
+  }>;
   sessionOwner?: {
     id: string;
     email: string;
@@ -238,6 +243,11 @@ export async function POST(request: NextRequest) {
         content: z.string().optional(),
         text: z.string().optional(),
         importance: z.string().optional()
+      })).optional(),
+      fileAttachments: z.array(z.object({
+        type: z.enum(['image', 'pdf']),
+        dataUrl: z.string(),
+        filename: z.string()
       })).optional(),
       stage: z.enum(['opening','discovery','demo','pricing','closing','discussion']).optional(),
       isRecording: z.boolean().optional(),
@@ -342,6 +352,7 @@ export async function POST(request: NextRequest) {
       participantMe,
       participantThem,
       smartNotes,
+      fileAttachments,
       stage,
       isRecording = false,
       transcriptLength = 0,
@@ -529,7 +540,9 @@ export async function POST(request: NextRequest) {
       combinedContextLength: combinedContext.length,
       combinedContextPreview: combinedContext.substring(0, 300) + (combinedContext.length > 300 ? '...' : ''),
       hasPreviousMeetings: combinedContext.includes('PREVIOUS MEETINGS SUMMARY'),
-      enhancedTextContextLength: enhancedTextContext.length
+      enhancedTextContextLength: enhancedTextContext.length,
+      fileAttachmentsCount: fileAttachments?.length || 0,
+      fileTypes: fileAttachments?.map(f => `${f.type}: ${f.filename}`) || []
     });
 
     // Fetch personal context from database if not provided
@@ -606,7 +619,8 @@ export async function POST(request: NextRequest) {
       enhancedTextContext || undefined,
       50000, // much larger transcript limit to include full conversation
       participantMe,
-      participantThem
+      participantThem,
+      fileAttachments // Pass file attachments to buildChatMessages
     );
 
     // Use different model based on mode
@@ -737,7 +751,8 @@ export async function POST(request: NextRequest) {
           effectiveTranscript || undefined,
           sessionOwner,
           aiInstructions || undefined,
-          searchResults
+          searchResults,
+          fileAttachments
         );
 
     // Debug: Log the system prompt
@@ -764,6 +779,45 @@ export async function POST(request: NextRequest) {
       console.log('='.repeat(80));
     }
 
+    // Debug: Log the messages being sent when files are attached
+    if (fileAttachments && fileAttachments.length > 0) {
+      console.log('📎 Sending request with file attachments:', {
+        fileCount: fileAttachments.length,
+        files: fileAttachments.map(f => ({ type: f.type, filename: f.filename, hasDataUrl: !!f.dataUrl })),
+        model: defaultModel,
+        lastMessage: chatMessages[chatMessages.length - 1]
+      });
+    }
+
+    const requestBody: any = {
+      model: defaultModel,
+      messages: [
+        ...(smartNotesPrompt ? [{ role: 'system', content: smartNotesPrompt }] : []),
+        { role: 'system', content: systemPrompt },
+        ...chatMessages,
+      ],
+      temperature: 0.4,
+      max_tokens: 4000,
+      response_format: { type: 'json_object' }
+    };
+
+    // Add file-parser plugin if PDFs are attached
+    if (fileAttachments && fileAttachments.some(f => f.type === 'pdf')) {
+      requestBody.plugins = [
+        {
+          id: 'file-parser',
+          pdf: {
+            engine: 'pdf-text' // Basic text extraction
+          }
+        }
+      ];
+    }
+
+    // Log the full request body for debugging multimodal requests
+    if (fileAttachments && fileAttachments.length > 0) {
+      console.log('🚀 Full OpenRouter request body:', JSON.stringify(requestBody, null, 2));
+    }
+
     const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -772,17 +826,7 @@ export async function POST(request: NextRequest) {
         'HTTP-Referer': 'https://liveconvo.app', // Optional: for app identification
         'X-Title': 'liveprompt.ai AI Coach', // Optional: for app identification
       },
-      body: JSON.stringify({
-        model: defaultModel,
-        messages: [
-          ...(smartNotesPrompt ? [{ role: 'system', content: smartNotesPrompt }] : []),
-          { role: 'system', content: systemPrompt },
-          ...chatMessages,
-        ],
-        temperature: 0.4,
-        max_tokens: 4000,
-        response_format: { type: 'json_object' }
-      })
+      body: JSON.stringify(requestBody)
     });
 
     if (!response.ok) {
@@ -923,6 +967,11 @@ function getChatGuidanceSystemPrompt(
     similarity?: number;
     key_decisions?: Array<string | { decision?: string; text?: string; title?: string }>;
     action_items?: Array<string | { task?: string; text?: string; title?: string }>;
+  }>,
+  fileAttachments?: Array<{
+    type: 'image' | 'pdf';
+    dataUrl: string;
+    filename: string;
   }>
 ): string {
   const live = isRecording && transcriptLength > 0;
@@ -1011,10 +1060,20 @@ function getChatGuidanceSystemPrompt(
     searchResultsSection += 'Use this historical context to provide more informed and relevant advice.\n';
   }
 
+  // Build file attachments section
+  let fileAttachmentsSection = '';
+  if (fileAttachments && fileAttachments.length > 0) {
+    fileAttachmentsSection = '\n📎 ATTACHED FILES:\n';
+    fileAttachments.forEach((file, idx) => {
+      fileAttachmentsSection += `${idx + 1}. ${file.filename} (${file.type === 'image' ? 'Image' : 'PDF document'})\n`;
+    });
+    fileAttachmentsSection += 'These files have been provided by the user for additional context. Analyze them to provide more informed responses.\n';
+  }
+
   return `You are Nova, ${meLabel}'s helpful AI meeting advisor. Your job is to be genuinely useful - answer questions directly, give practical advice, and help ${meLabel} navigate their conversation with ${themLabel}.
 
 ${getCurrentDateContext()}
-${sessionOwnerSection}${aiInstructionsSection}${searchResultsSection}
+${sessionOwnerSection}${aiInstructionsSection}${searchResultsSection}${fileAttachmentsSection}
 CURRENT SITUATION: ${modeDescriptor}${meetingContextSection}
 Conversation Stage: ${stage}
 ${transcript ? `Conversation Transcript: ${transcript}` : ''}

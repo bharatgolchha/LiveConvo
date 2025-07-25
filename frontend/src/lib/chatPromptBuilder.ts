@@ -183,8 +183,13 @@ export function buildChatMessages(
   textContext?: string,
   transcriptCharLimit: number = 4000,
   participantMe?: string,
-  participantThem?: string
-): Array<{ role: 'system' | 'user' | 'assistant'; content: string }> {
+  participantThem?: string,
+  fileAttachments?: Array<{
+    type: 'image' | 'pdf';
+    dataUrl: string;
+    filename: string;
+  }>
+): Array<{ role: 'system' | 'user' | 'assistant'; content: string | Array<{ type: string; text?: string; image_url?: { url: string; detail?: string }; file?: { filename: string; file_data: string } }> }> {
   // 1. Latest 15 turns (verbatim) to provide better context
   const latestTurns = chatHistory.slice(-15).map((m) => ({
     role: m.type === 'user' ? ('user' as const) : ('assistant' as const),
@@ -232,12 +237,50 @@ export function buildChatMessages(
     ? [{ role: 'system' as const, content: `###TRANSCRIPT\n${transcriptContent}` }]
     : [];
 
-  // 4. Assemble messages
-  const messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }> = [
+  // 4. Format the final user message with file attachments
+  let finalUserMessage: { role: 'user'; content: string | Array<{ type: string; text?: string; image_url?: { url: string; detail?: string }; file?: { filename: string; file_data: string } }> };
+  
+  if (fileAttachments && fileAttachments.length > 0) {
+    // Build multimodal content array
+    const contentParts: Array<{ type: string; text?: string; image_url?: { url: string; detail?: string }; file?: { filename: string; file_data: string } }> = [
+      { type: 'text', text: userMessage }
+    ];
+    
+    // Add file attachments with correct format
+    fileAttachments.forEach(attachment => {
+      if (attachment.type === 'image') {
+        contentParts.push({
+          type: 'image_url',
+          image_url: { url: attachment.dataUrl }
+        });
+      } else if (attachment.type === 'pdf') {
+        // PDFs use the file type with file_data containing the full data URL
+        contentParts.push({
+          type: 'file',
+          file: { 
+            filename: attachment.filename,
+            file_data: attachment.dataUrl // Send the full data URL including the prefix
+          }
+        });
+      }
+    });
+    
+    finalUserMessage = { role: 'user', content: contentParts };
+    
+    console.log('🎯 Added file attachments to message:', {
+      attachmentCount: fileAttachments.length,
+      types: fileAttachments.map(a => `${a.type}: ${a.filename}`)
+    });
+  } else {
+    finalUserMessage = { role: 'user', content: userMessage };
+  }
+
+  // 5. Assemble messages
+  const messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string | Array<{ type: string; text?: string; image_url?: { url: string; detail?: string }; file?: { filename: string; file_data: string } }> }> = [
     ...contextMessage,
     ...transcriptMsg,
     ...latestTurns,
-    { role: 'user', content: userMessage },
+    finalUserMessage,
   ];
 
   return messages;
