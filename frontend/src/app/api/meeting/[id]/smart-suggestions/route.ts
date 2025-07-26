@@ -71,7 +71,8 @@ export async function POST(
       aiInstructions = null,
       stage = 'discussion',
       participantMe = 'You',
-      sessionOwner = null
+      sessionOwner = null,
+      documentContext = null
     } = await request.json();
 
     console.log('🔄 Generating smart suggestions for:', {
@@ -82,6 +83,7 @@ export async function POST(
       meetingType,
       hasSummary: !!summary,
       hasAiInstructions: !!aiInstructions,
+      hasDocumentContext: !!documentContext,
       recentMessagesCount: transcript.split('\n').filter((line: string) => line.trim()).length
     });
 
@@ -109,10 +111,16 @@ export async function POST(
       sessionOwnerContext += `\nIMPORTANT: Generate suggestions specifically tailored for ${sessionOwner.fullName || sessionOwner.email}.\n`;
     }
 
+    // Build document context
+    let documentContextSection = '';
+    if (documentContext) {
+      documentContextSection = `\n📎 DOCUMENT CONTEXT:\n${documentContext}\n\nIMPORTANT: Consider the uploaded documents when generating suggestions. Reference specific data points, metrics, or information from the documents when relevant.\n`;
+    }
+
     const systemPrompt = `You are Nova, an AI assistant that generates smart, actionable suggestions for meeting participants.
 
 ${getCurrentDateContext()}
-${sessionOwnerContext}
+${sessionOwnerContext}${documentContextSection}
 Meeting Context:
 - Type: ${meetingType}
 - Title: ${meetingTitle}
@@ -144,6 +152,7 @@ Prioritize:
 - Natural next steps based on what was just discussed
 ${aiInstructions ? '- Progress toward meeting objectives stated in the agenda' : ''}
 ${summary ? '- Action items or decisions that need clarification' : ''}
+${documentContext ? '- Insights or actions related to the uploaded documents' : ''}
 
 Return ONLY a JSON array with this format:
 [
@@ -162,9 +171,9 @@ Categories:
 - insight: Analysis of current dynamics or recent exchanges
 - question: Clarifying questions about points just raised
 
-CRITICAL: Generic suggestions will be rejected. Every suggestion must clearly relate to specific content from the recent messages.`;
+CRITICAL: Generic suggestions will be rejected. Every suggestion must clearly relate to specific content from the recent messages${documentContext ? ' or uploaded documents' : ''}.`;
 
-    const styleGuide = `\n\nSTYLE GUIDELINES:\n- Address ${participantMe} directly (use first-person suggestions, e.g., \"Alex, can you...\").\n- Be concrete and action-oriented: assign owners, timelines, deliverables.\n- ALWAYS reference specific details from the RECENT conversation (last 5-10 messages).\n- Where helpful, incorporate specific numbers, dates, or names just mentioned.\n- Keep \"text\" under 40 characters but sharp and engaging (e.g., \"Follow up on Sarah's budget concern\").\n- Ensure \"prompt\" is a full sentence that references the recent context (e.g., \"How should I address Sarah's concern about the Q3 budget allocation she just mentioned?\").\n- Avoid filler words and generic business jargon.\n- Each suggestion should feel like a natural continuation of what JUST happened.\n- Maintain the same JSON format exactly.`;
+    const styleGuide = `\n\nSTYLE GUIDELINES:\n- Address ${participantMe} directly (use first-person suggestions, e.g., \"Alex, can you...\").\n- Be concrete and action-oriented: assign owners, timelines, deliverables.\n- ALWAYS reference specific details from the RECENT conversation (last 5-10 messages).\n- Where helpful, incorporate specific numbers, dates, or names just mentioned.\n${documentContext ? '- When relevant, reference specific data from uploaded documents (e.g., "Discuss the 15% revenue growth from Q4 report").\n' : ''}- Keep \"text\" under 40 characters but sharp and engaging (e.g., \"Follow up on Sarah's budget concern\").\n- Ensure \"prompt\" is a full sentence that references the recent context (e.g., \"How should I address Sarah's concern about the Q3 budget allocation she just mentioned?\").\n- Avoid filler words and generic business jargon.\n- Each suggestion should feel like a natural continuation of what JUST happened.\n- Maintain the same JSON format exactly.`;
 
     const finalPrompt = `${systemPrompt}${styleGuide}`;
 

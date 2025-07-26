@@ -31,9 +31,9 @@ export function MinimalFileInput({
           return false;
         }
         
-        // Check file size (50MB limit)
-        if (file.size > 50 * 1024 * 1024) {
-          console.warn(`File ${file.name} is too large (max 50MB)`);
+        // Check file size (5MB limit)
+        if (file.size > 5 * 1024 * 1024) {
+          console.warn(`File ${file.name} is too large (max 5MB)`);
           return false;
         }
         

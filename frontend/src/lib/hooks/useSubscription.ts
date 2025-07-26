@@ -20,6 +20,7 @@ export interface SubscriptionData {
       hasAnalyticsDashboard: boolean;
       hasTeamCollaboration: boolean;
       hasRecordingAccess: boolean;
+      hasFileUploads: boolean;
     };
   };
   subscription: {

@@ -192,7 +192,7 @@ export function buildChatMessages(
 ): Array<{ role: 'system' | 'user' | 'assistant'; content: string | Array<{ type: string; text?: string; image_url?: { url: string; detail?: string }; file?: { filename: string; file_data: string } }> }> {
   // 1. Latest 15 turns (verbatim) to provide better context
   const latestTurns = chatHistory.slice(-15).map((m) => ({
-    role: m.type === 'user' ? ('user' as const) : ('assistant' as const),
+    role: m.type === 'user' ? ('user' as const) : m.type === 'ai' ? ('assistant' as const) : ('system' as const),
     content: m.content,
   }));
 

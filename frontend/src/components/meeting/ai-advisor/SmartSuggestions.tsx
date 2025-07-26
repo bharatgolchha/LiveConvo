@@ -44,6 +44,47 @@ export function SmartSuggestions() {
   const [loading, setLoading] = useState(false);
   const [lastUpdateLength, setLastUpdateLength] = useState(0);
   const [error, setError] = useState<string | null>(null);
+  const [documentContext, setDocumentContext] = useState<string>('');
+
+  // Load document context from chat history
+  useEffect(() => {
+    const loadDocumentContext = async () => {
+      if (!meeting?.id) return;
+      
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session?.access_token) return;
+
+        const response = await fetch(`/api/sessions/${meeting.id}/chat-history`, {
+          headers: {
+            'Authorization': `Bearer ${session.access_token}`,
+          },
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          const chatHistory = data.chatHistory;
+          
+          if (chatHistory?.messages) {
+            // Extract document context messages
+            const docContextMessages = chatHistory.messages
+              .filter((msg: any) => msg.id?.startsWith('doc-context-'))
+              .map((msg: any) => msg.content)
+              .join('\n\n');
+            
+            if (docContextMessages) {
+              setDocumentContext(docContextMessages);
+              console.log('📎 Loaded document context for suggestions:', docContextMessages);
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Failed to load document context:', error);
+      }
+    };
+
+    loadDocumentContext();
+  }, [meeting?.id]);
 
   // Generate suggestions on page load if transcript exists
   useEffect(() => {
@@ -66,6 +107,14 @@ export function SmartSuggestions() {
       setLastUpdateLength(transcript.length);
     }
   }, [transcript.length, lastUpdateLength, botStatus?.status]);
+
+  // Regenerate suggestions when document context changes
+  useEffect(() => {
+    if (documentContext && transcript.length > 0 && botStatus?.status === 'in_call') {
+      console.log('📎 Document context changed, regenerating suggestions');
+      generateSuggestions();
+    }
+  }, [documentContext]);
 
   const generateSuggestions = async () => {
     if (loading || !meeting?.id) return;
@@ -117,7 +166,8 @@ export function SmartSuggestions() {
           aiInstructions: (meeting as any)?.ai_instructions || null,
           stage: getConversationStage(),
           participantMe: meeting?.participantMe || 'You',
-          sessionOwner: meeting?.sessionOwner
+          sessionOwner: meeting?.sessionOwner,
+          documentContext: documentContext || null
         })
       });
 

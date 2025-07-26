@@ -18,6 +18,8 @@ import { useChatGuidance } from '@/lib/meeting/hooks/useChatGuidance';
 import { supabase } from '@/lib/supabase';
 import { SuggestedPrompts } from './SuggestedPrompts';
 import { MinimalFileInput, MinimalFileAttachments, FileAttachment } from '@/components/meeting/file-upload';
+import { useSubscription } from '@/lib/hooks/useSubscription';
+import { useChatPersistence } from '@/lib/meeting/hooks/useChatPersistence';
 
 interface ChatMessage {
   id: string;
@@ -40,6 +42,8 @@ export interface EnhancedAIChatRef {
 export const EnhancedAIChat = forwardRef<EnhancedAIChatRef>((props, ref) => {
   const { meeting, transcript, smartNotes, summary, linkedConversations, personalContext, fileAttachments, setFileAttachments, addFileAttachment, removeFileAttachment, clearFileAttachments } = useMeetingContext();
   const { sendMessage, loading } = useChatGuidance();
+  const { hasFeature } = useSubscription();
+  const { loadChatHistory, saveChatHistory, isSaving, isLoading: isLoadingHistory } = useChatPersistence(meeting?.id);
   const [input, setInput] = useState('');
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isTyping, setIsTyping] = useState(false);
@@ -52,8 +56,12 @@ export const EnhancedAIChat = forwardRef<EnhancedAIChatRef>((props, ref) => {
   const [isSearching, setIsSearching] = useState(false);
   const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null);
   const [isProcessingFiles, setIsProcessingFiles] = useState(false);
+  const [hasLoadedChatHistory, setHasLoadedChatHistory] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  
+  // Check if user has file upload feature
+  const canUploadFiles = hasFeature('hasFileUploads');
 
   // Auto-scroll to bottom
   const scrollToBottom = useCallback(() => {
@@ -179,12 +187,18 @@ export const EnhancedAIChat = forwardRef<EnhancedAIChatRef>((props, ref) => {
   // Clear chat function
   const clearChat = useCallback(() => {
     // Reset to welcome message only
-    setMessages([{
+    const newMessages = [{
       id: 'welcome',
-      role: 'system',
+      role: 'system' as const,
       content: "👋 Hi! I'm your AI meeting advisor. Ask me anything about the conversation, request suggestions, or get help with next steps.",
       timestamp: new Date().toISOString()
-    }]);
+    }];
+    setMessages(newMessages);
+    
+    // Save the cleared state immediately
+    if (hasLoadedChatHistory) {
+      saveChatHistory(newMessages);
+    }
     
     // Clear suggested prompts
     setSuggestedPrompts([]);
@@ -198,30 +212,49 @@ export const EnhancedAIChat = forwardRef<EnhancedAIChatRef>((props, ref) => {
     
     // Focus input
     inputRef.current?.focus();
-  }, [fetchInitialPrompts, clearFileAttachments]);
+  }, [fetchInitialPrompts, clearFileAttachments, hasLoadedChatHistory, saveChatHistory]);
 
   // Expose clear function via ref
   useImperativeHandle(ref, () => ({
     clearChat
   }), [clearChat]);
 
-  // Add welcome message on first load
+  // Load chat history when meeting loads
   useEffect(() => {
-    if (messages.length === 0) {
-      let welcomeContent = "👋 Hi! I'm your AI meeting advisor. Ask me anything about the conversation, request suggestions, or get help with next steps.";
+    const loadInitialChatHistory = async () => {
+      if (!meeting?.id || hasLoadedChatHistory) return;
       
-      if (aiInstructions) {
-        welcomeContent += "\n\n🤖 I'm following custom instructions for this meeting.";
+      const loadedMessages = await loadChatHistory();
+      if (loadedMessages.length > 0) {
+        setMessages(loadedMessages);
+        setHasLoadedChatHistory(true);
+      } else {
+        // Add welcome message only if no chat history exists
+        let welcomeContent = "👋 Hi! I'm your AI meeting advisor. Ask me anything about the conversation, request suggestions, or get help with next steps.";
+        
+        if (aiInstructions) {
+          welcomeContent += "\n\n🤖 I'm following custom instructions for this meeting.";
+        }
+        
+        setMessages([{
+          id: 'welcome',
+          role: 'system',
+          content: welcomeContent,
+          timestamp: new Date().toISOString()
+        }]);
+        setHasLoadedChatHistory(true);
       }
-      
-      setMessages([{
-        id: 'welcome',
-        role: 'system',
-        content: welcomeContent,
-        timestamp: new Date().toISOString()
-      }]);
+    };
+
+    loadInitialChatHistory();
+  }, [meeting?.id, hasLoadedChatHistory, loadChatHistory, aiInstructions]);
+
+  // Save chat history whenever messages change (debounced)
+  useEffect(() => {
+    if (messages.length > 0 && hasLoadedChatHistory) {
+      saveChatHistory(messages);
     }
-  }, [messages.length, aiInstructions]);
+  }, [messages, hasLoadedChatHistory, saveChatHistory]);
 
   // Fetch initial prompts when meeting data is available
   useEffect(() => {
@@ -393,12 +426,20 @@ export const EnhancedAIChat = forwardRef<EnhancedAIChatRef>((props, ref) => {
         authHeaders['Authorization'] = `Bearer ${session.access_token}`;
       }
 
-      // Convert messages to the format expected by the API (exclude system messages)
+      // Convert messages to the format expected by the API
+      // Include document context system messages but exclude other system messages
       const chatHistory = messages
-        .filter(msg => msg.role !== 'system')
+        .filter(msg => {
+          // Include all user and assistant messages
+          if (msg.role !== 'system') return true;
+          // Include document context system messages
+          if (msg.id.startsWith('doc-context-')) return true;
+          // Exclude other system messages (like welcome message)
+          return false;
+        })
         .map(msg => ({
           id: msg.id,
-          type: msg.role === 'user' ? 'user' : 'ai',
+          type: msg.role === 'user' ? 'user' : msg.role === 'assistant' ? 'ai' : 'system',
           content: msg.content,
           timestamp: msg.timestamp
         }));
@@ -441,9 +482,10 @@ export const EnhancedAIChat = forwardRef<EnhancedAIChatRef>((props, ref) => {
       const data = await response.json();
       console.log('AI response data:', data);
 
-      // Extract response and suggested actions
+      // Extract response, suggested actions, and document summary
       const aiResponse = data.response || data;
       const suggestedActions = data.suggestedActions || [];
+      const documentSummary = data.documentSummary;
 
       // Add AI response
       let responseContent = typeof aiResponse === 'string' ? aiResponse : aiResponse.response || 'I understand. How can I help you further?';
@@ -461,6 +503,28 @@ export const EnhancedAIChat = forwardRef<EnhancedAIChatRef>((props, ref) => {
       };
 
       setMessages(prev => [...prev, aiMessage]);
+      
+      // If files were attached, add a system message with the document summary
+      if (fileAttachments.length > 0 && documentSummary) {
+        const fileNames = fileAttachments.map(f => f.name).join(', ');
+        const documentContextMessage: ChatMessage = {
+          id: `doc-context-${Date.now()}`,
+          role: 'system',
+          content: `📎 Document${fileAttachments.length > 1 ? 's' : ''} "${fileNames}" analyzed:\n${documentSummary}\nThis context will be considered throughout this conversation.`,
+          timestamp: new Date().toISOString()
+        };
+        setMessages(prev => [...prev, documentContextMessage]);
+      } else if (fileAttachments.length > 0) {
+        // Fallback if no summary was provided
+        const fileNames = fileAttachments.map(f => f.name).join(', ');
+        const documentContextMessage: ChatMessage = {
+          id: `doc-context-${Date.now()}`,
+          role: 'system',
+          content: `📎 Document${fileAttachments.length > 1 ? 's' : ''} "${fileNames}" ${fileAttachments.length > 1 ? 'have' : 'has'} been analyzed and will be considered throughout this conversation.`,
+          timestamp: new Date().toISOString()
+        };
+        setMessages(prev => [...prev, documentContextMessage]);
+      }
       
       // Clear file attachments after successful send
       clearFileAttachments();
@@ -653,6 +717,12 @@ export const EnhancedAIChat = forwardRef<EnhancedAIChatRef>((props, ref) => {
   };
 
   const handleFileSelect = useCallback(async (files: File[]) => {
+    // Double-check subscription status
+    if (!canUploadFiles) {
+      console.warn('File upload feature requires a paid subscription');
+      return;
+    }
+    
     if (fileAttachments.length + files.length > 3) {
       const remaining = 3 - fileAttachments.length;
       files = files.slice(0, Math.max(0, remaining));
@@ -678,7 +748,7 @@ export const EnhancedAIChat = forwardRef<EnhancedAIChatRef>((props, ref) => {
     } finally {
       setIsProcessingFiles(false);
     }
-  }, [fileAttachments.length, addFileAttachment]);
+  }, [fileAttachments.length, addFileAttachment, canUploadFiles]);
 
   return (
     <div className="flex flex-col h-full">
@@ -933,7 +1003,7 @@ export const EnhancedAIChat = forwardRef<EnhancedAIChatRef>((props, ref) => {
       <div className="flex-shrink-0 p-4 border-t border-border bg-card/50">
         <form onSubmit={handleSubmit} className="space-y-2">
           {/* File attachments preview - minimal and above input */}
-          {fileAttachments.length > 0 && (
+          {canUploadFiles && fileAttachments.length > 0 && (
             <MinimalFileAttachments
               files={fileAttachments}
               onRemove={removeFileAttachment}
@@ -942,18 +1012,20 @@ export const EnhancedAIChat = forwardRef<EnhancedAIChatRef>((props, ref) => {
           
           <div className="flex gap-2">
             <div className="flex-1 relative flex items-center bg-background border border-border rounded-xl focus-within:ring-2 focus-within:ring-primary/50 focus-within:border-primary transition-all">
-              <MinimalFileInput
-                onFileSelect={handleFileSelect}
-                disabled={loading || isProcessingFiles || fileAttachments.length >= 3}
-                className="ml-2"
-              />
+              {canUploadFiles && (
+                <MinimalFileInput
+                  onFileSelect={handleFileSelect}
+                  disabled={loading || isProcessingFiles || fileAttachments.length >= 3}
+                  className="ml-2"
+                />
+              )}
               <input
                 ref={inputRef}
                 type="text"
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
-                placeholder="Ask AI anything about the meeting..."
-                className="flex-1 px-2 py-2.5 bg-transparent focus:outline-none text-sm"
+                placeholder={canUploadFiles ? "Ask AI anything about the meeting..." : "Ask AI anything... (File uploads available with Pro plan)"}
+                className={`flex-1 px-2 py-2.5 bg-transparent focus:outline-none text-sm ${!canUploadFiles ? 'pl-4' : ''}`}
                 disabled={loading}
                 maxLength={500}
               />
@@ -978,12 +1050,15 @@ export const EnhancedAIChat = forwardRef<EnhancedAIChatRef>((props, ref) => {
             </div>
           </div>
 
-          {/* Character count */}
+          {/* Character count and save status */}
           <div className="flex justify-between items-center text-xs text-muted-foreground px-1">
-            <span>
+            <span className="flex items-center gap-2">
               {transcript.length > 0
                 ? `${transcript.length} transcript lines available`
                 : 'No transcript yet'}
+              {isSaving && (
+                <span className="text-primary animate-pulse">• Saving...</span>
+              )}
             </span>
             <span className={input.length > 400 ? 'text-destructive' : ''}>
               {input.length}/500

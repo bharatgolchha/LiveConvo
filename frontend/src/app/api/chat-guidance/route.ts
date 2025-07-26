@@ -870,7 +870,8 @@ export async function POST(request: NextRequest) {
             prompt: z.string(),
             impact: z.number().min(0).max(100).optional().default(80),
           })
-        ).optional().default([])
+        ).optional().default([]),
+        documentSummary: z.string().optional()
       }).parse(parsedContent);
 
       // Check if the response field contains JSON (which it shouldn't)
@@ -1079,11 +1080,12 @@ Conversation Stage: ${stage}
 ${transcript ? `Conversation Transcript: ${transcript}` : ''}
 
 YOUR RESPONSE FORMAT:
-You must ALWAYS respond with a JSON object containing two fields:
+You must ALWAYS respond with a JSON object containing these fields:
 1. "response": Your helpful answer to the user's question (string)
 2. "suggestedActions": An array of 3 contextual actions the user can take next
+3. "documentSummary": (ONLY if files are attached) A concise summary of key information extracted from the attached documents
 
-Example format:
+Example format WITHOUT files:
 {
   "response": "Based on the transcript, ${themLabel} seems concerned about pricing. I'd suggest addressing their budget constraints directly and offering flexible payment options.",
   "suggestedActions": [
@@ -1092,6 +1094,24 @@ Example format:
     {"text": "🎯 Offer options", "prompt": "What flexible pricing options can I present?", "impact": 80}
   ]
 }
+
+Example format WITH files:
+{
+  "response": "I've analyzed the contract you uploaded. The key terms include a 3-year commitment at $50,000 annually with auto-renewal. There's a 30-day termination clause that requires written notice.",
+  "suggestedActions": [
+    {"text": "📝 Review terms", "prompt": "What are the most important contract terms I should negotiate?", "impact": 90},
+    {"text": "⚖️ Legal concerns", "prompt": "Are there any red flags in this contract I should be aware of?", "impact": 85},
+    {"text": "💰 Pricing options", "prompt": "How can I negotiate better pricing terms?", "impact": 80}
+  ],
+  "documentSummary": "Contract type: SaaS Agreement | Duration: 3 years | Value: $150k total | Key terms: Auto-renewal, 30-day termination notice, usage-based pricing tiers | Important dates: Start date Jan 1, 2025, First renewal Dec 31, 2027"
+}
+
+DOCUMENT SUMMARY GUIDELINES (when files are attached):
+- Extract and summarize the most important information from the document
+- Focus on: key data points, important dates, monetary values, names, critical terms
+- Format: "Type: [doc type] | [Key fact 1] | [Key fact 2] | [Key fact 3]..."
+- Keep it under 150 characters for easy display
+- Make it scannable and useful for future reference
 
 RESPONSE GUIDELINES:
 - Be concise and focused - provide enough detail to be helpful without being verbose
@@ -1508,9 +1528,12 @@ YOUR CAPABILITIES:
 - Provide meeting summaries and key takeaways
 
 YOUR RESPONSE FORMAT:
-You must respond with a JSON object. The "response" field should contain ONLY your natural language answer to the user, NOT another JSON object.
+You must respond with a JSON object containing these fields:
+1. "response": Your natural language answer (string, NOT JSON)
+2. "suggestedActions": Array of 3 contextual actions
+3. "documentSummary": (ONLY if files are attached) Concise summary of attached documents
 
-CORRECT Example:
+CORRECT Example WITHOUT files:
 {
   "response": "You have 5 pending action items from this week's meetings. The highest priority is 'Update pricing proposal' from Tuesday's sales meeting, due tomorrow.",
   "suggestedActions": [
@@ -1520,11 +1543,28 @@ CORRECT Example:
   ]
 }
 
+CORRECT Example WITH files:
+{
+  "response": "I've reviewed your quarterly report. Revenue is up 15% YoY at $2.5M, with Enterprise segment leading growth. The main concern is APAC market penetration at only 5% of target.",
+  "suggestedActions": [
+    {"text": "🌏 APAC strategy", "prompt": "What strategies can we implement to improve APAC market penetration?", "impact": 95},
+    {"text": "🏢 Enterprise insights", "prompt": "Show me detailed breakdown of Enterprise segment performance", "impact": 85},
+    {"text": "📈 Growth drivers", "prompt": "What are the key factors driving our 15% revenue growth?", "impact": 80}
+  ],
+  "documentSummary": "Type: Q4 Report | Revenue: $2.5M (+15%) | Top: Enterprise segment | Concern: APAC at 5% of target | Next: Board review Jan 15"
+}
+
 WRONG Example (DO NOT DO THIS):
 {
   "response": "{\"response\": \"Your answer here\", \"suggestedActions\": [...]}",
   "suggestedActions": [...]
 }
+
+DOCUMENT SUMMARY GUIDELINES (when files are attached):
+- Extract key information: type, metrics, dates, names, critical findings
+- Format: "Type: [doc type] | [Key fact 1] | [Key fact 2] | [Key fact 3]..."
+- Keep under 150 characters for display
+- Focus on actionable insights
 
 RESPONSE GUIDELINES for the "response" field:
 - Write natural, conversational text
