@@ -1,0 +1,63 @@
+{
+  "manifest_version": 3,
+  "name": "LivePrompt AI Meeting Assistant",
+  "version": "1.0.0",
+  "description": "Real-time AI conversation coaching for your meetings",
+  "permissions": [
+    "storage",
+    "activeTab",
+    "scripting",
+    "cookies"
+  ],
+  "host_permissions": [
+    "https://meet.google.com/*",
+    "https://teams.microsoft.com/*",
+    "https://teams.live.com/*",
+    "https://*.zoom.us/*",
+    "http://localhost:3000/*",
+    "https://*.liveprompt.ai/*"
+  ],
+  "background": {
+    "service_worker": "background/service-worker.js"
+  },
+  "action": {
+    "default_popup": "popup/popup.html",
+    "default_icon": {
+      "16": "assets/icons/icon-16.png",
+      "48": "assets/icons/icon-48.png",
+      "128": "assets/icons/icon-128.png"
+    }
+  },
+  "icons": {
+    "16": "assets/icons/icon-16.png",
+    "48": "assets/icons/icon-48.png",
+    "128": "assets/icons/icon-128.png"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://meet.google.com/*"],
+      "js": ["content-scripts/meet-injector.js"],
+      "css": ["assets/styles/floating-widget.css"]
+    },
+    {
+      "matches": ["https://teams.microsoft.com/*", "https://teams.live.com/*"],
+      "js": ["content-scripts/teams-injector.js"],
+      "css": ["assets/styles/floating-widget.css"]
+    },
+    {
+      "matches": ["https://*.zoom.us/*"],
+      "js": ["content-scripts/zoom-injector.js"],
+      "css": ["assets/styles/floating-widget.css"]
+    },
+    {
+      "matches": ["http://localhost:3000/*", "https://liveprompt.ai/*", "https://*.liveprompt.ai/*"],
+      "js": ["content-scripts/web-session.js"]
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": ["assets/icons/*", "components/*"],
+      "matches": ["<all_urls>"]
+    }
+  ]
+}
