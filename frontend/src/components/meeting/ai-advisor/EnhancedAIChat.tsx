@@ -384,6 +384,8 @@ export const EnhancedAIChat = forwardRef<EnhancedAIChatRef>((props, ref) => {
       setInput('');
     }
     
+    // Note: Files are now processed immediately upon selection in handleFileSelect
+    
     // Check if message might trigger a search
     const searchKeywords = ['search', 'find', 'show me', 'tell me about', 'what about', 'meeting', 'conversation', 'previous', 'earlier', 'history'];
     const mightTriggerSearch = searchKeywords.some(keyword => messageToSend.toLowerCase().includes(keyword));
@@ -504,30 +506,12 @@ export const EnhancedAIChat = forwardRef<EnhancedAIChatRef>((props, ref) => {
 
       setMessages(prev => [...prev, aiMessage]);
       
-      // If files were attached, add a system message with the document summary
-      if (fileAttachments.length > 0 && documentSummary) {
-        const fileNames = fileAttachments.map(f => f.name).join(', ');
-        const documentContextMessage: ChatMessage = {
-          id: `doc-context-${Date.now()}`,
-          role: 'system',
-          content: `📎 Document${fileAttachments.length > 1 ? 's' : ''} "${fileNames}" analyzed:\n${documentSummary}\nThis context will be considered throughout this conversation.`,
-          timestamp: new Date().toISOString()
-        };
-        setMessages(prev => [...prev, documentContextMessage]);
-      } else if (fileAttachments.length > 0) {
-        // Fallback if no summary was provided
-        const fileNames = fileAttachments.map(f => f.name).join(', ');
-        const documentContextMessage: ChatMessage = {
-          id: `doc-context-${Date.now()}`,
-          role: 'system',
-          content: `📎 Document${fileAttachments.length > 1 ? 's' : ''} "${fileNames}" ${fileAttachments.length > 1 ? 'have' : 'has'} been analyzed and will be considered throughout this conversation.`,
-          timestamp: new Date().toISOString()
-        };
-        setMessages(prev => [...prev, documentContextMessage]);
-      }
+      // Document summaries are now handled in processDocumentsWithAI
       
       // Clear file attachments after successful send
-      clearFileAttachments();
+      if (fileAttachments.length > 0) {
+        clearFileAttachments();
+      }
       
       // Update suggested prompts
       if (suggestedActions.length > 0) {
@@ -716,6 +700,99 @@ export const EnhancedAIChat = forwardRef<EnhancedAIChatRef>((props, ref) => {
     });
   };
 
+  // Process documents immediately with AI to generate summaries
+  const processDocumentsWithAI = useCallback(async (attachments: FileAttachment[]) => {
+    if (attachments.length === 0 || !meeting?.id) return;
+    
+    // Add processing message
+    const fileNames = attachments.map(f => f.name).join(', ');
+    const processingMessage: ChatMessage = {
+      id: `doc-processing-${Date.now()}`,
+      role: 'system',
+      content: `📎 Processing document${attachments.length > 1 ? 's' : ''} "${fileNames}"...`,
+      timestamp: new Date().toISOString()
+    };
+    setMessages(prev => [...prev, processingMessage]);
+    
+    try {
+      // Get auth token
+      const { data: { session } } = await supabase.auth.getSession();
+      const authHeaders: Record<string, string> = {
+        'Content-Type': 'application/json'
+      };
+      
+      if (session?.access_token) {
+        authHeaders['Authorization'] = `Bearer ${session.access_token}`;
+      }
+      
+      // Send request to process documents
+      const response = await fetch('/api/chat-guidance', {
+        method: 'POST',
+        headers: authHeaders,
+        body: JSON.stringify({
+          message: 'Please analyze the uploaded document(s) and provide a brief summary of the key information.',
+          sessionId: meeting?.id,
+          conversationType: meeting?.type || 'meeting',
+          conversationTitle: meeting?.title,
+          textContext: meeting?.context,
+          meetingUrl: meeting?.meetingUrl,
+          transcript: '', // No transcript needed for document analysis
+          transcriptLength: 0,
+          chatHistory: [],
+          smartNotes: [],
+          isRecording: true,
+          sessionOwner: meeting?.sessionOwner,
+          fileAttachments: attachments.map(file => ({
+            type: file.type.startsWith('image/') ? 'image' : 'pdf',
+            dataUrl: file.dataUrl || '',
+            filename: file.name
+          })),
+          skipResponse: false // We want the AI to analyze and respond
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to process documents');
+      }
+
+      const data = await response.json();
+      const documentSummary = data.documentSummary || data.response;
+      
+      if (documentSummary) {
+        // Update the processing message with the actual summary
+        setMessages(prev => {
+          const updatedMessages = prev.map(msg => {
+            if (msg.id === processingMessage.id) {
+              return {
+                ...msg,
+                id: `doc-context-${Date.now()}`,
+                content: `📎 Document${attachments.length > 1 ? 's' : ''} "${fileNames}" analyzed:\n${documentSummary}\nThis context will be considered throughout this conversation.`
+              };
+            }
+            return msg;
+          });
+          return updatedMessages;
+        });
+      }
+    } catch (error) {
+      console.error('Error processing documents:', error);
+      // Update the processing message to show error
+      setMessages(prev => {
+        const updatedMessages = prev.map(msg => {
+          if (msg.id === processingMessage.id) {
+            return {
+              ...msg,
+              content: `📎 Error processing document${attachments.length > 1 ? 's' : ''} "${fileNames}". The document(s) will still be available for the conversation.`,
+              isError: true
+            };
+          }
+          return msg;
+        });
+        return updatedMessages;
+      });
+    }
+  }, [meeting]);
+
   const handleFileSelect = useCallback(async (files: File[]) => {
     // Double-check subscription status
     if (!canUploadFiles) {
@@ -745,10 +822,13 @@ export const EnhancedAIChat = forwardRef<EnhancedAIChatRef>((props, ref) => {
       processedFiles.forEach(file => {
         addFileAttachment(file);
       });
+      
+      // Immediately process documents with AI to generate summaries
+      await processDocumentsWithAI(processedFiles);
     } finally {
       setIsProcessingFiles(false);
     }
-  }, [fileAttachments.length, addFileAttachment, canUploadFiles]);
+  }, [fileAttachments.length, addFileAttachment, canUploadFiles, processDocumentsWithAI]);
 
   return (
     <div className="flex flex-col h-full">

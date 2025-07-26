@@ -1107,11 +1107,13 @@ Example format WITH files:
 }
 
 DOCUMENT SUMMARY GUIDELINES (when files are attached):
-- Extract and summarize the most important information from the document
+- ALWAYS generate a documentSummary when files are attached, even if the user just says "uploaded" or similar
+- Extract and summarize the most important information from the document IMMEDIATELY
 - Focus on: key data points, important dates, monetary values, names, critical terms
 - Format: "Type: [doc type] | [Key fact 1] | [Key fact 2] | [Key fact 3]..."
 - Keep it under 150 characters for easy display
 - Make it scannable and useful for future reference
+- The summary should capture the essence of the document for use in future suggestions
 
 RESPONSE GUIDELINES:
 - Be concise and focused - provide enough detail to be helpful without being verbose
@@ -1561,10 +1563,11 @@ WRONG Example (DO NOT DO THIS):
 }
 
 DOCUMENT SUMMARY GUIDELINES (when files are attached):
+- ALWAYS generate a documentSummary when files are attached
 - Extract key information: type, metrics, dates, names, critical findings
 - Format: "Type: [doc type] | [Key fact 1] | [Key fact 2] | [Key fact 3]..."
 - Keep under 150 characters for display
-- Focus on actionable insights
+- Focus on actionable insights that can be referenced in future suggestions
 
 RESPONSE GUIDELINES for the "response" field:
 - Write natural, conversational text

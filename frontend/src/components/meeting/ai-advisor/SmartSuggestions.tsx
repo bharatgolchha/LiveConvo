@@ -46,7 +46,7 @@ export function SmartSuggestions() {
   const [error, setError] = useState<string | null>(null);
   const [documentContext, setDocumentContext] = useState<string>('');
 
-  // Load document context from chat history
+  // Load document context from chat history and poll for updates
   useEffect(() => {
     const loadDocumentContext = async () => {
       if (!meeting?.id) return;
@@ -66,15 +66,15 @@ export function SmartSuggestions() {
           const chatHistory = data.chatHistory;
           
           if (chatHistory?.messages) {
-            // Extract document context messages
+            // Extract document context messages (including processing messages)
             const docContextMessages = chatHistory.messages
-              .filter((msg: any) => msg.id?.startsWith('doc-context-'))
+              .filter((msg: any) => msg.id?.startsWith('doc-context-') || msg.id?.startsWith('doc-processing-'))
               .map((msg: any) => msg.content)
               .join('\n\n');
             
-            if (docContextMessages) {
+            if (docContextMessages && docContextMessages !== documentContext) {
               setDocumentContext(docContextMessages);
-              console.log('📎 Loaded document context for suggestions:', docContextMessages);
+              console.log('📎 Loaded/Updated document context for suggestions:', docContextMessages);
             }
           }
         }
@@ -83,8 +83,19 @@ export function SmartSuggestions() {
       }
     };
 
+    // Initial load
     loadDocumentContext();
-  }, [meeting?.id]);
+    
+    // Poll for updates every 5 seconds when in call
+    let interval: NodeJS.Timeout;
+    if (botStatus?.status === 'in_call') {
+      interval = setInterval(loadDocumentContext, 5000);
+    }
+    
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [meeting?.id, botStatus?.status]);
 
   // Generate suggestions on page load if transcript exists
   useEffect(() => {
