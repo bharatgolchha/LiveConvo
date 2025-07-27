@@ -384,16 +384,31 @@ main::-webkit-scrollbar-thumb:hover {
 }
 
 .meeting-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: start;
   margin-bottom: 8px;
+}
+
+.meeting-title-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.platform-logo {
+  width: 20px;
+  height: 20px;
+  object-fit: contain;
+  flex-shrink: 0;
 }
 
 .meeting-title {
   font-size: 13px;
   font-weight: 600;
   color: hsl(158, 45%, 91%); /* text-primary #E9F6F0 */
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .meeting-platform {

@@ -245,23 +245,45 @@ function renderMeetings() {
     `;
     return;
   }
-  meetingsList.innerHTML = meetings.map(meeting => `
-     <div class="meeting-card" data-meeting-id="${meeting.id}">
-       <div class="meeting-header">
-         <h3 class="meeting-title">${escapeHtml(meeting.title || 'Untitled')}</h3>
-       </div>
-       <div class="meeting-actions">
-         ${meeting.url ? `
-           <button class="secondary-btn open-meeting" data-url="${meeting.url}">
-             Join Meeting
-           </button>
-         ` : ''}
-         <button class="primary-btn start-session" data-meeting-id="${meeting.id}">
-           Start LivePrompt
-         </button>
-       </div>
-     </div>
-   `).join('');
+  
+  // Sort meetings by start time
+  const sortedMeetings = [...meetings].sort((a, b) => {
+    const timeA = a.start_time ? new Date(a.start_time).getTime() : 0;
+    const timeB = b.start_time ? new Date(b.start_time).getTime() : 0;
+    return timeA - timeB;
+  });
+  
+  meetingsList.innerHTML = sortedMeetings.map(meeting => {
+    const platform = detectPlatform(meeting.url || '');
+    const platformLogo = getPlatformLogo(platform);
+    const meetingTime = meeting.start_time ? formatMeetingTime(meeting.start_time) : '';
+    
+    return `
+      <div class="meeting-card" data-meeting-id="${meeting.id}">
+        <div class="meeting-header">
+          <div class="meeting-title-row">
+            ${platformLogo}
+            <h3 class="meeting-title">${escapeHtml(meeting.title || 'Untitled')}</h3>
+          </div>
+          ${meeting.start_time ? `
+            <div class="meeting-time">
+              ${meetingTime}
+            </div>
+          ` : ''}
+        </div>
+        <div class="meeting-actions">
+          ${meeting.url ? `
+            <button class="secondary-btn open-meeting" data-url="${meeting.url}">
+              Join Meeting
+            </button>
+          ` : ''}
+          <button class="primary-btn start-session" data-meeting-id="${meeting.id}">
+            Start LivePrompt
+          </button>
+        </div>
+      </div>
+    `;
+  }).join('');
 }
 
 function renderSessions() {
@@ -533,6 +555,32 @@ function escapeHtml(text) {
   const div = document.createElement('div');
   div.textContent = text;
   return div.innerHTML;
+}
+
+function detectPlatform(url) {
+  if (!url) return null;
+  if (url.includes('zoom.us') || url.includes('zoom.com')) return 'zoom';
+  if (url.includes('meet.google.com')) return 'google_meet';
+  if (url.includes('teams.microsoft.com')) return 'teams';
+  return null;
+}
+
+function getPlatformLogo(platform) {
+  if (!platform) return '';
+  
+  const logos = {
+    zoom: 'images/platforms/zoom.png',
+    google_meet: 'images/platforms/meet.png',
+    teams: 'images/platforms/teams.png'
+  };
+  
+  const names = {
+    zoom: 'Zoom',
+    google_meet: 'Google Meet',
+    teams: 'Microsoft Teams'
+  };
+  
+  return `<img src="${logos[platform]}" alt="${names[platform]}" class="platform-logo" />`;
 }
 
 function formatMeetingTime(dateString) {
