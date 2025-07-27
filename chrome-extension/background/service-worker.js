@@ -119,7 +119,12 @@ async function checkAndRefreshToken() {
   const expiresIn5Min = tokenExpiresAt ? tokenExpiresAt - 5 * 60 * 1000 : 0;
   
   if (!tokenExpiresAt || now >= expiresIn5Min) {
-    console.log('LivePrompt: Token expired or expiring soon, refreshing...');
+    console.log('LivePrompt: Token expired or expiring soon, attempting web-session sync before refresh...');
+    if (await refreshWebSession()) {
+      console.log('LivePrompt: Token refreshed via web-session sync');
+      return true;
+    }
+    // If that didn't work fall back to refresh token flow
     return await refreshAccessToken();
   }
 
