@@ -7,9 +7,17 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    // Get auth token from request headers
+    // Get auth token. Primary source: `Authorization` header.
+    // Chrome-extension background fetches sometimes lose the Authorization header
+    // due to host/CORS restrictions. Accept token via `token` URL param so the
+    // extension can still authenticate safely (mirrors /api/sessions logic).
     const authHeader = req.headers.get('authorization');
-    const token = authHeader?.split(' ')[1];
+    let token = authHeader?.split(' ')[1] || null;
+
+    // Fallback: pull from query param
+    if (!token) {
+      token = req.nextUrl.searchParams.get('token');
+    }
 
     if (!token) {
       return NextResponse.json(
