@@ -1,7 +1,7 @@
 class LivePromptAPI {
   constructor(token) {
     this.token = token;
-    this.baseURL = 'http://localhost:3000/api'; // Change to https://liveprompt.ai/api for production
+    this.baseURL = 'https://liveprompt.ai/api';
   }
 
   async request(endpoint, options = {}) {

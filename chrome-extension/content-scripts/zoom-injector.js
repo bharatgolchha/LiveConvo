@@ -265,7 +265,7 @@ function updateWidgetState(isActive) {
     document.getElementById('liveprompt-open-session').style.display = 'flex';
     const linkEl = document.getElementById('liveprompt-open-session');
     if (isActive) {
-      const base = location.origin.startsWith('http://localhost') ? 'http://localhost:3000' : 'https://liveprompt.ai';
+      const base = 'https://liveprompt.ai';
       linkEl.href = `${base}/meeting/${activeSession.id}`;
     }
   } else {

@@ -7,11 +7,6 @@ let frontendBase = 'https://liveprompt.ai'; // Production URL
 
 // Initialize popup
 document.addEventListener('DOMContentLoaded', () => {
-  // Determine base URL (localhost vs production)
-  chrome.runtime.sendMessage({ type: 'GET_BASE_URL' }, (resp) => {
-    if (resp?.baseUrl) frontendBase = resp.baseUrl;
-  });
-
   checkAuthStatus();
   setupEventListeners();
 
@@ -44,10 +39,7 @@ function setupEventListeners() {
   document.getElementById('logout-btn').addEventListener('click', handleLogout);
   // Google sign-in
   document.getElementById('google-signin-btn').addEventListener('click', () => {
-    chrome.runtime.sendMessage({ type: 'GET_BASE_URL' }, (resp) => {
-      const base = resp?.baseUrl || 'https://www.liveprompt.ai';
-      chrome.tabs.create({ url: `${base}/auth/login` });
-    });
+    chrome.tabs.create({ url: `${frontendBase}/auth/login` });
   });
   
   // Add meeting
@@ -90,7 +82,7 @@ async function checkAuthStatus() {
 
 async function checkWebSession() {
   try {
-    const response = await fetch('http://localhost:3000/api/auth/check-session', {
+    const response = await fetch(`${frontendBase}/api/auth/check-session`, {
       method: 'GET',
       credentials: 'include',
       headers: {

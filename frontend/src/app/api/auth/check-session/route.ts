@@ -29,19 +29,10 @@ export async function GET(request: NextRequest) {
       }
     }
     
-    // Try to get session from cookies (for web users)
-    const cookieStore = await cookies();
-    const supabaseCookie = cookieStore.get('sb-ucvfgfbjcrxbzppwjpuu-auth-token-code-verifier');
-    
-    if (!supabaseCookie) {
-      return NextResponse.json(
-        { authenticated: false },
-        { status: 401 }
-      );
-    }
-
+    // For web-based auth, we can't access cookies from extensions
+    // The extension should use the web-session.js content script to get the token
     return NextResponse.json(
-      { authenticated: false, message: 'Cookie-based auth not supported for extensions' },
+      { authenticated: false, message: 'Please use web session sync or direct login' },
       { status: 401 }
     );
 
