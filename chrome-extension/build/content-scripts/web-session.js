@@ -13,6 +13,7 @@
     const parsed = JSON.parse(raw);
     const session = parsed.currentSession || parsed;
     const accessToken = session.access_token;
+    const refreshToken = session.refresh_token;
     const user = session.user;
 
     if (!accessToken || !user) return;
@@ -20,6 +21,7 @@
     safeSendMessage({
       type: 'WEB_SESSION_TOKEN',
       token: accessToken,
+      refreshToken,
       user: {
         id: user.id,
         email: user.email
@@ -55,6 +57,7 @@ function safeSendMessage(message) {
 //  simple and avoids coupling to the page's JavaScript.
 
 let lastAccessToken = null;
+let lastRefreshToken = null;
 
 function extractSession() {
   try {
@@ -70,11 +73,12 @@ function extractSession() {
     const parsed = JSON.parse(raw);
     const session = parsed.currentSession || parsed;
     const accessToken = session.access_token;
+    const refreshToken = session.refresh_token;
     const user = session.user;
 
     if (!accessToken || !user) return null;
 
-    return { accessToken, user };
+    return { accessToken, refreshToken, user };
   } catch {
     return null; // Ignore JSON parse errors or other issues
   }
@@ -84,6 +88,7 @@ function sendTokenMessage(session) {
   safeSendMessage({
     type: 'WEB_SESSION_TOKEN',
     token: session.accessToken,
+    refreshToken: session.refreshToken,
     user: {
       id: session.user.id,
       email: session.user.email,
@@ -100,19 +105,25 @@ const initialSession = extractSession();
 if (initialSession) {
   sendTokenMessage(initialSession);
   lastAccessToken = initialSession.accessToken;
+  lastRefreshToken = initialSession.refreshToken;
 }
 
 // Poll every 1.5 seconds for changes created in the same tab
 setInterval(() => {
   const current = extractSession();
 
-  if (current && current.accessToken !== lastAccessToken) {
+  if (
+    current &&
+    (current.accessToken !== lastAccessToken || current.refreshToken !== lastRefreshToken)
+  ) {
     // New login or token refresh
     sendTokenMessage(current);
     lastAccessToken = current.accessToken;
+    lastRefreshToken = current.refreshToken;
   } else if (!current && lastAccessToken) {
     // User logged out in this tab – notify background
     sendLogoutMessage();
     lastAccessToken = null;
+    lastRefreshToken = null;
   }
 }, 1500); 

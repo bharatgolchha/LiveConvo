@@ -22,8 +22,9 @@ chrome.runtime.onStartup.addListener(() => {
 });
 
 async function loadAuthToken() {
-  const result = await chrome.storage.local.get(['authToken']);
+  const result = await chrome.storage.local.get(["authToken", "refreshToken"]);
   authToken = result.authToken;
+  refreshToken = result.refreshToken;
   console.log('LivePrompt: Loaded auth token from storage:', authToken ? authToken.substring(0, 20) + '...' : 'null');
   
   // If no stored token, check if user is logged in via web
@@ -370,12 +371,13 @@ async function deleteMeeting(id) {
 }
 
 async function handleWebSessionToken(msg) {
-  const { token, user } = msg;
+  const { token, refreshToken: newRefreshToken, user } = msg;
   console.log('LivePrompt: Received web session token:', token ? token.substring(0, 20) + '...' : 'null', 'for user:', user?.email);
   if (!token || !user) return { success: false };
 
   authToken = token;
-  await chrome.storage.local.set({ authToken: token, userId: user.id, userEmail: user.email });
+  refreshToken = newRefreshToken || refreshToken;
+  await chrome.storage.local.set({ authToken: token, refreshToken: refreshToken, userId: user.id, userEmail: user.email });
 
   console.log('LivePrompt: Synced session from web login');
 
