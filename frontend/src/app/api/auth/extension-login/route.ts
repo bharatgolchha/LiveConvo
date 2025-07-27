@@ -54,6 +54,7 @@ export async function POST(request: NextRequest) {
     // Return the session token and user info
     return NextResponse.json({
       token: data.session.access_token,
+      refresh_token: data.session.refresh_token,
       user: {
         id: data.user.id,
         email: data.user.email,

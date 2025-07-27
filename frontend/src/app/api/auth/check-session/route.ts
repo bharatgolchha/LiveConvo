@@ -40,12 +40,15 @@ export async function GET(request: NextRequest) {
 
     const cookieStore = cookies();
     let accessToken: string | undefined;
+    let refreshToken: string | undefined;
 
-    // Supabase cookie names look like: sb-<project>-access-token
+    // Supabase cookie names look like: sb-<project>-access-token and sb-<project>-refresh-token
     const allCookies: any[] = (cookieStore as any).getAll ? (cookieStore as any).getAll() : [];
     allCookies.forEach((c) => {
       if (c.name?.endsWith('access-token')) {
         accessToken = c.value;
+      } else if (c.name?.endsWith('refresh-token')) {
+        refreshToken = c.value;
       }
     });
 
@@ -60,6 +63,7 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({
           authenticated: true,
           token: accessToken,
+          refresh_token: refreshToken,
           user: { id: user.id, email: user.email }
         });
       }
