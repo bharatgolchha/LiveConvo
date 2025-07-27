@@ -1,3 +1,5 @@
+// Content script to sync Supabase session with extension background
+
 // Extract Supabase session from localStorage and notify extension background
 (function sendSupabaseSession() {
   try {

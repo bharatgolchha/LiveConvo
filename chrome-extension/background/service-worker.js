@@ -306,6 +306,10 @@ async function endSession(sessionId) {
 }
 
 async function getMeetings() {
+  if (!(await ensureAuthToken())) {
+    return { meetings: [] };
+  }
+
   // 1. Try to fetch upcoming meetings from the backend (calendar events)
   if (authToken) {
     try {
@@ -329,6 +333,7 @@ async function getMeetings() {
       }
     } catch (err) {
       console.error('Failed fetching calendar events:', err);
+      // Continue to fallback
     }
   }
 
