@@ -18,13 +18,17 @@ async function ensureAuthToken() {
   return !!authToken;
 }
 
-chrome.runtime.onInstalled.addListener(() => {
+chrome.runtime.onInstalled.addListener(async () => {
   console.log('LivePrompt Extension installed');
+  // Fetch Supabase config first (no auth required)
+  await fetchSupabaseConfig();
   loadAuthToken();
   setupAuthRefreshAlarm();
 });
 
-chrome.runtime.onStartup.addListener(() => {
+chrome.runtime.onStartup.addListener(async () => {
+  // Fetch Supabase config first (no auth required)
+  await fetchSupabaseConfig();
   loadAuthToken();
   setupAuthRefreshAlarm();
 });
@@ -73,14 +77,9 @@ async function loadAuthToken() {
 
 // Fetch Supabase configuration from API
 async function fetchSupabaseConfig() {
-  if (!authToken) return false;
-  
   try {
-    const response = await fetch(`${API_BASE_URL}/auth/extension-config`, {
-      headers: {
-        'Authorization': `Bearer ${authToken}`
-      }
-    });
+    // No auth required - endpoint returns public keys
+    const response = await fetch(`${API_BASE_URL}/auth/extension-config`);
     
     if (response.ok) {
       const config = await response.json();
@@ -688,7 +687,10 @@ async function refreshAccessToken() {
   // Ensure we have Supabase config
   if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
     console.log('LivePrompt: No Supabase config, fetching...');
-    if (!await fetchSupabaseConfig()) {
+    // This should always succeed now since config endpoint is public
+    await fetchSupabaseConfig();
+    
+    if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
       console.error('LivePrompt: Cannot refresh token without Supabase config');
       return false;
     }

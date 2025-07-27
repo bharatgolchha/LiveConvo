@@ -15,7 +15,6 @@
     "https://teams.microsoft.com/*",
     "https://teams.live.com/*",
     "https://*.zoom.us/*",
-    "http://localhost:3000/*",
     "https://*.liveprompt.ai/*"
   ],
   "background": {
@@ -51,7 +50,7 @@
       "css": ["assets/styles/floating-widget.css"]
     },
     {
-      "matches": ["http://localhost:3000/*", "https://liveprompt.ai/*", "https://*.liveprompt.ai/*"],
+      "matches": ["https://liveprompt.ai/*", "https://*.liveprompt.ai/*"],
       "js": ["content-scripts/web-session.js"]
     }
   ],
