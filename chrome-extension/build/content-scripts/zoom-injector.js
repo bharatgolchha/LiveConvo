@@ -1,4 +1,4 @@
-console.log('LivePrompt: Google Meet content script loaded');
+console.log('LivePrompt: Zoom content script loaded');
 
 let widgetInjected = false;
 let activeSession = null;
@@ -6,15 +6,21 @@ let widget = null;
 let menu = null;
 let isMenuOpen = false;
 
-// Wait for Meet to fully load
-function waitForMeetReady() {
+// Wait for Zoom to fully load
+function waitForZoomReady() {
   const checkInterval = setInterval(() => {
-    // Check if we're in an active meeting (not in lobby)
-    const meetingContainer = document.querySelector('[data-meeting-title]') || 
-                           document.querySelector('[data-participant-id]') ||
-                           document.querySelector('[data-self-name]');
+    // Check if we're in an active Zoom meeting
+    const meetingIndicators = [
+      document.querySelector('#wc-container-left'),
+      document.querySelector('.meeting-client'),
+      document.querySelector('[class*="meeting-info"]'),
+      document.querySelector('.footer__btns-container'),
+      document.querySelector('[class*="zmwebclient"]')
+    ];
     
-    if (meetingContainer && !widgetInjected) {
+    const inMeeting = meetingIndicators.some(indicator => indicator !== null);
+    
+    if (inMeeting && !widgetInjected) {
       clearInterval(checkInterval);
       injectWidget();
       extractMeetingInfo();
@@ -24,7 +30,7 @@ function waitForMeetReady() {
 
 function extractMeetingInfo() {
   const meetingInfo = {
-    platform: 'meet',
+    platform: 'zoom',
     url: window.location.href,
     meetingId: extractMeetingId(),
     title: extractMeetingTitle()
@@ -35,38 +41,67 @@ function extractMeetingInfo() {
 }
 
 function extractMeetingId() {
-  // Extract meeting ID from URL (format: meet.google.com/xxx-xxxx-xxx)
-  const match = window.location.pathname.match(/\/([a-z]{3}-[a-z]{4}-[a-z]{3})/);
-  return match ? match[1] : null;
+  // Extract meeting ID from URL
+  const urlMatch = window.location.pathname.match(/\/wc\/(\d+)/);
+  if (urlMatch) {
+    return urlMatch[1];
+  }
+  
+  // Try to get from URL parameters
+  const urlParams = new URLSearchParams(window.location.search);
+  const confno = urlParams.get('confno');
+  if (confno) {
+    return confno;
+  }
+  
+  // Try to extract from page elements
+  const meetingInfoElement = document.querySelector('[class*="meeting-info"]');
+  if (meetingInfoElement) {
+    const textContent = meetingInfoElement.textContent;
+    const idMatch = textContent.match(/\d{9,11}/);
+    if (idMatch) {
+      return idMatch[0];
+    }
+  }
+  
+  return 'zoom-' + Date.now();
 }
 
 function extractMeetingTitle() {
-  // Try to get meeting title from various sources
-  const titleElement = document.querySelector('[data-meeting-title]');
-  if (titleElement) {
-    return titleElement.getAttribute('data-meeting-title');
+  // Try to get meeting topic from various sources
+  const titleSelectors = [
+    '.meeting-topic',
+    '[class*="meeting-title"]',
+    '.meeting-info__content',
+    '[aria-label*="Topic"]'
+  ];
+  
+  for (const selector of titleSelectors) {
+    const element = document.querySelector(selector);
+    if (element && element.textContent) {
+      return element.textContent.trim();
+    }
   }
   
-  // Fallback: try to get from page title
+  // Try to get from page title
   const pageTitle = document.title;
-  if (pageTitle && pageTitle !== 'Meet') {
-    return pageTitle.replace(' - Google Meet', '');
+  if (pageTitle && pageTitle !== 'Zoom') {
+    return pageTitle.replace(' - Zoom', '');
   }
   
-  return 'Google Meet';
+  return 'Zoom Meeting';
 }
 
 function injectWidget() {
   if (widgetInjected) return;
   
   // Add platform class to body
-  document.body.classList.add('liveprompt-on-meet');
+  document.body.classList.add('liveprompt-on-zoom');
   
   // Create floating widget
   widget = document.createElement('button');
-  widget.className = 'liveprompt-fab';
-
   const iconUrl = chrome.runtime.getURL('assets/icons/icon-48.png');
+  widget.className = 'liveprompt-fab';
   widget.innerHTML = `
     <div class="liveprompt-fab-icon">
       <img src="${iconUrl}" alt="LivePrompt" width="24" height="24" />
@@ -215,10 +250,9 @@ async function endSession() {
 }
 
 function updateWidgetState(isActive) {
-  const iconUrl = chrome.runtime.getURL('assets/icons/icon-48.png');
   widget.innerHTML = `
     <div class="liveprompt-fab-icon">
-      <img src="${iconUrl}" alt="LivePrompt" width="24" height="24" />
+      <img src="${chrome.runtime.getURL('assets/icons/icon-48.png')}" alt="LivePrompt" width="24" height="24" />
     </div>
     <div class="liveprompt-tooltip">LivePrompt AI Assistant</div>
     ${isActive ? '<div class="liveprompt-status"></div>' : ''}
@@ -231,7 +265,7 @@ function updateWidgetState(isActive) {
     document.getElementById('liveprompt-open-session').style.display = 'flex';
     const linkEl = document.getElementById('liveprompt-open-session');
     if (isActive) {
-      const base = 'https://liveprompt.ai';
+      const base = location.origin.startsWith('http://localhost') ? 'http://localhost:3000' : 'https://liveprompt.ai';
       linkEl.href = `${base}/meeting/${activeSession.id}`;
     }
   } else {
@@ -356,5 +390,16 @@ style.textContent = `
 `;
 document.head.appendChild(style);
 
-// Start monitoring for Meet UI
-waitForMeetReady();
+// Start monitoring for Zoom UI
+waitForZoomReady();
+
+// Also check immediately in case we're already in a meeting
+setTimeout(() => {
+  const zoomIndicator = document.querySelector('#wc-container-left') || 
+                       document.querySelector('.meeting-client');
+  
+  if (zoomIndicator && !widgetInjected) {
+    injectWidget();
+    extractMeetingInfo();
+  }
+}, 2000);

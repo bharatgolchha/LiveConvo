@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LivePrompt AI Meeting Assistant</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="popup-container">
+    <header class="header">
+      <div class="logo">
+        <img src="../assets/icons/icon-48.png" alt="LivePrompt" />
+        <h1>LivePrompt</h1>
+      </div>
+      <div class="header-actions">
+        <button id="logout-btn" class="icon-btn" title="Logout">
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+            <path d="M17 10L13 6M17 10L13 14M17 10H7M7 2H5C3.89 2 3 2.89 3 4V16C3 17.11 3.89 18 5 18H7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </button>
+        <button id="settings-btn" class="icon-btn" title="Settings">
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+            <path d="M10 12.5C11.38 12.5 12.5 11.38 12.5 10C12.5 8.62 11.38 7.5 10 7.5C8.62 7.5 7.5 8.62 7.5 10C7.5 11.38 8.62 12.5 10 12.5Z" stroke="currentColor" stroke-width="1.5"/>
+            <path d="M1 10.57V9.43C1 8.33 1.94 7.43 3.04 7.43C4.05 7.43 4.97 6.85 5.38 5.93C5.79 5.01 5.58 3.94 4.87 3.23L4.03 2.39C3.24 1.6 2.94 1.2 3.08 0.72C3.22 0.24 3.72 0 4.46 0H5.54C6.28 0 6.78 0.24 6.92 0.72C7.06 1.2 6.76 1.6 5.97 2.39L5.13 3.23C4.42 3.94 4.21 5.01 4.62 5.93C5.03 6.85 5.95 7.43 6.96 7.43C8.06 7.43 9 8.33 9 9.43V10.57C9 11.67 8.06 12.57 6.96 12.57C5.95 12.57 5.03 13.15 4.62 14.07C4.21 14.99 4.42 16.06 5.13 16.77L5.97 17.61C6.76 18.4 7.06 18.8 6.92 19.28C6.78 19.76 6.28 20 5.54 20H4.46C3.72 20 3.22 19.76 3.08 19.28C2.94 18.8 3.24 18.4 4.03 17.61L4.87 16.77C5.58 16.06 5.79 14.99 5.38 14.07C4.97 13.15 4.05 12.57 3.04 12.57C1.94 12.57 1 11.67 1 10.57Z" stroke="currentColor" stroke-width="1.5"/>
+          </svg>
+        </button>
+      </div>
+    </header>
+
+    <main>
+      <!-- Auth Section -->
+      <div id="auth-section" class="section hidden">
+        <div class="auth-form">
+          <h2>Sign In to LivePrompt</h2>
+          <form id="login-form">
+            <input 
+              type="email" 
+              id="email" 
+              placeholder="Email" 
+              required 
+              autocomplete="email"
+            />
+            <input 
+              type="password" 
+              id="password" 
+              placeholder="Password" 
+              required 
+              autocomplete="current-password"
+            />
+            <button type="submit" class="primary-btn">Sign In</button>
+            <button type="button" id="google-signin-btn" class="oauth-btn google-btn">
+              <img src="../assets/icons/google.svg" alt="Google" />
+              <span>Sign in with Google</span>
+            </button>
+          </form>
+          <p class="auth-footer">
+            Don't have an account? 
+            <a href="https://www.liveprompt.ai/auth/signup" target="_blank">Sign up</a>
+          </p>
+        </div>
+      </div>
+
+      <!-- Main Section (shown when authenticated) -->
+      <div id="main-section" class="section hidden">
+        <!-- Active Session -->
+        <div id="active-session" class="active-session hidden">
+          <div class="session-header">
+            <span class="session-badge">Active Session</span>
+            <span id="session-timer" class="session-timer">00:00</span>
+          </div>
+          <h3 id="session-title" class="session-title"></h3>
+          <div class="session-actions">
+            <button id="end-session-btn" class="danger-btn">End Session</button>
+            <a id="dashboard-link" href="#" target="_blank" class="secondary-btn">
+              Open Dashboard
+            </a>
+          </div>
+        </div>
+
+        <!-- Meetings List -->
+        <div class="meetings-section">
+          <div class="section-header">
+            <h2>Upcoming Meetings</h2>
+            <button id="add-meeting-btn" class="icon-btn" title="Add Meeting">
+              <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                <path d="M10 4V16M4 10H16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+              </svg>
+            </button>
+          </div>
+          
+          <div id="meetings-list" class="meetings-list">
+            <div class="empty-state">
+              <p>No meetings scheduled</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Recent Sessions -->
+        <div class="sessions-section" style="margin-top: 24px; margin-bottom: 12px;">
+          <div class="section-header">
+            <h2>Recent Sessions</h2>
+          </div>
+          <div id="sessions-list" class="meetings-list">
+            <div class="empty-state">
+              <p>No sessions yet</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Add Meeting Form (hidden by default) -->
+        <div id="meeting-form" class="meeting-form hidden">
+          <h3>Add Meeting</h3>
+          <form id="add-meeting-form">
+            <input 
+              type="text" 
+              id="meeting-title" 
+              placeholder="Meeting Title (optional)" 
+            />
+            <input 
+              type="url" 
+              id="meeting-url" 
+              placeholder="Meeting URL (required)" 
+              required
+            />
+            <textarea id="meeting-context" rows="3" placeholder="Context / agenda (optional)"></textarea>
+            <div class="form-actions">
+              <button type="submit" class="primary-btn">Save Meeting</button>
+              <button type="button" id="cancel-meeting-btn" class="secondary-btn">
+                Cancel
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+
+      <!-- Loading State -->
+      <div id="loading" class="loading hidden">
+        <div class="spinner"></div>
+        <p>Loading...</p>
+      </div>
+
+      <!-- Error State -->
+      <div id="error" class="error hidden">
+        <p id="error-message"></p>
+        <button id="retry-btn" class="secondary-btn">Retry</button>
+      </div>
+    </main>
+
+    <footer class="footer">
+      <a href="https://liveprompt.ai" target="_blank">liveprompt.ai</a>
+      <span>•</span>
+      <a href="https://liveprompt.ai/help" target="_blank">Help</a>
+    </footer>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>

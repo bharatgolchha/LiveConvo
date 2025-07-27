@@ -1,4 +1,4 @@
-console.log('LivePrompt: Google Meet content script loaded');
+console.log('LivePrompt: Microsoft Teams content script loaded');
 
 let widgetInjected = false;
 let activeSession = null;
@@ -6,15 +6,21 @@ let widget = null;
 let menu = null;
 let isMenuOpen = false;
 
-// Wait for Meet to fully load
-function waitForMeetReady() {
+// Wait for Teams to fully load
+function waitForTeamsReady() {
   const checkInterval = setInterval(() => {
-    // Check if we're in an active meeting (not in lobby)
-    const meetingContainer = document.querySelector('[data-meeting-title]') || 
-                           document.querySelector('[data-participant-id]') ||
-                           document.querySelector('[data-self-name]');
+    // Check if we're in an active meeting
+    const meetingIndicators = [
+      document.querySelector('[data-tid="calling-screen"]'),
+      document.querySelector('[data-tid="call-duration"]'),
+      document.querySelector('.calling-main-content'),
+      document.querySelector('[class*="calling-"]'),
+      document.querySelector('[class*="meetingContainer"]')
+    ];
     
-    if (meetingContainer && !widgetInjected) {
+    const inMeeting = meetingIndicators.some(indicator => indicator !== null);
+    
+    if (inMeeting && !widgetInjected) {
       clearInterval(checkInterval);
       injectWidget();
       extractMeetingInfo();
@@ -24,7 +30,7 @@ function waitForMeetReady() {
 
 function extractMeetingInfo() {
   const meetingInfo = {
-    platform: 'meet',
+    platform: 'teams',
     url: window.location.href,
     meetingId: extractMeetingId(),
     title: extractMeetingTitle()
@@ -35,41 +41,60 @@ function extractMeetingInfo() {
 }
 
 function extractMeetingId() {
-  // Extract meeting ID from URL (format: meet.google.com/xxx-xxxx-xxx)
-  const match = window.location.pathname.match(/\/([a-z]{3}-[a-z]{4}-[a-z]{3})/);
-  return match ? match[1] : null;
+  // Try to extract meeting ID from URL
+  const urlParams = new URLSearchParams(window.location.search);
+  const meetingId = urlParams.get('meetingId') || urlParams.get('threadId');
+  
+  if (meetingId) return meetingId;
+  
+  // Try to get from page elements
+  const meetingElement = document.querySelector('[data-meeting-id]');
+  if (meetingElement) {
+    return meetingElement.getAttribute('data-meeting-id');
+  }
+  
+  // Generate a unique ID based on URL
+  return 'teams-' + Date.now();
 }
 
 function extractMeetingTitle() {
-  // Try to get meeting title from various sources
-  const titleElement = document.querySelector('[data-meeting-title]');
-  if (titleElement) {
-    return titleElement.getAttribute('data-meeting-title');
+  // Try various selectors to get meeting title
+  const titleSelectors = [
+    '[data-tid="call-subject"]',
+    '.meeting-title',
+    '[class*="meetingSubject"]',
+    '[aria-label*="Meeting subject"]'
+  ];
+  
+  for (const selector of titleSelectors) {
+    const element = document.querySelector(selector);
+    if (element && element.textContent) {
+      return element.textContent.trim();
+    }
   }
   
-  // Fallback: try to get from page title
+  // Try to get from page title
   const pageTitle = document.title;
-  if (pageTitle && pageTitle !== 'Meet') {
-    return pageTitle.replace(' - Google Meet', '');
+  if (pageTitle && !pageTitle.includes('| Microsoft Teams')) {
+    return pageTitle;
   }
   
-  return 'Google Meet';
+  return 'Microsoft Teams Meeting';
 }
 
 function injectWidget() {
   if (widgetInjected) return;
   
   // Add platform class to body
-  document.body.classList.add('liveprompt-on-meet');
+  document.body.classList.add('liveprompt-on-teams');
   
   // Create floating widget
   widget = document.createElement('button');
   widget.className = 'liveprompt-fab';
-
   const iconUrl = chrome.runtime.getURL('assets/icons/icon-48.png');
   widget.innerHTML = `
     <div class="liveprompt-fab-icon">
-      <img src="${iconUrl}" alt="LivePrompt" width="24" height="24" />
+      <img src="${iconUrl}" alt="LivePrompt Icon" style="width: 24px; height: 24px;">
     </div>
     <div class="liveprompt-tooltip">LivePrompt AI Assistant</div>
   `;
@@ -91,15 +116,6 @@ function injectWidget() {
       </svg>
       <span>End Session</span>
     </button>
-    <a href="#" target="_blank" class="liveprompt-menu-item" id="liveprompt-open-session" style="display:none;">
-      <svg viewBox="0 0 24 24" fill="none">
-        <path d="M14 3H5C3.89543 3 3 3.89543 3 5V19C3 20.1046 3.89543 21 5 21H19C20.1046 21 21 20.1046 21 19V10" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-        <path d="M10 14L21 3" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-        <path d="M21 3H14" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-        <path d="M21 3V10" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-      </svg>
-      <span>Go to Session</span>
-    </a>
     <div class="liveprompt-menu-divider"></div>
     <a href="https://liveprompt.ai/dashboard" target="_blank" class="liveprompt-menu-item">
       <svg viewBox="0 0 24 24" fill="none">
@@ -218,7 +234,7 @@ function updateWidgetState(isActive) {
   const iconUrl = chrome.runtime.getURL('assets/icons/icon-48.png');
   widget.innerHTML = `
     <div class="liveprompt-fab-icon">
-      <img src="${iconUrl}" alt="LivePrompt" width="24" height="24" />
+      <img src="${iconUrl}" alt="LivePrompt Icon" style="width: 24px; height: 24px;">
     </div>
     <div class="liveprompt-tooltip">LivePrompt AI Assistant</div>
     ${isActive ? '<div class="liveprompt-status"></div>' : ''}
@@ -231,7 +247,7 @@ function updateWidgetState(isActive) {
     document.getElementById('liveprompt-open-session').style.display = 'flex';
     const linkEl = document.getElementById('liveprompt-open-session');
     if (isActive) {
-      const base = 'https://liveprompt.ai';
+      const base = location.origin.startsWith('http://localhost') ? 'http://localhost:3000' : 'https://liveprompt.ai';
       linkEl.href = `${base}/meeting/${activeSession.id}`;
     }
   } else {
@@ -356,5 +372,18 @@ style.textContent = `
 `;
 document.head.appendChild(style);
 
-// Start monitoring for Meet UI
-waitForMeetReady();
+// Start monitoring for Teams UI
+waitForTeamsReady();
+
+// Also check if we're already in a meeting when the script loads
+setTimeout(() => {
+  const indicators = [
+    document.querySelector('[data-tid="calling-screen"]'),
+    document.querySelector('.calling-main-content')
+  ];
+  
+  if (indicators.some(i => i !== null) && !widgetInjected) {
+    injectWidget();
+    extractMeetingInfo();
+  }
+}, 2000);
