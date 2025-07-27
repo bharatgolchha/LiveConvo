@@ -569,9 +569,9 @@ function getPlatformLogo(platform) {
   if (!platform) return '';
   
   const logos = {
-    zoom: 'images/platforms/zoom.png',
-    google_meet: 'images/platforms/meet.png',
-    teams: 'images/platforms/teams.png'
+    zoom: chrome.runtime.getURL('images/platforms/zoom.png'),
+    google_meet: chrome.runtime.getURL('images/platforms/meet.png'),
+    teams: chrome.runtime.getURL('images/platforms/teams.png')
   };
   
   const names = {
