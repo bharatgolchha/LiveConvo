@@ -11,12 +11,42 @@ let refreshToken = null;
 let tokenExpiresAt = null;
 let activeSession = null;
 let isRefreshing = false; // Prevent concurrent refresh attempts
+let refreshTokenOwner = null; // 'extension' | 'website'
+// Callbacks waiting for a fresh JWT (used when a new worker instance spins up)
+const pendingResolvers = [];
 
+// Helper: decode JWT and get expiry (returns ms timestamp or null)
+function getJwtExpiry(jwt) {
+  try {
+    const payload = JSON.parse(atob(jwt.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')));
+    if (payload && payload.exp) {
+      return payload.exp * 1000; // convert to ms
+    }
+  } catch (_) {}
+  return null;
+}
 // Helper to guarantee auth token is loaded before actions
 async function ensureAuthToken() {
-  if (authToken) return true;
+  const now = Date.now();
+  // JWT valid for at least 30s
+  if (authToken && tokenExpiresAt && now < tokenExpiresAt - 30000) {
+    return true;
+  }
+
+  // Attempt to load from storage first
   await loadAuthToken();
-  return !!authToken;
+  if (authToken && tokenExpiresAt && Date.now() < tokenExpiresAt - 30000) {
+    return true;
+  }
+
+  // Wait up to 3s for a WEB_SESSION_TOKEN message carrying fresh JWT
+  return new Promise((resolve) => {
+    const timeout = setTimeout(() => resolve(!!authToken), 3000);
+    pendingResolvers.push(() => {
+      clearTimeout(timeout);
+      resolve(!!authToken);
+    });
+  });
 }
 
 chrome.runtime.onInstalled.addListener(async () => {
@@ -53,12 +83,13 @@ chrome.alarms.onAlarm.addListener(async (alarm) => {
 });
 
 async function loadAuthToken() {
-  const result = await chrome.storage.local.get(['authToken', 'refreshToken', 'tokenExpiresAt', 'supabaseUrl', 'supabaseAnonKey']);
+  const result = await chrome.storage.local.get(['authToken', 'refreshToken', 'tokenExpiresAt', 'supabaseUrl', 'supabaseAnonKey', 'refreshTokenOwner']);
   authToken = result.authToken;
   refreshToken = result.refreshToken;
   tokenExpiresAt = result.tokenExpiresAt;
   SUPABASE_URL = result.supabaseUrl;
   SUPABASE_ANON_KEY = result.supabaseAnonKey;
+  refreshTokenOwner = result.refreshTokenOwner || null;
   console.log('LivePrompt: Loaded auth token from storage:', authToken ? authToken.substring(0, 20) + '...' : 'null');
   console.log('LivePrompt: Loaded refresh token from storage:', refreshToken ? refreshToken.substring(0, 20) + '...' : 'null');
   console.log('LivePrompt: Loaded Supabase URL:', SUPABASE_URL);
@@ -104,30 +135,8 @@ async function fetchSupabaseConfig() {
   return false;
 }
 
-// Check if token is expired or about to expire and refresh it
+// No-op: worker no longer refreshes on its own
 async function checkAndRefreshToken() {
-  if (!authToken) return false;
-
-  // If we lack a refresh token, try synchronizing with the web session instead of failing immediately
-  if (!refreshToken) {
-    console.log('LivePrompt: No refresh token available, attempting to sync with web session...');
-    return (await refreshWebSession()) || (await checkWebSession());
-  }
-
-  // Check if token expires in next 5 minutes
-  const now = Date.now();
-  const expiresIn5Min = tokenExpiresAt ? tokenExpiresAt - 5 * 60 * 1000 : 0;
-  
-  if (!tokenExpiresAt || now >= expiresIn5Min) {
-    console.log('LivePrompt: Token expired or expiring soon, attempting web-session sync before refresh...');
-    if (await refreshWebSession()) {
-      console.log('LivePrompt: Token refreshed via web-session sync');
-      return true;
-    }
-    // If that didn't work fall back to refresh token flow
-    return await refreshAccessToken();
-  }
-
   return true;
 }
 
@@ -269,14 +278,16 @@ async function handleLogin(credentials) {
     console.log('LivePrompt: Login response - has refresh token:', !!data.refresh_token);
     
     // Set token expiration (1 hour from now)
-    tokenExpiresAt = Date.now() + (60 * 60 * 1000);
+    tokenExpiresAt = getJwtExpiry(data.token) || (Date.now() + 55 * 60 * 1000);
     
+    refreshTokenOwner = 'extension';
     await chrome.storage.local.set({ 
       authToken: data.token,
       refreshToken: data.refresh_token,
       tokenExpiresAt,
       userId: data.user.id,
-      userEmail: data.user.email 
+      userEmail: data.user.email,
+      refreshTokenOwner
     });
     
     // Fetch Supabase config after successful login
@@ -297,6 +308,7 @@ async function handleLogout() {
   activeSession = null;
   SUPABASE_URL = null;
   SUPABASE_ANON_KEY = null;
+  refreshTokenOwner = null;
   await chrome.storage.local.clear();
   // Clear alarms
   chrome.alarms.clear('auth-refresh');
@@ -308,6 +320,9 @@ async function createSession(meetingData) {
   if (!(await ensureAuthToken())) {
     return { success: false, error: 'Not authenticated' };
   }
+  
+  console.log('LivePrompt: Creating session with meeting data:', meetingData);
+  console.log('LivePrompt: Meeting URL being sent to API:', meetingData.url);
   
   try {
     const response = await apiFetch(`/sessions`, {
@@ -345,9 +360,13 @@ async function createSession(meetingData) {
 
     // Automatically start Recall.ai bot
     try {
+      console.log('LivePrompt: Starting bot for session:', session.id);
+      console.log('LivePrompt: Session meeting URL:', session.meeting_url || meetingData.url);
       const startBotResp = await apiFetch(`/meeting/${session.id}/start-bot`, { method: 'POST' });
       if (!startBotResp.ok) {
-        console.error('Failed to start bot:', await startBotResp.text());
+        const errorText = await startBotResp.text();
+        console.error('Failed to start bot:', errorText);
+        console.error('LivePrompt: Bot creation failed for URL:', session.meeting_url || meetingData.url);
       } else {
         console.log('Bot started for session', session.id);
         // Update session status to active so UI shows timer
@@ -499,23 +518,32 @@ async function handleWebSessionToken(msg) {
   
   if (!token || !user) return { success: false };
 
-  // If the extension already has a refresh token of its own (user logged in via extension),
-  // we keep using it to avoid sharing a single-use refresh token with the website. We still
-  // update the access token so API requests remain valid, but we ignore the incoming refresh
-  // token to prevent accidental session revocation.
   authToken = token;
-  if (!refreshToken && newRefreshToken) {
+  if (!refreshToken) {
+    // Extension had no refresh token – adopt website's token and mark ownership as website
+    refreshToken = newRefreshToken || null;
+    refreshTokenOwner = refreshToken ? 'website' : null;
+  } else if (refreshTokenOwner !== 'extension' && newRefreshToken && newRefreshToken !== refreshToken) {
+    // Extension previously adopted a website token – replace with latest one
     refreshToken = newRefreshToken;
+    refreshTokenOwner = 'website';
   }
-  tokenExpiresAt = Date.now() + (60 * 60 * 1000); // 1 hour from now
+  tokenExpiresAt = getJwtExpiry(token) || (Date.now() + 55 * 60 * 1000);
   
   await chrome.storage.local.set({ 
     authToken: token, 
     refreshToken: refreshToken, 
     tokenExpiresAt,
     userId: user.id, 
-    userEmail: user.email 
+    userEmail: user.email,
+    refreshTokenOwner
   });
+
+  // Notify any pendingPromises waiting for fresh JWT
+  while (pendingResolvers.length) {
+    const fn = pendingResolvers.shift();
+    try { fn(); } catch (_) {}
+  }
 
   console.log('LivePrompt: Synced session from web login');
 
@@ -631,35 +659,13 @@ async function apiFetch(path, init = {}, { retry = true } = {}) {
   const response = await fetch(url.toString(), { ...init, headers });
 
   if (response.status === 401 && retry) {
-    console.log('LivePrompt: Got 401, attempting token refresh...');
-    // Try multiple recovery methods in sequence
-    let refreshed = false;
-    
-    // Method 1: Try web session sync first (this avoids issues with single-use refresh tokens)
-    if (await refreshWebSession()) {
-      console.log('LivePrompt: Token refreshed via web session');
-      refreshed = true;
-    }
-    
-    // Method 2: Try refresh token only if we still have one and previous step failed
-    if (!refreshed && refreshToken && await refreshAccessToken()) {
-      console.log('LivePrompt: Token refreshed via refresh token');
-      refreshed = true;
-    }
-    
-    // Method 3: Check web session one more time as a fallback
-    if (!refreshed && await checkWebSession()) {
-      console.log('LivePrompt: Token refreshed via web session check');
-      refreshed = true;
-    }
-    
-    if (refreshed) {
-      // Retry the request with new token
+    console.log('LivePrompt: Got 401, attempting to obtain fresh JWT from web session');
+    await ensureAuthToken();
+    if (authToken) {
       return apiFetch(path, init, { retry: false });
-    } else {
-      console.error('LivePrompt: All auth recovery methods failed');
-      await handleLogout();
     }
+    console.error('LivePrompt: Auth recovery failed');
+    await handleLogout();
   }
   return response;
 }
@@ -677,14 +683,16 @@ async function refreshWebSession() {
     if (data.authenticated && data.token) {
       authToken = data.token;
       refreshToken = data.refresh_token;
-      tokenExpiresAt = Date.now() + (60 * 60 * 1000); // 1 hour from now
+      tokenExpiresAt = getJwtExpiry(data.token) || (Date.now() + 55 * 60 * 1000);
       
+      refreshTokenOwner = 'website';
       await chrome.storage.local.set({ 
         authToken: data.token, 
         refreshToken: data.refresh_token, 
         tokenExpiresAt,
         userId: data.user.id, 
-        userEmail: data.user.email 
+        userEmail: data.user.email,
+        refreshTokenOwner
       });
       console.log('LivePrompt: Refreshed auth token from web session');
       console.log('LivePrompt: Got new refresh token:', refreshToken ? refreshToken.substring(0, 20) + '...' : 'null');
@@ -716,16 +724,4 @@ function safeSendTabsMessage(tabId, message) {
   } catch (_) {}
 }
 
-// Refresh token via Supabase
-async function refreshAccessToken() {
-  // Prevent concurrent refresh attempts
-  if (isRefreshing) {
-    return !!authToken;
-  }
-  isRefreshing = true;
-
-  // Preferred: leverage existing logged-in cookies via /auth/check-session
-  const ok = await refreshWebSession() || await checkWebSession();
-  isRefreshing = false;
-  return ok;
-}
+// Old refreshAccessToken logic removed – worker no longer holds single-use refresh tokens

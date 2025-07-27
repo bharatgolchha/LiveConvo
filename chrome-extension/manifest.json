@@ -12,8 +12,6 @@
   ],
   "host_permissions": [
     "https://meet.google.com/*",
-    "https://teams.microsoft.com/*",
-    "https://teams.live.com/*",
     "https://*.zoom.us/*",
     "https://*.liveprompt.ai/*"
   ],
@@ -37,11 +35,6 @@
     {
       "matches": ["https://meet.google.com/*"],
       "js": ["content-scripts/meet-injector.js"],
-      "css": ["assets/styles/floating-widget.css"]
-    },
-    {
-      "matches": ["https://teams.microsoft.com/*", "https://teams.live.com/*"],
-      "js": ["content-scripts/teams-injector.js"],
       "css": ["assets/styles/floating-widget.css"]
     },
     {
