@@ -5,6 +5,13 @@ const WEB_BASE_URL = 'https://liveprompt.ai';
 let authToken = null;
 let activeSession = null;
 
+// Helper to guarantee auth token is loaded before actions
+async function ensureAuthToken() {
+  if (authToken) return true;
+  await loadAuthToken();
+  return !!authToken;
+}
+
 chrome.runtime.onInstalled.addListener(() => {
   console.log('LivePrompt Extension installed');
   loadAuthToken();
@@ -76,7 +83,9 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       return true;
       
     case 'GET_AUTH_STATUS':
-      sendResponse({ isAuthenticated: !!authToken, token: authToken });
+      ensureAuthToken().then(() => {
+        sendResponse({ isAuthenticated: !!authToken, token: authToken });
+      });
       return true;
       
     case 'CREATE_SESSION':
@@ -173,7 +182,7 @@ async function handleLogout() {
 }
 
 async function createSession(meetingData) {
-  if (!authToken) {
+  if (!(await ensureAuthToken())) {
     return { success: false, error: 'Not authenticated' };
   }
   
@@ -247,7 +256,7 @@ async function createSession(meetingData) {
 }
 
 async function endSession(sessionId) {
-  if (!authToken || !sessionId) {
+  if (!(await ensureAuthToken()) || !sessionId) {
     return { success: false, error: 'Invalid request' };
   }
   
@@ -383,7 +392,7 @@ chrome.storage.local.get(['activeSession'], (result) => {
 //  Helper: Fetch sessions list
 // -----------------------------
 async function fetchSessions(limit = 10) {
-  if (!authToken) {
+  if (!(await ensureAuthToken())) {
     console.log('LivePrompt: No auth token available for fetchSessions');
     return { success: false, error: 'Not authenticated', sessions: [] };
   }
@@ -416,7 +425,7 @@ async function fetchSessions(limit = 10) {
 //  Helper: Fetch active session
 // -----------------------------
 async function fetchActiveSession() {
-  if (!authToken) {
+  if (!(await ensureAuthToken())) {
     console.log('LivePrompt: No auth token available for fetchActiveSession');
     return { session: null };
   }
