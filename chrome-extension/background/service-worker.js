@@ -10,6 +10,7 @@ let authToken = null;
 let refreshToken = null;
 let tokenExpiresAt = null;
 let activeSession = null;
+let isRefreshing = false; // Prevent concurrent refresh attempts
 
 // Helper to guarantee auth token is loaded before actions
 async function ensureAuthToken() {
@@ -138,15 +139,18 @@ async function checkWebSession() {
       if (data.authenticated && data.token) {
         authToken = data.token;
         refreshToken = data.refresh_token;
+        tokenExpiresAt = Date.now() + (60 * 60 * 1000); // 1 hour from now
         
         await chrome.storage.local.set({ 
           authToken: data.token,
           refreshToken: data.refresh_token,
+          tokenExpiresAt,
           userId: data.user.id,
           userEmail: data.user.email 
         });
         
         console.log('LivePrompt: Detected existing web session');
+        console.log('LivePrompt: Stored refresh token:', refreshToken ? refreshToken.substring(0, 20) + '...' : 'null');
         
         // Fetch Supabase config after detecting web session
         await fetchSupabaseConfig();
@@ -657,9 +661,18 @@ async function refreshWebSession() {
     const data = await res.json();
     if (data.authenticated && data.token) {
       authToken = data.token;
-      refreshToken = data.refresh_token; // Assuming refresh token is the same as access token for web session
-      await chrome.storage.local.set({ authToken: data.token, refreshToken: data.refresh_token, userId: data.user.id, userEmail: data.user.email });
+      refreshToken = data.refresh_token;
+      tokenExpiresAt = Date.now() + (60 * 60 * 1000); // 1 hour from now
+      
+      await chrome.storage.local.set({ 
+        authToken: data.token, 
+        refreshToken: data.refresh_token, 
+        tokenExpiresAt,
+        userId: data.user.id, 
+        userEmail: data.user.email 
+      });
       console.log('LivePrompt: Refreshed auth token from web session');
+      console.log('LivePrompt: Got new refresh token:', refreshToken ? refreshToken.substring(0, 20) + '...' : 'null');
       return true;
     }
   } catch (_) {}
@@ -692,19 +705,34 @@ function safeSendTabsMessage(tabId, message) {
 async function refreshAccessToken(isRetry = false) {
   if (!refreshToken) return false;
   
-  // Ensure we have Supabase config
-  if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
-    console.log('LivePrompt: No Supabase config, fetching...');
-    // This should always succeed now since config endpoint is public
-    await fetchSupabaseConfig();
-    
-    if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
-      console.error('LivePrompt: Cannot refresh token without Supabase config');
-      return false;
+  // Prevent concurrent refresh attempts
+  if (isRefreshing && !isRetry) {
+    console.log('LivePrompt: Token refresh already in progress, skipping...');
+    // Wait for the current refresh to complete
+    let attempts = 0;
+    while (isRefreshing && attempts < 10) {
+      await new Promise(resolve => setTimeout(resolve, 100));
+      attempts++;
     }
+    return !!authToken;
   }
   
+  isRefreshing = true;
+  
   try {
+    // Ensure we have Supabase config
+    if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+      console.log('LivePrompt: No Supabase config, fetching...');
+      // This should always succeed now since config endpoint is public
+      await fetchSupabaseConfig();
+      
+      if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+        console.error('LivePrompt: Cannot refresh token without Supabase config');
+        isRefreshing = false;
+        return false;
+      }
+    }
+    
     console.log('LivePrompt: Attempting to refresh token...');
     console.log('LivePrompt: Using refresh token:', refreshToken ? refreshToken.substring(0, 20) + '...' : 'null');
     console.log('LivePrompt: Supabase URL:', SUPABASE_URL);
@@ -723,9 +751,23 @@ async function refreshAccessToken(isRetry = false) {
       const errorText = await res.text();
       console.error('LivePrompt: Token refresh error response:', errorText);
       
+      // Handle specific error cases
+      try {
+        const errorData = JSON.parse(errorText);
+        if (errorData.error_code === 'refresh_token_already_used') {
+          console.log('LivePrompt: Refresh token was already used, need to get new tokens');
+          // Clear the used refresh token
+          refreshToken = null;
+          await chrome.storage.local.remove('refreshToken');
+        }
+      } catch (e) {
+        // Ignore JSON parse errors
+      }
+      
       // If refresh token is invalid, try to get a new one from web session
       if ((res.status === 400 || res.status === 401) && !isRetry) {
-        console.log('LivePrompt: Refresh token might be invalid, checking web session for new tokens...');
+        console.log('LivePrompt: Refresh token is invalid, checking web session for new tokens...');
+        isRefreshing = false; // Allow web session check to proceed
         const webSessionRefreshed = await checkWebSession();
         if (webSessionRefreshed && refreshToken) {
           console.log('LivePrompt: Got new tokens from web session, retrying refresh...');
@@ -733,14 +775,21 @@ async function refreshAccessToken(isRetry = false) {
           return await refreshAccessToken(true);
         }
       }
+      isRefreshing = false;
       return false;
     }
     
     const json = await res.json();
     if (json.access_token) {
       authToken = json.access_token;
+      
+      // IMPORTANT: Supabase refresh tokens are single-use
+      // We MUST update the refresh token with the new one
       if (json.refresh_token) {
+        console.log('LivePrompt: Updating refresh token with new one from response');
         refreshToken = json.refresh_token;
+      } else {
+        console.error('LivePrompt: WARNING - No new refresh token in response, auth may fail on next refresh');
       }
       
       // Calculate token expiration (Supabase tokens expire in 1 hour)
@@ -756,13 +805,18 @@ async function refreshAccessToken(isRetry = false) {
       });
       
       console.log('LivePrompt: Token refreshed successfully');
+      console.log('LivePrompt: New refresh token stored:', refreshToken ? refreshToken.substring(0, 20) + '...' : 'null');
+      isRefreshing = false;
       return true;
     }
   } catch (error) {
     console.error('LivePrompt: Token refresh error:', error);
+    isRefreshing = false;
   }
   
   // Last resort: check web session
   console.log('LivePrompt: Token refresh failed, checking web session as fallback...');
-  return await checkWebSession();
+  const result = await checkWebSession();
+  isRefreshing = false;
+  return result;
 }
