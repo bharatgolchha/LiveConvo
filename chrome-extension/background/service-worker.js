@@ -2,6 +2,11 @@
 const API_BASE_URL = 'https://liveprompt.ai/api';
 const WEB_BASE_URL = 'https://liveprompt.ai';
 
+// Handle extension icon click - open side panel
+chrome.action.onClicked.addListener((tab) => {
+  chrome.sidePanel.open({ windowId: tab.windowId });
+});
+
 // Supabase configuration - will be fetched dynamically
 let SUPABASE_URL = null;
 let SUPABASE_ANON_KEY = null;
@@ -455,9 +460,15 @@ async function getMeetings() {
   // 1. Try to fetch upcoming meetings from the backend (calendar events)
   if (authToken) {
     try {
+      console.log('LivePrompt: Fetching calendar events with token:', authToken.substring(0, 20) + '...');
       const response = await apiFetch(`/calendar/events?filter=week`, { method: 'GET' });
+      console.log('LivePrompt: Calendar events response status:', response.status);
+      
       if (response.ok) {
         const data = await response.json();
+        console.log('LivePrompt: Calendar events data:', data);
+        console.log('LivePrompt: Number of meetings:', data.meetings?.length || 0);
+        
         const backendMeetings = (data.meetings || []).map((m) => ({
           id: m.event_id || m.id || `evt-${Date.now()}`,
           title: m.title || 'Untitled',
@@ -471,7 +482,11 @@ async function getMeetings() {
         const local = await chrome.storage.sync.get(['meetings']);
         const localMeetings = local.meetings || [];
 
+        console.log('LivePrompt: Returning meetings - backend:', backendMeetings.length, 'local:', localMeetings.length);
         return { meetings: [...backendMeetings, ...localMeetings] };
+      } else {
+        const errorText = await response.text();
+        console.error('LivePrompt: Calendar events API error:', response.status, errorText);
       }
     } catch (err) {
       console.error('Failed fetching calendar events:', err);

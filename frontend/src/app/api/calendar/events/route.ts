@@ -45,7 +45,19 @@ const CACHE_DURATION = 30 * 1000; // 30 seconds
 export async function GET(request: NextRequest) {
   try {
     const supabase = createServerSupabaseClient();
-    const token = request.headers.get('Authorization')?.replace('Bearer ', '');
+    const { searchParams } = new URL(request.url);
+    
+    // Get current user from Supabase auth using the access token.
+    // Primary source: `Authorization` header. Fallback: `token` URL param
+    const authHeader = request.headers.get('authorization');
+    let token = authHeader?.split(' ')[1] || null;
+    
+    // Chrome-extension background fetches sometimes lose the Authorization
+    // header due to host/CORS restrictions. Accept token via query param
+    // so the extension can still authenticate safely.
+    if (!token) {
+      token = searchParams.get('token');
+    }
     
     if (!token) {
       return NextResponse.json({ error: 'No authorization token' }, { status: 401 });
@@ -58,7 +70,6 @@ export async function GET(request: NextRequest) {
     }
 
     // Get query parameters
-    const searchParams = request.nextUrl.searchParams;
     const daysAhead = parseInt(searchParams.get('days') || '7');
     const filter = searchParams.get('filter'); // 'today', 'week', 'all'
 
