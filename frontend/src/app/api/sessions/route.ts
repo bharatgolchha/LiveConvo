@@ -36,10 +36,18 @@ export async function GET(request: NextRequest) {
     const conversationType = searchParams.get('conversation_type');
     const includeShared = searchParams.get('includeShared') === 'true';
 
-    // Get current user from Supabase auth using the access token
+    // Get current user from Supabase auth using the access token.
+    // Primary source: `Authorization` header. Fallback: `token` URL param
     const authHeader = request.headers.get('authorization');
-    const token = authHeader?.split(' ')[1];
-    
+    let token = authHeader?.split(' ')[1] || null;
+
+    // Chrome-extension background fetches sometimes lose the Authorization
+    // header due to host/CORS restrictions. Accept token via query param
+    // so the extension can still authenticate safely.
+    if (!token) {
+      token = searchParams.get('token');
+    }
+
     if (!token) {
       return NextResponse.json(
         { error: 'Unauthorized', message: 'No access token provided' },
@@ -271,17 +279,24 @@ export async function POST(request: NextRequest) {
     } = body;
     console.log('🔗 Meeting URL received:', meeting_url);
 
-    // Get current user from Supabase auth using the access token
+    // Get current user from Supabase auth using the access token.
+    // Primary via Authorization header, fallback to `token` query param
     const authHeader = request.headers.get('authorization');
-    const token = authHeader?.split(' ')[1];
-    
+    let token = authHeader?.split(' ')[1] || null;
+
+    if (!token) {
+      // POST requests don't have searchParams readily; parse from URL
+      const { searchParams: postParams } = new URL(request.url);
+      token = postParams.get('token');
+    }
+
     if (!token) {
       return NextResponse.json(
         { error: 'Unauthorized', message: 'Please sign in to create sessions' },
         { status: 401 }
       );
     }
-    
+
     // Create authenticated client with user's token
     const authClient = createAuthenticatedSupabaseClient(token);
     
