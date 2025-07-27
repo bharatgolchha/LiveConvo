@@ -106,8 +106,14 @@ async function fetchSupabaseConfig() {
 
 // Check if token is expired or about to expire and refresh it
 async function checkAndRefreshToken() {
-  if (!authToken || !refreshToken) return false;
-  
+  if (!authToken) return false;
+
+  // If we lack a refresh token, try synchronizing with the web session instead of failing immediately
+  if (!refreshToken) {
+    console.log('LivePrompt: No refresh token available, attempting to sync with web session...');
+    return (await refreshWebSession()) || (await checkWebSession());
+  }
+
   // Check if token expires in next 5 minutes
   const now = Date.now();
   const expiresIn5Min = tokenExpiresAt ? tokenExpiresAt - 5 * 60 * 1000 : 0;
@@ -116,7 +122,7 @@ async function checkAndRefreshToken() {
     console.log('LivePrompt: Token expired or expiring soon, refreshing...');
     return await refreshAccessToken();
   }
-  
+
   return true;
 }
 
@@ -620,19 +626,19 @@ async function apiFetch(path, init = {}, { retry = true } = {}) {
     // Try multiple recovery methods in sequence
     let refreshed = false;
     
-    // Method 1: Try refresh token
-    if (refreshToken && await refreshAccessToken()) {
-      console.log('LivePrompt: Token refreshed via refresh token');
-      refreshed = true;
-    }
-    
-    // Method 2: Try web session sync
-    if (!refreshed && await refreshWebSession()) {
+    // Method 1: Try web session sync first (this avoids issues with single-use refresh tokens)
+    if (await refreshWebSession()) {
       console.log('LivePrompt: Token refreshed via web session');
       refreshed = true;
     }
     
-    // Method 3: Check web session one more time
+    // Method 2: Try refresh token only if we still have one and previous step failed
+    if (!refreshed && refreshToken && await refreshAccessToken()) {
+      console.log('LivePrompt: Token refreshed via refresh token');
+      refreshed = true;
+    }
+    
+    // Method 3: Check web session one more time as a fallback
     if (!refreshed && await checkWebSession()) {
       console.log('LivePrompt: Token refreshed via web session check');
       refreshed = true;
@@ -755,24 +761,36 @@ async function refreshAccessToken(isRetry = false) {
       try {
         const errorData = JSON.parse(errorText);
         if (errorData.error_code === 'refresh_token_already_used') {
-          console.log('LivePrompt: Refresh token was already used, need to get new tokens');
-          // Clear the used refresh token
+          console.log('LivePrompt: Refresh token was already used, will attempt to fetch fresh tokens via web session');
+          // Clear the used refresh token locally so we don't retry it again
           refreshToken = null;
           await chrome.storage.local.remove('refreshToken');
+
+          // Try to recover by syncing with the logged-in web session first
+          const sessionRecovered = (await refreshWebSession()) || (await checkWebSession());
+          if (sessionRecovered) {
+            console.log('LivePrompt: Successfully obtained new tokens from web session after refresh token reuse');
+            isRefreshing = false;
+            return true; // We have a fresh access_token, caller can retry the original request
+          }
         }
       } catch (e) {
-        // Ignore JSON parse errors
+        // Ignore JSON parse errors and continue with fallback logic below
       }
       
-      // If refresh token is invalid, try to get a new one from web session
+      // If refresh token is invalid (400/401) and we haven't retried yet, attempt to get new tokens from web session
       if ((res.status === 400 || res.status === 401) && !isRetry) {
         console.log('LivePrompt: Refresh token is invalid, checking web session for new tokens...');
         isRefreshing = false; // Allow web session check to proceed
-        const webSessionRefreshed = await checkWebSession();
+        const webSessionRefreshed = await refreshWebSession() || await checkWebSession();
         if (webSessionRefreshed && refreshToken) {
           console.log('LivePrompt: Got new tokens from web session, retrying refresh...');
           // Retry with new refresh token (but only once)
           return await refreshAccessToken(true);
+        }
+        if (webSessionRefreshed) {
+          // We have a valid access token even if refresh token is not present – treat as success for now
+          return true;
         }
       }
       isRefreshing = false;
