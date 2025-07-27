@@ -183,9 +183,14 @@ async function processFinalization({
     throw new Error('OpenRouter API key not configured. Please set OPENROUTER_API_KEY environment variable.');
   }
 
-  // Get current user from Supabase auth using the access token
+  // Get current user from Supabase auth using the access token.
+  // Primary source: `Authorization` header. Fallback: `token` query param (for Chrome extension CORS issues)
   const authHeader = request.headers.get('authorization');
-  const token = authHeader?.split(' ')[1];
+  let token = authHeader?.split(' ')[1] || null;
+
+  if (!token) {
+    token = request.nextUrl.searchParams.get('token');
+  }
   
   if (!token) {
     throw new Error('Unauthorized: Missing authentication token');

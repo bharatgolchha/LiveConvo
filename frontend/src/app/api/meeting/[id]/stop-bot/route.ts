@@ -8,9 +8,13 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    // Get auth token from request headers
+    // Get auth token. Primary via Authorization header, fallback to `token` query param to support extension.
     const authHeader = req.headers.get('authorization');
-    const token = authHeader?.split(' ')[1];
+    let token = authHeader?.split(' ')[1] || null;
+
+    if (!token) {
+      token = req.nextUrl.searchParams.get('token');
+    }
 
     if (!token) {
       return NextResponse.json(
