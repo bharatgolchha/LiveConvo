@@ -3,6 +3,7 @@ const API_BASE_URL = 'https://liveprompt.ai/api';
 const WEB_BASE_URL = 'https://liveprompt.ai';
 
 let authToken = null;
+let refreshToken = null;
 let activeSession = null;
 
 // Helper to guarantee auth token is loaded before actions
@@ -24,6 +25,7 @@ chrome.runtime.onStartup.addListener(() => {
 async function loadAuthToken() {
   const result = await chrome.storage.local.get(['authToken']);
   authToken = result.authToken;
+  refreshToken = result.refreshToken;
   console.log('LivePrompt: Loaded auth token from storage:', authToken ? authToken.substring(0, 20) + '...' : 'null');
   
   // If no stored token, check if user is logged in via web
@@ -53,9 +55,11 @@ async function checkWebSession() {
       console.log('LivePrompt: Web session check data:', data);
       if (data.authenticated && data.token) {
         authToken = data.token;
+        refreshToken = data.refresh_token;
         
         await chrome.storage.local.set({ 
           authToken: data.token,
+          refreshToken: data.refresh_token,
           userId: data.user.id,
           userEmail: data.user.email 
         });
@@ -162,6 +166,7 @@ async function handleLogin(credentials) {
     
     await chrome.storage.local.set({ 
       authToken: data.token,
+      refreshToken: data.refresh_token,
       userId: data.user.id,
       userEmail: data.user.email 
     });
@@ -178,6 +183,7 @@ async function handleLogout() {
   authToken = null;
   activeSession = null;
   await chrome.storage.local.clear();
+  refreshToken = null;
   return { success: true };
 }
 
@@ -375,7 +381,8 @@ async function handleWebSessionToken(msg) {
   if (!token || !user) return { success: false };
 
   authToken = token;
-  await chrome.storage.local.set({ authToken: token, userId: user.id, userEmail: user.email });
+  refreshToken = token; // Assuming refresh token is the same as access token for web session
+  await chrome.storage.local.set({ authToken: token, refreshToken: token, userId: user.id, userEmail: user.email });
 
   console.log('LivePrompt: Synced session from web login');
 
@@ -485,8 +492,14 @@ async function apiFetch(path, init = {}, { retry = true } = {}) {
   const response = await fetch(url.toString(), { ...init, headers });
 
   if (response.status === 401 && retry) {
-    // Try to re-sync token from web session then retry once
-    const refreshed = await refreshWebSession();
+    // Try refresh via Supabase refresh token
+    let refreshed = false;
+    if (await refreshAccessToken()) {
+      refreshed = true;
+    } else {
+      // fallback to web session sync
+      refreshed = await refreshWebSession();
+    }
     if (refreshed) {
       return apiFetch(path, init, { retry: false });
     } else {
@@ -508,7 +521,8 @@ async function refreshWebSession() {
     const data = await res.json();
     if (data.authenticated && data.token) {
       authToken = data.token;
-      await chrome.storage.local.set({ authToken: data.token, userId: data.user.id, userEmail: data.user.email });
+      refreshToken = data.refresh_token; // Assuming refresh token is the same as access token for web session
+      await chrome.storage.local.set({ authToken: data.token, refreshToken: data.refresh_token, userId: data.user.id, userEmail: data.user.email });
       console.log('LivePrompt: Refreshed auth token from web session');
       return true;
     }
@@ -536,4 +550,24 @@ function safeSendTabsMessage(tabId, message) {
       }
     });
   } catch (_) {}
+}
+
+// Refresh token via Supabase
+async function refreshAccessToken() {
+  if (!refreshToken) return false;
+  try {
+    const res = await fetch(`${WEB_BASE_URL}/auth/v1/token?grant_type=refresh_token`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'apikey': 'public' },
+      body: JSON.stringify({ refresh_token: refreshToken })
+    });
+    if (!res.ok) return false;
+    const json = await res.json();
+    if (json.access_token) {
+      authToken = json.access_token;
+      await chrome.storage.local.set({ authToken: authToken });
+      return true;
+    }
+  } catch (_) {}
+  return false;
 }
