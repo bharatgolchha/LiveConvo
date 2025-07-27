@@ -15,7 +15,7 @@
 
     if (!accessToken || !user) return;
 
-    chrome.runtime.sendMessage({
+    safeSendMessage({
       type: 'WEB_SESSION_TOKEN',
       token: accessToken,
       user: {
@@ -27,6 +27,19 @@
     // Silence any JSON parse errors
   }
 })();
+
+// Safe wrapper to avoid "Extension context invalidated" errors
+function safeSendMessage(message) {
+  try {
+    chrome.runtime.sendMessage(message, undefined, () => {
+      if (chrome.runtime.lastError) {
+        // Ignore errors caused by context invalidation or no listeners
+      }
+    });
+  } catch (_) {
+    // Silently ignore if extension context is gone
+  }
+}
 
 // --------------------------------------------------
 //  Enhanced real-time Supabase session detection
@@ -66,7 +79,7 @@ function extractSession() {
 }
 
 function sendTokenMessage(session) {
-  chrome.runtime.sendMessage({
+  safeSendMessage({
     type: 'WEB_SESSION_TOKEN',
     token: session.accessToken,
     user: {
@@ -77,7 +90,7 @@ function sendTokenMessage(session) {
 }
 
 function sendLogoutMessage() {
-  chrome.runtime.sendMessage({ type: 'WEB_SESSION_LOGOUT' });
+  safeSendMessage({ type: 'WEB_SESSION_LOGOUT' });
 }
 
 // Initial check (covers page refresh / first load)
