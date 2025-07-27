@@ -965,7 +965,7 @@ const DashboardPage: React.FC = () => {
         
         <main className="flex-1 overflow-hidden flex">
           {/* Main content area */}
-          <div className="flex-1 p-4 sm:p-6 flex flex-col overflow-auto">
+          <div className="flex-1 p-2 sm:p-6 flex flex-col overflow-auto">
 
             {/* Calendar Connection Banner */}
             {activePath === 'conversations' && (
@@ -1101,7 +1101,7 @@ const DashboardPage: React.FC = () => {
                     </div>
 
                     {/* Meeting List */}
-                    <div className="flex-1 p-3 sm:p-4 space-y-2 sm:space-y-3">
+                    <div className="flex-1 p-2 sm:p-4 space-y-2 sm:space-y-3 overflow-x-hidden">
                       {/* Always render as list view */}
                       {filtered.sessions?.map((session) => (
                         <MeetingCardAdapter

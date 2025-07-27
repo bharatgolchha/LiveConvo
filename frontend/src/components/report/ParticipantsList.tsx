@@ -17,9 +17,10 @@ interface ParticipantsListProps {
     them: string;
   };
   participants?: Participant[]; // Pre-loaded participants data to avoid API calls
+  size?: 'sm' | 'md'; // Size variant for mobile optimization
 }
 
-export function ParticipantsList({ sessionId, showLabel = true, maxVisible, fallbackParticipants, participants: providedParticipants }: ParticipantsListProps) {
+export function ParticipantsList({ sessionId, showLabel = true, maxVisible, fallbackParticipants, participants: providedParticipants, size = 'md' }: ParticipantsListProps) {
   const [participants, setParticipants] = useState<Participant[]>(providedParticipants || []);
   const [loading, setLoading] = useState(!providedParticipants);
   const [expanded, setExpanded] = useState(false);
@@ -169,32 +170,34 @@ export function ParticipantsList({ sessionId, showLabel = true, maxVisible, fall
   const visibleParticipants = expanded || maxVisible === undefined ? participants : participants.slice(0, maxVisible);
   const remainingCount = maxVisible !== undefined && !expanded ? participants.length - visibleParticipants.length : 0;
 
+  const isSmall = size === 'sm';
+
   return (
     <div className="flex items-center gap-3">
       <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
-        <Users className="w-4 h-4" />
+        <Users className={isSmall ? "w-3 h-3" : "w-4 h-4"} />
         {showLabel && <span className="font-medium">Participants:</span>}
       </div>
-      <div className="flex items-center gap-1.5 flex-wrap">
+      <div className={`flex items-center ${isSmall ? 'gap-1' : 'gap-1.5'} flex-wrap`}>
         {visibleParticipants.map((participant, index) => (
           <div
             key={index}
-            className="group flex items-center gap-1.5 px-2.5 py-1 bg-muted/50 dark:bg-muted/30 border border-border hover:border-primary/50 rounded-full transition-all duration-200 hover:shadow-sm cursor-default"
+            className={`group flex items-center ${isSmall ? 'gap-1 px-1.5 py-0.5' : 'gap-1.5 px-2.5 py-1'} bg-muted/50 dark:bg-muted/30 border border-border hover:border-primary/50 rounded-full transition-all duration-200 hover:shadow-sm cursor-default`}
             title={participant.name}
           >
             <div
-              className={`w-6 h-6 ${participant.color} ${getTextColorForBg(participant.color)} rounded-full flex items-center justify-center text-[10px] font-bold shadow-sm ring-2 ring-white dark:ring-background transition-transform duration-200 group-hover:scale-110`}
+              className={`${isSmall ? 'w-4 h-4' : 'w-6 h-6'} ${participant.color} ${getTextColorForBg(participant.color)} rounded-full flex items-center justify-center ${isSmall ? 'text-[8px]' : 'text-[10px]'} font-bold shadow-sm ring-2 ring-white dark:ring-background transition-transform duration-200 group-hover:scale-110`}
             >
               {participant.initials}
             </div>
-            <span className="text-xs text-foreground font-medium">{participant.name}</span>
+            <span className={`${isSmall ? 'text-[10px]' : 'text-xs'} text-foreground font-medium`}>{participant.name}</span>
           </div>
         ))}
         {remainingCount > 0 && (
           <button
             type="button"
             onClick={() => setExpanded(true)}
-            className="text-xs text-muted-foreground focus:outline-none"
+            className={`${isSmall ? 'text-[10px]' : 'text-xs'} text-muted-foreground focus:outline-none`}
           >
             (+{remainingCount} more)
           </button>

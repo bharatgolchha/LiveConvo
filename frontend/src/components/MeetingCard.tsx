@@ -177,10 +177,9 @@ export const MeetingCard = React.memo(({
         'rounded-2xl shadow-sm hover:shadow-md transition-all duration-300',
         'bg-card border border-border',
         'hover:border-primary/50 hover:translate-y-[-1px]',
-        'px-4 py-3',
+        'p-3 sm:px-4 sm:py-3',
         selected && 'border-l-4 border-l-primary',
-        'grid grid-cols-[auto_1fr_auto] gap-3 sm:gap-4',
-        'sm:grid-areas-[left_body_right] grid-areas-[left_body_right]'
+        'flex flex-col sm:grid sm:grid-cols-[auto_1fr_auto] gap-3 sm:gap-4'
       )}
     >
       {/* Left Rail - Desktop */}
@@ -208,35 +207,47 @@ export const MeetingCard = React.memo(({
         <Icon className="w-5 h-5 text-muted-foreground" />
       </div>
 
-      {/* Mobile Header - Checkbox and Status */}
-      <div className="flex sm:hidden items-center gap-2">
+      {/* Mobile Header - Combined for mobile */}
+      <div className="flex sm:hidden items-start gap-2">
         <Checkbox
           checked={selected}
           onCheckedChange={(checked) => onSelect(id, checked as boolean)}
           aria-label={`Select ${title}`}
+          className="mt-1"
         />
-        <div className="relative">
-          <div className={cn(
-            'w-2 h-2 rounded-full',
-            statusColors[status],
-            statusDotClasses[status] || ''
-          )} />
-          {status === 'Live' && (
-            <div className={cn(
-              'absolute inset-0 w-2 h-2 rounded-full',
-              'bg-destructive',
-              'animate-ping'
-            )} />
-          )}
+        <div className="flex-1 min-w-0">
+          <div className="flex items-start gap-2 flex-wrap">
+            <div className="relative">
+              <div className={cn(
+                'w-2 h-2 rounded-full mt-2',
+                statusColors[status],
+                statusDotClasses[status] || ''
+              )} />
+              {status === 'Live' && (
+                <div className={cn(
+                  'absolute inset-0 w-2 h-2 rounded-full',
+                  'bg-destructive',
+                  'animate-ping'
+                )} />
+              )}
+            </div>
+            <Icon className="w-4 h-4 text-muted-foreground mt-1.5" />
+            <h3 
+              className="font-semibold text-base text-foreground flex-1 cursor-pointer"
+              onClick={() => onOpen(id)}
+            >
+              {title}
+            </h3>
+          </div>
         </div>
       </div>
 
       {/* Body */}
       <div 
-        className="flex flex-col gap-1 min-w-0 cursor-pointer"
-        onClick={() => onOpen(id)}
+        className="flex-1 flex flex-col gap-1 min-w-0 sm:ml-0 ml-7"
       >
-        <div className="flex items-center gap-2">
+        {/* Desktop title row */}
+        <div className="hidden sm:flex items-center gap-2 cursor-pointer" onClick={() => onOpen(id)}>
           <h3 className="font-semibold text-base truncate text-foreground">{title}</h3>
           {/* Shared Badge */}
           {(isShared || isSharedWithMe) && (
@@ -256,28 +267,59 @@ export const MeetingCard = React.memo(({
           )}
         </div>
         
-        {/* Mobile relative time */}
-        <p className="sm:hidden text-xs text-muted-foreground flex items-center gap-1">
-          <Clock className="w-3 h-3" />
-          <time dateTime={startTime.toISOString()}>{getRelativeTime()}</time>
-        </p>
+        {/* Mobile content section with shared badges */}
+        <div className="sm:hidden flex flex-col gap-1">
+          {(isShared || isSharedWithMe) && (
+            <div className="flex">
+              {isSharedWithMe ? (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-primary/10 text-primary dark:bg-primary/20 dark:text-primary text-xs font-medium">
+                  <ShareIcon className="w-3 h-3" />
+                  <span>Shared{sharedByName ? ` by ${sharedByName}` : ''}</span>
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-muted text-muted-foreground dark:bg-muted dark:text-muted-foreground text-xs font-medium">
+                  <Share2 className="w-3 h-3" />
+                  <span>Shared</span>
+                </span>
+              )}
+            </div>
+          )}
+          <p className="text-xs text-muted-foreground flex items-center gap-1">
+            <Clock className="w-3 h-3" />
+            <time dateTime={startTime.toISOString()}>{getRelativeTime()}</time>
+          </p>
+        </div>
 
         {/* Meta row */}
-        <div className="flex items-center gap-2 text-sm">
+        <div className="flex items-center gap-2 text-sm flex-wrap">
           <span className="text-xs rounded-full bg-muted px-2 py-0.5 text-muted-foreground">
             {meetingType}
           </span>
           {/* Participant pills - use pre-loaded data to avoid API calls */}
-          <ParticipantsList 
-            sessionId={id} 
-            showLabel={false}
-            maxVisible={3}
-            participants={participantObjects}
-            fallbackParticipants={
-              participantMe || participantThem ? { me: participantMe || '', them: participantThem || '' } : undefined
-            }
-          />
-          <span className="text-muted-foreground">• {formatDuration(durationSec)}</span>
+          <div className="sm:hidden">
+            <ParticipantsList 
+              sessionId={id} 
+              showLabel={false}
+              maxVisible={2}
+              participants={participantObjects}
+              fallbackParticipants={
+                participantMe || participantThem ? { me: participantMe || '', them: participantThem || '' } : undefined
+              }
+              size="sm"
+            />
+          </div>
+          <div className="hidden sm:block">
+            <ParticipantsList 
+              sessionId={id} 
+              showLabel={false}
+              maxVisible={3}
+              participants={participantObjects}
+              fallbackParticipants={
+                participantMe || participantThem ? { me: participantMe || '', them: participantThem || '' } : undefined
+              }
+            />
+          </div>
+          <span className="text-muted-foreground hidden sm:inline">• {formatDuration(durationSec)}</span>
         </div>
 
         {/* Bot and Participant Status - Only show for Live meetings */}
@@ -302,18 +344,18 @@ export const MeetingCard = React.memo(({
         )}
 
         {/* TLDR */}
-        <div className="mt-2">
+        <div className="mt-1.5">
           {tldr === undefined ? (
             <div className="animate-pulse h-4 bg-muted rounded w-3/4" />
           ) : (
-            <p className="text-sm text-muted-foreground leading-5">
+            <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed line-clamp-2">
               {tldr}
             </p>
           )}
         </div>
 
-        {/* Mobile action buttons */}
-        <div className="sm:hidden flex gap-2 mt-2">
+        {/* Mobile action buttons - more compact */}
+        <div className="sm:hidden flex gap-1.5 mt-2">
           <Button
             size="sm"
             variant="primary"
@@ -322,6 +364,7 @@ export const MeetingCard = React.memo(({
               onOpen(id)
             }}
             aria-label={`Open meeting ${title}`}
+            className="text-xs px-3 py-1.5"
           >
             Open
           </Button>
@@ -334,6 +377,7 @@ export const MeetingCard = React.memo(({
                 onFollowUp(id)
               }}
               aria-label={`Follow up on ${title}`}
+              className="text-xs px-3 py-1.5"
             >
               Follow-up
             </Button>
@@ -341,29 +385,29 @@ export const MeetingCard = React.memo(({
           {showReport && (
             <Button
               size="sm"
-              variant="outline"
+              variant="ghost"
               onClick={(e) => {
                 e.stopPropagation()
                 onReport(id)
               }}
               aria-label={`View report for ${title}`}
-              className="border-primary/30 text-primary hover:bg-primary/10 hover:border-primary/50"
+              className="text-primary hover:bg-primary/10 p-1.5"
             >
-              <FileText className="w-4 h-4" />
+              <FileText className="w-3.5 h-3.5" />
             </Button>
           )}
           {showShare && onShare && (
             <Button
               size="sm"
-              variant="outline"
+              variant="ghost"
               onClick={(e) => {
                 e.stopPropagation()
                 onShare()
               }}
               aria-label={`Share ${title}`}
-              className="border-primary/30 text-primary hover:bg-primary/10 hover:border-primary/50"
+              className="text-primary hover:bg-primary/10 p-1.5"
             >
-              <Share2 className="w-4 h-4" />
+              <Share2 className="w-3.5 h-3.5" />
             </Button>
           )}
         </div>
