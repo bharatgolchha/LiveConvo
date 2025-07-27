@@ -462,7 +462,13 @@ async function fetchActiveSession() {
 async function apiFetch(path, init = {}, { retry = true } = {}) {
   const headers = new Headers(init.headers || {});
   if (authToken) headers.set('Authorization', `Bearer ${authToken}`);
-  const response = await fetch(`${API_BASE_URL}${path}`, { ...init, headers });
+  // Build full URL and always append token as query param (fallback for CORS stripping)
+  const url = new URL(`${API_BASE_URL}${path}`);
+  if (authToken) {
+    url.searchParams.set('token', authToken);
+  }
+
+  const response = await fetch(url.toString(), { ...init, headers });
 
   if (response.status === 401 && retry) {
     // Try to re-sync token from web session then retry once
