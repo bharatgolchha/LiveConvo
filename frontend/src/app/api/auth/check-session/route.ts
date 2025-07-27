@@ -29,10 +29,45 @@ export async function GET(request: NextRequest) {
       }
     }
     
-    // For web-based auth, we can't access cookies from extensions
-    // The extension should use the web-session.js content script to get the token
+    /*
+     * Fallback: attempt to read Supabase access token from cookies.  
+     * When the extension performs a cross-origin fetch with `credentials:\'include\'`,
+     * the browser will attach the Supabase auth cookies set by the web app (e.g.
+     *   sb-<project-id>-access-token).
+     * This allows the extension to silently refresh its token without forcing an
+     * explicit re-login.
+     */
+
+    const cookieStore = cookies();
+    let accessToken: string | undefined;
+
+    // Supabase cookie names look like: sb-<project>-access-token
+    const allCookies: any[] = (cookieStore as any).getAll ? (cookieStore as any).getAll() : [];
+    allCookies.forEach((c) => {
+      if (c.name?.endsWith('access-token')) {
+        accessToken = c.value;
+      }
+    });
+
+    if (accessToken) {
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+      const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+      const supabase = createClient(supabaseUrl, supabaseAnonKey);
+
+      const { data: { user }, error } = await supabase.auth.getUser(accessToken);
+
+      if (!error && user) {
+        return NextResponse.json({
+          authenticated: true,
+          token: accessToken,
+          user: { id: user.id, email: user.email }
+        });
+      }
+    }
+
+    // If no valid token found
     return NextResponse.json(
-      { authenticated: false, message: 'Please use web session sync or direct login' },
+      { authenticated: false, message: 'Not logged in' },
       { status: 401 }
     );
 
