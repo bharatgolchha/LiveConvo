@@ -7,6 +7,8 @@ import { AuthErrorBoundary } from "@/components/auth/AuthErrorBoundary";
 import { Toaster } from "sonner";
 import Script from "next/script";
 import IntercomProvider from '@/components/IntercomProvider';
+import { CookieBanner } from '@/components/ui/CookieBanner';
+import { CookieConsentInitializer } from '@/components/ui/CookieConsentInitializer';
 
 // Suppress React DevTools warning in development
 if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
@@ -155,7 +157,7 @@ export default function RootLayout({
         <meta name="msapplication-TileColor" content="#0B3D2E" />
         <meta name="theme-color" content="#0B3D2E" />
       </head>
-      {/* Google Analytics 4 and Google Ads */}
+      {/* Google Analytics 4 and Google Ads with Cookie Consent */}
       <Script
         src="https://www.googletagmanager.com/gtag/js?id=G-YYPP67HS2H"
         strategy="afterInteractive"
@@ -164,10 +166,21 @@ export default function RootLayout({
         window.dataLayer = window.dataLayer || [];
         function gtag(){dataLayer.push(arguments);}
         gtag('js', new Date());
+        
+        // Set default consent mode
+        gtag('consent', 'default', {
+          'analytics_storage': 'granted',
+          'ad_storage': 'granted',
+          'ad_user_data': 'granted',
+          'ad_personalization': 'granted',
+          'wait_for_update': 500
+        });
+        
+        // Configure Google Analytics
         gtag('config', 'G-YYPP67HS2H');
         gtag('config', 'AW-17380711971');
       `}</Script>
-      {/* End Google Analytics 4 and Google Ads */}
+      {/* End Google Analytics 4 and Google Ads with Cookie Consent */}
       
       {/* Referral Code Capture Script */}
       <Script id="referral-capture" strategy="afterInteractive">{`
@@ -209,7 +222,9 @@ export default function RootLayout({
         <AuthErrorBoundary>
           <ThemeProvider defaultTheme="dark" storageKey="liveprompt-theme">
             <AuthProvider>
+              <CookieConsentInitializer />
               {children}
+              <CookieBanner />
               <IntercomProvider />
               <Toaster 
                 position="top-right"

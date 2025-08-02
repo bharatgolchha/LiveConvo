@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
+import { hasConsentForCategory } from '@/lib/cookies/cookie-consent';
 
 interface IntercomWindow extends Window {
   Intercom?: (...args: any[]) => void;
@@ -16,6 +17,16 @@ export function useIntercom() {
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
+    
+    // Check if user has consented to functional cookies
+    if (!hasConsentForCategory('functional')) {
+      // If no consent, ensure Intercom is shut down if it was previously loaded
+      if (window.Intercom && isReady) {
+        window.Intercom('shutdown');
+        setIsReady(false);
+      }
+      return;
+    }
 
     const loadIntercom = () => {
       // Create the Intercom script element
@@ -66,11 +77,27 @@ export function useIntercom() {
     // Delay loading to ensure DOM is ready
     const timeoutId = setTimeout(loadIntercom, 100);
 
+    // Listen for cookie consent changes
+    const handleConsentUpdate = (event: CustomEvent) => {
+      const consent = event.detail;
+      if (!consent.functional && window.Intercom && isReady) {
+        // User revoked functional cookie consent, shut down Intercom
+        window.Intercom('shutdown');
+        setIsReady(false);
+      } else if (consent.functional && !isReady) {
+        // User granted functional cookie consent, reload Intercom
+        loadIntercom();
+      }
+    };
+
+    window.addEventListener('cookieConsentUpdated', handleConsentUpdate as EventListener);
+
     return () => {
       clearTimeout(timeoutId);
+      window.removeEventListener('cookieConsentUpdated', handleConsentUpdate as EventListener);
       // Don't shutdown on unmount as it causes issues with navigation
     };
-  }, [user]);
+  }, [user, isReady]);
 
   const show = useCallback(() => {
     if (window.Intercom && isReady) {
