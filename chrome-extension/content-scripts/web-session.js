@@ -126,4 +126,4 @@ setInterval(() => {
     lastAccessToken = null;
     lastRefreshToken = null;
   }
-}, 180000); 
+}, 10000); 

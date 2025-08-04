@@ -167,7 +167,7 @@ export default function LandingPage() {
                   paddingBottom: '0.1em'
                 }}
               >
-                AI That Elevates
+                Your Second Brain for
               </span>
               <span 
                 className="relative inline-block text-5xl sm:text-6xl lg:text-7xl"
@@ -187,7 +187,7 @@ export default function LandingPage() {
                   display: 'inline-block'
                 }}
               >
-                Every Conversation
+                Every Meeting
               </span>
             </h1>
             
@@ -207,11 +207,7 @@ export default function LandingPage() {
                  lineHeight: '1.5'
                }}
             >
-              <span className="text-app-success">AI joins every call</span>
-              <span className="mx-3 text-muted-foreground/60">•</span>
-              <span className="text-app-info">Captures every word</span>
-              <span className="mx-3 text-muted-foreground/60">•</span>
-              <span className="text-app-success-light">Delivers instant insight</span>
+              Liveprompt transcribes and summarizes your call as it happens—in 10 languages—while suggesting what to say next in under two seconds.
             </p>
             
             <div className="mb-8 flex flex-col sm:flex-row items-center justify-center gap-4">

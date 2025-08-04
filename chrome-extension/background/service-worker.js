@@ -44,9 +44,10 @@ async function ensureAuthToken() {
     return true;
   }
 
-  // Wait up to 3s for a WEB_SESSION_TOKEN message carrying fresh JWT
+  // Wait up to 11s (slightly above content-script polling) for a WEB_SESSION_TOKEN message carrying fresh JWT
+  const WAIT_FOR_TOKEN_MS = 11000;
   return new Promise((resolve) => {
-    const timeout = setTimeout(() => resolve(!!authToken), 3000);
+    const timeout = setTimeout(() => resolve(!!authToken), WAIT_FOR_TOKEN_MS);
     pendingResolvers.push(() => {
       clearTimeout(timeout);
       resolve(!!authToken);
