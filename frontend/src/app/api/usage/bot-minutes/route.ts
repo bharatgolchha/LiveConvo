@@ -230,9 +230,9 @@ export async function GET(req: NextRequest) {
     }
 
     // ------------------------------------------------------------------
-    // Reconcile with check_usage_limit for accuracy (single source of truth)
+    // Reconcile with check_usage_limit_v2 for accuracy (single source of truth)
     // ------------------------------------------------------------------
-    const { data: limitData } = await serviceClient.rpc('check_usage_limit', {
+    const { data: limitData } = await serviceClient.rpc('check_usage_limit_v2', {
       p_user_id: userId,
       p_organization_id: organizationId
     });

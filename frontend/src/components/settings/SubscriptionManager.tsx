@@ -29,12 +29,16 @@ interface SubscriptionData {
     startDate: string | null;
     endDate: string | null;
     billingInterval: string | null;
+    currentPeriodStart: string | null;
+    currentPeriodEnd: string | null;
   };
   usage: {
     currentAudioHours: number;
     limitAudioHours: number | null;
     currentSessions: number;
     limitSessions: number | null;
+    currentBotMinutes: number;
+    limitBotMinutes: number | null;
   };
 }
 
@@ -72,9 +76,11 @@ export const SubscriptionManager: React.FC = () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
 
-      const response = await fetch('/api/users/subscription', {
+      const response = await fetch(`/api/users/subscription?t=${Date.now()}`, {
         headers: {
-          'Authorization': `Bearer ${session.access_token}`
+          'Authorization': `Bearer ${session.access_token}`,
+          'Cache-Control': 'no-cache',
+          'Pragma': 'no-cache'
         }
       });
 
@@ -296,32 +302,50 @@ export const SubscriptionManager: React.FC = () => {
 
         {/* Usage Summary */}
         <div className="mb-6">
-          <h3 className="text-lg font-medium text-foreground mb-3">Usage This Billing Period</h3>
+          <h3 className="text-lg font-medium text-foreground mb-3">
+            Usage This Billing Period
+            {subscription.currentPeriodStart && subscription.currentPeriodEnd && (
+              <span className="text-sm font-normal text-muted-foreground ml-2">
+                ({format(new Date(subscription.currentPeriodStart), 'MMM d')} - {format(new Date(subscription.currentPeriodEnd), 'MMM d, yyyy')})
+              </span>
+            )}
+          </h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="p-4 border border-border rounded-lg">
+            {/* Bot Minutes - Primary metric */}
+            <div className="p-4 border-2 border-primary/20 rounded-lg bg-primary/5">
               <div className="flex justify-between items-center mb-2">
-                <span className="text-sm text-muted-foreground">Audio Time</span>
-                <span className="text-sm font-medium text-foreground">
-                  {usage.currentAudioHours < 1 
-                    ? `${Math.round(usage.currentAudioHours * 60)} min`
-                    : `${usage.currentAudioHours} hr`}
-                  {usage.limitAudioHours !== null 
-                    ? usage.limitAudioHours < 1 
-                      ? ` / ${usage.limitAudioHours * 60} min`
-                      : ` / ${usage.limitAudioHours} hr`
+                <span className="text-sm font-medium text-foreground">🤖 Bot Minutes</span>
+                <span className="text-sm font-bold text-foreground">
+                  {usage.currentBotMinutes || 0}
+                  {usage.limitBotMinutes !== null 
+                    ? ` / ${usage.limitBotMinutes}`
                     : ' (Unlimited)'}
                 </span>
               </div>
-              {usage.limitAudioHours && (
+              {usage.limitBotMinutes && (
                 <div className="w-full bg-muted rounded-full h-2">
                   <div 
-                    className="bg-primary h-2 rounded-full" 
+                    className={`h-2 rounded-full transition-all ${
+                      ((usage.currentBotMinutes || 0) / usage.limitBotMinutes) > 0.9 
+                        ? 'bg-red-500' 
+                        : ((usage.currentBotMinutes || 0) / usage.limitBotMinutes) > 0.75 
+                        ? 'bg-yellow-500'
+                        : 'bg-primary'
+                    }`}
                     style={{ 
-                      width: `${Math.min((usage.currentAudioHours / usage.limitAudioHours) * 100, 100)}%` 
+                      width: `${Math.min(((usage.currentBotMinutes || 0) / usage.limitBotMinutes) * 100, 100)}%` 
                     }}
                   />
                 </div>
               )}
+              <p className="text-xs text-muted-foreground mt-2">
+                {usage.limitBotMinutes && usage.limitBotMinutes - (usage.currentBotMinutes || 0) > 0
+                  ? `${usage.limitBotMinutes - (usage.currentBotMinutes || 0)} minutes remaining`
+                  : usage.limitBotMinutes && (usage.currentBotMinutes || 0) >= usage.limitBotMinutes
+                  ? 'Limit reached - overage charges apply'
+                  : 'AI meeting bot recording time'
+                }
+              </p>
             </div>
             
             <div className="p-4 border border-border rounded-lg">
@@ -342,6 +366,9 @@ export const SubscriptionManager: React.FC = () => {
                   />
                 </div>
               )}
+              <p className="text-xs text-muted-foreground mt-2">
+                Number of conversation sessions
+              </p>
             </div>
           </div>
         </div>

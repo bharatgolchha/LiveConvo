@@ -118,7 +118,7 @@ export async function GET(request: NextRequest) {
 
     // Get usage limits using the database function with service client
     const { data: limits, error: limitsError } = await serviceClient
-      .rpc('check_usage_limit', {
+      .rpc('check_usage_limit_v2', {
         p_user_id: user.id,
         p_organization_id: userData.current_organization_id
       });

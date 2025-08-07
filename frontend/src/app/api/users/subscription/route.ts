@@ -68,7 +68,7 @@ export async function GET(request: NextRequest) {
       // Fetch the free plan limits dynamically so we don\'t rely on a hard-coded value
       const { data: freePlan, error: freePlanError } = await supabase
         .from('plans')
-        .select('display_name, monthly_audio_minutes_limit, monthly_audio_hours_limit, has_recording_access, has_file_uploads')
+        .select('display_name, monthly_audio_minutes_limit, monthly_audio_hours_limit, monthly_bot_minutes_limit, has_recording_access, has_file_uploads')
         .eq('name', 'individual_free')
         .single();
 
@@ -85,6 +85,8 @@ export async function GET(request: NextRequest) {
           freeLimitAudioHours = freePlan.monthly_audio_hours_limit;
         }
       }
+      
+      const freeBotMinutesLimit = freePlan?.monthly_bot_minutes_limit || 60;
 
       return NextResponse.json({
         plan: {
@@ -114,12 +116,16 @@ export async function GET(request: NextRequest) {
           startDate: null,
           endDate: null,
           billingInterval: null,
+          currentPeriodStart: null,
+          currentPeriodEnd: null,
         },
         usage: {
           currentAudioHours: 0,
           limitAudioHours: freeLimitAudioHours,
           currentSessions: 0,
           limitSessions: null,
+          currentBotMinutes: 0,
+          limitBotMinutes: freeBotMinutesLimit,
         }
       });
     }
@@ -135,20 +141,32 @@ export async function GET(request: NextRequest) {
       throw new Error('Organization not found');
     }
 
-    // Use billing period if available, otherwise default to calendar month
+    // Calculate period based on subscription anniversary date (not billing period)
     const now = new Date();
     let periodStart: Date;
     let periodEnd: Date;
     
-    if (subscriptionData?.current_period_start) {
-      periodStart = new Date(subscriptionData.current_period_start);
-      periodEnd = new Date(subscriptionData.current_period_end);
-      console.log('📅 Using billing period:', { 
+    if (subscriptionData?.created_at) {
+      // Use subscription anniversary date for monthly periods
+      const subscriptionStart = new Date(subscriptionData.created_at);
+      const subscriptionDay = subscriptionStart.getDate();
+      const currentDay = now.getDate();
+      
+      // Calculate current monthly period based on subscription anniversary
+      if (currentDay >= subscriptionDay) {
+        periodStart = new Date(now.getFullYear(), now.getMonth(), subscriptionDay);
+      } else {
+        periodStart = new Date(now.getFullYear(), now.getMonth() - 1, subscriptionDay);
+      }
+      periodEnd = new Date(periodStart.getFullYear(), periodStart.getMonth() + 1, subscriptionDay);
+      
+      console.log('📅 Using subscription anniversary period:', { 
+        subscriptionDay,
         start: periodStart.toISOString(), 
         end: periodEnd.toISOString() 
       });
     } else {
-      // Fallback to calendar month
+      // Fallback to calendar month for free users
       periodStart = new Date(now.getFullYear(), now.getMonth(), 1);
       periodEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0);
       console.log('📅 Using calendar month (no subscription found)');
@@ -157,13 +175,13 @@ export async function GET(request: NextRequest) {
     // --------------------------------------------------------------------
     // Fetch usage limits & minutes used via database function (source of truth)
     // --------------------------------------------------------------------
-    const { data: limitResult, error: limitError } = await supabase.rpc('check_usage_limit', {
+    const { data: limitResult, error: limitError } = await supabase.rpc('check_usage_limit_v2', {
       p_user_id: user.id,
       p_organization_id: userData.current_organization_id
     });
     
     if (limitError) {
-      console.error('check_usage_limit RPC error:', limitError);
+      console.error('check_usage_limit_v2 RPC error:', limitError);
     }
     
     const limitRow = Array.isArray(limitResult) ? limitResult[0] : limitResult;
@@ -205,7 +223,7 @@ export async function GET(request: NextRequest) {
     const totalAudioHours = Math.round((minutesUsed / 60) * 100) / 100; // 2-decimal precision
     const limitAudioHours = minutesLimit === null ? null : Math.round((minutesLimit / 60) * 100) / 100;
     
-    console.log('📊 Usage after check_usage_limit:', {
+    console.log('📊 Usage after check_usage_limit_v2:', {
       minutesUsed,
       minutesLimit,
       minutesRemaining,
@@ -214,10 +232,10 @@ export async function GET(request: NextRequest) {
     });
 
     // --------------------------------------------------------------------
-    // END usage calculation via check_usage_limit
+    // END usage calculation via check_usage_limit_v2
     // --------------------------------------------------------------------
 
-    // Get session count for billing period by organization
+    // Get session count for the calculated monthly period by organization
     const { count: sessionCount } = await supabase
       .from('sessions')
       .select('id', { count: 'exact' })
@@ -235,6 +253,13 @@ export async function GET(request: NextRequest) {
     }
 
     console.log('Building response for user:', user.email);
+    console.log('Subscription data from DB:', {
+      plan_name: subscriptionData.plan_name,
+      plan_display_name: subscriptionData.plan_display_name,
+      plan_bot_minutes_limit: subscriptionData.plan_bot_minutes_limit,
+      max_sessions_per_month: subscriptionData.max_sessions_per_month,
+      price_monthly: subscriptionData.price_monthly
+    });
     console.log('has_custom_templates from DB:', subscriptionData.has_custom_templates);
     
     const response = {
@@ -265,12 +290,17 @@ export async function GET(request: NextRequest) {
         startDate: subscriptionData.current_period_start,
         endDate: subscriptionData.current_period_end,
         billingInterval: billingInterval,
+        // Use calculated period dates for display (not stale Stripe dates)
+        currentPeriodStart: periodStart.toISOString(),
+        currentPeriodEnd: periodEnd.toISOString(),
       },
       usage: {
         currentAudioHours: totalAudioHours,
         limitAudioHours: limitAudioHours,
         currentSessions: sessionCount || 0,
         limitSessions: subscriptionData.max_sessions_per_month,
+        currentBotMinutes: minutesUsed,
+        limitBotMinutes: minutesLimit,
       }
     };
     
@@ -279,7 +309,9 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json(response, {
       headers: {
-        'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=300',
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Pragma': 'no-cache',
+        'Expires': '0'
       },
     });
 

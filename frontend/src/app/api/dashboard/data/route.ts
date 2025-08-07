@@ -149,6 +149,17 @@ export async function GET(request: NextRequest) {
         is_active: userData.is_active
       }
     };
+    
+    // Debug log for bgolchha
+    if (user.email === 'bgolchha@gmail.com') {
+      console.log('🎯 Dashboard API Response for bgolchha@gmail.com:', {
+        'stats.monthlyMinutesUsed': stats?.monthlyMinutesUsed,
+        'stats.monthlyMinutesLimit': stats?.monthlyMinutesLimit,
+        'stats.monthlyBotMinutesUsed': stats?.monthlyBotMinutesUsed,
+        'stats.monthlyBotMinutesLimit': stats?.monthlyBotMinutesLimit,
+        timestamp: new Date().toISOString()
+      });
+    }
 
     console.log('Dashboard API response:', {
       sessionsCount: response.sessions?.length || 0,
@@ -159,16 +170,12 @@ export async function GET(request: NextRequest) {
     });
 
     // Don't cache shared meetings queries as they can change frequently
-    const cacheHeaders: Record<string, string> = filter === 'shared' 
-      ? {
-          'Cache-Control': 'no-cache, no-store, must-revalidate',
-          'Pragma': 'no-cache',
-          'Expires': '0'
-        }
-      : {
-          // Cache for 30 seconds at the edge, allow stale for 2 minutes while revalidating
-          'Cache-Control': 'public, s-maxage=30, stale-while-revalidate=120',
-        };
+    const cacheHeaders: Record<string, string> = {
+      // Temporarily disable all caching to ensure fresh data
+      'Cache-Control': 'no-cache, no-store, must-revalidate',
+      'Pragma': 'no-cache',
+      'Expires': '0'
+    };
     
     return NextResponse.json(response, {
       headers: cacheHeaders,
@@ -573,15 +580,15 @@ async function fetchUserStats(
   }
 
   // ------------------------------------------------------------------
-  // Use database function for authoritative usage numbers
+  // Use database function for authoritative usage numbers (v2 for anniversary-based periods)
   // ------------------------------------------------------------------
-  const { data: limitFuncData, error: limitFuncError } = await serviceClient.rpc('check_usage_limit', {
+  const { data: limitFuncData, error: limitFuncError } = await serviceClient.rpc('check_usage_limit_v2', {
     p_user_id: userId,
     p_organization_id: organizationId
   });
 
   if (limitFuncError) {
-    console.error('check_usage_limit error:', limitFuncError);
+    console.error('check_usage_limit_v2 error:', limitFuncError);
   }
 
   const limitRow = Array.isArray(limitFuncData) ? limitFuncData[0] : limitFuncData;
@@ -610,31 +617,13 @@ async function fetchUserStats(
   };
 
   console.log('📊 Raw limit data from DB:', limitRow);
-  console.log('📊 Usage from check_usage_limit:', limitData);
+  console.log('📊 Usage from check_usage_limit_v2:', limitData);
   console.log('📊 Is unlimited?', isUnlimited, 'Minutes limit:', minutesLimit);
 
-  // -------------------------------------------------
-  // Recompute minutes within active billing period
-  // -------------------------------------------------
-  const { data: periodUsageRows } = await serviceClient
-    .from('bot_usage_tracking')
-    .select('billable_minutes')
-    .eq('user_id', userId)
-    .eq('organization_id', organizationId)
-    .gte('created_at', periodStart.toISOString())
-    .lt('created_at', periodEnd.toISOString());
-
-  const currentPeriodBotMinutes = periodUsageRows?.reduce((sum, r) => sum + (r.billable_minutes || 0), 0) || 0;
-
-  // Use limitData.minutes_limit as the plan limit but minutes_used from current period calculation
-  minutesUsed = currentPeriodBotMinutes;
-  minutesRemaining = isUnlimited ? null : Math.max(0, (minutesLimit || 60) - minutesUsed);
-  limitData.minutes_used = minutesUsed;
-  limitData.minutes_remaining = minutesRemaining;
-  limitData.percentage_used = isUnlimited ? 0 : (minutesLimit ? Math.round((minutesUsed / minutesLimit) * 100) : 0);
-  limitData.bot_minutes_used = minutesUsed;
-
-  console.log('🔄 Recalculated current period bot minutes:', { currentPeriodBotMinutes });
+  // Trust check_usage_limit_v2 as the single source of truth
+  // It already calculates the correct monthly period based on subscription anniversary
+  minutesUsed = limitData.minutes_used;
+  minutesRemaining = limitData.minutes_remaining;
 
   // Get session statistics
   const { data: sessionStats } = await serviceClient

@@ -19,7 +19,8 @@ import {
   Target,
   Lightbulb,
   Star,
-  BarChart3
+  BarChart3,
+  RefreshCw
 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { useAuth } from '@/contexts/AuthContext';
@@ -131,6 +132,8 @@ export default function MeetingReportPage() {
   } | null>(null);
   const [shareModalOpen, setShareModalOpen] = useState(false);
   const [hasInitiallyLoaded, setHasInitiallyLoaded] = useState(false);
+  const [hasGenerationError, setHasGenerationError] = useState(false);
+  const [isRegenerating, setIsRegenerating] = useState(false);
 
   useEffect(() => {
     if (user && session && !hasInitiallyLoaded) {
@@ -175,9 +178,16 @@ export default function MeetingReportPage() {
         finalizedAt: sessionData.session.finalized_at
       });
 
+      // Check for generation errors in summary
+      const hasError = summaryData?.tldr?.includes('Summary generation encountered') || 
+                      summaryData?.tldr?.includes('error') ||
+                      summaryData?.generation_status === 'error';
+      
+      setHasGenerationError(hasError);
+      
       // Check if session is not finalized or summary is missing
-      if (!summaryData || !summaryData.tldr) {
-        console.warn('⚠️ No summary available for session:', meetingId);
+      if (!summaryData || !summaryData.tldr || hasError) {
+        console.warn('⚠️ No summary available or error in summary for session:', meetingId);
         
         // Check if we should attempt to generate a summary
         if (sessionData.session.status === 'completed' && !sessionData.session.finalized_at) {
@@ -427,6 +437,42 @@ export default function MeetingReportPage() {
 
   // Export handled by ReportExportMenu component
 
+  const handleRegenerate = async () => {
+    console.log('🔄 Regenerating summary...');
+    setIsRegenerating(true);
+    setError(null);
+    setHasGenerationError(false);
+    
+    try {
+      const headers: HeadersInit = { 'Content-Type': 'application/json' };
+      if (session?.access_token) {
+        headers['Authorization'] = `Bearer ${session.access_token}`;
+      }
+      
+      // Call finalize with regenerate flag
+      const response = await fetch(`/api/sessions/${meetingId}/finalize`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ regenerate: true })
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.details || errorData.error || 'Failed to regenerate summary');
+      }
+      
+      // Refresh the report data
+      await fetchMeetingReport();
+      console.log('✅ Summary regenerated successfully');
+    } catch (error) {
+      console.error('❌ Error regenerating summary:', error);
+      setError(error instanceof Error ? error.message : 'Failed to regenerate summary');
+      setHasGenerationError(true);
+    } finally {
+      setIsRegenerating(false);
+    }
+  };
+  
   const handleManualFinalize = async () => {
     if (!report || finalizing) return;
     
@@ -691,6 +737,20 @@ export default function MeetingReportPage() {
               
               {/* Action Buttons */}
               <div className="flex items-center gap-2">
+                {/* Show refresh button if there's a generation error */}
+                {hasGenerationError && (
+                  <Button 
+                    onClick={handleRegenerate} 
+                    variant="destructive" 
+                    size="sm" 
+                    className="h-8"
+                    disabled={isRegenerating}
+                    title="Regenerate report due to error"
+                  >
+                    <RefreshCw className={`w-3 h-3 mr-1.5 ${isRegenerating ? 'animate-spin' : ''}`} />
+                    {isRegenerating ? 'Regenerating...' : 'Refresh Report'}
+                  </Button>
+                )}
                 <Button 
                   onClick={() => router.push(`/meeting/${meetingId}`)} 
                   variant="ghost" 
@@ -712,6 +772,22 @@ export default function MeetingReportPage() {
             <div className="h-px bg-border" />
           </div>
 
+          {/* Error Banner */}
+          {hasGenerationError && (
+            <div className="mb-6 p-4 bg-destructive/10 border border-destructive/20 rounded-lg">
+              <div className="flex items-start gap-3">
+                <AlertTriangle className="w-5 h-5 text-destructive mt-0.5" />
+                <div className="flex-1">
+                  <h3 className="text-sm font-medium text-destructive">Report Generation Error</h3>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    The report generation encountered an error. Some information may be incomplete or missing.
+                    Click the "Refresh Report" button above to regenerate the summary.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+          
           {/* Tabbed Report Component */}
           <TabbedReport 
             report={report}
