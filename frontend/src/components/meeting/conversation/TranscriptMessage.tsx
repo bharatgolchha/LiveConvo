@@ -4,7 +4,7 @@ import { TranscriptMessage as TranscriptMessageType } from '@/lib/meeting/types/
 import { SpeakerAvatar } from './SpeakerAvatar';
 import { formatTimestamp } from '@/lib/meeting/utils/time-formatters';
 import { useMeetingContext } from '@/lib/meeting/context/MeetingContext';
-import { ClockIcon, ExclamationTriangleIcon } from '@heroicons/react/24/outline';
+import { ClockIcon, ExclamationTriangleIcon, SparklesIcon } from '@heroicons/react/24/outline';
 import { StarIcon as StarIconSolid } from '@heroicons/react/24/solid';
 
 interface TranscriptMessageProps {
@@ -13,7 +13,7 @@ interface TranscriptMessageProps {
 }
 
 function TranscriptMessageComponent({ message, previousSpeaker }: TranscriptMessageProps) {
-  const { meeting } = useMeetingContext();
+  const { meeting, transcript } = useMeetingContext();
   const speakerLabel = message.displayName || message.speaker;
   const showAvatar = speakerLabel !== previousSpeaker;
   
@@ -65,6 +65,50 @@ function TranscriptMessageComponent({ message, previousSpeaker }: TranscriptMess
   })();
   
   const isMe = isPrimaryUser;
+  
+  // Build a compact snippet (this + previous few lines)
+  const buildSnippet = (maxLines: number = 4) => {
+    if (!transcript || transcript.length === 0) return `${message.speaker}: ${message.text}`;
+    const index = transcript.findIndex(m => m.id === message.id);
+    const start = Math.max(0, index - (maxLines - 1));
+    const slice = transcript.slice(start, index + 1);
+    const lines = slice.map(line => {
+      const speaker = line.displayName || line.speaker;
+      const text = line.text.length > 200 ? `${line.text.slice(0, 200)}…` : line.text;
+      return `${speaker}: ${text}`;
+    });
+    return lines.join('\n');
+  };
+
+  // Simple question generator using heuristics
+  const generateQuestion = () => {
+    const text = message.text.trim();
+    const lower = text.toLowerCase();
+    const entities = ['price', 'pricing', 'budget', 'timeline', 'deadline', 'integration', 'scope', 'decision'];
+    const entity = entities.find(e => lower.includes(e));
+    if (text.endsWith('?')) {
+      return `Help me respond effectively to this question: "${text}"`;
+    }
+    if (entity) {
+      return `What is a smart follow-up to move the ${entity} discussion forward given: "${text}"?`;
+    }
+    return `What is a concise follow-up question I should ask next given: "${text}"?`;
+  };
+
+  const handleAskAI = () => {
+    const snippet = buildSnippet(4);
+    const question = generateQuestion();
+    const event = new CustomEvent('askAboutTranscript', {
+      detail: {
+        sessionId: meeting?.id,
+        messageId: message.id,
+        question,
+        context: `Context from transcript (recent):\n${snippet}`,
+        timestamp: Date.now()
+      }
+    });
+    window.dispatchEvent(event);
+  };
   
   return (
     <motion.div
@@ -156,6 +200,15 @@ function TranscriptMessageComponent({ message, previousSpeaker }: TranscriptMess
               }`}>
                 {message.text}
               </p>
+              {/* Hover Ask-AI button */}
+              <button
+                onClick={handleAskAI}
+                className={`absolute -top-2 ${isMe ? 'left-2' : 'right-2'} opacity-0 group-hover:opacity-100 transition-opacity bg-background/90 border border-border rounded-full p-1.5 shadow-sm hover:bg-muted`}
+                title="Ask AI about this"
+                aria-label="Ask AI about this"
+              >
+                <SparklesIcon className="w-3.5 h-3.5 text-primary" />
+              </button>
               
               {/* Partial indicator */}
               {message.isPartial && (

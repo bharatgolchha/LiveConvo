@@ -95,7 +95,8 @@ export function useRealtimeTranscript(sessionId: string) {
 
   // SSE handler for partial transcripts
   const handleSSETranscript = useCallback((line: TranscriptLine) => {
-    console.log('[SSE] Received transcript:', line);
+    const DEBUG = process.env.NODE_ENV === 'development' || (typeof window !== 'undefined' && (window as any).DEBUG_TRANSCRIPTS) || process.env.NEXT_PUBLIC_DEBUG_TRANSCRIPTS === 'true';
+    if (DEBUG) console.log('[SSE] Received transcript:', { ...line, text: line.text?.slice(0, 100) });
     
     // Convert TranscriptLine to TranscriptMessage
     const message: TranscriptMessage = {
@@ -160,7 +161,7 @@ export function useRealtimeTranscript(sessionId: string) {
       }
       
       // Add final message if not already seen by ID or content
-      if (!seenIds.current.has(line.id) && !recentFinalMessages.current.has(contentHash)) {
+       if (!seenIds.current.has(line.id) && !recentFinalMessages.current.has(contentHash)) {
         addTranscriptMessage(message);
         seenIds.current.add(line.id);
         // Track this final message by content hash for 30 seconds

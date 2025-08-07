@@ -7,6 +7,7 @@ const BUFFER_SIZE = 50;
 
 // Helper function to broadcast to all connections for a session
 export function broadcastTranscript(sessionId: string, data: any) {
+  const DEBUG = process.env.NODE_ENV === 'development' || process.env.DEBUG_TRANSCRIPTS === 'true' || process.env.NEXT_PUBLIC_DEBUG_TRANSCRIPTS === 'true';
   // Add to message buffer
   if (!messageBuffer.has(sessionId)) {
     messageBuffer.set(sessionId, []);
@@ -20,20 +21,22 @@ export function broadcastTranscript(sessionId: string, data: any) {
   }
   
   const connections = activeConnections.get(sessionId);
-  console.log(`📢 Broadcasting to session ${sessionId}: ${connections ? connections.size : 0} connections`);
-  console.log('📊 Broadcast data:', JSON.stringify(data, null, 2));
+  if (DEBUG) {
+    console.log(`📢 Broadcasting to session ${sessionId}: ${connections ? connections.size : 0} connections`);
+    console.log('📊 Broadcast data (truncated):', JSON.stringify({ ...data, data: { ...data?.data, text: typeof data?.data?.text === 'string' ? `${data.data.text.slice(0, 100)}${data.data.text.length > 100 ? '…' : ''}` : undefined } }, null, 2));
+  }
   
   if (connections) {
     connections.forEach(listener => {
       try {
         listener(data);
-        console.log('✅ Broadcast sent to listener');
+        if (DEBUG) console.log('✅ Broadcast sent to listener');
       } catch (error) {
         console.error('❌ Error broadcasting to listener:', error);
       }
     });
   } else {
-    console.warn('⚠️ No active connections for session:', sessionId);
+    if (DEBUG) console.warn('⚠️ No active connections for session:', sessionId);
   }
 }
 
