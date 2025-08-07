@@ -44,9 +44,10 @@ async function ensureAuthToken() {
     return true;
   }
 
-  // Wait up to 3s for a WEB_SESSION_TOKEN message carrying fresh JWT
+  // Wait up to 11s (slightly above content-script polling) for a WEB_SESSION_TOKEN message carrying fresh JWT
+  const WAIT_FOR_TOKEN_MS = 11000;
   return new Promise((resolve) => {
-    const timeout = setTimeout(() => resolve(!!authToken), 3000);
+    const timeout = setTimeout(() => resolve(!!authToken), WAIT_FOR_TOKEN_MS);
     pendingResolvers.push(() => {
       clearTimeout(timeout);
       resolve(!!authToken);
@@ -140,9 +141,57 @@ async function fetchSupabaseConfig() {
   return false;
 }
 
-// No-op: worker no longer refreshes on its own
+// Refresh token using Supabase refresh endpoint or recover from web session if possible
 async function checkAndRefreshToken() {
-  return true;
+  const now = Date.now();
+  if (!authToken || !tokenExpiresAt) {
+    return await refreshWebSession();
+  }
+
+  // Only refresh when within 5 minutes of expiry
+  const isExpiringSoon = now >= (tokenExpiresAt - 5 * 60 * 1000);
+  if (!isExpiringSoon) return true;
+
+  // Prefer refresh via Supabase if we have a refresh token
+  if (refreshToken && SUPABASE_URL && SUPABASE_ANON_KEY) {
+    try {
+      const response = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=refresh_token`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': SUPABASE_ANON_KEY
+        },
+        body: JSON.stringify({ refresh_token: refreshToken })
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        const newAccessToken = data.access_token || data.token;
+        const newRefreshToken = data.refresh_token || refreshToken;
+        if (newAccessToken) {
+          authToken = newAccessToken;
+          refreshToken = newRefreshToken;
+          tokenExpiresAt = getJwtExpiry(newAccessToken) || (Date.now() + 55 * 60 * 1000);
+          await chrome.storage.local.set({ authToken, refreshToken, tokenExpiresAt });
+          console.log('LivePrompt: Token refreshed successfully via Supabase');
+          return true;
+        }
+      } else {
+        const text = await response.text();
+        console.warn('LivePrompt: Supabase refresh failed:', response.status, text.substring(0, 200));
+      }
+    } catch (err) {
+      console.warn('LivePrompt: Supabase refresh error:', err?.message || err);
+    }
+  }
+
+  // Fallback: try to refresh from web session cookies
+  const recovered = await refreshWebSession();
+  if (recovered) return true;
+
+  // As a last resort, check web session endpoint directly
+  const hasSession = await checkWebSession();
+  return !!hasSession;
 }
 
 async function checkWebSession() {
@@ -674,12 +723,14 @@ async function apiFetch(path, init = {}, { retry = true } = {}) {
   const response = await fetch(url.toString(), { ...init, headers });
 
   if (response.status === 401 && retry) {
-    console.log('LivePrompt: Got 401, attempting to obtain fresh JWT from web session');
-    await ensureAuthToken();
-    if (authToken) {
+    console.log('LivePrompt: 401 received. Attempting token refresh...');
+    // Try refresh chain
+    const refreshed = await checkAndRefreshToken();
+    if (refreshed && authToken) {
+      // Retry once with new token
       return apiFetch(path, init, { retry: false });
     }
-    console.error('LivePrompt: Auth recovery failed');
+    console.error('LivePrompt: Auth recovery failed – logging out');
     await handleLogout();
   }
   return response;

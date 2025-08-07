@@ -4,14 +4,16 @@
 
 echo "🚀 Building LivePrompt Chrome Extension for production..."
 
-# Create build directory
+# Clean and recreate build directory
+rm -rf build
 mkdir -p build
 
 # Copy all files to build directory
 cp -r assets build/
 cp -r background build/
 cp -r content-scripts build/
-cp -r popup build/
+cp -r sidepanel build/
+cp -r images build/
 cp manifest.production.json build/manifest.json
 
 # Remove development files if any

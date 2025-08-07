@@ -177,11 +177,11 @@ async function handleLogin(e) {
       checkActiveSession();
     } else {
       console.error('Login failed:', response?.error);
-      // TODO: Show error message to user
+      showError(response?.error || 'Login failed');
     }
   } catch (error) {
     console.error('Login error:', error);
-    // TODO: Show error message to user
+    showError('Login error');
   }
 }
 

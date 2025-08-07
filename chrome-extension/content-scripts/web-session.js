@@ -52,7 +52,7 @@ function safeSendMessage(message) {
 //  in the same tab where the change occurs, so if the user
 //  logs in and stays on the same page the extension never
 //  receives the new token. We fix this by polling
-//  `localStorage` every 1.5 s and only sending messages when
+//  `localStorage` every 10 s and only sending messages when
 //  the access token changes. This keeps the implementation
 //  simple and avoids coupling to the page's JavaScript.
 
@@ -108,7 +108,7 @@ if (initialSession) {
   lastRefreshToken = initialSession.refreshToken;
 }
 
-// Poll every 1.5 seconds for changes created in the same tab
+// Poll every 10 seconds for changes created in the same tab
 setInterval(() => {
   const current = extractSession();
 
