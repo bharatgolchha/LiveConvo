@@ -4,7 +4,7 @@ import { TranscriptMessage as TranscriptMessageType } from '@/lib/meeting/types/
 import { SpeakerAvatar } from './SpeakerAvatar';
 import { formatTimestamp } from '@/lib/meeting/utils/time-formatters';
 import { useMeetingContext } from '@/lib/meeting/context/MeetingContext';
-import { ClockIcon, ExclamationTriangleIcon, SparklesIcon } from '@heroicons/react/24/outline';
+import { ClockIcon, ExclamationTriangleIcon, SparklesIcon, QuestionMarkCircleIcon, PencilSquareIcon, ClipboardDocumentCheckIcon } from '@heroicons/react/24/outline';
 import { StarIcon as StarIconSolid } from '@heroicons/react/24/solid';
 
 interface TranscriptMessageProps {
@@ -65,6 +65,7 @@ function TranscriptMessageComponent({ message, previousSpeaker }: TranscriptMess
   })();
   
   const isMe = isPrimaryUser;
+  const [menuOpen, setMenuOpen] = React.useState(false);
   
   // Build a compact snippet (this + previous few lines)
   const buildSnippet = (maxLines: number = 4) => {
@@ -104,7 +105,36 @@ function TranscriptMessageComponent({ message, previousSpeaker }: TranscriptMess
         messageId: message.id,
         question,
         context: `Context from transcript (recent):\n${snippet}`,
-        timestamp: Date.now()
+        timestamp: Date.now(),
+        isPartial: !!message.isPartial,
+        intent: 'follow_up'
+      }
+    });
+    window.dispatchEvent(event);
+  };
+
+  const handleAskAIIntent = (intent: 'follow_up' | 'draft_reply' | 'extract_action') => {
+    const snippet = buildSnippet(4);
+    let question: string;
+    switch (intent) {
+      case 'draft_reply':
+        question = `Draft a brief (1-2 sentences) reply I can say now, professional and clear, based on: "${message.text}"`;
+        break;
+      case 'extract_action':
+        question = `Extract one clear action item (who/what/when if possible) from: "${message.text}"`;
+        break;
+      default:
+        question = generateQuestion();
+    }
+    const event = new CustomEvent('askAboutTranscript', {
+      detail: {
+        sessionId: meeting?.id,
+        messageId: message.id,
+        question,
+        context: `Context from transcript (recent):\n${snippet}`,
+        timestamp: Date.now(),
+        isPartial: !!message.isPartial,
+        intent
       }
     });
     window.dispatchEvent(event);
@@ -200,15 +230,48 @@ function TranscriptMessageComponent({ message, previousSpeaker }: TranscriptMess
               }`}>
                 {message.text}
               </p>
-              {/* Hover Ask-AI button */}
-              <button
-                onClick={handleAskAI}
-                className={`absolute -top-2 ${isMe ? 'left-2' : 'right-2'} opacity-0 group-hover:opacity-100 transition-opacity bg-background/90 border border-border rounded-full p-1.5 shadow-sm hover:bg-muted`}
-                title="Ask AI about this"
-                aria-label="Ask AI about this"
-              >
-                <SparklesIcon className="w-3.5 h-3.5 text-primary" />
-              </button>
+              {/* Hover Ask-AI chip + menu */}
+              <div className={`absolute -top-2 ${isMe ? 'left-2' : 'right-2'} opacity-0 group-hover:opacity-100 transition-opacity`}>
+                <button
+                  onClick={() => setMenuOpen(o => !o)}
+                  className="inline-flex items-center gap-1.5 px-2 py-1 rounded-full bg-background/90 border border-border shadow-sm hover:bg-muted text-xs text-foreground"
+                  title="Ask AI about this"
+                  aria-label="Ask AI about this"
+                >
+                  <SparklesIcon className="w-3.5 h-3.5 text-primary" />
+                  <span className="font-medium">Ask AI</span>
+                </button>
+                {menuOpen && (
+                  <div
+                    className={`absolute ${isMe ? 'left-0' : 'right-0'} top-7 z-10 w-56 rounded-lg border border-border bg-card text-card-foreground shadow-xl`}
+                    onMouseLeave={() => setMenuOpen(false)}
+                  >
+                    <div className="py-1 text-sm">
+                      <button
+                        onClick={() => { setMenuOpen(false); handleAskAIIntent('follow_up'); }}
+                        className="w-full flex items-center gap-2 px-3 py-2 hover:bg-muted text-left text-foreground"
+                      >
+                        <QuestionMarkCircleIcon className="w-4 h-4 text-primary" />
+                        Suggest a follow-up question
+                      </button>
+                      <button
+                        onClick={() => { setMenuOpen(false); handleAskAIIntent('draft_reply'); }}
+                        className="w-full flex items-center gap-2 px-3 py-2 hover:bg-muted text-left text-foreground"
+                      >
+                        <PencilSquareIcon className="w-4 h-4 text-primary" />
+                        Draft a short reply I can say now
+                      </button>
+                      <button
+                        onClick={() => { setMenuOpen(false); handleAskAIIntent('extract_action'); }}
+                        className="w-full flex items-center gap-2 px-3 py-2 hover:bg-muted text-left text-foreground"
+                      >
+                        <ClipboardDocumentCheckIcon className="w-4 h-4 text-primary" />
+                        Extract an action item
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
               
               {/* Partial indicator */}
               {message.isPartial && (

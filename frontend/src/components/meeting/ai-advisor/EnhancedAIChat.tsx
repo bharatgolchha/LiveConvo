@@ -545,12 +545,14 @@ export const EnhancedAIChat = forwardRef<EnhancedAIChatRef>((props, ref) => {
 
   // Separated handler to avoid using handleSubmit before definition
   const handleAskAboutTranscript = async (event: CustomEvent) => {
-    const { question, context } = event.detail || {};
+    const { question, context, isPartial, intent } = event.detail || {};
     if (!question) return;
+    // If partial, we can still send but mark it for clarification
+    const prefix = isPartial && intent !== 'draft_reply' ? '⏳ (Interim transcript) ' : '';
     const userMessage: ChatMessage = {
       id: `user-${Date.now()}`,
       role: 'user',
-      content: `💬 ${question}`,
+      content: `💬 ${prefix}${question}`,
       timestamp: new Date().toISOString()
     };
     setMessages(prev => [...prev, userMessage]);

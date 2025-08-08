@@ -223,15 +223,26 @@ export const MeetingCardAdapter = React.memo(({
     }
     
     // Determine button visibility based on meeting status and summary availability
-    const canShowFollowUp = Boolean(session.status === 'completed' && 
-                           session.recording_duration_seconds && 
-                           session.recording_duration_seconds > 60 && // At least 1 minute of recording
-                           summary?.generation_status === 'completed') // Summary is ready
+    // Make buttons visible if summaries exist for the meeting (either joined on session or fetched)
+    const hasSummaryFromJoin = Boolean(
+      session.summaries &&
+      session.summaries.length > 0 &&
+      (session.summaries[0].tldr || session.summaries[0].generation_status === 'completed')
+    )
+
+    const hasFetchedSummary = Boolean(
+      summary && (summary.tldr || summary.generation_status === 'completed')
+    )
+
+    const hasUsableSummary = hasSummaryFromJoin || hasFetchedSummary
+
+    const canShowFollowUp = Boolean(
+      session.status === 'completed' && hasUsableSummary
+    )
     
-    const canShowReport = Boolean(session.status === 'completed' && 
-                         session.recording_duration_seconds && 
-                         session.recording_duration_seconds > 60 && // At least 1 minute of recording
-                         summary?.generation_status === 'completed') // Summary is ready
+    const canShowReport = Boolean(
+      session.status === 'completed' && hasUsableSummary
+    )
     
     // Show share button for completed sessions that user owns
     const canShowShare = Boolean(session.status === 'completed' && 
