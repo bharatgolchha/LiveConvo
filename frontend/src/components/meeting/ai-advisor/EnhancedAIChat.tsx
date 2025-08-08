@@ -315,6 +315,13 @@ export const EnhancedAIChat = forwardRef<EnhancedAIChatRef>((props, ref) => {
     };
   }, []);
 
+  // Listen for transcript-context questions (uses handler defined after handleSubmit)
+  useEffect(() => {
+    const typed = (event: Event) => handleAskAboutTranscript(event as CustomEvent);
+    window.addEventListener('askAboutTranscript', typed);
+    return () => window.removeEventListener('askAboutTranscript', typed);
+  }, []);
+
   // Listen for smart suggestion usage
   useEffect(() => {
     const handleUseSuggestion = async (event: CustomEvent) => {
@@ -533,6 +540,36 @@ export const EnhancedAIChat = forwardRef<EnhancedAIChatRef>((props, ref) => {
     } finally {
       setIsTyping(false);
       setIsSearching(false);
+    }
+  };
+
+  // Separated handler to avoid using handleSubmit before definition
+  const handleAskAboutTranscript = async (event: CustomEvent) => {
+    const { question, context, isPartial, intent } = event.detail || {};
+    if (!question) return;
+    // If partial, we can still send but mark it for clarification
+    const prefix = isPartial && intent !== 'draft_reply' ? '⏳ (Interim transcript) ' : '';
+    const userMessage: ChatMessage = {
+      id: `user-${Date.now()}`,
+      role: 'user',
+      content: `💬 ${prefix}${question}`,
+      timestamp: new Date().toISOString()
+    };
+    setMessages(prev => [...prev, userMessage]);
+    setIsTyping(true);
+    try {
+      await handleSubmit(undefined, question, context);
+    } catch (error) {
+      console.error('Error asking about transcript:', error);
+      const errorMessage: ChatMessage = {
+        id: `error-${Date.now()}`,
+        role: 'assistant',
+        content: "I'm sorry, I couldn't process that transcript snippet. Please try again.",
+        timestamp: new Date().toISOString()
+      };
+      setMessages(prev => [...prev, errorMessage]);
+    } finally {
+      setIsTyping(false);
     }
   };
 

@@ -1,5 +1,5 @@
-import { NextRequest } from 'next/server';
-import { createServerSupabaseClient } from '@/lib/supabase';
+import { NextRequest, NextResponse } from 'next/server';
+import { createServerSupabaseClient, createAuthenticatedSupabaseClient, supabase } from '@/lib/supabase';
 import { addConnection, removeConnection, getBufferedMessages } from '@/lib/recall-ai/transcript-broadcaster';
 
 export async function GET(
@@ -8,8 +8,47 @@ export async function GET(
 ) {
   const { id: sessionId } = await params;
   
-  console.log('🔄 Transcript stream requested for session:', sessionId);
-  console.log('📍 Full URL:', request.url);
+  const DEBUG = process.env.NODE_ENV === 'development' || process.env.DEBUG_TRANSCRIPTS === 'true' || process.env.NEXT_PUBLIC_DEBUG_TRANSCRIPTS === 'true';
+  if (DEBUG) {
+    console.log('🔄 Transcript stream requested for session:', sessionId);
+    console.log('📍 Full URL:', request.url);
+  }
+
+  // --- AuthN/AuthZ: validate user can access this session ---
+  try {
+    const url = new URL(request.url);
+    const bearerFromHeader = request.headers.get('authorization');
+    const tokenFromHeader = bearerFromHeader?.startsWith('Bearer ')
+      ? bearerFromHeader.split(' ')[1]
+      : undefined;
+    const token = url.searchParams.get('token') || tokenFromHeader || undefined;
+
+    if (!token) {
+      return new NextResponse('Unauthorized: missing token', { status: 401 });
+    }
+
+    // Validate token and get user
+    const { data: userResp, error: userErr } = await supabase.auth.getUser(token);
+    if (userErr || !userResp?.user) {
+      return new NextResponse('Unauthorized: invalid token', { status: 401 });
+    }
+
+    // Use RLS with user's token to verify access to the session
+    const authClient = createAuthenticatedSupabaseClient(token);
+    const { data: session, error: sessionError } = await authClient
+      .from('sessions')
+      .select('id')
+      .eq('id', sessionId)
+      .is('deleted_at', null)
+      .single();
+
+    if (sessionError || !session) {
+      return new NextResponse('Forbidden: no access to session', { status: 403 });
+    }
+  } catch (authErr) {
+    if (DEBUG) console.error('SSE auth error:', authErr);
+    return new NextResponse('Unauthorized', { status: 401 });
+  }
   
   // Create a new response stream
   const stream = new ReadableStream({
@@ -25,7 +64,7 @@ export async function GET(
       const oneMinuteAgo = Date.now() - 60000;
       const bufferedMessages = getBufferedMessages(sessionId, oneMinuteAgo);
       if (bufferedMessages.length > 0) {
-        console.log(`📦 Sending ${bufferedMessages.length} buffered messages to catch up`);
+        if (DEBUG) console.log(`📦 Sending ${bufferedMessages.length} buffered messages to catch up`);
         bufferedMessages.forEach(msg => {
           controller.enqueue(
             encoder.encode(`data: ${JSON.stringify(msg)}\n\n`)
@@ -69,6 +108,7 @@ export async function GET(
       'Cache-Control': 'no-cache, no-transform',
       'Connection': 'keep-alive',
       'X-Accel-Buffering': 'no',
+      // Same-origin EventSource typically carries cookies; we rely on explicit token query param.
       'Access-Control-Allow-Origin': '*',
     },
   });

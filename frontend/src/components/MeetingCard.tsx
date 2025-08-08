@@ -179,7 +179,7 @@ export const MeetingCard = React.memo(({
         'hover:border-primary/50 hover:translate-y-[-1px]',
         'p-3 sm:px-4 sm:py-3',
         selected && 'border-l-4 border-l-primary',
-        'flex flex-col sm:grid sm:grid-cols-[auto_1fr_auto] gap-3 sm:gap-4'
+          'flex flex-col sm:grid sm:grid-cols-[auto_1fr] gap-3 sm:gap-4'
       )}
     >
       {/* Left Rail - Desktop */}
@@ -292,34 +292,42 @@ export const MeetingCard = React.memo(({
 
         {/* Meta row */}
         <div className="flex items-center gap-2 text-sm flex-wrap">
-          <span className="text-xs rounded-full bg-muted px-2 py-0.5 text-muted-foreground">
-            {meetingType}
-          </span>
-          {/* Participant pills - use pre-loaded data to avoid API calls */}
-          <div className="sm:hidden">
-            <ParticipantsList 
-              sessionId={id} 
-              showLabel={false}
-              maxVisible={2}
-              participants={participantObjects}
-              fallbackParticipants={
-                participantMe || participantThem ? { me: participantMe || '', them: participantThem || '' } : undefined
-              }
-              size="sm"
-            />
+          {/* Left group */}
+          <div className="flex items-center gap-2 flex-1 min-w-0">
+            <span className="text-xs rounded-full bg-muted px-2 py-0.5 text-muted-foreground">
+              {meetingType}
+            </span>
+            {/* Participant pills - use pre-loaded data to avoid API calls */}
+            <div className="sm:hidden">
+              <ParticipantsList 
+                sessionId={id} 
+                showLabel={false}
+                maxVisible={2}
+                participants={participantObjects}
+                fallbackParticipants={
+                  participantMe || participantThem ? { me: participantMe || '', them: participantThem || '' } : undefined
+                }
+                size="sm"
+              />
+            </div>
+            <div className="hidden sm:block">
+              <ParticipantsList 
+                sessionId={id} 
+                showLabel={false}
+                maxVisible={3}
+                participants={participantObjects}
+                fallbackParticipants={
+                  participantMe || participantThem ? { me: participantMe || '', them: participantThem || '' } : undefined
+                }
+              />
+            </div>
+            <span className="text-muted-foreground hidden sm:inline">• {formatDuration(durationSec)}</span>
           </div>
-          <div className="hidden sm:block">
-            <ParticipantsList 
-              sessionId={id} 
-              showLabel={false}
-              maxVisible={3}
-              participants={participantObjects}
-              fallbackParticipants={
-                participantMe || participantThem ? { me: participantMe || '', them: participantThem || '' } : undefined
-              }
-            />
+          {/* Right group (desktop): relative time */}
+          <div className="hidden sm:flex items-center gap-1 text-xs text-muted-foreground">
+            <Clock className="w-3.5 h-3.5" />
+            <time dateTime={startTime.toISOString()}>{getRelativeTime()}</time>
           </div>
-          <span className="text-muted-foreground hidden sm:inline">• {formatDuration(durationSec)}</span>
         </div>
 
         {/* Bot and Participant Status - Only show for Live meetings */}
@@ -354,137 +362,77 @@ export const MeetingCard = React.memo(({
           )}
         </div>
 
-        {/* Mobile action buttons - more compact */}
-        <div className="sm:hidden flex gap-1.5 mt-2">
-          <Button
-            size="sm"
-            variant="primary"
-            onClick={(e) => {
-              e.stopPropagation()
-              onOpen(id)
-            }}
-            aria-label={`Open meeting ${title}`}
-            className="text-xs px-3 py-1.5"
-          >
-            Open
-          </Button>
-          {showFollowUp && (
+        {/* Unified Action Bar - dedicated line on both mobile and desktop */}
+        <div className="mt-2 pt-2 border-t border-border flex items-center justify-between gap-2">
+          {(selected || status === 'Action-Needed') && (
+            <span
+              className={cn(
+                'text-[11px] sm:text-xs px-2 py-0.5 rounded-full',
+                selected && 'bg-primary/10 text-primary',
+                status === 'Action-Needed' && 'bg-accent/10 text-accent'
+              )}
+            >
+              {selected ? 'Selected' : 'Action Needed'}
+            </span>
+          )}
+
+          <div className="ml-auto flex items-center gap-1 sm:gap-2">
             <Button
               size="sm"
-              variant="outline"
+              variant="primary"
               onClick={(e) => {
                 e.stopPropagation()
-                onFollowUp(id)
+                onOpen(id)
               }}
-              aria-label={`Follow up on ${title}`}
-              className="text-xs px-3 py-1.5"
+              aria-label={`Open meeting ${title}`}
             >
-              Follow-up
+              Open
             </Button>
-          )}
-          {showReport && (
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={(e) => {
-                e.stopPropagation()
-                onReport(id)
-              }}
-              aria-label={`View report for ${title}`}
-              className="text-primary hover:bg-primary/10 p-1.5"
-            >
-              <FileText className="w-3.5 h-3.5" />
-            </Button>
-          )}
-          {showShare && onShare && (
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={(e) => {
-                e.stopPropagation()
-                onShare()
-              }}
-              aria-label={`Share ${title}`}
-              className="text-primary hover:bg-primary/10 p-1.5"
-            >
-              <Share2 className="w-3.5 h-3.5" />
-            </Button>
-          )}
+            {showFollowUp && (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  onFollowUp(id)
+                }}
+                aria-label={`Follow up on ${title}`}
+              >
+                Follow-up
+              </Button>
+            )}
+            {showReport && (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  onReport(id)
+                }}
+                aria-label={`View report for ${title}`}
+                className="border-primary/30 text-primary hover:bg-primary/10 hover:border-primary/50"
+              >
+                <FileText className="w-4 h-4" />
+              </Button>
+            )}
+            {showShare && onShare && (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  onShare()
+                }}
+                aria-label={`Share ${title}`}
+                className="border-primary/30 text-primary hover:bg-primary/10 hover:border-primary/50"
+              >
+                <Share2 className="w-4 h-4" />
+              </Button>
+            )}
+          </div>
         </div>
       </div>
-
-      {/* Right Rail - Desktop */}
-      <div className="hidden sm:flex flex-col items-end justify-between gap-2">
-        <div className="flex items-center gap-1 text-sm text-muted-foreground">
-          <Clock className="w-4 h-4" />
-          <time dateTime={startTime.toISOString()}>{getRelativeTime()}</time>
-        </div>
-        
-        {(selected || status === 'Action-Needed') && (
-          <span className={cn(
-            'text-xs px-2 py-0.5 rounded-full',
-            selected && 'bg-primary/10 text-primary',
-            status === 'Action-Needed' && 'bg-accent/10 text-accent'
-          )}>
-            {selected ? 'Selected' : 'Action Needed'}
-          </span>
-        )}
-
-        <div className="flex gap-1">
-          <Button
-            size="sm"
-            variant="primary"
-            onClick={(e) => {
-              e.stopPropagation()
-              onOpen(id)
-            }}
-            aria-label={`Open meeting ${title}`}
-          >
-            Open
-          </Button>
-          {showFollowUp && (
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={(e) => {
-                e.stopPropagation()
-                onFollowUp(id)
-              }}
-              aria-label={`Follow up on ${title}`}
-            >
-              Follow-up
-            </Button>
-          )}
-          {showReport && (
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={(e) => {
-                e.stopPropagation()
-                onReport(id)
-              }}
-              aria-label={`View report for ${title}`}
-              className="border-primary/30 text-primary hover:bg-primary/10 hover:border-primary/50"
-            >
-              <FileText className="w-4 h-4" />
-            </Button>
-          )}
-          {showShare && onShare && (
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={(e) => {
-                e.stopPropagation()
-                onShare()
-              }}
-              aria-label={`Share ${title}`}
-              className="border-primary/30 text-primary hover:bg-primary/10 hover:border-primary/50"
-            >
-              <Share2 className="w-4 h-4" />
-            </Button>
-          )}
-        </div>
-      </div>
+      {/* Right Rail removed; actions moved to unified bottom bar */}
     </div>
   )
 })

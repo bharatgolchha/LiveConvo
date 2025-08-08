@@ -30,8 +30,11 @@ export function useRecallTranscriptStream({
 
     const connectToStream = () => {
       try {
-        // Create EventSource connection with auth header
-        const url = `/api/sessions/${sessionId}/transcript-stream`;
+        // Create EventSource connection including a short-lived token in query string
+        // Note: EventSource cannot set Authorization headers, so we pass token explicitly.
+        const qp = new URLSearchParams();
+        if (authToken) qp.set('token', authToken);
+        const url = `/api/sessions/${sessionId}/transcript-stream?${qp.toString()}`;
         eventSourceRef.current = new EventSource(url);
 
         eventSourceRef.current.onopen = () => {
