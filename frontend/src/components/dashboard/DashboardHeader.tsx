@@ -34,9 +34,10 @@ interface DashboardHeaderProps {
   onNewMeeting?: () => void;
   onUploadRecording?: () => void;
   realtimeConnected?: boolean;
+  showSearch?: boolean;
 }
 
-const DashboardHeader: React.FC<DashboardHeaderProps> = ({ user, onSearch, onNavigateToSettings, onMenuClick, onNewMeeting, onUploadRecording, realtimeConnected }) => {
+const DashboardHeader: React.FC<DashboardHeaderProps> = ({ user, onSearch, onNavigateToSettings, onMenuClick, onNewMeeting, onUploadRecording, realtimeConnected, showSearch = true }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [isMobileSearchOpen, setIsMobileSearchOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
@@ -95,30 +96,34 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({ user, onSearch, onNav
         </div>
 
         {/* Search Bar */}
-        <div className="hidden sm:block flex-1 max-w-md mx-4 lg:mx-8">
-          <div className="relative">
-            <MagnifyingGlassIcon className="absolute left-2.5 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            <input
-              type="text"
-              placeholder="Search conversations..."
-              value={searchQuery}
-              onChange={(e) => {
-                setSearchQuery(e.target.value);
-                onSearch(e.target.value);
-              }}
-              className="w-full pl-8 pr-3 py-1.5 border border-input rounded-md focus:ring-1 focus:ring-app-primary focus:border-transparent bg-background text-foreground text-sm"
-            />
+        {showSearch && (
+          <div className="hidden sm:block flex-1 max-w-md mx-4 lg:mx-8">
+            <div className="relative">
+              <MagnifyingGlassIcon className="absolute left-2.5 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <input
+                type="text"
+                placeholder="Search conversations..."
+                value={searchQuery}
+                onChange={(e) => {
+                  setSearchQuery(e.target.value);
+                  onSearch(e.target.value);
+                }}
+                className="w-full pl-8 pr-3 py-1.5 border border-input rounded-md focus:ring-1 focus:ring-app-primary focus:border-transparent bg-background text-foreground text-sm"
+              />
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Mobile Search Button */}
-        <button
-          onClick={() => setIsMobileSearchOpen(!isMobileSearchOpen)}
-          className="sm:hidden p-1 rounded-md hover:bg-accent transition-colors"
-          aria-label="Search"
-        >
-          <MagnifyingGlassIcon className="w-4 h-4 text-muted-foreground" />
-        </button>
+        {showSearch && (
+          <button
+            onClick={() => setIsMobileSearchOpen(!isMobileSearchOpen)}
+            className="sm:hidden p-1 rounded-md hover:bg-accent transition-colors"
+            aria-label="Search"
+          >
+            <MagnifyingGlassIcon className="w-4 h-4 text-muted-foreground" />
+          </button>
+        )}
         
         {/* Right Actions */}
         <div className="flex items-center space-x-2 sm:space-x-3">
@@ -232,7 +237,7 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({ user, onSearch, onNav
         </div>
       </div>
       {/* Mobile Search Bar */}
-      {isMobileSearchOpen && (
+      {showSearch && isMobileSearchOpen && (
         <motion.div
           initial={{ height: 0, opacity: 0 }}
           animate={{ height: 'auto', opacity: 1 }}

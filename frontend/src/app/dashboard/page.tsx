@@ -59,7 +59,6 @@ const DashboardHeader = dynamic(() => import('@/components/dashboard/DashboardHe
 const UploadRecordingModal = dynamic(() => import('@/components/dashboard/UploadRecordingModal/UploadRecordingModal').then(mod => ({ default: mod.UploadRecordingModal })), { ssr: false });
 const DashboardSidebar = dynamic(() => import('@/components/dashboard/DashboardSidebar'));
 const UpcomingMeetingsSidebar = dynamic(() => import('@/components/dashboard/UpcomingMeetingsSidebar').then(mod => ({ default: mod.UpcomingMeetingsSidebar })), { ssr: false });
-const CalendarConnectionBanner = dynamic(() => import('@/components/calendar/CalendarConnectionBanner').then(mod => ({ default: mod.CalendarConnectionBanner })));
 
 // Newly extracted components (loaded lazily to reduce initial JS)
 const ConversationInboxItem = dynamic(() => import('@/components/dashboard/ConversationInboxItem'));
@@ -184,6 +183,14 @@ const DashboardPage: React.FC = () => {
       });
     }
   }, [userStats]);
+
+  // Auto-open Upload Recording modal when query param present
+  useEffect(() => {
+    const action = searchParams.get('action');
+    if (action === 'upload') {
+      setShowUploadModal(true);
+    }
+  }, [searchParams]);
 
   // Track sessions that are being updated locally to prevent loops
   const localUpdateTimeoutsRef = useRef<Map<string, NodeJS.Timeout>>(new Map());
@@ -755,6 +762,25 @@ const DashboardPage: React.FC = () => {
     setShareModalOpen(true);
   };
 
+  // Option A primary CTA: connect calendar
+  const handleConnectCalendar = async () => {
+    try {
+      const headers: HeadersInit = {};
+      if (authSession?.access_token) {
+        headers['Authorization'] = `Bearer ${authSession.access_token}`;
+      }
+      const response = await fetch('/api/calendar/auth/google?redirect=/dashboard', { headers });
+      if (response.ok) {
+        const data = await response.json();
+        if (data.auth_url && typeof window !== 'undefined') {
+          window.location.href = data.auth_url;
+        }
+      }
+    } catch (error) {
+      console.error('Failed to initiate calendar connection:', error);
+    }
+  };
+
   const handleShareComplete = () => {
     // Refresh the dashboard data to show updated sharing status
     refreshData();
@@ -923,6 +949,7 @@ const DashboardPage: React.FC = () => {
           onNewMeeting={handleNewMeeting}
           onUploadRecording={() => setShowUploadModal(true)}
           realtimeConnected={realtimeConnected}
+          showSearch={hasAnySessions}
         />
       
       {/* Usage Warning Banner */}
@@ -974,10 +1001,7 @@ const DashboardPage: React.FC = () => {
           {/* Main content area */}
           <div className="flex-1 p-2 sm:p-6 flex flex-col overflow-auto">
 
-            {/* Calendar Connection Banner */}
-            {activePath === 'conversations' && (
-              <CalendarConnectionBanner />
-            )}
+            {/* Calendar connection banner deprecated on dashboard empty/list views */}
 
             {/* Main Content */}
             {activePath === 'settings' ? (
@@ -990,7 +1014,13 @@ const DashboardPage: React.FC = () => {
             ) : activePath === 'action_items' ? (
               <ActionItemsBoard />
             ) : !hasAnySessions && activePath !== 'archive' && activePath !== 'shared' && !searchQuery ? (
-              <EmptyState onNewConversation={handleNewConversation} onNewMeeting={handleNewMeeting} onUploadRecording={() => setShowUploadModal(true)} />
+              <EmptyState 
+                onNewConversation={handleNewConversation} 
+                onNewMeeting={handleNewMeeting} 
+                onUploadRecording={() => setShowUploadModal(true)}
+                hasCalendarConnection={!!hasCalendar}
+                onConnectCalendar={handleConnectCalendar}
+              />
             ) : (
               <div className="flex flex-col flex-1">
                 {/* Meeting View Tabs - Only show when not in archive or shared view */}
@@ -1228,7 +1258,7 @@ const DashboardPage: React.FC = () => {
           </div>
           
           {/* Upcoming Meetings Sidebar - Desktop */}
-          <UpcomingMeetingsSidebar className="hidden xl:flex" />
+          <UpcomingMeetingsSidebar className="hidden xl:flex" defaultOpen={hasAnySessions} />
           {/* My Action Items Widget - Desktop */}
           {/* <div className="hidden xl:flex w-72"><MyActionItemsWidget /></div> */}
         </main>

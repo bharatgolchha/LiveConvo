@@ -3165,6 +3165,36 @@ None currently identified - all major issues have been resolved or moved to acti
 **Files Created/Modified**:
 - `landingPage.md` (new)
 
+### 2025-08-08: Landing Page Optimization + Upload Feature Messaging
+**Status**: 🆕 PLANNING  
+**Priority**: HIGH  
+**Description**: Optimize the main landing page (`frontend/src/app/page.tsx`) for performance, clarity, and conversion. Add clear messaging and CTAs for the Upload capabilities: (1) Upload recordings (offline ingestion that creates a diarized session) and (2) Upload context documents (PDF/DOCX/TXT) to enrich AI guidance.
+
+**Next Actions**:
+1. Content & UX
+   - Update hero copy to include “Upload a recording or context files — get instant transcripts, summaries, and insights.”
+   - Add a dedicated "Upload" section below the hero with two cards: "Upload recording (audio/video)" and "Upload documents (PDF/DOCX/TXT)"; outline benefits and accepted formats.
+   - Surface dual CTAs: primary "Start free"; secondary "Try upload demo" (routes to `/test-offline` when logged out; opens `UploadRecordingModal` when authenticated).
+2. Integrations
+   - Wire hero/section CTAs to: `/signup` (logged out) or dashboard action to open `UploadRecordingModal` (logged in). Link document upload CTAs to the conversation setup sidebar when enabled.
+3. Performance
+   - Replace CSS background hero image with responsive `next/image`, provide WebP/AVIF, proper `sizes`, and priority hints for LCP.
+   - Lazy-load below-the-fold sections; defer non-critical animations; audit bundle and remove unused icons.
+   - Preconnect/prefetch critical domains; compress media assets stored in Supabase Storage.
+4. SEO
+   - Expand JSON-LD in `SeoJsonLd` to include features around file uploads; refine meta title/description; ensure headings reflect Upload value props.
+5. Analytics
+   - Track upload-related CTA clicks and scroll depth on the new section.
+6. QA & Tests
+   - Lighthouse/LCP budget check in CI for `/`.
+   - Playwright smoke: CTAs route correctly for logged-in/out states.
+
+**Files Created/Modified**:
+- Modify: `frontend/src/app/page.tsx` (copy, sections, CTAs, image optimization)
+- Modify: `frontend/src/components/SeoJsonLd.tsx` (JSON-LD additions)
+- Optional: new `frontend/src/components/landing/UploadFeatureSection.tsx` (modular section)
+- Docs: update `docs/landingPage.md` with Upload section content
+
 # Task Management
 
 ## Recently Completed ✅

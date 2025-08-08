@@ -77,6 +77,12 @@ function OnboardingContent() {
   const stepParam = searchParams.get('step');
   const subscribedParam = searchParams.get('subscribed');
 
+  // Prefetched trial/pricing info to avoid friction on step 4
+  const [trialEligible, setTrialEligible] = useState<boolean | null>(null);
+  const [prefetchedPriceId, setPrefetchedPriceId] = useState<string | null>(null);
+  const [prefetchedTrialDays, setPrefetchedTrialDays] = useState<number | null>(null);
+  const [prefetchingTrialData, setPrefetchingTrialData] = useState<boolean>(false);
+
   useEffect(() => {
     // Check if user has already completed onboarding
     const checkOnboardingStatus = async () => {
@@ -106,6 +112,49 @@ function OnboardingContent() {
 
     checkOnboardingStatus();
   }, [user, session, router, redirectUrl]);
+
+  // Prefetch trial eligibility and pricing as soon as possible
+  useEffect(() => {
+    const prefetch = async () => {
+      if (!session) return;
+      try {
+        setPrefetchingTrialData(true);
+        // Run both in parallel
+        const [eligibilityResp, pricingResp] = await Promise.all([
+          fetch('/api/trials/check-eligibility', {
+            headers: { 'Authorization': `Bearer ${session.access_token}` }
+          }),
+          fetch('/api/pricing')
+        ]);
+
+        if (eligibilityResp.ok) {
+          const data = await eligibilityResp.json();
+          setTrialEligible(!!data.eligible || !!data.isEligible);
+        }
+
+        if (pricingResp.ok) {
+          const data = await pricingResp.json();
+          const plans = data.plans || [];
+          const proPlan = plans.find((p: any) => p.slug === 'pro' || p.slug === 'individual_pro' || p.name === 'Pro');
+          if (proPlan) {
+            const priceId = proPlan.stripe?.monthlyPriceId || null;
+            setPrefetchedPriceId(priceId);
+            const days = proPlan.trial?.enabled ? (proPlan.trial?.days || 7) : null;
+            setPrefetchedTrialDays(days);
+          }
+        }
+      } catch (e) {
+        // Best-effort prefetch; fallback flows exist in UpgradeStep
+        console.error('Prefetch trial/pricing failed', e);
+      } finally {
+        setPrefetchingTrialData(false);
+      }
+    };
+
+    if (user && session && trialEligible === null && prefetchedPriceId === null) {
+      prefetch();
+    }
+  }, [user, session, trialEligible, prefetchedPriceId]);
 
   const updateData = useCallback((data: Partial<OnboardingData>) => {
     setOnboardingData(prev => {
@@ -292,6 +341,13 @@ function OnboardingContent() {
             onSkip={handleComplete}
             onBack={handleBack}
             isLoading={isLoading}
+            // Prefetched data to eliminate spinner friction
+            preFetchedEligibility={trialEligible ?? undefined}
+            preFetchedPriceId={prefetchedPriceId ?? undefined}
+            preFetchedTrialDays={prefetchedTrialDays ?? undefined}
+            useCase={onboardingData.use_case}
+            currentStep={currentStep}
+            totalSteps={totalSteps}
           />
         );
       default:
