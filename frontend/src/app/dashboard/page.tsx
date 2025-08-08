@@ -56,6 +56,7 @@ import dynamic from 'next/dynamic';
 
 // Dynamically load smaller components to reduce initial bundle size
 const DashboardHeader = dynamic(() => import('@/components/dashboard/DashboardHeader'));
+const UploadRecordingModal = dynamic(() => import('@/components/dashboard/UploadRecordingModal/UploadRecordingModal').then(mod => ({ default: mod.UploadRecordingModal })), { ssr: false });
 const DashboardSidebar = dynamic(() => import('@/components/dashboard/DashboardSidebar'));
 const UpcomingMeetingsSidebar = dynamic(() => import('@/components/dashboard/UpcomingMeetingsSidebar').then(mod => ({ default: mod.UpcomingMeetingsSidebar })), { ssr: false });
 const CalendarConnectionBanner = dynamic(() => import('@/components/calendar/CalendarConnectionBanner').then(mod => ({ default: mod.CalendarConnectionBanner })));
@@ -110,6 +111,7 @@ const DashboardPage: React.FC = () => {
   const [activePath, setActivePath] = useState(initialActivePath);
   const [showNewConversationModal, setShowNewConversationModal] = useState(false);
   const [showNewMeetingModal, setShowNewMeetingModal] = useState(false);
+  const [showUploadModal, setShowUploadModal] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const debouncedSearchQuery = useDebounce(searchQuery, 300);
   const [selectedSessions, setSelectedSessions] = useState<Set<string>>(new Set());
@@ -909,12 +911,17 @@ const DashboardPage: React.FC = () => {
     <DashboardChatProvider>
       <CheckoutSuccessHandler />
       <div className="h-screen bg-background flex flex-col relative overflow-hidden">
+        {/* Upload modal state */}
+        { /* Using local state to control modal */ }
+        { /* Note: we declare state above render block */ }
+        
         <DashboardHeader 
           user={currentUser} 
           onSearch={handleSearch}
           onNavigateToSettings={() => setActivePath('settings')}
           onMenuClick={() => setIsSidebarOpen(!isSidebarOpen)}
           onNewMeeting={handleNewMeeting}
+          onUploadRecording={() => setShowUploadModal(true)}
           realtimeConnected={realtimeConnected}
         />
       
@@ -983,7 +990,7 @@ const DashboardPage: React.FC = () => {
             ) : activePath === 'action_items' ? (
               <ActionItemsBoard />
             ) : !hasAnySessions && activePath !== 'archive' && activePath !== 'shared' && !searchQuery ? (
-              <EmptyState onNewConversation={handleNewConversation} onNewMeeting={handleNewMeeting} />
+              <EmptyState onNewConversation={handleNewConversation} onNewMeeting={handleNewMeeting} onUploadRecording={() => setShowUploadModal(true)} />
             ) : (
               <div className="flex flex-col flex-1">
                 {/* Meeting View Tabs - Only show when not in archive or shared view */}
@@ -1327,6 +1334,18 @@ const DashboardPage: React.FC = () => {
       
       {/* Account Deactivated Modal - Non-dismissable */}
       {isUserDeactivated && <AccountDeactivatedModal />}
+
+      {/* Upload Recording Modal */}
+      {showUploadModal && (
+        <UploadRecordingModal
+          isOpen={showUploadModal}
+          onClose={() => setShowUploadModal(false)}
+          onCreated={(sessionId) => {
+            // Navigate to new session after creation
+            router.push(`/meeting/${sessionId}`);
+          }}
+        />
+      )}
 
       {/* Navigation Loading Modal */}
       <LoadingModal isOpen={isLoadingNavigation} />

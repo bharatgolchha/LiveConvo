@@ -6,6 +6,7 @@ import { NewConversationButton } from './NewConversationButton';
 interface Props {
   onNewConversation: () => void;
   onNewMeeting?: () => void;
+  onUploadRecording?: () => void;
 }
 
 // Professional icon-based illustration for empty state
@@ -97,7 +98,7 @@ const LearnMoreModal: React.FC<{ isOpen: boolean; onClose: () => void }> = ({
   );
 };
 
-const EmptyState: React.FC<Props> = ({ onNewConversation, onNewMeeting }) => {
+const EmptyState: React.FC<Props> = ({ onNewConversation, onNewMeeting, onUploadRecording }) => {
   const [isLearnMoreOpen, setIsLearnMoreOpen] = useState(false);
 
   return (
@@ -180,6 +181,18 @@ const EmptyState: React.FC<Props> = ({ onNewConversation, onNewMeeting }) => {
             >
               <PlusIcon className="w-5 h-5" />
               <span>New Conversation</span>
+            </button>
+          )}
+
+          {onUploadRecording && (
+            <button
+              onClick={onUploadRecording}
+              className="flex items-center justify-center space-x-2 bg-muted/50 hover:bg-muted/70 text-foreground border border-border px-8 py-3.5 rounded-lg transition-all font-medium text-base shadow-sm hover:shadow-md"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" className="w-5 h-5">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 16.5v-9m-4.5 4.5h9M3.75 6.75v10.5a2.25 2.25 0 0 0 2.25 2.25h12a2.25 2.25 0 0 0 2.25-2.25V6.75A2.25 2.25 0 0 0 18 4.5H6A2.25 2.25 0 0 0 3.75 6.75Z" />
+              </svg>
+              <span>Upload recording</span>
             </button>
           )}
           

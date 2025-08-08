@@ -40,9 +40,10 @@ export function MeetingHeader() {
   // If bot status is null and meeting is not completed, it's ready to start
   const finalIsActive = botStatus === null ? false : isActive;
   const finalIsCompleted = botStatus === null ? meeting.status === 'completed' : isCompleted;
-  const isReportReady = finalIsCompleted && !!meeting.finalizedAt;
-  const isGeneratingReport = finalIsCompleted && !meeting.finalizedAt;
   const hasUrl = meeting.meetingUrl && meeting.meetingUrl.trim();
+  // Report button should be visible IF the meeting is finalized
+  const isReportReady = !!meeting.finalizedAt;
+  const isGeneratingReport = finalIsCompleted && !isReportReady;
 
   // Poll every 5 s while report is generating, as a fallback in case realtime update misses.
   React.useEffect(() => {
@@ -188,9 +189,22 @@ export function MeetingHeader() {
           
           {/* Bottom Row - Status or Setup */}
           {!hasUrl ? (
-            <div className="px-1">
-              <MeetingSetupPrompt />
-            </div>
+            isReportReady ? (
+              <div className="px-1 flex items-center justify-end">
+                <button
+                  onClick={() => router.push(`/report/${meeting?.id}`)}
+                  className="flex items-center gap-2 px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white rounded-md transition-colors"
+                  title="View meeting report"
+                >
+                  <CheckCircleIcon className="w-4 h-4" />
+                  <span className="text-sm">View Report</span>
+                </button>
+              </div>
+            ) : (
+              <div className="px-1">
+                <MeetingSetupPrompt />
+              </div>
+            )
           ) : (
             <div className="space-y-2">
               {/* Meeting URL */}
@@ -347,16 +361,36 @@ export function MeetingHeader() {
         {/* Center Section - Recording Status & Controls or Setup Prompt */}
         <AnimatePresence mode="wait">
           {!hasUrl ? (
-            <motion.div 
-              key="setup"
-              className="flex-1 max-w-xl"
-              initial={{ opacity: 0, y: 5 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -5 }}
-              transition={{ duration: 0.15 }}
-            >
-              <MeetingSetupPrompt />
-            </motion.div>
+            isReportReady ? (
+              <motion.div 
+                key="view-report"
+                className="flex items-center justify-end gap-2"
+                initial={{ opacity: 0, y: 5 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -5 }}
+                transition={{ duration: 0.15 }}
+              >
+                <button
+                  onClick={() => router.push(`/report/${meeting?.id}`)}
+                  className="flex items-center gap-2 px-3 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors font-medium"
+                  title="View meeting report"
+                >
+                  <CheckCircleIcon className="w-4 h-4" />
+                  <span className="text-sm">View Report</span>
+                </button>
+              </motion.div>
+            ) : (
+              <motion.div 
+                key="setup"
+                className="flex-1 max-w-xl"
+                initial={{ opacity: 0, y: 5 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -5 }}
+                transition={{ duration: 0.15 }}
+              >
+                <MeetingSetupPrompt />
+              </motion.div>
+            )
           ) : (
             <motion.div 
               key="controls"
