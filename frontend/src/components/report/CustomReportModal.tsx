@@ -69,6 +69,11 @@ export function CustomReportModal({
   const [enableWebSearch, setEnableWebSearch] = useState(false);
   const [linkedConversations, setLinkedConversations] = useState<any[]>([]);
   const [loadingLinkedConversations, setLoadingLinkedConversations] = useState(false);
+  const [promptSuggestions, setPromptSuggestions] = useState<string[]>([]);
+  const [isSuggesting, setIsSuggesting] = useState(false);
+  const [audience, setAudience] = useState<string>('');
+  const [tone, setTone] = useState<string>('');
+  const [lengthPref, setLengthPref] = useState<string>('');
 
   const templates = [
     { value: 'executive', label: 'Executive Summary', icon: FileText },
@@ -227,6 +232,28 @@ export function CustomReportModal({
       if (onReportGenerated) {
         onReportGenerated();
       }
+
+      // After successful save: reset inputs and close modal
+      try {
+        setGeneratedReport('');
+        setPrompt('');
+        setSelectedTemplate('');
+        setCurrentReport(null);
+        setLinkedConversations([]);
+        setIncludeLinkedConversations(false);
+        setEnableWebSearch(false);
+        // Optional: clear any prompt suggestions and preferences if present
+        // @ts-ignore - these states exist when suggestions feature is enabled
+        setPromptSuggestions && setPromptSuggestions([]);
+        // @ts-ignore
+        setAudience && setAudience('');
+        // @ts-ignore
+        setTone && setTone('');
+        // @ts-ignore
+        setLengthPref && setLengthPref('');
+      } catch {}
+
+      onClose();
     } catch (error) {
       console.error('Error saving report:', error);
       setError('Failed to save report');
@@ -257,13 +284,57 @@ export function CustomReportModal({
         setLinkedConversations([]);
         setIncludeLinkedConversations(false);
         setEnableWebSearch(false);
+        setPromptSuggestions([]);
+        setAudience('');
+        setTone('');
+        setLengthPref('');
         onClose();
       }
     } else {
       setLinkedConversations([]);
       setIncludeLinkedConversations(false);
       setEnableWebSearch(false);
+      setPromptSuggestions([]);
+      setAudience('');
+      setTone('');
+      setLengthPref('');
       onClose();
+    }
+  };
+
+  const handleSuggestPrompts = async () => {
+    if (isSuggesting) return;
+    try {
+      setIsSuggesting(true);
+      setError(null);
+      const headers: HeadersInit = {
+        'Content-Type': 'application/json',
+      };
+      if (session?.access_token && !sharedToken) {
+        headers['Authorization'] = `Bearer ${session.access_token}`;
+      }
+      const response = await fetch(`/api/reports/${sessionId}/custom/suggest-prompts`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          selectedTemplate,
+          includeLinkedConversations,
+          audience,
+          tone,
+          length: lengthPref,
+        }),
+      });
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Failed to fetch prompt suggestions');
+      }
+      const data = await response.json();
+      setPromptSuggestions(Array.isArray(data.suggestions) ? data.suggestions : []);
+    } catch (e) {
+      console.error('Error suggesting prompts:', e);
+      setError(e instanceof Error ? e.message : 'Failed to fetch prompt suggestions');
+    } finally {
+      setIsSuggesting(false);
     }
   };
 
@@ -314,6 +385,55 @@ export function CustomReportModal({
                     placeholder="E.g., Generate a technical architecture document based on the discussions, or create a project status report for stakeholders..."
                     className="w-full h-32 px-3 py-2 text-sm bg-background border border-border rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary"
                   />
+                  <div className="flex flex-wrap gap-2 items-center">
+                    <input
+                      value={audience}
+                      onChange={(e) => setAudience(e.target.value)}
+                      placeholder="Audience (e.g., executives, engineering, customers)"
+                      className="flex-1 min-w-[180px] px-3 py-2 text-xs bg-background border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary"
+                    />
+                    <input
+                      value={tone}
+                      onChange={(e) => setTone(e.target.value)}
+                      placeholder="Tone (e.g., concise, persuasive, technical)"
+                      className="flex-1 min-w-[160px] px-3 py-2 text-xs bg-background border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary"
+                    />
+                    <input
+                      value={lengthPref}
+                      onChange={(e) => setLengthPref(e.target.value)}
+                      placeholder="Length (e.g., 1-page, 3 sections, bullets)"
+                      className="flex-1 min-w-[140px] px-3 py-2 text-xs bg-background border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary"
+                    />
+                    <Button onClick={handleSuggestPrompts} variant="outline" size="sm" disabled={isSuggesting}>
+                      {isSuggesting ? (
+                        <>
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          Suggesting...
+                        </>
+                      ) : (
+                        <>
+                          <Sparkles className="w-4 h-4 mr-2" />
+                          Suggest Prompts
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                  {promptSuggestions.length > 0 && (
+                    <div className="mt-2 space-y-1">
+                      <p className="text-xs font-medium text-muted-foreground">Suggestions:</p>
+                      <div className="grid gap-2">
+                        {promptSuggestions.map((s, idx) => (
+                          <button
+                            key={idx}
+                            onClick={() => setPrompt(s)}
+                            className="text-left p-2 border border-border rounded-md hover:bg-muted/50 transition-colors text-xs"
+                          >
+                            {s}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 <div className="space-y-3 border-t pt-3">

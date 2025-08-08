@@ -10,9 +10,11 @@ import { StarIcon as StarIconSolid } from '@heroicons/react/24/solid';
 interface TranscriptMessageProps {
   message: TranscriptMessageType;
   previousSpeaker?: string;
+  isSelected?: boolean;
+  onToggleSelect?: (id: string, additive?: boolean) => void;
 }
 
-function TranscriptMessageComponent({ message, previousSpeaker }: TranscriptMessageProps) {
+function TranscriptMessageComponent({ message, previousSpeaker, isSelected, onToggleSelect }: TranscriptMessageProps) {
   const { meeting, transcript } = useMeetingContext();
   const speakerLabel = message.displayName || message.speaker;
   const showAvatar = speakerLabel !== previousSpeaker;
@@ -66,6 +68,12 @@ function TranscriptMessageComponent({ message, previousSpeaker }: TranscriptMess
   
   const isMe = isPrimaryUser;
   const [menuOpen, setMenuOpen] = React.useState(false);
+
+  const handleToggleSelect = (e?: React.MouseEvent | React.KeyboardEvent) => {
+    if (!onToggleSelect) return;
+    const additive = !!(e && ('metaKey' in e ? (e.metaKey || (e as any).ctrlKey || (e as any).shiftKey) : false));
+    onToggleSelect(message.id, additive);
+  };
   
   // Build a compact snippet (this + previous few lines)
   const buildSnippet = (maxLines: number = 4) => {
@@ -223,15 +231,31 @@ function TranscriptMessageComponent({ message, previousSpeaker }: TranscriptMess
               }
               ${message.isPartial ? '' : ''}
               ${isMe ? 'ring-1 ring-yellow-400/30' : ''}
+              ${isSelected ? 'ring-2 ring-primary/60 border-primary/40' : ''}
               group-hover:shadow-md
-            `}>
+            `}
+            onClick={handleToggleSelect}
+            role="button"
+            tabIndex={0}
+            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleToggleSelect(e); } }}
+            >
               <p className={`text-sm leading-relaxed whitespace-pre-wrap break-words ${
                 message.isPartial ? 'italic' : ''
               }`}>
                 {message.text}
               </p>
+              {/* Selection checkbox */}
+              <button
+                onClick={(e) => { e.stopPropagation(); handleToggleSelect(e); }}
+                className={`absolute -top-2 ${isMe ? 'right-2' : 'left-2'} w-5 h-5 rounded-full border ${isSelected ? 'bg-primary border-primary' : 'bg-background/90 border-border'} shadow-sm flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity`}
+                title={isSelected ? 'Deselect' : 'Select'}
+                aria-label={isSelected ? 'Deselect' : 'Select'}
+              >
+                {isSelected && <span className="w-2.5 h-2.5 bg-primary-foreground rounded-full" />}
+              </button>
               {/* Hover Ask-AI chip + menu */}
-              <div className={`absolute -top-2 ${isMe ? 'left-2' : 'right-2'} opacity-0 group-hover:opacity-100 transition-opacity`}>
+              <div className={`absolute -top-2 ${isMe ? 'left-2' : 'right-2'} opacity-0 group-hover:opacity-100 transition-opacity`}
+              onMouseLeave={() => setMenuOpen(false)}>
                 <button
                   onClick={() => setMenuOpen(o => !o)}
                   className="inline-flex items-center gap-1.5 px-2 py-1 rounded-full bg-background/90 border border-border shadow-sm hover:bg-muted text-xs text-foreground"
@@ -244,7 +268,6 @@ function TranscriptMessageComponent({ message, previousSpeaker }: TranscriptMess
                 {menuOpen && (
                   <div
                     className={`absolute ${isMe ? 'left-0' : 'right-0'} top-7 z-10 w-56 rounded-lg border border-border bg-card text-card-foreground shadow-xl`}
-                    onMouseLeave={() => setMenuOpen(false)}
                   >
                     <div className="py-1 text-sm">
                       <button
@@ -343,6 +366,7 @@ export const TranscriptMessage = React.memo(TranscriptMessageComponent, (prevPro
     prevProps.message.isPartial === nextProps.message.isPartial &&
     prevProps.message.isStale === nextProps.message.isStale &&
     prevProps.message.confidence === nextProps.message.confidence &&
-    prevProps.previousSpeaker === nextProps.previousSpeaker
+    prevProps.previousSpeaker === nextProps.previousSpeaker &&
+    prevProps.isSelected === nextProps.isSelected
   );
 });

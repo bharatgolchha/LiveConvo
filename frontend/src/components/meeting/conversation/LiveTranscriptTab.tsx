@@ -25,6 +25,7 @@ export function LiveTranscriptTab() {
   const [searchQuery, setSearchQuery] = useState('');
   const [showStats, setShowStats] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [hideInterim, setHideInterim] = useState(true);
   
   // Calculate transcript statistics
@@ -131,6 +132,43 @@ export function LiveTranscriptTab() {
   // Clear search
   const clearSearch = () => {
     setSearchQuery('');
+  };
+
+  // Selection handlers
+  const toggleSelect = (id: string, additive?: boolean) => {
+    setSelectedIds(prev => {
+      const already = prev.includes(id);
+      const additiveMode = additive || prev.length > 0; // once selection starts, keep adding by default
+      if (additiveMode) {
+        return already ? prev.filter(x => x !== id) : [...prev, id];
+      }
+      // first selection starts selection mode
+      return [id];
+    });
+  };
+
+  const clearSelection = () => setSelectedIds([]);
+
+  const askAIForSelection = () => {
+    if (selectedIds.length === 0) return;
+    // Work off grouped items to mirror what's on screen
+    const lines = groupedTranscript.filter((m: any) => selectedIds.includes(m.id));
+    const sorted = [...lines].sort((a: any, b: any) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+    const snippet = sorted.map((l: any) => `${l.displayName || l.speaker}: ${l.text}`).join('\n');
+    const question = `Summarize and suggest next steps based on these selected lines.`;
+    const event = new CustomEvent('askAboutTranscript', {
+      detail: {
+        sessionId: meeting?.id,
+        messageId: sorted[0]?.id,
+        question,
+        context: `Context from selected transcript lines:\n${snippet}`,
+        timestamp: Date.now(),
+        isPartial: false,
+        intent: 'follow_up'
+      }
+    });
+    window.dispatchEvent(event);
+    clearSelection();
   };
 
   // Handle manual refresh
@@ -305,6 +343,8 @@ export function LiveTranscriptTab() {
               key={message.id}
               message={message}
               previousSpeaker={index > 0 ? groupedTranscript[index - 1].speaker : undefined}
+              isSelected={selectedIds.includes(message.id)}
+              onToggleSelect={toggleSelect}
             />
           ))}
         </AnimatePresence>
@@ -334,6 +374,32 @@ export function LiveTranscriptTab() {
             <ArrowDownIcon className="w-4 h-4" />
             <span className="text-sm font-medium">Jump to latest</span>
           </motion.button>
+        )}
+      </AnimatePresence>
+
+      {/* Floating selection toolbar */}
+      <AnimatePresence>
+        {selectedIds.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 20 }}
+            className="fixed bottom-20 left-1/2 -translate-x-1/2 z-20 flex items-center gap-2 px-3 py-2 rounded-full bg-card border border-border shadow-lg"
+          >
+            <span className="text-xs text-muted-foreground" data-selected-count={selectedIds.length}>{selectedIds.length} selected</span>
+            <button
+              onClick={askAIForSelection}
+              className="px-3 py-1.5 rounded-full bg-primary text-primary-foreground text-xs hover:bg-primary/90"
+            >
+              Ask AI
+            </button>
+            <button
+              onClick={clearSelection}
+              className="px-2 py-1.5 rounded-full bg-muted text-foreground text-xs hover:bg-muted/80"
+            >
+              Clear
+            </button>
+          </motion.div>
         )}
       </AnimatePresence>
     </div>
