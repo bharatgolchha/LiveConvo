@@ -190,3 +190,5 @@ See OpenAI’s guides for audio: `https://platform.openai.com/docs/guides/audio`
 ---
 
 Questions or migration needs? If we decide to add an `ingestion_jobs` table for richer observability, document it here and add a migration in `supabase/migrations/`.
+
+
