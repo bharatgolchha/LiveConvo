@@ -34,6 +34,12 @@ export function UploadRecordingModal({ isOpen, onClose, onCreated }: UploadRecor
   const [expandedTranscript, setExpandedTranscript] = React.useState(false);
   const [speakerSearch, setSpeakerSearch] = React.useState('');
   const [youSpeaker, setYouSpeaker] = React.useState<string | null>(null);
+  const [precheck, setPrecheck] = React.useState<{
+    allowed: boolean;
+    requiredMinutes: number;
+    remainingMinutes: number | null;
+    isUnlimited: boolean;
+  } | null>(null);
 
   const speakerStats = React.useMemo(() => {
     const stats: Record<string, { count: number; duration: number; sample?: string }> = {};
@@ -126,10 +132,73 @@ export function UploadRecordingModal({ isOpen, onClose, onCreated }: UploadRecor
         end: typeof s.end === 'number' ? s.end : 0,
         confidence: typeof s.confidence === 'number' ? s.confidence : undefined,
       }));
+      // Pre-check usage limits before allowing the user to proceed
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        const preResp = await authenticatedFetch('/api/usage/precheck-offline', session, {
+          method: 'POST',
+          body: JSON.stringify({ segments: segs.map(s => ({ start: s.start, end: s.end })) })
+        });
+        const preData = await preResp.json();
+        if (!preResp.ok || preData?.allowed === false) {
+          const need = preData?.requiredMinutes;
+          const rem = preData?.remainingMinutes;
+          setError(`Usage limit exceeded. Required ${need} min, remaining ${rem ?? 0} min. Please upgrade your plan.`);
+          return; // block advance
+        }
+        setPrecheck({
+          allowed: !!preData?.allowed,
+          requiredMinutes: preData?.requiredMinutes ?? 0,
+          remainingMinutes: preData?.remainingMinutes ?? null,
+          isUnlimited: !!preData?.isUnlimited,
+        });
+      } catch (preErr: any) {
+        // If precheck fails unexpectedly, be safe and block creation
+        setError(preErr?.message || 'Failed to verify usage limits');
+        return;
+      }
+
       setSegments(segs);
       setStep('speakers');
     } catch (e: any) {
       setError(e?.message || String(e));
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function goToReview() {
+    setError(null);
+    setLoading(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const preResp = await authenticatedFetch('/api/usage/precheck-offline', session, {
+        method: 'POST',
+        body: JSON.stringify({ segments: segments.map(s => ({ start: s.start, end: s.end })) })
+      });
+      const preData = await preResp.json();
+      if (!preResp.ok || preData?.allowed === false) {
+        const need = preData?.requiredMinutes;
+        const rem = preData?.remainingMinutes;
+        setPrecheck({
+          allowed: false,
+          requiredMinutes: need ?? 0,
+          remainingMinutes: preData?.remainingMinutes ?? null,
+          isUnlimited: !!preData?.isUnlimited,
+        });
+        setError(`Usage limit exceeded. Required ${need} min, remaining ${rem ?? 0} min. Please upgrade your plan.`);
+        return;
+      }
+      setPrecheck({
+        allowed: true,
+        requiredMinutes: preData?.requiredMinutes ?? 0,
+        remainingMinutes: preData?.remainingMinutes ?? null,
+        isUnlimited: !!preData?.isUnlimited,
+      });
+      if (!aiTitle) handleGenerateTitle();
+      setStep('review');
+    } catch (err: any) {
+      setError(err?.message || 'Failed to verify usage limits');
     } finally {
       setLoading(false);
     }
@@ -229,6 +298,8 @@ export function UploadRecordingModal({ isOpen, onClose, onCreated }: UploadRecor
             conversationTitle: title,
             participantMe,
             participantThem,
+            // send computed duration to avoid early partial durations on server
+            durationSeconds: Math.max(0, Math.floor(segments.reduce((max, s) => Math.max(max, s.end || s.start || 0), 0)))
           })
         });
       } catch (finalizeErr) {
@@ -500,6 +571,11 @@ export function UploadRecordingModal({ isOpen, onClose, onCreated }: UploadRecor
                 />
                 <button className="text-xs px-2 py-1 rounded-md bg-muted hover:bg-muted/80 disabled:opacity-50" onClick={handleGenerateTitle} disabled={loading}>Regenerate</button>
               </div>
+              {precheck && precheck.allowed === false && (
+                <div className="text-xs text-destructive">
+                  Out of minutes. Required {precheck.requiredMinutes} min, remaining {precheck.remainingMinutes ?? 0} min.
+                </div>
+              )}
               <div className="text-xs text-muted-foreground">Preview (first few lines)</div>
               <div className="space-y-2">
                 {segments.slice(0, 5).map((s, i) => (
@@ -536,10 +612,10 @@ export function UploadRecordingModal({ isOpen, onClose, onCreated }: UploadRecor
             <button className="text-sm px-3 py-1.5 rounded-md bg-primary text-primary-foreground disabled:opacity-50" onClick={() => setStep('speakers')} disabled={loading}>Continue</button>
           )}
           {step === 'speakers' && (
-            <button className="text-sm px-3 py-1.5 rounded-md bg-primary text-primary-foreground disabled:opacity-50" onClick={() => { setStep('review'); if (!aiTitle) handleGenerateTitle(); }} disabled={loading}>Review & create</button>
+            <button className="text-sm px-3 py-1.5 rounded-md bg-primary text-primary-foreground disabled:opacity-50" onClick={goToReview} disabled={loading}>Review & create</button>
           )}
           {step === 'review' && (
-            <button className="text-sm px-3 py-1.5 rounded-md bg-primary text-primary-foreground disabled:opacity-50" onClick={handleCreateSession} disabled={loading || (aiTitle.trim().length === 0)}>Create session</button>
+            <button className="text-sm px-3 py-1.5 rounded-md bg-primary text-primary-foreground disabled:opacity-50" onClick={handleCreateSession} disabled={loading || (aiTitle.trim().length === 0) || (precheck?.allowed === false)}>Create session</button>
           )}
         </div>
       </div>

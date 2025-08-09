@@ -12,6 +12,7 @@ import { UpgradeStep } from '@/components/onboarding/UpgradeStep';
 import { useOnboarding } from '@/lib/hooks/useOnboarding';
 import { supabase } from '@/lib/supabase';
 import { CheckoutSuccessHandler } from '@/components/checkout/CheckoutSuccessHandler';
+import { trackEvent, setUserProperties } from '@/lib/analytics/tracking';
 
 interface OnboardingData {
   organization_name: string;
@@ -73,7 +74,8 @@ function OnboardingContent() {
   });
 
   const totalSteps = 4;
-  const redirectUrl = searchParams.get('redirect') || '/dashboard';
+  // Default first-run redirect to demo to accelerate time-to-value
+  const redirectUrl = searchParams.get('redirect') || '/app-demo';
   const stepParam = searchParams.get('step');
   const subscribedParam = searchParams.get('subscribed');
 
@@ -168,6 +170,17 @@ function OnboardingContent() {
     });
   }, []);
 
+  // Prefill a sensible default organization name to remove friction
+  useEffect(() => {
+    if (user && !onboardingData.organization_name) {
+      const email = user.email || '';
+      const first = (user.user_metadata?.full_name as string | undefined)?.split(' ')[0]
+        || email.split('@')[0]
+        || 'My';
+      updateData({ organization_name: `${first}'s Workspace` });
+    }
+  }, [user, onboardingData.organization_name, updateData]);
+
   const handleNext = () => {
     if (currentStep < totalSteps) {
       const nextStep = currentStep + 1;
@@ -175,6 +188,7 @@ function OnboardingContent() {
       if (typeof window !== 'undefined') {
         sessionStorage.setItem('onboardingStep', nextStep.toString());
       }
+      try { trackEvent('onboarding_continue', 'onboarding', { from_step: currentStep, to_step: nextStep }); } catch {}
     }
   };
 
@@ -185,6 +199,7 @@ function OnboardingContent() {
       if (typeof window !== 'undefined') {
         sessionStorage.setItem('onboardingStep', prevStep.toString());
       }
+      try { trackEvent('onboarding_back', 'onboarding', { from_step: currentStep, to_step: prevStep }); } catch {}
     }
   };
 
@@ -250,6 +265,7 @@ function OnboardingContent() {
       });
       
       console.log('✅ Onboarding completed successfully:', result);
+      try { trackEvent('onboarding_completed', 'onboarding'); } catch {}
       
       // Save calendar preferences after successful onboarding
       if (onboardingData.calendar_connected && session?.access_token) {
@@ -355,6 +371,20 @@ function OnboardingContent() {
     }
   };
 
+  // Track step views and set user properties when available
+  useEffect(() => {
+    try {
+      trackEvent('onboarding_view', 'onboarding', { step: currentStep });
+      if (onboardingData.use_case || onboardingData.acquisition_source) {
+        setUserProperties({
+          use_case: onboardingData.use_case || undefined,
+          acquisition_source: onboardingData.acquisition_source || undefined,
+          timezone: onboardingData.timezone || undefined,
+        });
+      }
+    } catch {}
+  }, [currentStep, onboardingData.use_case, onboardingData.acquisition_source, onboardingData.timezone]);
+
   // Show loading state while checking onboarding status
   if (checkingStatus) {
     return (
@@ -370,7 +400,7 @@ function OnboardingContent() {
   return (
     <>
       <CheckoutSuccessHandler />
-      <OnboardingLayout currentStep={currentStep} totalSteps={totalSteps}>
+      <OnboardingLayout currentStep={currentStep} totalSteps={totalSteps} onSkip={handleComplete}>
         <AnimatePresence mode="wait">
           <motion.div
             key={currentStep}

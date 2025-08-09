@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
-import { supabase } from '@/lib/supabase';
+import { supabase, createServerSupabaseClient } from '@/lib/supabase';
 import type { 
   EnhancedSummary, 
   FinalizationData, 
@@ -135,6 +135,19 @@ export async function POST(
       openRouterKeyPrefix: openrouterApiKey ? openrouterApiKey.substring(0, 10) + '...' : 'none'
     });
     
+    // Usage limit exceeded specific handling
+    if ((error as any)?.code === 'USAGE_LIMIT_EXCEEDED' || (error as any)?.message?.startsWith('USAGE_LIMIT_EXCEEDED')) {
+      return NextResponse.json(
+        {
+          error: 'Usage limit exceeded',
+          details: (error as any).message,
+          type: 'UsageLimitError',
+          sessionId: (await params).id
+        },
+        { status: 402 }
+      );
+    }
+
     // Return a more detailed error response
     return NextResponse.json(
       { 
@@ -167,7 +180,7 @@ async function processFinalization({
   controller?: ReadableStreamDefaultController;
   encoder?: TextEncoder;
 }) {
-  const { textContext, conversationType, conversationTitle, uploadedFiles, selectedPreviousConversations, personalContext, participantMe, participantThem, regenerate } = body;
+  const { textContext, conversationType, conversationTitle, uploadedFiles, selectedPreviousConversations, personalContext, participantMe, participantThem, regenerate, durationSeconds: clientDurationSeconds } = body;
 
   console.log('📝 Finalize request received:', {
     sessionId,
@@ -332,9 +345,44 @@ async function processFinalization({
     return total + (line.content?.split(' ').length || 0);
   }, 0) || 0;
 
-  const sessionDuration = transcriptLines && transcriptLines.length > 0 
+  let sessionDuration = transcriptLines && transcriptLines.length > 0 
     ? Math.max(...transcriptLines.map(line => line.end_time_seconds || line.start_time_seconds || 0))
     : 0;
+
+  // If client provided a duration (computed from segments), trust the larger of the two
+  if (typeof clientDurationSeconds === 'number' && clientDurationSeconds > 0) {
+    sessionDuration = Math.max(Number(sessionDuration) || 0, Math.floor(clientDurationSeconds));
+  }
+
+  // Enforce usage limits for offline uploads (no Recall bot)
+  try {
+    const requiredMinutes = Math.ceil(Math.max(0, Number(sessionDuration)) / 60);
+    if (requiredMinutes > 0) {
+      const serviceClient = createServerSupabaseClient();
+      const { data: limitData, error: limitErr } = await serviceClient.rpc('check_usage_limit_v2', {
+        p_user_id: user.id,
+        p_organization_id: sessionData.organization_id
+      });
+      if (limitErr) {
+        console.error('check_usage_limit_v2 error (finalize):', limitErr);
+      } else {
+        const row = Array.isArray(limitData) ? limitData[0] : limitData;
+        const isUnlimited = row?.is_unlimited === true || row?.minutes_limit === null;
+        const minutesLimit = isUnlimited ? null : (row?.minutes_limit ?? 0);
+        const minutesUsed = row?.minutes_used ?? 0;
+        const remainingMinutes = isUnlimited ? null : Math.max(0, (minutesLimit || 0) - minutesUsed);
+        const allowed = isUnlimited ? true : requiredMinutes <= (remainingMinutes || 0);
+        if (!allowed) {
+          // Signal to outer handler to return 402
+          const err = new Error(`USAGE_LIMIT_EXCEEDED: required=${requiredMinutes}, remaining=${remainingMinutes ?? -1}`);
+          (err as any).code = 'USAGE_LIMIT_EXCEEDED';
+          throw err;
+        }
+      }
+    }
+  } catch (limitError) {
+    throw limitError;
+  }
 
   // Create meeting context
   const normalizedType = (() => {
@@ -447,14 +495,71 @@ async function processFinalization({
     triggerEmbeddingsGenerationAsync({ batchSize: 5 });
   }
 
-  // Update session status
+  // Update session status and billing fields first
+  const finalDurationSeconds = Math.floor(Number(sessionDuration) || 0);
+  const finalBillableMinutes = Math.ceil(Math.max(0, Number(sessionDuration)) / 60);
+  
   await authenticatedSupabase
     .from('sessions')
     .update({ 
       status: 'completed',
-      finalized_at: new Date().toISOString()
+      finalized_at: new Date().toISOString(),
+      recording_duration_seconds: finalDurationSeconds,
+      bot_recording_minutes: finalBillableMinutes,
+      bot_billable_amount: Number((finalBillableMinutes * 0.10).toFixed(2))
     })
     .eq('id', sessionId);
+
+  // Now compute and persist offline usage into bot_usage_tracking using the final duration
+  try {
+    // Only record if there is no recall_bot_id
+    if (!sessionData.recall_bot_id && finalBillableMinutes > 0) {
+      const offlineBotId = `offline-${sessionId}`;
+      const serviceClient = createServerSupabaseClient();
+      const startedAt = sessionData.created_at ? new Date(sessionData.created_at) : new Date(Date.now() - (finalDurationSeconds * 1000));
+      const endedAt = new Date(startedAt.getTime() + (finalDurationSeconds * 1000));
+      
+      console.log(`📊 Recording offline usage: ${finalDurationSeconds}s → ${finalBillableMinutes} minutes for session ${sessionId}`);
+      
+      // Double-check: if a bot_usage_tracking entry already exists, compare durations and use the larger
+      const { data: existingEntry } = await serviceClient
+        .from('bot_usage_tracking')
+        .select('total_recording_seconds, billable_minutes')
+        .eq('bot_id', offlineBotId)
+        .single();
+        
+      let finalSecondsToUse = finalDurationSeconds;
+      let finalMinutesToUse = finalBillableMinutes;
+      
+      if (existingEntry) {
+        // Use the larger of existing vs new duration (safety against partial writes)
+        finalSecondsToUse = Math.max(existingEntry.total_recording_seconds || 0, finalDurationSeconds);
+        finalMinutesToUse = Math.ceil(finalSecondsToUse / 60);
+        console.log(`🔍 Existing entry found with ${existingEntry.total_recording_seconds}s, using max: ${finalSecondsToUse}s → ${finalMinutesToUse} minutes`);
+      }
+      
+      const { error: upsertErr } = await serviceClient
+        .from('bot_usage_tracking')
+        .upsert({
+          bot_id: offlineBotId,
+          session_id: sessionId,
+          user_id: user.id,
+          organization_id: sessionData.organization_id,
+          recording_started_at: startedAt.toISOString(),
+          recording_ended_at: endedAt.toISOString(),
+          total_recording_seconds: finalSecondsToUse,
+          billable_minutes: finalMinutesToUse,
+          status: 'completed'
+        }, { onConflict: 'bot_id' });
+      if (upsertErr) {
+        console.error('❌ Failed to upsert bot_usage_tracking (offline):', upsertErr);
+      } else {
+        console.log(`✅ Successfully recorded ${finalMinutesToUse} bot minutes for offline session ${sessionId}`);
+      }
+    }
+  } catch (usageErr) {
+    console.error('Failed to persist offline bot usage:', usageErr);
+  }
 
   /* ========================================================
      📧  Auto-email meeting summary to attendees (if enabled)

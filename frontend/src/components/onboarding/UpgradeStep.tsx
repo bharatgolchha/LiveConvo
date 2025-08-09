@@ -199,10 +199,10 @@ export function UpgradeStep({ onUpgrade, onSkip, onBack, isLoading, preFetchedEl
         </motion.div>
         
         <h2 className="text-2xl font-bold mb-1">
-          Start your {effectiveTrialDays}-day free trial
+          Start your {effectiveTrialDays}-day Pro trial
         </h2>
         <p className="text-muted-foreground text-sm">
-          Cancel anytime. You won’t be charged today.
+          Full Pro features. Cancel anytime. You won’t be charged today.
         </p>
         {currentStep && totalSteps ? (
           <p className="text-xs text-muted-foreground mt-1">Step {currentStep} of {totalSteps} • Almost done</p>
@@ -215,6 +215,11 @@ export function UpgradeStep({ onUpgrade, onSkip, onBack, isLoading, preFetchedEl
             <div className="absolute top-0 right-0 bg-gradient-to-r from-green-500 to-emerald-500 text-white text-xs font-bold px-3 py-1 rounded-bl-lg">
               FREE TRIAL
             </div>
+            <div className="absolute top-0 left-0 ml-0 mt-0">
+              <span className="inline-block bg-purple-600/90 text-white text-[10px] font-semibold tracking-wide px-2 py-1 rounded-br-lg">
+                PRO PLAN
+              </span>
+            </div>
             
             <div className="space-y-3">
               {/* Trial Info */}
@@ -223,8 +228,8 @@ export function UpgradeStep({ onUpgrade, onSkip, onBack, isLoading, preFetchedEl
                   <div className="inline-flex items-center justify-center w-20 h-20 rounded-2xl bg-gradient-to-br from-green-500/10 to-emerald-500/10 mb-3">
                     <span className="text-3xl font-bold text-green-600">7</span>
                   </div>
-                  <p className="text-lg font-semibold">Days Free</p>
-                  <p className="text-sm text-muted-foreground">Cancel anytime</p>
+                  <p className="text-lg font-semibold">Days Free on Pro</p>
+                  <p className="text-sm text-muted-foreground">Cancel anytime • No charge today</p>
                 </div>
               </div>
 
@@ -247,7 +252,7 @@ export function UpgradeStep({ onUpgrade, onSkip, onBack, isLoading, preFetchedEl
           </Card>
 
         {/* Actions */}
-        <div className="flex gap-3 items-center">
+        <div className="flex gap-3 items-center flex-wrap sm:flex-nowrap">
           <Button
             variant="ghost"
             onClick={onBack}
@@ -261,7 +266,7 @@ export function UpgradeStep({ onUpgrade, onSkip, onBack, isLoading, preFetchedEl
           <Button
             onClick={handleStartTrial}
             disabled={isLoading || checkingEligibility || isProcessing}
-            className="flex-1 bg-gradient-to-r from-app-primary to-app-primary-dark hover:from-app-primary-dark hover:to-app-primary text-white shadow-lg hover:shadow-xl transition-all duration-200"
+            className="flex-1 min-w-[200px] bg-gradient-to-r from-app-primary to-app-primary-dark hover:from-app-primary-dark hover:to-app-primary text-white shadow-lg hover:shadow-xl transition-all duration-200"
           >
             {checkingEligibility || isProcessing ? (
               <>
@@ -270,10 +275,20 @@ export function UpgradeStep({ onUpgrade, onSkip, onBack, isLoading, preFetchedEl
               </>
             ) : (
               <>
-                Start Free Trial
+                Start {effectiveTrialDays}-day Pro Trial
                 <ArrowRight className="ml-1 h-4 w-4" />
               </>
             )}
+          </Button>
+
+          {/* Explicit secondary path */}
+          <Button
+            variant="outline"
+            onClick={onSkip}
+            disabled={isLoading}
+            className="flex-1 min-w-[200px]"
+          >
+            Continue on Free plan
           </Button>
         </div>
         <div className="text-center mt-2">
@@ -283,7 +298,7 @@ export function UpgradeStep({ onUpgrade, onSkip, onBack, isLoading, preFetchedEl
         </div>
 
         {/* Assurance */}
-        <p className="text-xs text-muted-foreground text-center mt-3">Takes less than 10 seconds</p>
+        <p className="text-xs text-muted-foreground text-center mt-3">Includes all Pro features during trial • Takes less than 10 seconds</p>
 
         {/* Trust Row */}
         <div className="mt-6 grid grid-cols-3 gap-3 text-center text-[11px] text-muted-foreground">
