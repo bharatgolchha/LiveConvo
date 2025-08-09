@@ -1,3 +1,4 @@
+'use client';
 import React, { useState, useRef, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -388,7 +389,18 @@ const requestAllPermissions = async () => {
       
       // Start local recording of the same stream for offline transcription/archive
       try {
-        const mr = new MediaRecorder(stream, { mimeType: 'audio/webm' });
+        // Prefer Opus in WebM for maximum compatibility with Deepgram
+        const preferred = 'audio/webm;codecs=opus';
+        const fallback = 'audio/webm';
+        if (typeof MediaRecorder === 'undefined') {
+          throw new Error('Recording is not supported in this browser. Please use the latest Chrome or Edge.');
+        }
+        const chosenMime = (MediaRecorder as any).isTypeSupported?.(preferred)
+          ? preferred
+          : ((MediaRecorder as any).isTypeSupported?.(fallback) ? fallback : undefined);
+        const mr = chosenMime
+          ? new MediaRecorder(stream, { mimeType: chosenMime, audioBitsPerSecond: 128000 })
+          : new MediaRecorder(stream);
         recordedChunksRef.current = [];
         mr.ondataavailable = (e) => {
           if (e.data && e.data.size > 0) recordedChunksRef.current.push(e.data);
@@ -440,7 +452,7 @@ const requestAllPermissions = async () => {
     
     stopRealtimeRecording();
 
-    // Stop local recorder and persist recording to Supabase storage, also produce MP3 on server
+    // Stop local recorder and persist recording to server; convert to MP3 on server
     try {
       if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
         mediaRecorderRef.current.stop();
@@ -449,17 +461,26 @@ const requestAllPermissions = async () => {
       await new Promise((r) => setTimeout(r, 250));
       if (recordedChunksRef.current.length > 0) {
         const blob = new Blob(recordedChunksRef.current, { type: 'audio/webm' });
-        const fileName = `live-recording-${Date.now()}.webm`;
-        const path = `live/${fileName}`;
+        const filename = `live-recording-${Date.now()}.webm`;
+        const path = `live/${filename}`;
 
-        // Prefer server route: converts and stores only MP3, returns mp3PublicUrl
-        let chosenUrl: string | null = null;
+        // Upload to server route with conversion and progress
         try {
-          const fd = new FormData();
-          fd.append('file', new File([blob], fileName, { type: 'audio/webm' }));
-          fd.append('path', path);
-          fd.append('convert', 'mp3');
-          const upData = await new Promise<any>((resolve, reject) => {
+          await new Promise<void>((resolve, reject) => {
+            const fd = new FormData();
+            // Wrap into File where supported; fallback to Blob with name in older browsers
+            let fileLike: File;
+            try {
+              fileLike = new File([blob], filename, { type: 'audio/webm' });
+            } catch (_err) {
+              const fallback = new Blob([blob], { type: 'audio/webm' }) as any;
+              fallback.name = filename;
+              fileLike = fallback as File;
+            }
+            fd.append('file', fileLike);
+            fd.append('path', path);
+            fd.append('convert', 'mp3');
+
             const xhr = new XMLHttpRequest();
             xhr.open('POST', '/api/storage/offline-upload');
             xhr.upload.onprogress = (e) => {
@@ -468,49 +489,38 @@ const requestAllPermissions = async () => {
               }
             };
             xhr.onerror = () => reject(new Error('Network error during upload'));
-            xhr.onload = () => {
+            xhr.onload = async () => {
               try {
                 const json = JSON.parse(xhr.responseText || '{}');
-                if (xhr.status >= 200 && xhr.status < 300) resolve(json);
-                else reject(new Error(json?.error || `Upload failed (${xhr.status})`));
+                if (xhr.status >= 200 && xhr.status < 300) {
+                  const url = json?.mp3PublicUrl || json?.publicUrl || null;
+                  if (url) {
+                    lastRecordedFileUrlRef.current = url;
+                    // Fire and forget Deepgram transcription
+                    try {
+                      await fetch('/api/transcribe/deepgram', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ file_url: url })
+                      });
+                    } catch (dgErr) {
+                      console.warn('Deepgram transcription failed:', dgErr);
+                    }
+                    resolve();
+                  } else {
+                    reject(new Error('Upload succeeded but no public URL returned'));
+                  }
+                } else {
+                  reject(new Error(json?.error || `Upload failed (${xhr.status})`));
+                }
               } catch (err) {
                 reject(err);
               }
             };
             xhr.send(fd);
           });
-          chosenUrl = upData?.mp3PublicUrl || null;
-        } catch (serverErr) {
-          console.warn('Server upload/convert failed, falling back to client upload:', serverErr);
-          // Fallback to client upload of original
-          try {
-            const file = new File([blob], fileName, { type: 'audio/webm' });
-            const { error: uploadErr } = await supabase.storage
-              .from('offline-recordings')
-              .upload(path, file, { upsert: false, duplex: 'half' as any });
-            if (uploadErr) throw uploadErr;
-            // No MP3 conversion in fallback; skip transcription trigger to avoid suboptimal format
-            chosenUrl = null;
-          } catch (clientErr) {
-            console.warn('Client upload also failed:', clientErr);
-          }
         } finally {
           setUploadProgress(0);
-        }
-
-        lastRecordedFileUrlRef.current = chosenUrl;
-
-        // Kick off URL-based final transcription if available (use MP3 if present)
-        if (chosenUrl) {
-          try {
-            await fetch('/api/transcribe/deepgram', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ file_url: chosenUrl }),
-            });
-          } catch (e) {
-            console.warn('Post-recording transcription failed:', e);
-          }
         }
       }
     } catch (saveErr) {
