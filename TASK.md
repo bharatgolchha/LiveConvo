@@ -2240,6 +2240,12 @@
   - Used proper ShadCN design tokens and responsive layout
   - Updated navigation from home page to highlight production app
 
+### 2025-08-09
+- [x] Deprecate and remove `/app-demo` page
+  - Updated onboarding default redirect to `/dashboard` in `frontend/src/app/onboarding/page.tsx`
+  - Deleted `frontend/src/app/app-demo/page.tsx`
+  - Verified no remaining references to `/app-demo`
+
 ### 🔄 In Progress Tasks
 - [x] **Frontend Development Server Running** (2025-01-26) ✅
   - [x] Development server started and accessible at localhost:3000 ✅

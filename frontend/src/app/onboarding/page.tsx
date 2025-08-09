@@ -74,8 +74,8 @@ function OnboardingContent() {
   });
 
   const totalSteps = 4;
-  // Default first-run redirect to demo to accelerate time-to-value
-  const redirectUrl = searchParams.get('redirect') || '/app-demo';
+  // Default redirect after onboarding completion
+  const redirectUrl = searchParams.get('redirect') || '/dashboard';
   const stepParam = searchParams.get('step');
   const subscribedParam = searchParams.get('subscribed');
 
