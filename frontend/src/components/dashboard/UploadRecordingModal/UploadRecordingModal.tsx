@@ -129,7 +129,10 @@ export function UploadRecordingModal({ isOpen, onClose, onCreated }: UploadRecor
         const fd = new FormData();
         fd.append('file', sourceFile);
         fd.append('path', path);
-        fd.append('convert', 'mp3');
+        // Only request conversion when it's a recorded file; preserve original mp3 uploads
+        if (recordedFile) {
+          fd.append('convert', 'mp3');
+        }
 
         // Use XHR to report client upload progress
         const upData = await new Promise<any>((resolve, reject) => {
@@ -153,7 +156,8 @@ export function UploadRecordingModal({ isOpen, onClose, onCreated }: UploadRecor
           };
           xhr.send(fd);
         });
-        fileUrl = upData?.mp3PublicUrl || null;
+        // Support either mp3PublicUrl (when converted) or publicUrl (original upload)
+        fileUrl = upData?.mp3PublicUrl || upData?.publicUrl || null;
       } catch (clientUploadErr: any) {
         setError(clientUploadErr?.message || 'Upload failed');
         setLoading(false);
@@ -556,6 +560,9 @@ export function UploadRecordingModal({ isOpen, onClose, onCreated }: UploadRecor
                             ? { mimeType, audioBitsPerSecond }
                             : { audioBitsPerSecond };
                           
+                          if (typeof MediaRecorder === 'undefined') {
+                            throw new Error('Recording is not supported in this browser. Please use the latest Chrome or Edge.');
+                          }
                           const mr = new MediaRecorder(finalStream, recorderOptions);
                           recordedChunksRef.current = [];
                           mr.ondataavailable = (e) => { 
@@ -576,9 +583,18 @@ export function UploadRecordingModal({ isOpen, onClose, onCreated }: UploadRecor
                             else if (actualMimeType.includes('wav')) ext = 'wav';
                             else if (actualMimeType.includes('video/webm')) ext = 'webm'; // Handle video/webm
                             
-                            const f = new File([blob], `recording-${Date.now()}.${ext}`, { type: actualMimeType });
-                            console.log('Created file:', f.name, 'size:', f.size, 'type:', f.type);
-                            setRecordedFile(f);
+                             const filename = `recording-${Date.now()}.${ext}`;
+                             let fileLike: File;
+                             try {
+                               fileLike = new File([blob], filename, { type: actualMimeType });
+                             } catch (_err) {
+                               // Safari or older browsers fallback
+                               const fallback = new Blob([blob], { type: actualMimeType }) as any;
+                               fallback.name = filename;
+                               fileLike = fallback as File;
+                             }
+                             console.log('Created file:', fileLike.name, 'size:', (fileLike as any).size, 'type:', (fileLike as any).type);
+                             setRecordedFile(fileLike);
                           };
                           mediaRecorderRef.current = mr;
                           mr.start(250);

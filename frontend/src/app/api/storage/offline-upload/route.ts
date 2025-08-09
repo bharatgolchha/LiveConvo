@@ -56,22 +56,55 @@ export async function POST(request: NextRequest) {
 
     const bytes = Buffer.from(await file.arrayBuffer())
     const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_')
+    const originalExtMatch = safeName.toLowerCase().match(/\.([a-z0-9]+)$/)
+    const originalExt = originalExtMatch ? originalExtMatch[1] : ''
     const basePathNoExt = (pathOverride || `offline/${Date.now()}-${safeName}`).replace(/\.[a-zA-Z0-9]+$/, '')
-    try {
-      const mp3Buffer = await convertToMp3(bytes)
-      const mp3Path = `${basePathNoExt}.mp3`
-      const { error: upMp3Err } = await supabase.storage
-        .from('offline-recordings')
-        .upload(mp3Path, mp3Buffer, { contentType: 'audio/mpeg', upsert: true })
-      if (upMp3Err) {
-        return NextResponse.json({ error: upMp3Err.message }, { status: 400 })
+
+    // Decide whether to convert:
+    // - Convert if client explicitly requested convert==='mp3' (recordings)
+    // - Otherwise, upload original file as-is (e.g., user-uploaded mp3)
+    const shouldConvertToMp3 = convert === 'mp3'
+
+    if (shouldConvertToMp3) {
+      try {
+        const mp3Buffer = await convertToMp3(bytes)
+        const mp3Path = `${basePathNoExt}.mp3`
+        const { error: upMp3Err } = await supabase.storage
+          .from('offline-recordings')
+          .upload(mp3Path, mp3Buffer, { contentType: 'audio/mpeg', upsert: true })
+        if (upMp3Err) {
+          return NextResponse.json({ error: upMp3Err.message }, { status: 400 })
+        }
+        const { data: mp3Public } = supabase.storage
+          .from('offline-recordings')
+          .getPublicUrl(mp3Path)
+        return NextResponse.json({ mp3Path, mp3PublicUrl: mp3Public?.publicUrl, publicUrl: mp3Public?.publicUrl })
+      } catch (e: any) {
+        return NextResponse.json({ error: e?.message || 'MP3 conversion failed' }, { status: 500 })
       }
-      const { data: mp3Public } = supabase.storage
+    } else {
+      // Upload original file without conversion
+      const uploadPath = pathOverride || `offline/${Date.now()}-${safeName}`
+      // Determine a reasonable content type
+      let ct = file.type || 'application/octet-stream'
+      if (!ct || ct === 'application/octet-stream') {
+        if (originalExt === 'mp3') ct = 'audio/mpeg'
+        else if (originalExt === 'wav') ct = 'audio/wav'
+        else if (originalExt === 'webm') ct = 'audio/webm'
+        else if (originalExt === 'ogg') ct = 'audio/ogg'
+        else if (originalExt === 'm4a' || originalExt === 'mp4') ct = 'audio/mp4'
+      }
+
+      const { error: upErr } = await supabase.storage
         .from('offline-recordings')
-        .getPublicUrl(mp3Path)
-      return NextResponse.json({ mp3Path, mp3PublicUrl: mp3Public?.publicUrl })
-    } catch (e: any) {
-      return NextResponse.json({ error: e?.message || 'MP3 conversion failed' }, { status: 500 })
+        .upload(uploadPath, bytes, { contentType: ct, upsert: true })
+      if (upErr) {
+        return NextResponse.json({ error: upErr.message }, { status: 400 })
+      }
+      const { data: pub } = supabase.storage
+        .from('offline-recordings')
+        .getPublicUrl(uploadPath)
+      return NextResponse.json({ path: uploadPath, publicUrl: pub?.publicUrl })
     }
   } catch (err: any) {
     return NextResponse.json({ error: err?.message || 'Upload failed' }, { status: 500 })
