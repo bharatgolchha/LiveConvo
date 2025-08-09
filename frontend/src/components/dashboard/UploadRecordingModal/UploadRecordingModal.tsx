@@ -202,11 +202,23 @@ export function UploadRecordingModal({ isOpen, onClose, onCreated }: UploadRecor
           method: 'POST',
           body: JSON.stringify({ segments: segs.map(s => ({ start: s.start, end: s.end })) })
         });
-        const preData = await preResp.json();
+        let preData: any = null;
+        let preRawText: string | null = null;
+        try {
+          preData = await preResp.json();
+        } catch {
+          try { preRawText = await preResp.text(); } catch {}
+        }
         if (!preResp.ok || preData?.allowed === false) {
           const need = preData?.requiredMinutes;
           const rem = preData?.remainingMinutes;
-          setError(`Usage limit exceeded. Required ${need} min, remaining ${rem ?? 0} min. Please upgrade your plan.`);
+          const snippet = (preRawText || '').slice(0, 500);
+          const baseMsg = preData?.error || `Usage precheck failed (HTTP ${preResp.status} ${preResp.statusText})`;
+          setError(
+            preData?.allowed === false
+              ? `Usage limit exceeded. Required ${need} min, remaining ${rem ?? 0} min. Please upgrade your plan.`
+              : `${baseMsg}${snippet ? `\n\nDetails (first 500 chars):\n${snippet}` : ''}`
+          );
           return; // block advance
         }
         setPrecheck({
@@ -239,17 +251,25 @@ export function UploadRecordingModal({ isOpen, onClose, onCreated }: UploadRecor
         method: 'POST',
         body: JSON.stringify({ segments: segments.map(s => ({ start: s.start, end: s.end })) })
       });
-      const preData = await preResp.json();
+      let preData: any = null;
+      let preRawText: string | null = null;
+      try { preData = await preResp.json(); } catch { try { preRawText = await preResp.text(); } catch {} }
       if (!preResp.ok || preData?.allowed === false) {
         const need = preData?.requiredMinutes;
         const rem = preData?.remainingMinutes;
+        const snippet = (preRawText || '').slice(0, 500);
+        const baseMsg = preData?.error || `Usage precheck failed (HTTP ${preResp.status} ${preResp.statusText})`;
         setPrecheck({
           allowed: false,
           requiredMinutes: need ?? 0,
           remainingMinutes: preData?.remainingMinutes ?? null,
           isUnlimited: !!preData?.isUnlimited,
         });
-        setError(`Usage limit exceeded. Required ${need} min, remaining ${rem ?? 0} min. Please upgrade your plan.`);
+        setError(
+          preData?.allowed === false
+            ? `Usage limit exceeded. Required ${need} min, remaining ${rem ?? 0} min. Please upgrade your plan.`
+            : `${baseMsg}${snippet ? `\n\nDetails (first 500 chars):\n${snippet}` : ''}`
+        );
         return;
       }
       setPrecheck({
@@ -692,7 +712,11 @@ export function UploadRecordingModal({ isOpen, onClose, onCreated }: UploadRecor
             </div>
           )}
 
-          {error && <div className="text-sm text-destructive">{error}</div>}
+          {error && (
+            <div className="text-sm text-destructive whitespace-pre-wrap max-h-48 overflow-auto">
+              {error}
+            </div>
+          )}
         </div>
 
         {/* Footer */}
