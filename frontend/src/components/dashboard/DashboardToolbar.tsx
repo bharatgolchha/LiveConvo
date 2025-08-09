@@ -18,6 +18,9 @@ export interface DashboardToolbarProps {
   onSortChange: (v: string) => void;
   resultsCount?: number;
   className?: string;
+  timelineEnabled?: boolean;
+  onToggleView?: (mode: 'list' | 'timeline') => void;
+  viewMode?: 'list' | 'timeline';
 }
 
 export const DashboardToolbar: React.FC<DashboardToolbarProps> = ({
@@ -31,8 +34,12 @@ export const DashboardToolbar: React.FC<DashboardToolbarProps> = ({
   onSortChange,
   resultsCount,
   className = "",
+  timelineEnabled = true,
+  onToggleView,
+  viewMode = 'timeline',
 }) => {
   const inputRef = React.useRef<HTMLInputElement | null>(null);
+  const wrapperRef = React.useRef<HTMLDivElement | null>(null);
   const [isFocused, setIsFocused] = React.useState(false);
   const [suggestions, setSuggestions] = React.useState<string[]>([]);
   const [activeIndex, setActiveIndex] = React.useState<number>(-1);
@@ -128,8 +135,28 @@ export const DashboardToolbar: React.FC<DashboardToolbarProps> = ({
     }
   };
 
+  // Keep a CSS var updated with the toolbar height so sticky sections can offset correctly
+  React.useEffect(() => {
+    const el = wrapperRef.current
+    if (!el) return
+    const setVar = () => {
+      const h = el.offsetHeight || 64
+      if (typeof document !== 'undefined') {
+        document.documentElement.style.setProperty('--toolbar-offset', `${h}px`)
+      }
+    }
+    setVar()
+    const ro = new ResizeObserver(setVar)
+    ro.observe(el)
+    window.addEventListener('resize', setVar)
+    return () => {
+      ro.disconnect()
+      window.removeEventListener('resize', setVar)
+    }
+  }, [])
+
   return (
-    <div className={`sticky top-0 z-20 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 border-b border-border ${className}`}>
+    <div ref={wrapperRef} className={`sticky top-0 z-20 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 border-b border-border ${className}`}>
       {/* Row 1 (mobile): Tabs + icon actions */}
       <div className="px-4 sm:px-6 pt-3 pb-2 flex items-center gap-3 sm:hidden">
         <div className="flex-1 min-w-0">
@@ -142,6 +169,7 @@ export const DashboardToolbar: React.FC<DashboardToolbarProps> = ({
           />
         </div>
         <div className="flex items-center gap-2">
+          {/* List view deprecated; keep control hidden */}
           <Button variant="outline" size="sm" onClick={onOpenFilters} className="h-8 px-2.5 text-xs">
             <FunnelIcon className="w-4 h-4" />
           </Button>
@@ -256,6 +284,7 @@ export const DashboardToolbar: React.FC<DashboardToolbarProps> = ({
             {resultsCount} results
           </div>
         )}
+        {/* Deprecated view toggle hidden */}
       </div>
     </div>
   );

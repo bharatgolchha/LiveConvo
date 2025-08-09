@@ -62,6 +62,7 @@ const DashboardHeader = dynamic(() => import('@/components/dashboard/DashboardHe
 const UploadRecordingModal = dynamic(() => import('@/components/dashboard/UploadRecordingModal/UploadRecordingModal').then(mod => ({ default: mod.UploadRecordingModal })), { ssr: false });
 const DashboardSidebar = dynamic(() => import('@/components/dashboard/DashboardSidebar'));
 const UpcomingMeetingsSidebar = dynamic(() => import('@/components/dashboard/UpcomingMeetingsSidebar').then(mod => ({ default: mod.UpcomingMeetingsSidebar })), { ssr: false });
+const TimelineView = dynamic(() => import('@/components/dashboard/Timeline/TimelineView').then(mod => ({ default: mod.TimelineView })), { ssr: false });
 
 // Newly extracted components (loaded lazily to reduce initial JS)
 const ConversationInboxItem = dynamic(() => import('@/components/dashboard/ConversationInboxItem'));
@@ -105,6 +106,19 @@ const DashboardPage: React.FC = () => {
   const searchParams = useSearchParams();
   const [showMobileMeetings, setShowMobileMeetings] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  // Default view is now Timeline; list view deprecated
+  const [viewMode] = useState<'list' | 'timeline'>('timeline');
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    try {
+      const sp = new URLSearchParams(window.location.search)
+      sp.set('view', 'timeline')
+      const url = `${window.location.pathname}?${sp.toString()}`
+      window.history.replaceState({}, '', url)
+      localStorage.setItem('dashboard_view', 'timeline')
+    } catch {}
+  }, [])
   
   // Read 'tab' query parameter to set initial active path
   const tabParam = searchParams.get('tab');
@@ -1052,6 +1066,8 @@ const DashboardPage: React.FC = () => {
                 sort={sort}
                 onSortChange={(v) => setSort(v as any)}
                 resultsCount={totalFilteredCount}
+                timelineEnabled={true}
+                viewMode={'timeline'}
               />
               <FilterChipsBar
                 chips={getActiveChips()}
@@ -1102,6 +1118,75 @@ const DashboardPage: React.FC = () => {
 
                  {/* Meetings Inbox List */}
                 {totalFilteredCount > 0 ? (
+                  viewMode === 'timeline' ? (
+                    <div className="flex-1 min-h-0 overflow-y-auto flex flex-col">
+                      {selectedSessions.size > 0 && (
+                        <div className="px-3 sm:px-6 py-2 sm:py-3 bg-muted/30 border-b border-border sticky top-0 z-20">
+                          <div className="flex items-center justify-between">
+                            <h2 className="text-sm font-medium text-foreground">{selectedSessions.size} selected</h2>
+                            <div className="flex items-center gap-2">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={handleBulkArchive}
+                                className="text-xs"
+                              >
+                                Archive Selected
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={handleBulkDelete}
+                                className="text-xs text-destructive"
+                              >
+                                Delete Selected
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => setSelectedSessions(new Set())}
+                                className="text-xs text-muted-foreground"
+                              >
+                                Clear
+                              </Button>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                      <TimelineView
+                        sessions={filtered.sessions}
+                        selectedIds={selectedSessions}
+                        onSelect={(id, checked) => {
+                          if (checked) {
+                            setSelectedSessions(prev => new Set([...prev, id]))
+                          } else {
+                            setSelectedSessions(prev => {
+                              const next = new Set(prev)
+                              next.delete(id)
+                              return next
+                            })
+                          }
+                        }}
+                        onOpen={handleResumeSession}
+                        onFollowUp={(id) => {
+                          const session = sessions.find(s => s.id === id)
+                          if (session) handleCreateFollowUp(session)
+                        }}
+                        onReport={handleViewSummary}
+                        onShare={handleShareMeeting}
+                      />
+                      {totalFilteredCount > itemsPerPage && (
+                        <Pagination
+                          currentPage={currentPage}
+                          totalItems={totalFilteredCount}
+                          itemsPerPage={itemsPerPage}
+                          onPageChange={handlePageChange}
+                          disabled={sessionsLoading}
+                          className="sticky bottom-0 bg-background"
+                        />
+                      )}
+                    </div>
+                  ) : (
                   <motion.div 
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
@@ -1236,6 +1321,7 @@ const DashboardPage: React.FC = () => {
                       />
                     )}
                   </motion.div>
+                  )
                 ) : (
                   <motion.div
                     initial={{ opacity: 0 }}
