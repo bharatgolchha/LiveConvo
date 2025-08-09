@@ -26,11 +26,14 @@ export function UploadRecordingModal({ isOpen, onClose, onCreated }: UploadRecor
   const [inputMode, setInputMode] = React.useState<'upload' | 'record'>('upload');
   const mediaRecorderRef = React.useRef<MediaRecorder | null>(null);
   const mediaStreamRef = React.useRef<MediaStream | null>(null);
+  const displayStreamRef = React.useRef<MediaStream | null>(null);
+  const audioContextRef = React.useRef<AudioContext | null>(null);
   const recordedChunksRef = React.useRef<Blob[]>([]);
   const [isRecordingAudio, setIsRecordingAudio] = React.useState(false);
   const [recordElapsed, setRecordElapsed] = React.useState(0);
   const recordTimerRef = React.useRef<number | null>(null);
   const [recordedFile, setRecordedFile] = React.useState<File | null>(null);
+  const [captureSystemAudio, setCaptureSystemAudio] = React.useState(false);
   const [expandedTranscript, setExpandedTranscript] = React.useState(false);
   const [speakerSearch, setSpeakerSearch] = React.useState('');
   const [youSpeaker, setYouSpeaker] = React.useState<string | null>(null);
@@ -83,6 +86,8 @@ export function UploadRecordingModal({ isOpen, onClose, onCreated }: UploadRecor
         if (recordTimerRef.current) { window.clearInterval(recordTimerRef.current); recordTimerRef.current = null; }
         if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') mediaRecorderRef.current.stop();
         if (mediaStreamRef.current) { mediaStreamRef.current.getTracks().forEach(t => t.stop()); mediaStreamRef.current = null; }
+        if (displayStreamRef.current) { displayStreamRef.current.getTracks().forEach(t => t.stop()); displayStreamRef.current = null; }
+        if (audioContextRef.current) { try { audioContextRef.current.close(); } catch {} audioContextRef.current = null; }
         mediaRecorderRef.current = null;
         recordedChunksRef.current = [];
         setIsRecordingAudio(false);
@@ -411,9 +416,32 @@ export function UploadRecordingModal({ isOpen, onClose, onCreated }: UploadRecor
                     {!isRecordingAudio ? (
                       <button className="px-4 py-2 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90" onClick={async () => {
                         try {
-                          const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                          mediaStreamRef.current = stream;
-                          const mr = new MediaRecorder(stream, { mimeType: 'audio/webm' });
+                          // Always capture microphone
+                          const micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                          mediaStreamRef.current = micStream;
+
+                          let finalStream: MediaStream = micStream;
+
+                          if (captureSystemAudio) {
+                            // Capture tab/system audio via display media. User must select a tab and enable "Share tab audio".
+                            const display = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
+                            // Stop video track to avoid extra data; keep audio track(s)
+                            display.getVideoTracks().forEach(t => t.stop());
+                            displayStreamRef.current = display;
+
+                            // Mix mic + system audio via Web Audio API
+                            const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+                            audioContextRef.current = ctx;
+                            const dest = ctx.createMediaStreamDestination();
+                            const micSource = ctx.createMediaStreamSource(micStream);
+                            micSource.connect(dest);
+                            const sysSource = ctx.createMediaStreamSource(display);
+                            sysSource.connect(dest);
+                            finalStream = new MediaStream();
+                            dest.stream.getAudioTracks().forEach(track => finalStream.addTrack(track));
+                          }
+
+                          const mr = new MediaRecorder(finalStream, { mimeType: 'audio/webm' });
                           recordedChunksRef.current = [];
                           mr.ondataavailable = (e) => { if (e.data && e.data.size > 0) recordedChunksRef.current.push(e.data); };
                           mr.onstop = () => {
@@ -427,7 +455,7 @@ export function UploadRecordingModal({ isOpen, onClose, onCreated }: UploadRecor
                           setRecordElapsed(0);
                           recordTimerRef.current = window.setInterval(() => setRecordElapsed((s) => s + 1), 1000) as unknown as number;
                         } catch (e: any) {
-                          setError(e?.message || 'Failed to access microphone');
+                          setError(e?.message || 'Failed to start recording');
                         }
                       }} disabled={loading}>Start</button>
                     ) : (
@@ -437,6 +465,8 @@ export function UploadRecordingModal({ isOpen, onClose, onCreated }: UploadRecor
                         } finally {
                           if (recordTimerRef.current) { window.clearInterval(recordTimerRef.current); recordTimerRef.current = null; }
                           if (mediaStreamRef.current) { mediaStreamRef.current.getTracks().forEach(t => t.stop()); mediaStreamRef.current = null; }
+                          if (displayStreamRef.current) { displayStreamRef.current.getTracks().forEach(t => t.stop()); displayStreamRef.current = null; }
+                          if (audioContextRef.current) { try { audioContextRef.current.close(); } catch {} audioContextRef.current = null; }
                           setIsRecordingAudio(false);
                         }
                       }} disabled={loading}>Stop</button>
@@ -445,6 +475,17 @@ export function UploadRecordingModal({ isOpen, onClose, onCreated }: UploadRecor
                       <button className="px-3 py-2 rounded-lg bg-muted hover:bg-muted/80 text-foreground" onClick={() => { setRecordedFile(null); setRecordElapsed(0); }}>Reset</button>
                     )}
                   </div>
+                  <div className="mt-3 text-xs text-muted-foreground flex items-center gap-2">
+                    <label className="inline-flex items-center gap-2 cursor-pointer">
+                      <input type="checkbox" checked={captureSystemAudio} onChange={(e)=> setCaptureSystemAudio(e.target.checked)} />
+                      Capture tab/system audio (share tab audio)
+                    </label>
+                  </div>
+                  {captureSystemAudio && (
+                    <div className="mt-2 text-[11px] text-muted-foreground/80 text-center max-w-md">
+                      Tip: When prompted, pick the meeting tab and enable "Share tab audio" so remote participants are included. We mix mic + tab audio locally for diarization.
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -624,5 +665,4 @@ export function UploadRecordingModal({ isOpen, onClose, onCreated }: UploadRecor
 }
 
 export default UploadRecordingModal;
-
 

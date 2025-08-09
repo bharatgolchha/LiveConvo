@@ -45,6 +45,13 @@ export const DashboardToolbar: React.FC<DashboardToolbarProps> = ({
   const [activeIndex, setActiveIndex] = React.useState<number>(-1);
   const [people, setPeople] = React.useState<string[]>([]);
   const [platforms, setPlatforms] = React.useState<string[]>([]);
+  // Local, uncommitted query so we only search on Enter/explicit commit
+  const [localQuery, setLocalQuery] = React.useState<string>(searchQuery || '');
+
+  // Keep local input in sync when external searchQuery changes (e.g., Clear all)
+  React.useEffect(() => {
+    setLocalQuery(searchQuery || '')
+  }, [searchQuery])
 
   React.useEffect(() => {
     try {
@@ -55,7 +62,7 @@ export const DashboardToolbar: React.FC<DashboardToolbarProps> = ({
 
   React.useEffect(() => {
     if (!isFocused) return;
-    if (searchQuery) return; // show query suggestions; skip prefetch
+    if (localQuery) return; // only prefetch when input empty
     let aborted = false;
     const controller = new AbortController();
     (async () => {
@@ -104,20 +111,22 @@ export const DashboardToolbar: React.FC<DashboardToolbarProps> = ({
   };
 
   const commitSearch = (q: string) => {
-    onSearchChange(q);
-    if (q.trim()) persistSearch(q.trim());
+    const next = (q ?? '').trim();
+    onSearchChange(next);
+    if (next) persistSearch(next);
     requestAnimationFrame(() => inputRef.current?.blur());
   };
 
   const handleKeyDown: React.KeyboardEventHandler<HTMLInputElement> = (e) => {
     if (e.key === 'Escape') {
+      setLocalQuery('');
       onSearchChange('');
       setActiveIndex(-1);
       requestAnimationFrame(() => inputRef.current?.blur());
       return;
     }
     if (e.key === 'Enter') {
-      const q = activeIndex >= 0 ? suggestions[activeIndex] || searchQuery : searchQuery;
+      const q = activeIndex >= 0 ? suggestions[activeIndex] || localQuery : localQuery;
       commitSearch(q);
       return;
     }
@@ -196,9 +205,9 @@ export const DashboardToolbar: React.FC<DashboardToolbarProps> = ({
             ref={inputRef}
             type="text"
             placeholder="Search meetings, speakers, topics…"
-            value={searchQuery}
+            value={localQuery}
             onChange={(e) => {
-              onSearchChange(e.target.value);
+              setLocalQuery(e.target.value);
               setActiveIndex(-1);
             }}
             onKeyDown={handleKeyDown}
@@ -209,14 +218,14 @@ export const DashboardToolbar: React.FC<DashboardToolbarProps> = ({
           />
 
           {/* Suggestions */}
-          {isFocused && (suggestions.length > 0 || searchQuery || people.length > 0 || platforms.length > 0) && (
+          {isFocused && (suggestions.length > 0 || localQuery || people.length > 0 || platforms.length > 0) && (
             <div className="absolute left-0 right-0 top-full mt-1 bg-card border border-border rounded-md shadow-sm overflow-hidden z-10">
-              {searchQuery && (
+              {localQuery && (
                 <button
                   className="w-full text-left px-3 py-2 text-sm hover:bg-accent"
-                  onMouseDown={() => commitSearch(searchQuery)}
+                  onMouseDown={() => commitSearch(localQuery)}
                 >
-                  Search “{searchQuery}”
+                  Search “{localQuery}”
                 </button>
               )}
               {suggestions.map((s, idx) => (
