@@ -1,3 +1,19 @@
+## [2025-08-09] Dashboard: Move search to subheader toolbar and add advanced filters
+
+- Status: In progress
+- Description: Implement Option B sticky subheader toolbar on `dashboard` with Live/All toggle, centered search, Filters button, Sort, results count; add active chips row and Advanced Filters drawer (speakers, status, date range, platform; plus advanced flags). Wire to `/api/dashboard/data` with new query params (date_from, date_to, platform, speakers). Header search hidden.
+- Files touched:
+  - `frontend/src/app/dashboard/page.tsx`
+  - `frontend/src/components/dashboard/DashboardToolbar.tsx` (new)
+  - `frontend/src/components/dashboard/FilterChipsBar.tsx` (new)
+  - `frontend/src/components/dashboard/AdvancedFiltersDrawer.tsx` (new)
+  - `frontend/src/app/api/dashboard/data/route.ts`
+  - `frontend/src/lib/hooks/useDashboardData.ts`
+- Next steps:
+  - Add server-side sort param handling and relevance sorting when `q` present
+  - Persist filters in URL query params; add saved views (future)
+  - Add speaker autocomplete source and topics/tags facet; tests
+
 # liveprompt.ai - Task Tracker
 
 ## 📋 Current Sprint Tasks

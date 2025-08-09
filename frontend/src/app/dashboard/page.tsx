@@ -53,6 +53,9 @@ import { MeetingListTabs } from '@/components/dashboard/MeetingListTabs';
 import { filterSessionsByView, getSessionCounts } from '@/lib/utils/meeting-utils';
 import { CheckoutSuccessHandler } from '@/components/checkout/CheckoutSuccessHandler';
 import dynamic from 'next/dynamic';
+import { DashboardToolbar } from '@/components/dashboard/DashboardToolbar';
+import { FilterChipsBar } from '@/components/dashboard/FilterChipsBar';
+import { AdvancedFiltersDrawer } from '@/components/dashboard/AdvancedFiltersDrawer';
 
 // Dynamically load smaller components to reduce initial bundle size
 const DashboardHeader = dynamic(() => import('@/components/dashboard/DashboardHeader'));
@@ -112,6 +115,9 @@ const DashboardPage: React.FC = () => {
   const [showNewMeetingModal, setShowNewMeetingModal] = useState(false);
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [sort, setSort] = useState<'recent' | 'updated' | 'duration' | 'relevance'>('recent');
+  const [advancedFilters, setAdvancedFilters] = useState({ speakers: [] as string[] } as any);
   const debouncedSearchQuery = useDebounce(searchQuery, 300);
   const [selectedSessions, setSelectedSessions] = useState<Set<string>>(new Set());
   const [isNavigating, setIsNavigating] = useState(false);
@@ -417,6 +423,28 @@ const DashboardPage: React.FC = () => {
     setCurrentPage(1); // Reset to first page when searching
   };
 
+  // Chips helpers for UI only
+  const getActiveChips = () => {
+    const chips: { key: string; label: string }[] = [];
+    if (searchQuery) chips.push({ key: 'q', label: `Search: ${searchQuery}` });
+    if (advancedFilters?.speakers?.length) chips.push({ key: 'speakers', label: `Speakers: ${advancedFilters.speakers.join(', ')}` });
+    if (advancedFilters?.platform?.length) chips.push({ key: 'platform', label: `Platform: ${advancedFilters.platform.join(', ')}` });
+    if (advancedFilters?.dateFrom || advancedFilters?.dateTo) chips.push({ key: 'date', label: `Date: ${advancedFilters?.dateFrom || '…'} → ${advancedFilters?.dateTo || '…'}` });
+    return chips;
+  };
+
+  const handleRemoveChip = (key: string) => {
+    if (key === 'q') setSearchQuery('');
+    if (key === 'speakers') setAdvancedFilters((prev: any) => ({ ...prev, speakers: [] }));
+    if (key === 'platform') setAdvancedFilters((prev: any) => ({ ...prev, platform: [] }));
+    if (key === 'date') setAdvancedFilters((prev: any) => ({ ...prev, dateFrom: undefined, dateTo: undefined }));
+  };
+
+  const handleClearAllChips = () => {
+    setSearchQuery('');
+    setAdvancedFilters({ speakers: [] });
+  };
+
   const handlePageChange = async (page: number) => {
     setCurrentPage(page);
     const offset = (page - 1) * itemsPerPage;
@@ -429,11 +457,16 @@ const DashboardPage: React.FC = () => {
   };
 
   const getCurrentFilters = () => {
-    const filters = {
+    const filters: any = {
       status: activePath === 'archive' ? 'archived' : undefined,
       search: debouncedSearchQuery || undefined,
       filter: activePath === 'shared' ? 'shared' : undefined,
     };
+    // Map advanced filters to query params
+    if (advancedFilters?.dateFrom) filters.date_from = advancedFilters.dateFrom;
+    if (advancedFilters?.dateTo) filters.date_to = advancedFilters.dateTo;
+    if (advancedFilters?.platform?.length) filters.platform = advancedFilters.platform.join(',');
+    if (advancedFilters?.speakers?.length) filters.speakers = advancedFilters.speakers.join(',');
     console.log('🔍 Dashboard getCurrentFilters:', {
       activePath,
       filters,
@@ -462,6 +495,13 @@ const DashboardPage: React.FC = () => {
       fetchData();
     }
   }, [activePath, debouncedSearchQuery]); // Only depend on actual filter changes
+
+  // Re-fetch when advanced filters change
+  React.useEffect(() => {
+    if (user && authSession) {
+      fetchDashboardData({ ...getCurrentFilters(), limit: itemsPerPage, offset: 0 });
+    }
+  }, [advancedFilters]);
 
   const handleNewConversation = () => {
     // Regular conversations are deprecated, redirect to meeting
@@ -922,7 +962,7 @@ const DashboardPage: React.FC = () => {
   }
 
   // Show loading state only for initial load
-  if (sessionsLoading && sessions.length === 0 && !isLoadingNavigation) {
+  if ((!dashboardData && !isLoadingNavigation) || (sessionsLoading && sessions.length === 0 && !isLoadingNavigation)) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
@@ -941,15 +981,15 @@ const DashboardPage: React.FC = () => {
         { /* Using local state to control modal */ }
         { /* Note: we declare state above render block */ }
         
-        <DashboardHeader 
+         <DashboardHeader 
           user={currentUser} 
-          onSearch={handleSearch}
+           onSearch={() => { /* Header search hidden for meetings list per Option B */ }}
           onNavigateToSettings={() => setActivePath('settings')}
           onMenuClick={() => setIsSidebarOpen(!isSidebarOpen)}
           onNewMeeting={handleNewMeeting}
           onUploadRecording={() => setShowUploadModal(true)}
           realtimeConnected={realtimeConnected}
-          showSearch={hasAnySessions}
+           showSearch={false}
         />
       
       {/* Usage Warning Banner */}
@@ -998,6 +1038,29 @@ const DashboardPage: React.FC = () => {
         </div>
         
         <main className="flex-1 overflow-hidden flex">
+          <div className="flex-1 flex flex-col min-w-0">
+          {/* Meeting View Tabs - Only show when not in archive or shared view */}
+          {activePath === 'conversations' && (
+            <>
+              <DashboardToolbar
+                view={meetingView}
+                onViewChange={setMeetingView}
+                counts={sessionCounts}
+                searchQuery={searchQuery}
+                onSearchChange={handleSearch}
+                onOpenFilters={() => setFiltersOpen(true)}
+                sort={sort}
+                onSortChange={(v) => setSort(v as any)}
+                resultsCount={totalFilteredCount}
+              />
+              <FilterChipsBar
+                chips={getActiveChips()}
+                onRemove={handleRemoveChip}
+                onClearAll={handleClearAllChips}
+              />
+            </>
+          )}
+          
           {/* Main content area */}
           <div className="flex-1 p-2 sm:p-6 flex flex-col overflow-auto">
 
@@ -1023,14 +1086,6 @@ const DashboardPage: React.FC = () => {
               />
             ) : (
               <div className="flex flex-col flex-1">
-                {/* Meeting View Tabs - Only show when not in archive or shared view */}
-                {activePath === 'conversations' && (
-                  <MeetingListTabs
-                    view={meetingView}
-                    onViewChange={setMeetingView}
-                    counts={sessionCounts}
-                  />
-                )}
 
                 {/* Search Results Header */}
                 {searchQuery && (
@@ -1045,7 +1100,7 @@ const DashboardPage: React.FC = () => {
                   </motion.div>
                 )}
 
-                {/* Meetings Inbox List */}
+                 {/* Meetings Inbox List */}
                 {totalFilteredCount > 0 ? (
                   <motion.div 
                     initial={{ opacity: 0, y: 20 }}
@@ -1256,8 +1311,10 @@ const DashboardPage: React.FC = () => {
               </div>
             )}
           </div>
-          
-          {/* Upcoming Meetings Sidebar - Desktop */}
+          </div>
+
+          {/* Upcoming Meetings Sidebar - Desktop */
+          }
           <UpcomingMeetingsSidebar className="hidden xl:flex" defaultOpen={hasAnySessions} />
           {/* My Action Items Widget - Desktop */}
           {/* <div className="hidden xl:flex w-72"><MyActionItemsWidget /></div> */}
@@ -1379,6 +1436,31 @@ const DashboardPage: React.FC = () => {
 
       {/* Navigation Loading Modal */}
       <LoadingModal isOpen={isLoadingNavigation} />
+
+      {/* Advanced Filters Drawer */}
+      <AdvancedFiltersDrawer
+        open={filtersOpen}
+        onOpenChange={setFiltersOpen}
+        value={advancedFilters}
+        onChange={setAdvancedFilters}
+        onApply={() => {
+          setCurrentPage(1);
+          if (user && authSession) {
+            fetchDashboardData({
+              ...getCurrentFilters(),
+              limit: itemsPerPage,
+              offset: 0,
+            });
+          }
+        }}
+        onReset={() => {
+          setAdvancedFilters({ speakers: [] });
+          setCurrentPage(1);
+          if (user && authSession) {
+            fetchDashboardData({ ...getCurrentFilters(), limit: itemsPerPage, offset: 0 });
+          }
+        }}
+      />
 
     </div>
     </DashboardChatProvider>

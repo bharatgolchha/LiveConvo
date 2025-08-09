@@ -3,6 +3,32 @@ import { MeetingCard } from '@/components/MeetingCard'
 import type { Session } from '@/lib/hooks/useSessions'
 import { useSummary } from '@/lib/hooks/useSummary'
 
+function highlightText(text: string, query: string): React.ReactNode {
+  if (!query || !text) return text
+  try {
+    const escaped = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+    const regex = new RegExp(`(${escaped})`, 'ig')
+    const parts = text.split(regex)
+    return parts.map((part, idx) => (
+      idx % 2 === 1
+        ? <strong key={idx} className="font-semibold text-foreground">{part}</strong>
+        : <span key={idx}>{part}</span>
+    ))
+  } catch {
+    return text
+  }
+}
+
+function useSearchQuery(): string {
+  if (typeof window === 'undefined') return ''
+  try {
+    const sp = new URLSearchParams(window.location.search)
+    return sp.get('search') || sp.get('q') || ''
+  } catch {
+    return ''
+  }
+}
+
 interface MeetingCardAdapterProps {
   session: Session
   selected: boolean
@@ -22,6 +48,7 @@ export const MeetingCardAdapter = React.memo(({
   onReport,
   onShare,
 }: MeetingCardAdapterProps) => {
+  const searchQuery = useSearchQuery()
   // Only fetch full summary if we don't have a snippet and need detailed data
   const shouldFetchFullSummary = session.status === 'completed' && 
                                  session.recording_duration_seconds && 
@@ -252,6 +279,20 @@ export const MeetingCardAdapter = React.memo(({
 
     // Get the display title
     const displayTitle = session.title || 'Untitled Meeting'
+
+    // Compute highlighted title
+    const highlightedTitle = highlightText(displayTitle, searchQuery)
+
+    // Build TLDR with optional match hint
+    const baseTldr = getTldr()
+    let tldrWithHint = baseTldr
+    if (!summaryLoading && searchQuery && baseTldr) {
+      const lower = baseTldr.toLowerCase()
+      const q = searchQuery.toLowerCase()
+      if (lower.includes(q)) {
+        tldrWithHint = `${baseTldr} — matches in summary`
+      }
+    }
     
     // Get shared by name if applicable
     const sharedByName = session.is_shared_with_me && session.shared_by
@@ -260,7 +301,8 @@ export const MeetingCardAdapter = React.memo(({
 
     return {
       id: session.id,
-      title: displayTitle,
+      title: highlightedTitle as any,
+      titleText: displayTitle,
       meetingType: getMeetingType(session.conversation_type),
       participants: finalParticipants,
       participantMe: session.participant_me,
@@ -270,7 +312,7 @@ export const MeetingCardAdapter = React.memo(({
         ? new Date(session.recording_started_at) 
         : new Date(session.created_at), // Use recording start time if available, otherwise creation time
       durationSec: session.recording_duration_seconds || 0,
-      tldr: getTldr(),
+      tldr: tldrWithHint,
       selected,
       showFollowUp: canShowFollowUp,
       showReport: canShowReport,
@@ -286,7 +328,7 @@ export const MeetingCardAdapter = React.memo(({
       onReport,
       onShare: onShare ? () => onShare(session) : undefined,
     }
-  }, [session, selected, onSelect, onOpen, onFollowUp, onReport, onShare, summary, summaryLoading])
+  }, [session, selected, onSelect, onOpen, onFollowUp, onReport, onShare, summary, summaryLoading, searchQuery])
   
   return <MeetingCard {...mappedProps} />
 }, (prevProps, nextProps) => {
