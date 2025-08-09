@@ -46,6 +46,8 @@ export function UploadRecordingModal({ isOpen, onClose, onCreated }: UploadRecor
   const [uploadProgress, setUploadProgress] = React.useState<number>(0);
   const [uploadedUrl, setUploadedUrl] = React.useState<string | null>(null);
   const [isUploading, setIsUploading] = React.useState<boolean>(false);
+  const [recordedBlob, setRecordedBlob] = React.useState<Blob | null>(null);
+  const [recordedFilename, setRecordedFilename] = React.useState<string | null>(null);
 
   const speakerStats = React.useMemo(() => {
     const stats: Record<string, { count: number; duration: number; sample?: string }> = {};
@@ -644,7 +646,7 @@ export function UploadRecordingModal({ isOpen, onClose, onCreated }: UploadRecor
                               recordedChunksRef.current.push(e.data);
                             }
                           };
-                          mr.onstop = () => {
+                           mr.onstop = () => {
                             const actualMimeType = mr.mimeType || mimeType || 'audio/webm';
                             console.log('Recording complete, mime type:', actualMimeType, 'chunks:', recordedChunksRef.current.length);
                             
@@ -658,17 +660,13 @@ export function UploadRecordingModal({ isOpen, onClose, onCreated }: UploadRecor
                             else if (actualMimeType.includes('video/webm')) ext = 'webm'; // Handle video/webm
                             
                              const filename = `recording-${Date.now()}.${ext}`;
-                             let fileLike: File;
-                             try {
-                               fileLike = new File([blob], filename, { type: actualMimeType });
-                             } catch (_err) {
-                               // Safari or older browsers fallback
-                               const fallback = new Blob([blob], { type: actualMimeType }) as any;
-                               fallback.name = filename;
-                               fileLike = fallback as File;
-                             }
-                             console.log('Created file:', fileLike.name, 'size:', (fileLike as any).size, 'type:', (fileLike as any).type);
-                             setRecordedFile(fileLike);
+                             // Store raw blob + filename to avoid relying on File constructor
+                             setRecordedBlob(blob);
+                             setRecordedFilename(filename);
+                             // Keep recordedFile for legacy UI checks, but no need to construct File
+                             const pseudoFile: any = blob;
+                             (pseudoFile as any).name = filename;
+                             setRecordedFile(pseudoFile as File);
                           };
                           mediaRecorderRef.current = mr;
                           mr.start(250);
@@ -695,24 +693,43 @@ export function UploadRecordingModal({ isOpen, onClose, onCreated }: UploadRecor
                     )}
                     {recordedFile && !isRecordingAudio && (
                       <>
-                        <button className="px-3 py-2 rounded-lg bg-muted hover:bg-muted/80 text-foreground" onClick={() => { setRecordedFile(null); setRecordElapsed(0); setUploadedUrl(null); }}>Reset</button>
+                        <button className="px-3 py-2 rounded-lg bg-muted hover:bg-muted/80 text-foreground" onClick={() => { setRecordedFile(null); setRecordedBlob(null); setRecordedFilename(null); setRecordElapsed(0); setUploadedUrl(null); }}>Reset</button>
                         {!uploadedUrl ? (
                           <button
                             className="px-3 py-2 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
                             onClick={async () => {
-                              if (!recordedFile) return;
+                              if (!recordedBlob || !recordedFilename) return;
                               setIsUploading(true);
-                              const fd = new FormData();
-                              fd.append('file', recordedFile);
-                              fd.append('path', `offline/${Date.now()}-${recordedFile.name}`);
-                              fd.append('convert', 'mp3');
                               try {
-                                const upResp = await fetch('/api/storage/offline-upload', { method: 'POST', body: fd });
-                                const upData = await upResp.json();
-                                if (!upResp.ok) throw new Error(upData?.error || 'Upload failed');
-                                const url = upData?.mp3PublicUrl || upData?.publicUrl || null;
-                                if (!url) throw new Error('No public URL returned');
-                                setUploadedUrl(url);
+                                await new Promise<void>((resolve, reject) => {
+                                  const fd = new FormData();
+                                  // Append blob with filename to avoid File constructor
+                                  fd.append('file', recordedBlob, recordedFilename);
+                                  fd.append('path', `offline/${Date.now()}-${recordedFilename}`);
+                                  fd.append('convert', 'mp3');
+                                  const xhr = new XMLHttpRequest();
+                                  xhr.open('POST', '/api/storage/offline-upload');
+                                  xhr.upload.onprogress = (e) => {
+                                    if (e.lengthComputable) setUploadProgress(Math.round((e.loaded / e.total) * 100));
+                                  };
+                                  xhr.onerror = () => reject(new Error('Network error during upload'));
+                                  xhr.onload = () => {
+                                    try {
+                                      const json = JSON.parse(xhr.responseText || '{}');
+                                      if (xhr.status >= 200 && xhr.status < 300) {
+                                        const url = json?.mp3PublicUrl || json?.publicUrl || null;
+                                        if (!url) return reject(new Error('No public URL returned'));
+                                        setUploadedUrl(url);
+                                        resolve();
+                                      } else {
+                                        reject(new Error(json?.error || `Upload failed (${xhr.status})`));
+                                      }
+                                    } catch (err) {
+                                      reject(err as any);
+                                    }
+                                  };
+                                  xhr.send(fd);
+                                });
                               } catch (e: any) {
                                 setError(e?.message || 'Upload failed');
                               } finally {
