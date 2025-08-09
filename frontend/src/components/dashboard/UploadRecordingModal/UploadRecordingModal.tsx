@@ -58,7 +58,7 @@ export function UploadRecordingModal({ isOpen, onClose, onCreated }: UploadRecor
   }, [segments]);
 
   const speakerPalette = ['#22c55e','#3b82f6','#eab308','#f97316','#a855f7','#ef4444','#06b6d4','#84cc16'];
-  const getSpeakerColor = (spk: string, idx: number) => speakerPalette[idx % speakerPalette.length];
+  const getSpeakerColor = (_spk: string, idx: number) => speakerPalette[idx % speakerPalette.length];
 
   function mergeSpeakers(from: string, to: string) {
     if (!from || !to || from === to) return;
@@ -116,13 +116,13 @@ export function UploadRecordingModal({ isOpen, onClose, onCreated }: UploadRecor
   }, [uniqueSpeakers]);
 
   async function handleTranscribe() {
-    const sourceFile = recordedFile || file;
+    let sourceFile = recordedFile || file;
     if (!sourceFile) return;
     setError(null);
     setLoading(true);
     setStep('transcribe');
     try {
-      // 1) Upload file to server for MP3 conversion with progress
+      // Single reliable path: upload original file to server which converts to MP3 and returns public URL
       const path = `offline/${Date.now()}-${sourceFile.name}`;
       let fileUrl: string | null = null;
       try {
@@ -130,6 +130,8 @@ export function UploadRecordingModal({ isOpen, onClose, onCreated }: UploadRecor
         fd.append('file', sourceFile);
         fd.append('path', path);
         fd.append('convert', 'mp3');
+
+        // Use XHR to report client upload progress
         const upData = await new Promise<any>((resolve, reject) => {
           const xhr = new XMLHttpRequest();
           xhr.open('POST', '/api/storage/offline-upload');
@@ -184,7 +186,15 @@ export function UploadRecordingModal({ isOpen, onClose, onCreated }: UploadRecor
         const snippet = (rawText || '').slice(0, 500);
         const details = data?.details || snippet || null;
         const message = data?.error || `Transcription failed (HTTP ${resp.status} ${resp.statusText})`;
-        setError(`${message}${details ? `\n\nDetails (first 500 chars):\n${details}` : ''}`);
+        const requestUrl = data?.request_url ? `\nRequest URL: ${data.request_url}` : '';
+        const sourceUrl = data?.source_url ? `\nSource URL: ${data.source_url}` : '';
+        const modeNote = data?.mode ? `\nMode: ${data.mode}` : '';
+        const contentType = data?.content_type_sent ? `\nContent-Type: ${data.content_type_sent}` : '';
+        const bodySize = data?.body_size ? `\nBody Size: ${data.body_size} bytes` : '';
+        const errorCode = data?.error_code ? `\nError Code: ${data.error_code}` : '';
+        const debugInfo = data?.debug_info ? `\nDebug: ${JSON.stringify(data.debug_info, null, 2)}` : '';
+        
+        setError(`${message}${errorCode}${requestUrl}${sourceUrl}${modeNote}${contentType}${bodySize}${debugInfo}${details ? `\n\nDetails:\n${details}` : ''}`);
         setLoading(false);
         return;
       }
@@ -516,15 +526,58 @@ export function UploadRecordingModal({ isOpen, onClose, onCreated }: UploadRecor
                             const sysSource = ctx.createMediaStreamSource(display);
                             sysSource.connect(dest);
                             finalStream = new MediaStream();
-                            dest.stream.getAudioTracks().forEach(track => finalStream.addTrack(track));
+                            dest.stream.getAudioTracks().forEach((track: MediaStreamTrack) => finalStream.addTrack(track));
                           }
 
-                          const mr = new MediaRecorder(finalStream, { mimeType: 'audio/webm' });
+                          // Try different mime types based on browser support
+                          // Prioritize formats that Deepgram handles well
+                          let mimeType = '';
+                          let audioBitsPerSecond = 128000; // 128 kbps for better quality
+                          
+                          // Try formats in order of compatibility
+                          const formats = [
+                            'audio/webm;codecs=opus',
+                            'audio/webm',
+                            'audio/ogg;codecs=opus',
+                            'audio/ogg',
+                            'video/webm;codecs=vp8,opus', // Some browsers only support video/webm
+                            'audio/mp4',
+                          ];
+                          
+                          for (const format of formats) {
+                            if (MediaRecorder.isTypeSupported(format)) {
+                              mimeType = format;
+                              console.log('Using recording format:', format);
+                              break;
+                            }
+                          }
+                          
+                          const recorderOptions: MediaRecorderOptions = mimeType 
+                            ? { mimeType, audioBitsPerSecond }
+                            : { audioBitsPerSecond };
+                          
+                          const mr = new MediaRecorder(finalStream, recorderOptions);
                           recordedChunksRef.current = [];
-                          mr.ondataavailable = (e) => { if (e.data && e.data.size > 0) recordedChunksRef.current.push(e.data); };
+                          mr.ondataavailable = (e) => { 
+                            if (e.data && e.data.size > 0) {
+                              recordedChunksRef.current.push(e.data);
+                            }
+                          };
                           mr.onstop = () => {
-                            const blob = new Blob(recordedChunksRef.current, { type: 'audio/webm' });
-                            const f = new File([blob], `recording-${Date.now()}.webm`, { type: 'audio/webm' });
+                            const actualMimeType = mr.mimeType || mimeType || 'audio/webm';
+                            console.log('Recording complete, mime type:', actualMimeType, 'chunks:', recordedChunksRef.current.length);
+                            
+                            const blob = new Blob(recordedChunksRef.current, { type: actualMimeType });
+                            
+                            // Determine file extension based on mime type
+                            let ext = 'webm';
+                            if (actualMimeType.includes('mp4')) ext = 'mp4';
+                            else if (actualMimeType.includes('ogg')) ext = 'ogg';
+                            else if (actualMimeType.includes('wav')) ext = 'wav';
+                            else if (actualMimeType.includes('video/webm')) ext = 'webm'; // Handle video/webm
+                            
+                            const f = new File([blob], `recording-${Date.now()}.${ext}`, { type: actualMimeType });
+                            console.log('Created file:', f.name, 'size:', f.size, 'type:', f.type);
                             setRecordedFile(f);
                           };
                           mediaRecorderRef.current = mr;
@@ -576,7 +629,8 @@ export function UploadRecordingModal({ isOpen, onClose, onCreated }: UploadRecor
                 <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
               </svg>
               {loading ? (
-                uploadProgress > 0 ? `Uploading… ${uploadProgress}%` : 'Processing transcription…'
+                uploadProgress > 0 ? `Uploading… ${uploadProgress}%` : 
+                recordedFile ? 'Converting to MP3 and processing transcription…' : 'Processing transcription…'
               ) : 'Transcription complete.'}
             </div>
           )}
