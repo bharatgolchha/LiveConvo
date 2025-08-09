@@ -171,9 +171,20 @@ export function UploadRecordingModal({ isOpen, onClose, onCreated }: UploadRecor
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ file_url: fileUrl })
       });
-      const data = await resp.json();
+      let data: any = null;
+      let rawText: string | null = null;
+      try {
+        data = await resp.json();
+      } catch (parseErr: any) {
+        try {
+          rawText = await resp.text();
+        } catch {}
+      }
       if (!resp.ok) {
-        setError(data?.error || 'Transcription failed');
+        const snippet = (rawText || '').slice(0, 500);
+        const details = data?.details || snippet || null;
+        const message = data?.error || `Transcription failed (HTTP ${resp.status} ${resp.statusText})`;
+        setError(`${message}${details ? `\n\nDetails (first 500 chars):\n${details}` : ''}`);
         setLoading(false);
         return;
       }
