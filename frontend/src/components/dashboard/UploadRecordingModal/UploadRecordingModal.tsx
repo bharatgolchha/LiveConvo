@@ -43,6 +43,7 @@ export function UploadRecordingModal({ isOpen, onClose, onCreated }: UploadRecor
     remainingMinutes: number | null;
     isUnlimited: boolean;
   } | null>(null);
+  const [uploadProgress, setUploadProgress] = React.useState<number>(0);
 
   const speakerStats = React.useMemo(() => {
     const stats: Record<string, { count: number; duration: number; sample?: string }> = {};
@@ -121,9 +122,55 @@ export function UploadRecordingModal({ isOpen, onClose, onCreated }: UploadRecor
     setLoading(true);
     setStep('transcribe');
     try {
-      const form = new FormData();
-      form.append('file', sourceFile);
-      const resp = await fetch('/api/transcribe/deepgram', { method: 'POST', body: form });
+      // 1) Upload file to server for MP3 conversion with progress
+      const path = `offline/${Date.now()}-${sourceFile.name}`;
+      let fileUrl: string | null = null;
+      try {
+        const fd = new FormData();
+        fd.append('file', sourceFile);
+        fd.append('path', path);
+        fd.append('convert', 'mp3');
+        const upData = await new Promise<any>((resolve, reject) => {
+          const xhr = new XMLHttpRequest();
+          xhr.open('POST', '/api/storage/offline-upload');
+          xhr.upload.onprogress = (e) => {
+            if (e.lengthComputable) {
+              const pct = Math.round((e.loaded / e.total) * 100);
+              setUploadProgress(pct);
+            }
+          };
+          xhr.onerror = () => reject(new Error('Network error during upload'));
+          xhr.onload = () => {
+            try {
+              const json = JSON.parse(xhr.responseText || '{}');
+              if (xhr.status >= 200 && xhr.status < 300) resolve(json);
+              else reject(new Error(json?.error || `Upload failed (${xhr.status})`));
+            } catch (err) {
+              reject(err);
+            }
+          };
+          xhr.send(fd);
+        });
+        fileUrl = upData?.mp3PublicUrl || null;
+      } catch (clientUploadErr: any) {
+        setError(clientUploadErr?.message || 'Upload failed');
+        setLoading(false);
+        return;
+      } finally {
+        setUploadProgress(0);
+      }
+      if (!fileUrl) {
+        setError('Failed to obtain a public URL for the uploaded file');
+        setLoading(false);
+        return;
+      }
+
+      // 2) Call API with JSON body referencing the public URL to avoid 413 limits
+      const resp = await fetch('/api/transcribe/deepgram', { 
+        method: 'POST', 
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ file_url: fileUrl })
+      });
       const data = await resp.json();
       if (!resp.ok) {
         setError(data?.error || 'Transcription failed');
@@ -497,7 +544,9 @@ export function UploadRecordingModal({ isOpen, onClose, onCreated }: UploadRecor
                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                 <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
               </svg>
-              {loading ? 'Processing transcription…' : 'Transcription complete.'}
+              {loading ? (
+                uploadProgress > 0 ? `Uploading… ${uploadProgress}%` : 'Processing transcription…'
+              ) : 'Transcription complete.'}
             </div>
           )}
 

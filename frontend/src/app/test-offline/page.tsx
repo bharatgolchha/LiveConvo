@@ -1,5 +1,6 @@
 "use client";
 import React from 'react';
+import { supabase } from '@/lib/supabase';
 
 type Segment = { text: string; speaker: string; start: number; end: number; confidence?: number }
 
@@ -14,11 +15,22 @@ export default function TestOfflinePage() {
     const file = e.target.files?.[0]
     if (!file) return
 
-    const form = new FormData()
-    form.append('file', file)
     setIsLoading(true)
     try {
-      const resp = await fetch('/api/transcribe/deepgram', { method: 'POST', body: form })
+      // Upload to storage and use file_url to avoid request-size limits
+      const path = `offline/${Date.now()}-${file.name}`
+      // Use server route with MP3 conversion; store only mp3
+      const fd = new FormData()
+      fd.append('file', file)
+      fd.append('path', path)
+      fd.append('convert', 'mp3')
+      const upResp = await fetch('/api/storage/offline-upload', { method: 'POST', body: fd })
+      const upData = await upResp.json()
+      if (!upResp.ok) throw new Error(upData?.error || 'Upload failed')
+      const fileUrl = upData?.mp3PublicUrl as string | undefined
+      if (!fileUrl) throw new Error('Failed to get public URL')
+
+      const resp = await fetch('/api/transcribe/deepgram', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ file_url: fileUrl }) })
       const data = await resp.json()
       if (!resp.ok) {
         setError(data?.error || 'Failed to transcribe')

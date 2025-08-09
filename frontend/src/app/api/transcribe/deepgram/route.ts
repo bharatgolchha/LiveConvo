@@ -64,20 +64,36 @@ export async function POST(request: NextRequest) {
     }
 
     const contentType = request.headers.get('content-type') || ''
-    if (!contentType.includes('multipart/form-data')) {
-      return NextResponse.json({ error: 'Expected multipart/form-data' }, { status: 400 })
+    const isMultipart = contentType.includes('multipart/form-data')
+    const isJson = contentType.includes('application/json')
+
+    let useRemoteUrl = false
+    let remoteUrl: string | null = null
+    let fileBody: Buffer | null = null
+    let contentTypeHeader = 'application/octet-stream'
+
+    if (isJson) {
+      // Prefer JSON body with a remote URL to avoid provider/host upload limits
+      const body = await request.json().catch(() => null) as any
+      const urlFromBody = body && (body.file_url || body.url)
+      if (!urlFromBody || typeof urlFromBody !== 'string') {
+        return NextResponse.json({ error: 'Missing file_url in JSON body' }, { status: 400 })
+      }
+      useRemoteUrl = true
+      remoteUrl = urlFromBody
+    } else if (isMultipart) {
+      const form = await request.formData()
+      const file = form.get('file') as File | null
+      if (!file) {
+        return NextResponse.json({ error: 'No file provided' }, { status: 400 })
+      }
+      // Read file as ArrayBuffer (note: large uploads may be limited in some hosts)
+      const arrayBuffer = await file.arrayBuffer()
+      contentTypeHeader = (file.type && file.type.length > 0) ? file.type : 'application/octet-stream'
+      fileBody = Buffer.from(arrayBuffer)
+    } else {
+      return NextResponse.json({ error: 'Unsupported content-type. Use multipart/form-data or application/json with file_url.' }, { status: 400 })
     }
-
-    const form = await request.formData()
-    const file = form.get('file') as File | null
-
-    if (!file) {
-      return NextResponse.json({ error: 'No file provided' }, { status: 400 })
-    }
-
-    // Read file as ArrayBuffer
-    const arrayBuffer = await file.arrayBuffer()
-    const contentTypeHeader = (file.type && file.type.length > 0) ? file.type : 'application/octet-stream'
 
     // Call Deepgram file transcription with diarization
     // Docs: https://developers.deepgram.com/docs/transcribe-pre-recorded-audio
@@ -94,11 +110,16 @@ export async function POST(request: NextRequest) {
 
     const dgResp = await fetch(`https://api.deepgram.com/v1/listen?${params.toString()}`, {
       method: 'POST',
-      headers: {
-        Authorization: `Token ${apiKey}`,
-        'Content-Type': contentTypeHeader,
-      },
-      body: Buffer.from(arrayBuffer),
+      headers: useRemoteUrl
+        ? {
+            Authorization: `Token ${apiKey}`,
+            'Content-Type': 'application/json',
+          }
+        : {
+            Authorization: `Token ${apiKey}`,
+            'Content-Type': contentTypeHeader,
+          },
+      body: useRemoteUrl ? JSON.stringify({ url: remoteUrl }) : fileBody!,
     })
 
     if (!dgResp.ok) {

@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { supabase } from '@/lib/supabase';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Mic, MicOff, Square, Pause, Play, Wifi, WifiOff } from 'lucide-react';
 import { Button } from '../ui/Button';
@@ -26,6 +27,7 @@ export const RealtimeAudioCapture: React.FC<RealtimeAudioCaptureProps> = ({
   const [isConnecting, setIsConnecting] = useState(false);
   const [captureSystemAudio, setCaptureSystemAudio] = useState(false);
   const [isRequestingPermissions, setIsRequestingPermissions] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<number>(0);
   
   const analyserRef = useRef<AnalyserNode | null>(null);
   const animationFrameRef = useRef<number | null>(null);
@@ -33,6 +35,9 @@ export const RealtimeAudioCapture: React.FC<RealtimeAudioCaptureProps> = ({
   const audioContextRef = useRef<AudioContext | null>(null);
   const lastTranscriptRef = useRef<string>('');
   const systemAudioStreamRef = useRef<MediaStream | null>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const recordedChunksRef = useRef<Blob[]>([]);
+  const lastRecordedFileUrlRef = useRef<string | null>(null);
 
   // Use the real-time transcription service
   const {
@@ -381,6 +386,20 @@ const requestAllPermissions = async () => {
         });
       }
       
+      // Start local recording of the same stream for offline transcription/archive
+      try {
+        const mr = new MediaRecorder(stream, { mimeType: 'audio/webm' });
+        recordedChunksRef.current = [];
+        mr.ondataavailable = (e) => {
+          if (e.data && e.data.size > 0) recordedChunksRef.current.push(e.data);
+        };
+        mr.start(250);
+        mediaRecorderRef.current = mr;
+        console.log('💾 Local recording started');
+      } catch (recErr) {
+        console.warn('Local recording not available:', recErr);
+      }
+
       // Set up audio monitoring for visual feedback
       audioContextRef.current = new AudioContext();
       analyserRef.current = audioContextRef.current.createAnalyser();
@@ -415,11 +434,91 @@ const requestAllPermissions = async () => {
     }
   };
 
-  const stopRecording = () => {
+  const stopRecording = async () => {
     console.log('🛑 RealtimeAudioCapture.stopRecording called');
     console.log('🔍 onStop callback is:', onStop);
     
     stopRealtimeRecording();
+
+    // Stop local recorder and persist recording to Supabase storage, also produce MP3 on server
+    try {
+      if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+        mediaRecorderRef.current.stop();
+      }
+      // Give a brief moment for final dataavailable
+      await new Promise((r) => setTimeout(r, 250));
+      if (recordedChunksRef.current.length > 0) {
+        const blob = new Blob(recordedChunksRef.current, { type: 'audio/webm' });
+        const fileName = `live-recording-${Date.now()}.webm`;
+        const path = `live/${fileName}`;
+
+        // Prefer server route: converts and stores only MP3, returns mp3PublicUrl
+        let chosenUrl: string | null = null;
+        try {
+          const fd = new FormData();
+          fd.append('file', new File([blob], fileName, { type: 'audio/webm' }));
+          fd.append('path', path);
+          fd.append('convert', 'mp3');
+          const upData = await new Promise<any>((resolve, reject) => {
+            const xhr = new XMLHttpRequest();
+            xhr.open('POST', '/api/storage/offline-upload');
+            xhr.upload.onprogress = (e) => {
+              if (e.lengthComputable) {
+                setUploadProgress(Math.round((e.loaded / e.total) * 100));
+              }
+            };
+            xhr.onerror = () => reject(new Error('Network error during upload'));
+            xhr.onload = () => {
+              try {
+                const json = JSON.parse(xhr.responseText || '{}');
+                if (xhr.status >= 200 && xhr.status < 300) resolve(json);
+                else reject(new Error(json?.error || `Upload failed (${xhr.status})`));
+              } catch (err) {
+                reject(err);
+              }
+            };
+            xhr.send(fd);
+          });
+          chosenUrl = upData?.mp3PublicUrl || null;
+        } catch (serverErr) {
+          console.warn('Server upload/convert failed, falling back to client upload:', serverErr);
+          // Fallback to client upload of original
+          try {
+            const file = new File([blob], fileName, { type: 'audio/webm' });
+            const { error: uploadErr } = await supabase.storage
+              .from('offline-recordings')
+              .upload(path, file, { upsert: false, duplex: 'half' as any });
+            if (uploadErr) throw uploadErr;
+            // No MP3 conversion in fallback; skip transcription trigger to avoid suboptimal format
+            chosenUrl = null;
+          } catch (clientErr) {
+            console.warn('Client upload also failed:', clientErr);
+          }
+        } finally {
+          setUploadProgress(0);
+        }
+
+        lastRecordedFileUrlRef.current = chosenUrl;
+
+        // Kick off URL-based final transcription if available (use MP3 if present)
+        if (chosenUrl) {
+          try {
+            await fetch('/api/transcribe/deepgram', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ file_url: chosenUrl }),
+            });
+          } catch (e) {
+            console.warn('Post-recording transcription failed:', e);
+          }
+        }
+      }
+    } catch (saveErr) {
+      console.warn('Saving recording failed:', saveErr);
+    } finally {
+      mediaRecorderRef.current = null;
+      recordedChunksRef.current = [];
+    }
     
     // Clean up system audio stream
     if (systemAudioStreamRef.current) {
@@ -707,6 +806,9 @@ const requestAllPermissions = async () => {
             >
               Stop
             </Button>
+            {uploadProgress > 0 && (
+              <span className="text-xs text-gray-600">Uploading… {uploadProgress}%</span>
+            )}
           </>
         )}
       </div>
