@@ -129,7 +129,7 @@ export async function GET(req: NextRequest) {
         recording_ended_at,
         status,
         created_at,
-        sessions!inner(title, meeting_platform)
+        sessions!inner(title, meeting_platform, recording_duration_seconds)
       `)
       .eq('user_id', userId)
       .eq('organization_id', organizationId)
@@ -161,13 +161,21 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'Failed to fetch bot usage data' }, { status: 500 });
     }
 
-    // Calculate totals
-    const totalBillableMinutes = botUsageData.reduce((sum, record) => sum + (record.billable_minutes || 0), 0);
-    const totalRecordingSeconds = botUsageData.reduce((sum, record) => sum + (record.total_recording_seconds || 0), 0);
+    // Safety: prefer the larger of stored billable_minutes vs computed from session recording_duration_seconds
+    const usageWithSafeMinutes = botUsageData.map((record) => {
+      const sessionDuration = (record.sessions as any)?.recording_duration_seconds || 0;
+      const computedMinutes = Math.ceil(Math.max(0, Number(sessionDuration)) / 60);
+      const safeMinutes = Math.max(record.billable_minutes || 0, computedMinutes || 0);
+      return { ...record, _safe_billable_minutes: safeMinutes } as any;
+    });
+
+    // Calculate totals using safe minutes
+    const totalBillableMinutes = usageWithSafeMinutes.reduce((sum, record) => sum + (record._safe_billable_minutes || 0), 0);
+    const totalRecordingSeconds = usageWithSafeMinutes.reduce((sum, record) => sum + (record.total_recording_seconds || 0), 0);
     const totalSessions = botUsageData.length;
 
     // Group by platform
-    const platformBreakdown = botUsageData.reduce((acc, record) => {
+    const platformBreakdown = usageWithSafeMinutes.reduce((acc, record) => {
       const platform = (record.sessions as any)?.meeting_platform || 'unknown';
       if (!acc[platform]) {
         acc[platform] = {
@@ -177,13 +185,13 @@ export async function GET(req: NextRequest) {
         };
       }
       acc[platform].sessions += 1;
-      acc[platform].totalMinutes += record.billable_minutes || 0;
+      acc[platform].totalMinutes += record._safe_billable_minutes || 0;
       acc[platform].totalSeconds += record.total_recording_seconds || 0;
       return acc;
     }, {} as Record<string, { sessions: number; totalMinutes: number; totalSeconds: number }>);
 
     // Group by date for daily breakdown
-    const dailyBreakdown = botUsageData.reduce((acc, record) => {
+    const dailyBreakdown = usageWithSafeMinutes.reduce((acc, record) => {
       const date = new Date(record.created_at).toISOString().split('T')[0];
       if (!acc[date]) {
         acc[date] = {
@@ -193,7 +201,7 @@ export async function GET(req: NextRequest) {
         };
       }
       acc[date].sessions += 1;
-      acc[date].totalMinutes += record.billable_minutes || 0;
+      acc[date].totalMinutes += record._safe_billable_minutes || 0;
       acc[date].totalSeconds += record.total_recording_seconds || 0;
       return acc;
     }, {} as Record<string, { sessions: number; totalMinutes: number; totalSeconds: number }>);
@@ -307,13 +315,13 @@ export async function GET(req: NextRequest) {
           currentPeriodStart: subscriptionData?.current_period_start,
           currentPeriodEnd: subscriptionData?.current_period_end
         },
-        sessions: botUsageData.map(record => ({
+        sessions: usageWithSafeMinutes.map(record => ({
           id: record.id,
           botId: record.bot_id,
           sessionId: record.session_id,
           sessionTitle: (record.sessions as any)?.title || 'Untitled Session',
           platform: (record.sessions as any)?.meeting_platform || 'unknown',
-          billableMinutes: record.billable_minutes || 0,
+          billableMinutes: (record as any)._safe_billable_minutes || 0,
           recordingSeconds: record.total_recording_seconds || 0,
           recordingStarted: record.recording_started_at,
           recordingEnded: record.recording_ended_at,

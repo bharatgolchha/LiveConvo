@@ -32,10 +32,12 @@ interface DashboardHeaderProps {
   onNavigateToSettings: () => void;
   onMenuClick?: () => void;
   onNewMeeting?: () => void;
+  onUploadRecording?: () => void;
   realtimeConnected?: boolean;
+  showSearch?: boolean;
 }
 
-const DashboardHeader: React.FC<DashboardHeaderProps> = ({ user, onSearch, onNavigateToSettings, onMenuClick, onNewMeeting, realtimeConnected }) => {
+const DashboardHeader: React.FC<DashboardHeaderProps> = ({ user, onSearch, onNavigateToSettings, onMenuClick, onNewMeeting, onUploadRecording, realtimeConnected, showSearch = true }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [isMobileSearchOpen, setIsMobileSearchOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
@@ -94,30 +96,34 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({ user, onSearch, onNav
         </div>
 
         {/* Search Bar */}
-        <div className="hidden sm:block flex-1 max-w-md mx-4 lg:mx-8">
-          <div className="relative">
-            <MagnifyingGlassIcon className="absolute left-2.5 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            <input
-              type="text"
-              placeholder="Search conversations..."
-              value={searchQuery}
-              onChange={(e) => {
-                setSearchQuery(e.target.value);
-                onSearch(e.target.value);
-              }}
-              className="w-full pl-8 pr-3 py-1.5 border border-input rounded-md focus:ring-1 focus:ring-app-primary focus:border-transparent bg-background text-foreground text-sm"
-            />
+        {showSearch && (
+          <div className="hidden sm:block flex-1 max-w-md mx-4 lg:mx-8">
+            <div className="relative">
+              <MagnifyingGlassIcon className="absolute left-2.5 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <input
+                type="text"
+                placeholder="Search conversations..."
+                value={searchQuery}
+                onChange={(e) => {
+                  setSearchQuery(e.target.value);
+                  onSearch(e.target.value);
+                }}
+                className="w-full pl-8 pr-3 py-1.5 border border-input rounded-md focus:ring-1 focus:ring-app-primary focus:border-transparent bg-background text-foreground text-sm"
+              />
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Mobile Search Button */}
-        <button
-          onClick={() => setIsMobileSearchOpen(!isMobileSearchOpen)}
-          className="sm:hidden p-1 rounded-md hover:bg-accent transition-colors"
-          aria-label="Search"
-        >
-          <MagnifyingGlassIcon className="w-4 h-4 text-muted-foreground" />
-        </button>
+        {showSearch && (
+          <button
+            onClick={() => setIsMobileSearchOpen(!isMobileSearchOpen)}
+            className="sm:hidden p-1 rounded-md hover:bg-accent transition-colors"
+            aria-label="Search"
+          >
+            <MagnifyingGlassIcon className="w-4 h-4 text-muted-foreground" />
+          </button>
+        )}
         
         {/* Right Actions */}
         <div className="flex items-center space-x-2 sm:space-x-3">
@@ -132,6 +138,20 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({ user, onSearch, onNav
             </svg>
             <span className="hidden sm:inline">New Meeting</span>
             <span className="sm:hidden">New</span>
+            </button>
+          )}
+
+          {/* Upload Recording Button */}
+          {onUploadRecording && (
+            <button
+              onClick={onUploadRecording}
+              className="flex items-center gap-1.5 px-2 sm:px-3 py-1 sm:py-1.5 bg-muted/50 hover:bg-muted/70 text-foreground border border-border rounded-md text-xs sm:text-sm font-medium transition-all hover:shadow-md"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" className="w-3.5 h-3.5 sm:w-4 sm:h-4">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 16.5v-9m-4.5 4.5h9M3.75 6.75v10.5a2.25 2.25 0 0 0 2.25 2.25h12a2.25 2.25 0 0 0 2.25-2.25V6.75A2.25 2.25 0 0 0 18 4.5H6A2.25 2.25 0 0 0 3.75 6.75Z" />
+              </svg>
+              <span className="hidden sm:inline">Upload</span>
+              <span className="sm:hidden">Up</span>
             </button>
           )}
           
@@ -217,7 +237,7 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({ user, onSearch, onNav
         </div>
       </div>
       {/* Mobile Search Bar */}
-      {isMobileSearchOpen && (
+      {showSearch && isMobileSearchOpen && (
         <motion.div
           initial={{ height: 0, opacity: 0 }}
           animate={{ height: 'auto', opacity: 1 }}

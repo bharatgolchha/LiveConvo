@@ -10,17 +10,19 @@ interface MeetingListTabsProps {
     total: number;
   };
   className?: string;
+  showStatusIndicator?: boolean;
 }
 
 export const MeetingListTabs: React.FC<MeetingListTabsProps> = ({
   view,
   onViewChange,
   counts,
-  className = ''
+  className = 'mb-4',
+  showStatusIndicator = true,
 }) => {
   return (
-    <div className={`mb-4 ${className}`}>
-      {/* Desktop Tabs */}
+    <div className={`${className}`}>
+      {/* Tabs (desktop); component also renders a mobile select below */}
       <div className="hidden sm:block">
         <Tabs value={view} onValueChange={(value) => onViewChange(value as 'live' | 'all')}>
           <TabsList className="bg-muted/50 p-1">
@@ -74,7 +76,7 @@ export const MeetingListTabs: React.FC<MeetingListTabsProps> = ({
       </div>
 
       {/* Status indicator text */}
-      {view === 'live' && counts.live > 0 && (
+      {showStatusIndicator && view === 'live' && counts.live > 0 && (
         <motion.p
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}

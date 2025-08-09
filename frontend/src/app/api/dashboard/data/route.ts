@@ -201,8 +201,16 @@ async function fetchSessions(
   const limit = parseInt(searchParams.get('limit') || '20');
   const offset = parseInt(searchParams.get('offset') || '0');
   const search = searchParams.get('search');
+  const dateFrom = searchParams.get('date_from');
+  const dateTo = searchParams.get('date_to');
+  const platform = searchParams.get('platform'); // comma-separated
+  const speakers = searchParams.get('speakers'); // comma-separated (names or emails)
   const conversationType = searchParams.get('conversation_type');
   const filter = searchParams.get('filter'); // New filter parameter for 'shared'
+  const sort = searchParams.get('sort');
+  
+  // Use FTS RPC when searching or when relevance sort requested
+  const shouldUseFTS = !!search || sort === 'relevance';
   
   console.log('📊 fetchSessions params:', {
     status,
@@ -403,67 +411,141 @@ async function fetchSessions(
     }
 
   } else {
-    // Build the original query for user's own sessions
-    let query = authClient
-      .from('sessions')
-      .select(
-        `
-        id,
-        title,
-        conversation_type,
-        status,
-        recording_duration_seconds,
-        total_words_spoken,
-        created_at,
-        updated_at,
-        recording_started_at,
-        recording_ended_at,
-        participant_me,
-        participant_them,
-        recall_bot_id,
-        recall_bot_status,
-        meeting_url,
-        meeting_platform,
-        visibility,
-        user_id,
-        participants,
-        summaries!left(tldr)
-      `,
-        { count: 'exact' }
-      )
-      .eq('organization_id', organizationId)
-      .eq('user_id', user.id) // Only show sessions owned by the current user
-      .is('deleted_at', null)
-      .order('created_at', { ascending: false });
+    if (shouldUseFTS) {
+      // Use RPC for better ranking and optional fuzzy
+      const { data: ftsRows, error: ftsError } = await authClient.rpc('search_sessions_v1', {
+        p_org_id: organizationId,
+        p_query: search || '',
+        p_status: status,
+        p_date_from: dateFrom ? `${dateFrom}T00:00:00` : null,
+        p_date_to: dateTo ? `${dateTo}T23:59:59` : null,
+        p_platform: platform || null,
+        p_speakers: speakers || null,
+        p_limit: limit,
+        p_offset: offset,
+        p_sort: sort || 'recent'
+      });
 
-    // Apply filters
-    if (status) {
-      query = query.eq('status', status);
+      if (ftsError) {
+        console.error('FTS search error:', ftsError);
+        throw ftsError;
+      }
+
+      const rows = ftsRows || [];
+      // Deduplicate in case the RPC or joins return duplicates
+      const seen = new Set<string>();
+      const dedup = [] as any[];
+      for (const r of rows) {
+        if (!r || !r.id) continue;
+        if (seen.has(r.id)) continue;
+        seen.add(r.id);
+        dedup.push(r);
+      }
+      sessions = dedup as any[];
+      totalCount = dedup[0]?.total_count || 0;
     } else {
-      // If no status filter is provided, exclude only archived and deleted sessions
-      query = query.not('status', 'in', '("archived")');
+      // Build the original query for user's own sessions
+      let query = authClient
+        .from('sessions')
+        .select(
+          `
+          id,
+          title,
+          conversation_type,
+          status,
+          recording_duration_seconds,
+          total_words_spoken,
+          created_at,
+          updated_at,
+          recording_started_at,
+          recording_ended_at,
+          participant_me,
+          participant_them,
+          recall_bot_id,
+          recall_bot_status,
+          meeting_url,
+          meeting_platform,
+          visibility,
+          user_id,
+          participants,
+          summaries!left(tldr)
+        `,
+          { count: 'exact' }
+        )
+        .eq('organization_id', organizationId)
+        .eq('user_id', user.id) // Only show sessions owned by the current user
+        .is('deleted_at', null);
+
+      // Sorting when no search/FTS
+      if (sort === 'updated') {
+        query = query.order('updated_at', { ascending: false });
+      } else if (sort === 'duration') {
+        query = query.order('recording_duration_seconds', { ascending: false, nullsFirst: true as any });
+      } else {
+        query = query.order('created_at', { ascending: false });
+      }
+
+      // Apply filters
+      if (status) {
+        query = query.eq('status', status);
+      } else {
+        // If no status filter is provided, exclude only archived and deleted sessions
+        query = query.not('status', 'in', '("archived")');
+      }
+
+      if (conversationType) {
+        query = query.eq('conversation_type', conversationType);
+      }
+
+      if (search) {
+        query = query.ilike('title', `%${search}%`);
+      }
+
+      // Date range filter
+      if (dateFrom) {
+        query = query.gte('created_at', `${dateFrom}T00:00:00`);
+      }
+      if (dateTo) {
+        query = query.lte('created_at', `${dateTo}T23:59:59`);
+      }
+
+      // Platform filter (zoom/google_meet/microsoft_teams/offline)
+      if (platform) {
+        const values = platform.split(',').map((p) => p.trim()).filter(Boolean);
+        if (values.length === 1) {
+          query = query.eq('meeting_platform', values[0]);
+        } else if (values.length > 1) {
+          query = query.in('meeting_platform', values);
+        }
+      }
+
+      // Speakers filter (participants JSONB names or participant_me/them)
+      if (speakers) {
+        const list = speakers.split(',').map((s) => s.trim()).filter(Boolean);
+        if (list.length > 0) {
+          const ilikeAny = list.map((s) => `%${s}%`);
+          const orParts: string[] = [];
+          ilikeAny.forEach((pat) => {
+            orParts.push(`participant_me.ilike.${pat}`);
+            orParts.push(`participant_them.ilike.${pat}`);
+          });
+          query = query.or(orParts.join(','));
+        }
+      }
+
+      // Apply pagination
+      query = query.range(offset, offset + limit - 1);
+
+      const { data: ownSessions, count, error } = await query;
+
+      if (error) {
+        console.error('Error fetching sessions:', error);
+        throw error;
+      }
+
+      sessions = ownSessions || [];
+      totalCount = count || 0;
     }
-
-    if (conversationType) {
-      query = query.eq('conversation_type', conversationType);
-    }
-
-    if (search) {
-      query = query.ilike('title', `%${search}%`);
-    }
-
-    // Apply pagination
-    query = query.range(offset, offset + limit - 1);
-
-    const { data: ownSessions, count, error } = await query;
-
-    if (error) {
-      console.error('Error fetching sessions:', error);
-      throw error;
-    }
-
-    sessions = ownSessions || [];
-    totalCount = count || 0;
   }
 
   console.log('Sessions query result:', { 

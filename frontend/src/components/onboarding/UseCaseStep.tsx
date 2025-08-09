@@ -82,13 +82,12 @@ export const UseCaseStep: React.FC<UseCaseStepProps> = ({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (selectedUseCase && selectedSource) {
-      updateData({ 
-        use_case: selectedUseCase, 
-        acquisition_source: selectedSource 
-      });
-      onNext();
-    }
+    // Progressive profiling: do not block progress, persist whatever is selected
+    updateData({ 
+      use_case: selectedUseCase || '', 
+      acquisition_source: selectedSource || ''
+    });
+    onNext();
   };
 
   return (
@@ -143,7 +142,6 @@ export const UseCaseStep: React.FC<UseCaseStepProps> = ({
             value={selectedSource}
             onChange={(e) => setSelectedSource(e.target.value)}
             className="w-full px-4 py-3 bg-background border border-border rounded-lg focus:ring-2 focus:ring-app-primary focus:border-app-primary transition-all duration-200 text-foreground"
-            required
           >
             <option value="">Select an option</option>
             {acquisitionSources.map((source) => (
@@ -151,6 +149,7 @@ export const UseCaseStep: React.FC<UseCaseStepProps> = ({
                 {source.label}
               </option>
             ))}
+            <option value="unsure">Not sure yet</option>
           </select>
         </div>
       </div>
@@ -167,7 +166,6 @@ export const UseCaseStep: React.FC<UseCaseStepProps> = ({
         </Button>
         <Button
           type="submit"
-          disabled={!selectedUseCase || !selectedSource}
           className="flex-1 bg-gradient-to-r from-app-primary to-app-primary-dark hover:from-app-primary-dark hover:to-app-primary text-white py-3 text-base font-medium shadow-lg hover:shadow-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           Continue

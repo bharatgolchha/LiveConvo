@@ -405,24 +405,69 @@ export const UpcomingMeetingsSidebar: React.FC<UpcomingMeetingsSidebarProps> = (
 
   return (
     <>
-      {/* Floating Toggle Button (shown when sidebar is closed) */}
+      {/* Drawer-Style Toggle Button (shown when sidebar is closed) */}
       <AnimatePresence>
         {!isOpen && (
-          <motion.button
-            initial={{ opacity: 0, x: 100 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: 100 }}
-            onClick={toggleSidebar}
-            className={`fixed z-40 bg-primary text-primary-foreground rounded-full p-3 shadow-lg hover:bg-primary/90 transition-colors ${
-              isMobile ? 'bottom-4 right-4' : 'right-4 top-24'
-            }`}
-            title="Show upcoming meetings"
+          <motion.div
+            initial={{ x: 48 }}
+            animate={{ x: 0 }}
+            exit={{ x: 48 }}
+            transition={{ type: "spring", stiffness: 400, damping: 30 }}
+            className={`fixed z-40 ${
+              isMobile ? 'bottom-20' : 'top-1/2 -translate-y-1/2'
+            } right-0`}
           >
-            <CalendarIcon className="w-6 h-6" />
-            {hasUpcomingMeetings && (
-              <span className="absolute -top-1 -right-1 w-3 h-3 bg-accent rounded-full animate-pulse" />
-            )}
-          </motion.button>
+            <button
+              onClick={toggleSidebar}
+              className="relative group"
+              title="Show upcoming meetings"
+            >
+              {/* Main button */}
+              <div className="relative bg-primary text-primary-foreground shadow-lg hover:shadow-xl transition-all duration-300 rounded-l-2xl pl-3 pr-2 py-2.5 hover:pl-4 flex items-center gap-2">
+                {/* Calendar Icon */}
+                <CalendarIcon className="w-5 h-5" />
+                
+                {/* Meeting count badge */}
+                {hasUpcomingMeetings && (
+                  <div className="flex items-center gap-1">
+                    <span className="text-xs font-semibold bg-primary-foreground/20 px-1.5 py-0.5 rounded-full">
+                      {meetings.length}
+                    </span>
+                  </div>
+                )}
+                
+                {/* Chevron indicator */}
+                <ChevronLeftIcon className="w-4 h-4 opacity-60 group-hover:opacity-100 transition-opacity" />
+              </div>
+              
+              {/* Pulse indicator for urgent meetings */}
+              {minutesUntilNext !== null && minutesUntilNext <= 15 && minutesUntilNext >= 0 && (
+                <span className="absolute -top-1 -left-1 flex h-3 w-3">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-accent opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-3 w-3 bg-accent"></span>
+                </span>
+              )}
+              
+              {/* Tooltip on hover */}
+              <div className="absolute right-full mr-2 top-1/2 -translate-y-1/2 pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                <div className="bg-popover text-popover-foreground text-xs px-2 py-1 rounded-md shadow-md whitespace-nowrap border border-border">
+                  {hasUpcomingMeetings ? (
+                    <>
+                      {minutesUntilNext !== null && minutesUntilNext <= 60 && minutesUntilNext >= 0 ? (
+                        <span className="text-accent font-medium">
+                          Next meeting in {minutesUntilNext} min
+                        </span>
+                      ) : (
+                        <span>{meetings.length} upcoming meeting{meetings.length !== 1 ? 's' : ''}</span>
+                      )}
+                    </>
+                  ) : (
+                    <span>No upcoming meetings</span>
+                  )}
+                </div>
+              </div>
+            </button>
+          </motion.div>
         )}
       </AnimatePresence>
 

@@ -27,6 +27,7 @@ import SeoJsonLd from '@/components/SeoJsonLd';
 import { Header } from '@/components/layout/Header';
 import { Button } from '@/components/ui/Button';
 import { LandingAuthSection } from '@/components/landing/LandingAuthSection';
+import UploadRecordingTeaser from '@/components/landing/UploadRecordingTeaser';
 import { useTheme } from '@/contexts/ThemeContext';
 
 export default function LandingPage() {
@@ -1468,6 +1469,9 @@ export default function LandingPage() {
             </div>
           </div>
         </section>
+
+        {/* Upload Recording (teaser) – placed before Pricing for strong intent alignment */}
+        <UploadRecordingTeaser />
 
         {/* Pricing Preview - Based on Database */}
         <section className="py-20 px-4 sm:px-6 lg:px-8 bg-muted/30">

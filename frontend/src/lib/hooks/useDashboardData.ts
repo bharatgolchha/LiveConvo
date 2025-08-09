@@ -32,6 +32,12 @@ export interface DashboardFilters {
   limit?: number;
   offset?: number;
   filter?: string; // Add filter field for 'shared' filter
+  // New optional filters
+  date_from?: string;
+  date_to?: string;
+  platform?: string; // comma-separated
+  speakers?: string; // comma-separated
+  sort?: string;
 }
 
 export interface DashboardDataHookReturn {
@@ -78,21 +84,37 @@ export function useDashboardData(): DashboardDataHookReturn {
       return;
     }
 
-    // Create request key for deduplication
+    // Compute request key early
     const requestKey = JSON.stringify({ ...filters, userId: user.id });
-    
-    // Check if we already have a pending request for this data
-    const pendingRequest = pendingRequests.get(requestKey);
-    if (pendingRequest) {
+
+    // Abort any in-flight request before starting a new one
+    let abortedPrevious = false;
+    if (abortControllerRef.current) {
       try {
-        const result = await pendingRequest;
-        setData(result);
-        setError(null);
-      } catch (err) {
-        const errorMessage = err instanceof Error ? err.message : 'Failed to fetch dashboard data';
-        setError(errorMessage);
+        abortControllerRef.current.abort();
+        abortedPrevious = true;
+      } catch (_) {}
+    }
+
+    // If we just aborted, remove any stale pending entry for this key to avoid awaiting it
+    if (abortedPrevious && pendingRequests.has(requestKey)) {
+      pendingRequests.delete(requestKey);
+    }
+    
+    // Check if we already have a pending request for this data (only when not just aborted)
+    if (!abortedPrevious) {
+      const pendingRequest = pendingRequests.get(requestKey);
+      if (pendingRequest) {
+        try {
+          const result = await pendingRequest;
+          setData(result);
+          setError(null);
+        } catch (err) {
+          const errorMessage = err instanceof Error ? err.message : 'Failed to fetch dashboard data';
+          setError(errorMessage);
+        }
+        return;
       }
-      return;
     }
 
     setLoading(true);
@@ -112,6 +134,11 @@ export function useDashboardData(): DashboardDataHookReturn {
       if (filters.limit) params.append('limit', filters.limit.toString());
       if (filters.offset) params.append('offset', filters.offset.toString());
       if (filters.filter) params.append('filter', filters.filter); // Add filter parameter
+      if (filters.date_from) params.append('date_from', filters.date_from);
+      if (filters.date_to) params.append('date_to', filters.date_to);
+      if (filters.platform) params.append('platform', filters.platform);
+      if (filters.speakers) params.append('speakers', filters.speakers);
+      if (filters.sort) params.append('sort', filters.sort);
 
       const headers: HeadersInit = { 'Content-Type': 'application/json' };
       if (session?.access_token) {
@@ -132,7 +159,8 @@ export function useDashboardData(): DashboardDataHookReturn {
       const requestPromise = fetch(urlWithParams, {
         method: 'GET',
         headers,
-        cache: 'no-store' // Force no caching
+        cache: 'no-store', // Force no caching
+        signal: abortController.signal,
       }).then(async (response) => {
         console.log('Dashboard API response status:', response.status);
         

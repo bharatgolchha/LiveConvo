@@ -13,17 +13,33 @@ interface UpgradeStepProps {
   onSkip: () => void;
   onBack: () => void;
   isLoading?: boolean;
+  // Prefetched trial/pricing data
+  preFetchedEligibility?: boolean;
+  preFetchedPriceId?: string;
+  preFetchedTrialDays?: number;
+  // Personalization & progress
+  useCase?: string;
+  currentStep?: number;
+  totalSteps?: number;
 }
 
-export function UpgradeStep({ onUpgrade, onSkip, onBack, isLoading }: UpgradeStepProps) {
-  const [isEligibleForTrial, setIsEligibleForTrial] = useState(true);
-  const [checkingEligibility, setCheckingEligibility] = useState(true);
+export function UpgradeStep({ onUpgrade, onSkip, onBack, isLoading, preFetchedEligibility, preFetchedPriceId, preFetchedTrialDays, useCase, currentStep, totalSteps }: UpgradeStepProps) {
+  const [isEligibleForTrial, setIsEligibleForTrial] = useState(preFetchedEligibility ?? true);
+  const [checkingEligibility, setCheckingEligibility] = useState(preFetchedEligibility === undefined);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [priceIdOverride, setPriceIdOverride] = useState<string | null>(preFetchedPriceId ?? null);
+  const [planIdOverride, setPlanIdOverride] = useState<string | null>(null);
+  const [trialDaysOverride, setTrialDaysOverride] = useState<number | null>(preFetchedTrialDays ?? null);
   const router = useRouter();
 
   useEffect(() => {
-    checkTrialEligibility();
-  }, []);
+    if (preFetchedEligibility !== undefined) {
+      setIsEligibleForTrial(preFetchedEligibility);
+      setCheckingEligibility(false);
+    } else {
+      checkTrialEligibility();
+    }
+  }, [preFetchedEligibility]);
 
   const checkTrialEligibility = async () => {
     try {
@@ -61,28 +77,32 @@ export function UpgradeStep({ onUpgrade, onSkip, onBack, isLoading }: UpgradeSte
         return;
       }
 
-      // Get the Pro plan price ID
-      const response = await fetch('/api/pricing');
-      if (!response.ok) {
-        throw new Error('Failed to fetch pricing plans');
-      }
-      
-      const data = await response.json();
-      const plans = data.plans || [];
-      console.log('Pricing plans:', plans);
-      
-      const proPlan = plans.find((p: any) => p.slug === 'pro' || p.slug === 'individual_pro' || p.name === 'Pro');
-      
-      if (!proPlan) {
-        console.error('Pro plan not found in:', plans);
-        alert('Pro plan not found. Please contact support.');
-        setIsProcessing(false);
-        return;
+      // Resolve the Pro plan price and id (prefer prefetched)
+      let priceId = priceIdOverride;
+      let planId = planIdOverride;
+      let trialDays = trialDaysOverride ?? 0;
+      if (!priceId || !planId) {
+        const response = await fetch('/api/pricing');
+        if (!response.ok) {
+          throw new Error('Failed to fetch pricing plans');
+        }
+        const data = await response.json();
+        const plans = data.plans || [];
+        const proPlan = plans.find((p: any) => p.slug === 'pro' || p.slug === 'individual_pro' || p.name === 'Pro');
+        if (!proPlan) {
+          alert('Pro plan not found. Please contact support.');
+          setIsProcessing(false);
+          return;
+        }
+        priceId = proPlan.stripe?.monthlyPriceId || null;
+        planId = proPlan.id || null;
+        trialDays = proPlan.trial?.enabled ? (proPlan.trial?.days || 7) : 0;
+        setPriceIdOverride(priceId);
+        setPlanIdOverride(planId);
+        setTrialDaysOverride(trialDays);
       }
 
-      const priceId = proPlan.stripe?.monthlyPriceId;
-      if (!priceId) {
-        console.error('No price ID found for Pro plan:', proPlan);
+      if (!priceId || !planId) {
         alert('Pro plan pricing not configured. Please contact support.');
         setIsProcessing(false);
         return;
@@ -102,10 +122,10 @@ export function UpgradeStep({ onUpgrade, onSkip, onBack, isLoading }: UpgradeSte
         },
         body: JSON.stringify({
           priceId: priceId,
-          planId: proPlan.id,
+          planId: planId,
           billingCycle: 'monthly',
           returnUrl: returnUrl,
-          trialDays: proPlan.trial?.enabled ? proPlan.trial?.days : 0
+          trialDays: trialDays || 0
         })
       });
 
@@ -122,6 +142,58 @@ export function UpgradeStep({ onUpgrade, onSkip, onBack, isLoading }: UpgradeSte
     }
   };
 
+  // Core bullets that always appear first
+  const coreBullets: string[] = [
+    '20 hours included per month (Pro plan)',
+    'Generate custom reports',
+  ];
+
+  // Personalized bullets based on use case
+  const personalizedBullets: string[] = (() => {
+    switch (useCase) {
+      case 'sales':
+        return [
+          'Auto-generated deal notes and next steps',
+          'CRM-ready summaries after each call',
+          'Real-time objection handling cues',
+        ];
+      case 'interviews':
+        return [
+          'Structured notes by question and candidate',
+          'Highlights and timestamps for quick review',
+          'Shareable recap for your panel',
+        ];
+      case 'meetings':
+        return [
+          'Auto action items with owners and due dates',
+          'Prep context before your calls',
+          'Instant recap to share with your team',
+        ];
+      case 'education':
+        return [
+          'Lecture notes with key takeaways',
+          'Timestamped highlights for revision',
+          'Shareable summaries for classmates',
+        ];
+      case 'podcasts':
+        return [
+          'Episode show notes and chapters',
+          'Pull quotes and highlights for socials',
+          'Searchable transcripts for your archive',
+        ];
+      default:
+        return [
+          'AI-powered transcription and summaries',
+          'Action items and next steps automatically',
+          'Unlimited access to Nova AI assistant',
+        ];
+    }
+  })();
+
+  const allBullets: string[] = [...coreBullets, ...personalizedBullets];
+
+  const effectiveTrialDays = trialDaysOverride ?? preFetchedTrialDays ?? 7;
+
   return (
     <div className="p-8">
       {/* Header */}
@@ -135,11 +207,14 @@ export function UpgradeStep({ onUpgrade, onSkip, onBack, isLoading }: UpgradeSte
         </motion.div>
         
         <h2 className="text-2xl font-bold mb-1">
-          Try Pro for Free
+          Start your {effectiveTrialDays}-day Pro trial
         </h2>
         <p className="text-muted-foreground text-sm">
-          7 days of unlimited access • No credit card required
+          Full Pro features. Cancel anytime. You won’t be charged today.
         </p>
+        {currentStep && totalSteps ? (
+          <p className="text-xs text-muted-foreground mt-1">Step {currentStep} of {totalSteps} • Almost done</p>
+        ) : null}
       </div>
 
       {/* Pro Plan Card */}
@@ -147,6 +222,11 @@ export function UpgradeStep({ onUpgrade, onSkip, onBack, isLoading }: UpgradeSte
         <Card className="p-5 mb-6 relative overflow-hidden border border-border bg-card">
             <div className="absolute top-0 right-0 bg-gradient-to-r from-green-500 to-emerald-500 text-white text-xs font-bold px-3 py-1 rounded-bl-lg">
               FREE TRIAL
+            </div>
+            <div className="absolute top-0 left-0 ml-0 mt-0">
+              <span className="inline-block bg-purple-600/90 text-white text-[10px] font-semibold tracking-wide px-2 py-1 rounded-br-lg">
+                PRO PLAN
+              </span>
             </div>
             
             <div className="space-y-3">
@@ -156,81 +236,88 @@ export function UpgradeStep({ onUpgrade, onSkip, onBack, isLoading }: UpgradeSte
                   <div className="inline-flex items-center justify-center w-20 h-20 rounded-2xl bg-gradient-to-br from-green-500/10 to-emerald-500/10 mb-3">
                     <span className="text-3xl font-bold text-green-600">7</span>
                   </div>
-                  <p className="text-lg font-semibold">Days Free</p>
-                  <p className="text-sm text-muted-foreground">Cancel anytime</p>
+                  <p className="text-lg font-semibold">Days Free on Pro</p>
+                  <p className="text-sm text-muted-foreground">Cancel anytime • No charge today</p>
                 </div>
               </div>
 
-              {/* Simple Feature List */}
+              {/* Personalized Feature List */}
               <div className="border-t border-border/50 pt-4">
                 <div className="space-y-2">
-                  <div className="flex items-center gap-2 text-sm">
-                    <div className="w-5 h-5 rounded-full bg-green-500/20 flex items-center justify-center flex-shrink-0">
-                      <svg className="w-3 h-3 text-green-600" viewBox="0 0 20 20" fill="currentColor">
-                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                      </svg>
+                  {allBullets.map((text, idx) => (
+                    <div key={idx} className="flex items-center gap-2 text-sm">
+                      <div className="w-5 h-5 rounded-full bg-green-500/20 flex items-center justify-center flex-shrink-0">
+                        <svg className="w-3 h-3 text-green-600" viewBox="0 0 20 20" fill="currentColor">
+                          <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                        </svg>
+                      </div>
+                      <span>{text}</span>
                     </div>
-                    <span>20 hours AI-powered meeting transcription per month</span>
-                  </div>
-                  <div className="flex items-center gap-2 text-sm">
-                    <div className="w-5 h-5 rounded-full bg-green-500/20 flex items-center justify-center flex-shrink-0">
-                      <svg className="w-3 h-3 text-green-600" viewBox="0 0 20 20" fill="currentColor">
-                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                      </svg>
-                    </div>
-                    <span>Detailed meeting reports</span>
-                  </div>
-                  <div className="flex items-center gap-2 text-sm">
-                    <div className="w-5 h-5 rounded-full bg-green-500/20 flex items-center justify-center flex-shrink-0">
-                      <svg className="w-3 h-3 text-green-600" viewBox="0 0 20 20" fill="currentColor">
-                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                      </svg>
-                    </div>
-                    <span>Unlimited access to Nova AI wizard</span>
-                  </div>
+                  ))}
                 </div>
               </div>
             </div>
           </Card>
 
         {/* Actions */}
-        <div className="flex gap-3">
-            <Button
-              variant="ghost"
-              onClick={onBack}
-              disabled={isLoading}
-              className="flex-shrink-0"
-            >
-              <ChevronLeft className="mr-1 h-4 w-4" />
-              Back
-            </Button>
-            
-            <Button
-              variant="outline"
-              onClick={onSkip}
-              disabled={isLoading}
-              className="flex-1"
-            >
-              Maybe later
-            </Button>
-            
-            <Button
-              onClick={handleStartTrial}
-              disabled={isLoading || checkingEligibility || isProcessing}
-              className="flex-1 bg-gradient-to-r from-app-primary to-app-primary-dark hover:from-app-primary-dark hover:to-app-primary text-white shadow-lg hover:shadow-xl transition-all duration-200"
-            >
-              {checkingEligibility || isProcessing ? (
-                <>
-                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
-                  {isProcessing ? 'Processing...' : 'Loading'}
-                </>
-              ) : (
-                <>
-                  Start Free Trial
-                  <ArrowRight className="ml-1 h-4 w-4" />
-                </>
-              )}
-            </Button>
+        <div className="flex gap-3 items-center flex-wrap sm:flex-nowrap">
+          <Button
+            variant="ghost"
+            onClick={onBack}
+            disabled={isLoading}
+            className="flex-shrink-0"
+          >
+            <ChevronLeft className="mr-1 h-4 w-4" />
+            Back
+          </Button>
+
+          <Button
+            onClick={handleStartTrial}
+            disabled={isLoading || checkingEligibility || isProcessing}
+            className="flex-1 min-w-[200px] bg-gradient-to-r from-app-primary to-app-primary-dark hover:from-app-primary-dark hover:to-app-primary text-white shadow-lg hover:shadow-xl transition-all duration-200"
+          >
+            {checkingEligibility || isProcessing ? (
+              <>
+                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
+                {isProcessing ? 'Processing...' : 'Loading'}
+              </>
+            ) : (
+              <>
+                Start {effectiveTrialDays}-day Pro Trial
+                <ArrowRight className="ml-1 h-4 w-4" />
+              </>
+            )}
+          </Button>
+
+          {/* Explicit secondary path */}
+          <Button
+            variant="outline"
+            onClick={onSkip}
+            disabled={isLoading}
+            className="flex-1 min-w-[200px]"
+          >
+            Continue on Free plan
+          </Button>
+        </div>
+        {/* Removed redundant 'Maybe later' link; 'Continue on Free plan' already covers this action */}
+
+        {/* Assurance */}
+        <p className="text-xs text-muted-foreground text-center mt-3">Includes all Pro features during trial • Takes less than 10 seconds</p>
+
+        {/* Trust Row */}
+        <div className="mt-6 grid grid-cols-3 gap-3 text-center text-[11px] text-muted-foreground">
+          <div className="flex items-center justify-center gap-1">
+            <Shield className="w-3.5 h-3.5" />
+            Bank-level security
+          </div>
+          <div className="flex items-center justify-center gap-1">
+            <Zap className="w-3.5 h-3.5" />
+            99.9% uptime
+          </div>
+          <div className="flex items-center justify-center gap-1">
+            <Sparkles className="w-3.5 h-3.5" />
+            Loved by teams
+          </div>
         </div>
       </div>
     </div>

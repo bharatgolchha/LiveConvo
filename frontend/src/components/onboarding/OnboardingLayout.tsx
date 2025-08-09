@@ -9,12 +9,14 @@ interface OnboardingLayoutProps {
   children: React.ReactNode;
   currentStep: number;
   totalSteps: number;
+  onSkip?: () => void;
 }
 
 export const OnboardingLayout: React.FC<OnboardingLayoutProps> = ({
   children,
   currentStep,
-  totalSteps
+  totalSteps,
+  onSkip,
 }) => {
   const { resolvedTheme } = useTheme();
 
@@ -24,6 +26,19 @@ export const OnboardingLayout: React.FC<OnboardingLayoutProps> = ({
       
       <div className="relative z-10 min-h-screen flex flex-col">
         <div className="flex-1 flex items-center justify-center p-4">
+          {/* Top bar actions */}
+          {onSkip && (
+            <div className="absolute top-4 right-4 flex items-center gap-3">
+              <span className="hidden sm:inline text-xs text-muted-foreground">~2 min setup</span>
+              <button
+                type="button"
+                onClick={onSkip}
+                className="text-sm text-muted-foreground hover:text-foreground underline-offset-2 hover:underline"
+              >
+                Skip setup
+              </button>
+            </div>
+          )}
           <div className="w-full max-w-2xl">
             <div className="mb-8">
               <div className="flex items-center justify-center mb-12">
@@ -50,7 +65,7 @@ export const OnboardingLayout: React.FC<OnboardingLayoutProps> = ({
                 </motion.div>
               </div>
 
-              <div className="flex items-center justify-center gap-2 mb-8">
+              <div className="flex items-center justify-center gap-2 mb-2">
                 {Array.from({ length: totalSteps }, (_, i) => (
                   <React.Fragment key={i}>
                     {i > 0 && (

@@ -7,15 +7,19 @@
         "-y",
         "@supabase/mcp-server-supabase@latest",
         "--access-token",
-        "<SUPABASE_PERSONAL_ACCESS_TOKEN>"
-      ]
+        "sbp_75bdcb7f72c91d6856df9e2fb0b37f35b74ca18e"
+      ],
+      "env": {},
+      "autoApprove": []
     },
     "context7": {
       "command": "npx",
       "args": [
         "-y",
         "@upstash/context7-mcp"
-      ]
+      ],
+      "env": {},
+      "autoApprove": []
     }
   }
-} 
+}

@@ -2,10 +2,15 @@ import React, { useState } from 'react';
 import { PlusIcon, QuestionMarkCircleIcon } from '@heroicons/react/24/outline';
 import { motion } from 'framer-motion';
 import { NewConversationButton } from './NewConversationButton';
+import QuickStartChecklist from './QuickStartChecklist';
 
 interface Props {
   onNewConversation: () => void;
   onNewMeeting?: () => void;
+  onUploadRecording?: () => void;
+  // Optional: whether calendar is already connected to drive primary CTA elsewhere
+  hasCalendarConnection?: boolean;
+  onConnectCalendar?: () => void;
 }
 
 // Professional icon-based illustration for empty state
@@ -14,12 +19,12 @@ const ConversationIllustration: React.FC = () => (
     initial={{ opacity: 0, scale: 0.9 }}
     animate={{ opacity: 1, scale: 1 }}
     transition={{ duration: 0.8, ease: "easeOut" }}
-    className="mx-auto mb-12"
+    className="mx-auto mb-6"
   >
     <div className="relative">
-      <div className="w-32 h-32 bg-gradient-to-br from-app-primary/10 to-app-primary-dark/10 rounded-full flex items-center justify-center">
-        <div className="w-24 h-24 bg-gradient-to-br from-app-primary/20 to-app-primary-dark/20 rounded-full flex items-center justify-center">
-          <svg className="w-12 h-12 text-app-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <div className="w-24 h-24 bg-gradient-to-br from-app-primary/10 to-app-primary-dark/10 rounded-full flex items-center justify-center">
+        <div className="w-16 h-16 bg-gradient-to-br from-app-primary/20 to-app-primary-dark/20 rounded-full flex items-center justify-center">
+          <svg className="w-8 h-8 text-app-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
           </svg>
         </div>
@@ -28,9 +33,9 @@ const ConversationIllustration: React.FC = () => (
         initial={{ scale: 0 }}
         animate={{ scale: 1 }}
         transition={{ delay: 0.3, type: "spring", stiffness: 200 }}
-        className="absolute -right-2 -top-2 w-8 h-8 bg-app-success rounded-full flex items-center justify-center"
+        className="absolute -right-2 -top-2 w-6 h-6 bg-app-success rounded-full flex items-center justify-center"
       >
-        <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
         </svg>
       </motion.div>
@@ -97,7 +102,7 @@ const LearnMoreModal: React.FC<{ isOpen: boolean; onClose: () => void }> = ({
   );
 };
 
-const EmptyState: React.FC<Props> = ({ onNewConversation, onNewMeeting }) => {
+const EmptyState: React.FC<Props> = ({ onNewConversation, onNewMeeting, onUploadRecording, hasCalendarConnection, onConnectCalendar }) => {
   const [isLearnMoreOpen, setIsLearnMoreOpen] = useState(false);
 
   return (
@@ -112,9 +117,9 @@ const EmptyState: React.FC<Props> = ({ onNewConversation, onNewMeeting }) => {
         <ConversationIllustration />
         
         {/* Content */}
-        <div className="text-center max-w-2xl space-y-4 sm:space-y-6">
+        <div className="text-center max-w-2xl space-y-3">
           <motion.h1 
-            className="text-2xl sm:text-4xl font-semibold text-foreground tracking-tight"
+            className="text-2xl sm:text-3xl font-semibold text-foreground tracking-tight"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 0.3 }}
@@ -123,74 +128,78 @@ const EmptyState: React.FC<Props> = ({ onNewConversation, onNewMeeting }) => {
           </motion.h1>
           
           <motion.p 
-            className="text-muted-foreground text-base sm:text-xl leading-relaxed max-w-xl mx-auto"
+            className="text-muted-foreground text-base leading-relaxed max-w-xl mx-auto"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 0.4 }}
           >
-            Transform your meetings with AI-powered real-time coaching and intelligent conversation insights.
+            Real-time AI coaching and insights for your meetings.
           </motion.p>
-          
-          {/* Platform Compatibility */}
-          <motion.div
-            className="mt-8"
+
+          <motion.p
+            className="text-xs text-muted-foreground"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 0.5 }}
           >
-            <p className="text-muted-foreground text-base mb-4">
-              Works seamlessly with your favorite meeting platforms
-            </p>
-            <div className="flex items-center justify-center gap-8">
-              <img
-                src="/platform-logos/meet.png"
-                alt="Google Meet"
-                className="h-8 w-auto opacity-70 hover:opacity-100 transition-opacity"
-              />
-              <img
-                src="/platform-logos/zoom.png"
-                alt="Zoom"
-                className="h-8 w-auto opacity-70 hover:opacity-100 transition-opacity"
-              />
-              <img
-                src="/platform-logos/teams.png"
-                alt="Microsoft Teams"
-                className="h-8 w-auto opacity-70 hover:opacity-100 transition-opacity"
-              />
-            </div>
-          </motion.div>
+            Works with Google Meet, Zoom, and Teams
+          </motion.p>
         </div>
-        
-        {/* Action buttons */}
-        <motion.div 
-          className="flex flex-col sm:flex-row gap-4 mt-8 sm:mt-10 items-center"
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.6 }}
-        >
-          {onNewMeeting ? (
-            <NewConversationButton
-              onNewConversation={onNewConversation}
-              onNewMeeting={onNewMeeting}
+
+        {/* Checklist-first layout when connect handler is provided */}
+        {onConnectCalendar ? (
+          <div className="w-full mt-8">
+            <QuickStartChecklist
+              hasCalendarConnection={!!hasCalendarConnection}
+              onConnectCalendar={onConnectCalendar}
+              onStartMeeting={() => (onNewMeeting ? onNewMeeting() : onNewConversation())}
+              onUploadRecording={() => onUploadRecording && onUploadRecording()}
             />
-          ) : (
-            <button
-              onClick={onNewConversation}
-              className="flex items-center justify-center space-x-2 bg-app-primary hover:bg-app-primary-dark text-primary-foreground px-8 py-3.5 rounded-lg transition-all font-medium text-base shadow-sm hover:shadow-md"
-            >
-              <PlusIcon className="w-5 h-5" />
-              <span>New Conversation</span>
-            </button>
-          )}
-          
-          <button
-            onClick={() => setIsLearnMoreOpen(true)}
-            className="flex items-center justify-center space-x-2 text-muted-foreground hover:text-foreground px-6 py-3 rounded-lg transition-all"
+          </div>
+        ) : (
+          // Fallback: original action buttons
+          <motion.div
+            className="flex flex-col sm:flex-row gap-4 mt-8 sm:mt-10 items-center"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.6 }}
           >
-            <QuestionMarkCircleIcon className="w-5 h-5" />
-            <span className="font-medium">Learn More</span>
-          </button>
-        </motion.div>
+            {onNewMeeting ? (
+              <NewConversationButton
+                onNewConversation={onNewConversation}
+                onNewMeeting={onNewMeeting}
+              />
+            ) : (
+              <button
+                onClick={onNewConversation}
+                className="flex items-center justify-center space-x-2 bg-app-primary hover:bg-app-primary-dark text-primary-foreground px-8 py-3.5 rounded-lg transition-all font-medium text-base shadow-sm hover:shadow-md"
+              >
+                <PlusIcon className="w-5 h-5" />
+                <span>New Conversation</span>
+              </button>
+            )}
+
+            {onUploadRecording && (
+              <button
+                onClick={onUploadRecording}
+                className="flex items-center justify-center space-x-2 bg-muted/50 hover:bg-muted/70 text-foreground border border-border px-8 py-3.5 rounded-lg transition-all font-medium text-base shadow-sm hover:shadow-md"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" className="w-5 h-5">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 16.5v-9m-4.5 4.5h9M3.75 6.75v10.5a2.25 2.25 0 0 0 2.25 2.25h12a2.25 2.25 0 0 0 2.25-2.25V6.75A2.25 2.25 0 0 0 18 4.5H6A2.25 2.25 0 0 0 3.75 6.75Z" />
+                </svg>
+                <span>Upload recording</span>
+              </button>
+            )}
+
+            <button
+              onClick={() => setIsLearnMoreOpen(true)}
+              className="flex items-center justify-center space-x-2 text-muted-foreground hover:text-foreground px-6 py-3 rounded-lg transition-all"
+            >
+              <QuestionMarkCircleIcon className="w-5 h-5" />
+              <span className="font-medium">Learn More</span>
+            </button>
+          </motion.div>
+        )}
       </motion.div>
       
       {/* Learn More Modal */}

@@ -458,6 +458,7 @@ export const ConversationContent: React.FC<ConversationContentProps> = ({
       </div>
 
       {/* Meeting Controls - Compact Layout */}
+      {/* Show meeting URL editor when there is an existing URL OR when user can set one via onUpdateMeetingUrl */}
       {sessionId && (meetingUrl || onUpdateMeetingUrl) && (
         <div className="flex-shrink-0 bg-muted/30 border-b border-border/50">
           <div className="px-4 py-2 flex items-center gap-3">

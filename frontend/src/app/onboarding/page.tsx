@@ -12,6 +12,7 @@ import { UpgradeStep } from '@/components/onboarding/UpgradeStep';
 import { useOnboarding } from '@/lib/hooks/useOnboarding';
 import { supabase } from '@/lib/supabase';
 import { CheckoutSuccessHandler } from '@/components/checkout/CheckoutSuccessHandler';
+import { trackEvent, setUserProperties } from '@/lib/analytics/tracking';
 
 interface OnboardingData {
   organization_name: string;
@@ -73,9 +74,16 @@ function OnboardingContent() {
   });
 
   const totalSteps = 4;
+  // Default redirect after onboarding completion
   const redirectUrl = searchParams.get('redirect') || '/dashboard';
   const stepParam = searchParams.get('step');
   const subscribedParam = searchParams.get('subscribed');
+
+  // Prefetched trial/pricing info to avoid friction on step 4
+  const [trialEligible, setTrialEligible] = useState<boolean | null>(null);
+  const [prefetchedPriceId, setPrefetchedPriceId] = useState<string | null>(null);
+  const [prefetchedTrialDays, setPrefetchedTrialDays] = useState<number | null>(null);
+  const [prefetchingTrialData, setPrefetchingTrialData] = useState<boolean>(false);
 
   useEffect(() => {
     // Check if user has already completed onboarding
@@ -107,6 +115,49 @@ function OnboardingContent() {
     checkOnboardingStatus();
   }, [user, session, router, redirectUrl]);
 
+  // Prefetch trial eligibility and pricing as soon as possible
+  useEffect(() => {
+    const prefetch = async () => {
+      if (!session) return;
+      try {
+        setPrefetchingTrialData(true);
+        // Run both in parallel
+        const [eligibilityResp, pricingResp] = await Promise.all([
+          fetch('/api/trials/check-eligibility', {
+            headers: { 'Authorization': `Bearer ${session.access_token}` }
+          }),
+          fetch('/api/pricing')
+        ]);
+
+        if (eligibilityResp.ok) {
+          const data = await eligibilityResp.json();
+          setTrialEligible(!!data.eligible || !!data.isEligible);
+        }
+
+        if (pricingResp.ok) {
+          const data = await pricingResp.json();
+          const plans = data.plans || [];
+          const proPlan = plans.find((p: any) => p.slug === 'pro' || p.slug === 'individual_pro' || p.name === 'Pro');
+          if (proPlan) {
+            const priceId = proPlan.stripe?.monthlyPriceId || null;
+            setPrefetchedPriceId(priceId);
+            const days = proPlan.trial?.enabled ? (proPlan.trial?.days || 7) : null;
+            setPrefetchedTrialDays(days);
+          }
+        }
+      } catch (e) {
+        // Best-effort prefetch; fallback flows exist in UpgradeStep
+        console.error('Prefetch trial/pricing failed', e);
+      } finally {
+        setPrefetchingTrialData(false);
+      }
+    };
+
+    if (user && session && trialEligible === null && prefetchedPriceId === null) {
+      prefetch();
+    }
+  }, [user, session, trialEligible, prefetchedPriceId]);
+
   const updateData = useCallback((data: Partial<OnboardingData>) => {
     setOnboardingData(prev => {
       const updated = { ...prev, ...data };
@@ -119,6 +170,17 @@ function OnboardingContent() {
     });
   }, []);
 
+  // Prefill a sensible default organization name to remove friction
+  useEffect(() => {
+    if (user && !onboardingData.organization_name) {
+      const email = user.email || '';
+      const first = (user.user_metadata?.full_name as string | undefined)?.split(' ')[0]
+        || email.split('@')[0]
+        || 'My';
+      updateData({ organization_name: `${first}'s Workspace` });
+    }
+  }, [user, onboardingData.organization_name, updateData]);
+
   const handleNext = () => {
     if (currentStep < totalSteps) {
       const nextStep = currentStep + 1;
@@ -126,6 +188,7 @@ function OnboardingContent() {
       if (typeof window !== 'undefined') {
         sessionStorage.setItem('onboardingStep', nextStep.toString());
       }
+      try { trackEvent('onboarding_continue', 'onboarding', { from_step: currentStep, to_step: nextStep }); } catch {}
     }
   };
 
@@ -136,6 +199,7 @@ function OnboardingContent() {
       if (typeof window !== 'undefined') {
         sessionStorage.setItem('onboardingStep', prevStep.toString());
       }
+      try { trackEvent('onboarding_back', 'onboarding', { from_step: currentStep, to_step: prevStep }); } catch {}
     }
   };
 
@@ -201,6 +265,7 @@ function OnboardingContent() {
       });
       
       console.log('✅ Onboarding completed successfully:', result);
+      try { trackEvent('onboarding_completed', 'onboarding'); } catch {}
       
       // Save calendar preferences after successful onboarding
       if (onboardingData.calendar_connected && session?.access_token) {
@@ -292,12 +357,33 @@ function OnboardingContent() {
             onSkip={handleComplete}
             onBack={handleBack}
             isLoading={isLoading}
+            // Prefetched data to eliminate spinner friction
+            preFetchedEligibility={trialEligible ?? undefined}
+            preFetchedPriceId={prefetchedPriceId ?? undefined}
+            preFetchedTrialDays={prefetchedTrialDays ?? undefined}
+            useCase={onboardingData.use_case}
+            currentStep={currentStep}
+            totalSteps={totalSteps}
           />
         );
       default:
         return null;
     }
   };
+
+  // Track step views and set user properties when available
+  useEffect(() => {
+    try {
+      trackEvent('onboarding_view', 'onboarding', { step: currentStep });
+      if (onboardingData.use_case || onboardingData.acquisition_source) {
+        setUserProperties({
+          use_case: onboardingData.use_case || undefined,
+          acquisition_source: onboardingData.acquisition_source || undefined,
+          timezone: onboardingData.timezone || undefined,
+        });
+      }
+    } catch {}
+  }, [currentStep, onboardingData.use_case, onboardingData.acquisition_source, onboardingData.timezone]);
 
   // Show loading state while checking onboarding status
   if (checkingStatus) {
@@ -314,7 +400,7 @@ function OnboardingContent() {
   return (
     <>
       <CheckoutSuccessHandler />
-      <OnboardingLayout currentStep={currentStep} totalSteps={totalSteps}>
+      <OnboardingLayout currentStep={currentStep} totalSteps={totalSteps} onSkip={handleComplete}>
         <AnimatePresence mode="wait">
           <motion.div
             key={currentStep}

@@ -53,12 +53,16 @@ import { MeetingListTabs } from '@/components/dashboard/MeetingListTabs';
 import { filterSessionsByView, getSessionCounts } from '@/lib/utils/meeting-utils';
 import { CheckoutSuccessHandler } from '@/components/checkout/CheckoutSuccessHandler';
 import dynamic from 'next/dynamic';
+import { DashboardToolbar } from '@/components/dashboard/DashboardToolbar';
+import { FilterChipsBar } from '@/components/dashboard/FilterChipsBar';
+import { AdvancedFiltersDrawer } from '@/components/dashboard/AdvancedFiltersDrawer';
 
 // Dynamically load smaller components to reduce initial bundle size
 const DashboardHeader = dynamic(() => import('@/components/dashboard/DashboardHeader'));
+const UploadRecordingModal = dynamic(() => import('@/components/dashboard/UploadRecordingModal/UploadRecordingModal').then(mod => ({ default: mod.UploadRecordingModal })), { ssr: false });
 const DashboardSidebar = dynamic(() => import('@/components/dashboard/DashboardSidebar'));
 const UpcomingMeetingsSidebar = dynamic(() => import('@/components/dashboard/UpcomingMeetingsSidebar').then(mod => ({ default: mod.UpcomingMeetingsSidebar })), { ssr: false });
-const CalendarConnectionBanner = dynamic(() => import('@/components/calendar/CalendarConnectionBanner').then(mod => ({ default: mod.CalendarConnectionBanner })));
+const TimelineView = dynamic(() => import('@/components/dashboard/Timeline/TimelineView').then(mod => ({ default: mod.TimelineView })), { ssr: false });
 
 // Newly extracted components (loaded lazily to reduce initial JS)
 const ConversationInboxItem = dynamic(() => import('@/components/dashboard/ConversationInboxItem'));
@@ -102,6 +106,19 @@ const DashboardPage: React.FC = () => {
   const searchParams = useSearchParams();
   const [showMobileMeetings, setShowMobileMeetings] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  // Default view is now Timeline; list view deprecated
+  const [viewMode] = useState<'list' | 'timeline'>('timeline');
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    try {
+      const sp = new URLSearchParams(window.location.search)
+      sp.set('view', 'timeline')
+      const url = `${window.location.pathname}?${sp.toString()}`
+      window.history.replaceState({}, '', url)
+      localStorage.setItem('dashboard_view', 'timeline')
+    } catch {}
+  }, [])
   
   // Read 'tab' query parameter to set initial active path
   const tabParam = searchParams.get('tab');
@@ -110,7 +127,11 @@ const DashboardPage: React.FC = () => {
   const [activePath, setActivePath] = useState(initialActivePath);
   const [showNewConversationModal, setShowNewConversationModal] = useState(false);
   const [showNewMeetingModal, setShowNewMeetingModal] = useState(false);
+  const [showUploadModal, setShowUploadModal] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [sort, setSort] = useState<'recent' | 'updated' | 'duration' | 'relevance'>('recent');
+  const [advancedFilters, setAdvancedFilters] = useState({ speakers: [] as string[] } as any);
   const debouncedSearchQuery = useDebounce(searchQuery, 300);
   const [selectedSessions, setSelectedSessions] = useState<Set<string>>(new Set());
   const [isNavigating, setIsNavigating] = useState(false);
@@ -182,6 +203,14 @@ const DashboardPage: React.FC = () => {
       });
     }
   }, [userStats]);
+
+  // Auto-open Upload Recording modal when query param present
+  useEffect(() => {
+    const action = searchParams.get('action');
+    if (action === 'upload') {
+      setShowUploadModal(true);
+    }
+  }, [searchParams]);
 
   // Track sessions that are being updated locally to prevent loops
   const localUpdateTimeoutsRef = useRef<Map<string, NodeJS.Timeout>>(new Map());
@@ -408,6 +437,28 @@ const DashboardPage: React.FC = () => {
     setCurrentPage(1); // Reset to first page when searching
   };
 
+  // Chips helpers for UI only
+  const getActiveChips = () => {
+    const chips: { key: string; label: string }[] = [];
+    if (searchQuery) chips.push({ key: 'q', label: `Search: ${searchQuery}` });
+    if (advancedFilters?.speakers?.length) chips.push({ key: 'speakers', label: `Speakers: ${advancedFilters.speakers.join(', ')}` });
+    if (advancedFilters?.platform?.length) chips.push({ key: 'platform', label: `Platform: ${advancedFilters.platform.join(', ')}` });
+    if (advancedFilters?.dateFrom || advancedFilters?.dateTo) chips.push({ key: 'date', label: `Date: ${advancedFilters?.dateFrom || '…'} → ${advancedFilters?.dateTo || '…'}` });
+    return chips;
+  };
+
+  const handleRemoveChip = (key: string) => {
+    if (key === 'q') setSearchQuery('');
+    if (key === 'speakers') setAdvancedFilters((prev: any) => ({ ...prev, speakers: [] }));
+    if (key === 'platform') setAdvancedFilters((prev: any) => ({ ...prev, platform: [] }));
+    if (key === 'date') setAdvancedFilters((prev: any) => ({ ...prev, dateFrom: undefined, dateTo: undefined }));
+  };
+
+  const handleClearAllChips = () => {
+    setSearchQuery('');
+    setAdvancedFilters({ speakers: [] });
+  };
+
   const handlePageChange = async (page: number) => {
     setCurrentPage(page);
     const offset = (page - 1) * itemsPerPage;
@@ -420,11 +471,16 @@ const DashboardPage: React.FC = () => {
   };
 
   const getCurrentFilters = () => {
-    const filters = {
+    const filters: any = {
       status: activePath === 'archive' ? 'archived' : undefined,
       search: debouncedSearchQuery || undefined,
       filter: activePath === 'shared' ? 'shared' : undefined,
     };
+    // Map advanced filters to query params
+    if (advancedFilters?.dateFrom) filters.date_from = advancedFilters.dateFrom;
+    if (advancedFilters?.dateTo) filters.date_to = advancedFilters.dateTo;
+    if (advancedFilters?.platform?.length) filters.platform = advancedFilters.platform.join(',');
+    if (advancedFilters?.speakers?.length) filters.speakers = advancedFilters.speakers.join(',');
     console.log('🔍 Dashboard getCurrentFilters:', {
       activePath,
       filters,
@@ -453,6 +509,13 @@ const DashboardPage: React.FC = () => {
       fetchData();
     }
   }, [activePath, debouncedSearchQuery]); // Only depend on actual filter changes
+
+  // Re-fetch when advanced filters change
+  React.useEffect(() => {
+    if (user && authSession) {
+      fetchDashboardData({ ...getCurrentFilters(), limit: itemsPerPage, offset: 0 });
+    }
+  }, [advancedFilters]);
 
   const handleNewConversation = () => {
     // Regular conversations are deprecated, redirect to meeting
@@ -753,6 +816,25 @@ const DashboardPage: React.FC = () => {
     setShareModalOpen(true);
   };
 
+  // Option A primary CTA: connect calendar
+  const handleConnectCalendar = async () => {
+    try {
+      const headers: HeadersInit = {};
+      if (authSession?.access_token) {
+        headers['Authorization'] = `Bearer ${authSession.access_token}`;
+      }
+      const response = await fetch('/api/calendar/auth/google?redirect=/dashboard', { headers });
+      if (response.ok) {
+        const data = await response.json();
+        if (data.auth_url && typeof window !== 'undefined') {
+          window.location.href = data.auth_url;
+        }
+      }
+    } catch (error) {
+      console.error('Failed to initiate calendar connection:', error);
+    }
+  };
+
   const handleShareComplete = () => {
     // Refresh the dashboard data to show updated sharing status
     refreshData();
@@ -894,7 +976,7 @@ const DashboardPage: React.FC = () => {
   }
 
   // Show loading state only for initial load
-  if (sessionsLoading && sessions.length === 0 && !isLoadingNavigation) {
+  if ((!dashboardData && !isLoadingNavigation) || (sessionsLoading && sessions.length === 0 && !isLoadingNavigation)) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
@@ -909,13 +991,19 @@ const DashboardPage: React.FC = () => {
     <DashboardChatProvider>
       <CheckoutSuccessHandler />
       <div className="h-screen bg-background flex flex-col relative overflow-hidden">
-        <DashboardHeader 
+        {/* Upload modal state */}
+        { /* Using local state to control modal */ }
+        { /* Note: we declare state above render block */ }
+        
+         <DashboardHeader 
           user={currentUser} 
-          onSearch={handleSearch}
+           onSearch={() => { /* Header search hidden for meetings list per Option B */ }}
           onNavigateToSettings={() => setActivePath('settings')}
           onMenuClick={() => setIsSidebarOpen(!isSidebarOpen)}
           onNewMeeting={handleNewMeeting}
+          onUploadRecording={() => setShowUploadModal(true)}
           realtimeConnected={realtimeConnected}
+           showSearch={false}
         />
       
       {/* Usage Warning Banner */}
@@ -964,13 +1052,35 @@ const DashboardPage: React.FC = () => {
         </div>
         
         <main className="flex-1 overflow-hidden flex">
+          <div className="flex-1 flex flex-col min-w-0">
+          {/* Meeting View Tabs - Only show when not in archive or shared view */}
+          {activePath === 'conversations' && (hasAnySessions || !!searchQuery) && (
+            <>
+              <DashboardToolbar
+                view={meetingView}
+                onViewChange={setMeetingView}
+                counts={sessionCounts}
+                searchQuery={searchQuery}
+                onSearchChange={handleSearch}
+                onOpenFilters={() => setFiltersOpen(true)}
+                sort={sort}
+                onSortChange={(v) => setSort(v as any)}
+                resultsCount={totalFilteredCount}
+                timelineEnabled={true}
+                viewMode={'timeline'}
+              />
+              <FilterChipsBar
+                chips={getActiveChips()}
+                onRemove={handleRemoveChip}
+                onClearAll={handleClearAllChips}
+              />
+            </>
+          )}
+          
           {/* Main content area */}
           <div className="flex-1 p-2 sm:p-6 flex flex-col overflow-auto">
 
-            {/* Calendar Connection Banner */}
-            {activePath === 'conversations' && (
-              <CalendarConnectionBanner />
-            )}
+            {/* Calendar connection banner deprecated on dashboard empty/list views */}
 
             {/* Main Content */}
             {activePath === 'settings' ? (
@@ -983,17 +1093,15 @@ const DashboardPage: React.FC = () => {
             ) : activePath === 'action_items' ? (
               <ActionItemsBoard />
             ) : !hasAnySessions && activePath !== 'archive' && activePath !== 'shared' && !searchQuery ? (
-              <EmptyState onNewConversation={handleNewConversation} onNewMeeting={handleNewMeeting} />
+              <EmptyState 
+                onNewConversation={handleNewConversation} 
+                onNewMeeting={handleNewMeeting} 
+                onUploadRecording={() => setShowUploadModal(true)}
+                hasCalendarConnection={!!hasCalendar}
+                onConnectCalendar={handleConnectCalendar}
+              />
             ) : (
               <div className="flex flex-col flex-1">
-                {/* Meeting View Tabs - Only show when not in archive or shared view */}
-                {activePath === 'conversations' && (
-                  <MeetingListTabs
-                    view={meetingView}
-                    onViewChange={setMeetingView}
-                    counts={sessionCounts}
-                  />
-                )}
 
                 {/* Search Results Header */}
                 {searchQuery && (
@@ -1008,8 +1116,77 @@ const DashboardPage: React.FC = () => {
                   </motion.div>
                 )}
 
-                {/* Meetings Inbox List */}
+                 {/* Meetings Inbox List */}
                 {totalFilteredCount > 0 ? (
+                  viewMode === 'timeline' ? (
+                    <div className="flex-1 min-h-0 overflow-y-auto flex flex-col">
+                      {selectedSessions.size > 0 && (
+                        <div className="px-3 sm:px-6 py-2 sm:py-3 bg-muted/30 border-b border-border sticky top-0 z-20">
+                          <div className="flex items-center justify-between">
+                            <h2 className="text-sm font-medium text-foreground">{selectedSessions.size} selected</h2>
+                            <div className="flex items-center gap-2">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={handleBulkArchive}
+                                className="text-xs"
+                              >
+                                Archive Selected
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={handleBulkDelete}
+                                className="text-xs text-destructive"
+                              >
+                                Delete Selected
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => setSelectedSessions(new Set())}
+                                className="text-xs text-muted-foreground"
+                              >
+                                Clear
+                              </Button>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                      <TimelineView
+                        sessions={filtered.sessions}
+                        selectedIds={selectedSessions}
+                        onSelect={(id, checked) => {
+                          if (checked) {
+                            setSelectedSessions(prev => new Set([...prev, id]))
+                          } else {
+                            setSelectedSessions(prev => {
+                              const next = new Set(prev)
+                              next.delete(id)
+                              return next
+                            })
+                          }
+                        }}
+                        onOpen={handleResumeSession}
+                        onFollowUp={(id) => {
+                          const session = sessions.find(s => s.id === id)
+                          if (session) handleCreateFollowUp(session)
+                        }}
+                        onReport={handleViewSummary}
+                        onShare={handleShareMeeting}
+                      />
+                      {totalFilteredCount > itemsPerPage && (
+                        <Pagination
+                          currentPage={currentPage}
+                          totalItems={totalFilteredCount}
+                          itemsPerPage={itemsPerPage}
+                          onPageChange={handlePageChange}
+                          disabled={sessionsLoading}
+                          className="sticky bottom-0 bg-background"
+                        />
+                      )}
+                    </div>
+                  ) : (
                   <motion.div 
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
@@ -1144,6 +1321,7 @@ const DashboardPage: React.FC = () => {
                       />
                     )}
                   </motion.div>
+                  )
                 ) : (
                   <motion.div
                     initial={{ opacity: 0 }}
@@ -1219,9 +1397,11 @@ const DashboardPage: React.FC = () => {
               </div>
             )}
           </div>
-          
-          {/* Upcoming Meetings Sidebar - Desktop */}
-          <UpcomingMeetingsSidebar className="hidden xl:flex" />
+          </div>
+
+          {/* Upcoming Meetings Sidebar - Desktop */
+          }
+          <UpcomingMeetingsSidebar className="hidden xl:flex" defaultOpen={hasAnySessions} />
           {/* My Action Items Widget - Desktop */}
           {/* <div className="hidden xl:flex w-72"><MyActionItemsWidget /></div> */}
         </main>
@@ -1328,8 +1508,45 @@ const DashboardPage: React.FC = () => {
       {/* Account Deactivated Modal - Non-dismissable */}
       {isUserDeactivated && <AccountDeactivatedModal />}
 
+      {/* Upload Recording Modal */}
+      {showUploadModal && (
+        <UploadRecordingModal
+          isOpen={showUploadModal}
+          onClose={() => setShowUploadModal(false)}
+          onCreated={(sessionId) => {
+            // Navigate to new session after creation
+            router.push(`/meeting/${sessionId}`);
+          }}
+        />
+      )}
+
       {/* Navigation Loading Modal */}
       <LoadingModal isOpen={isLoadingNavigation} />
+
+      {/* Advanced Filters Drawer */}
+      <AdvancedFiltersDrawer
+        open={filtersOpen}
+        onOpenChange={setFiltersOpen}
+        value={advancedFilters}
+        onChange={setAdvancedFilters}
+        onApply={() => {
+          setCurrentPage(1);
+          if (user && authSession) {
+            fetchDashboardData({
+              ...getCurrentFilters(),
+              limit: itemsPerPage,
+              offset: 0,
+            });
+          }
+        }}
+        onReset={() => {
+          setAdvancedFilters({ speakers: [] });
+          setCurrentPage(1);
+          if (user && authSession) {
+            fetchDashboardData({ ...getCurrentFilters(), limit: itemsPerPage, offset: 0 });
+          }
+        }}
+      />
 
     </div>
     </DashboardChatProvider>
