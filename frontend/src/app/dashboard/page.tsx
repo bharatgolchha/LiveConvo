@@ -1054,7 +1054,7 @@ const DashboardPage: React.FC = () => {
         <main className="flex-1 overflow-hidden flex">
           <div className="flex-1 flex flex-col min-w-0">
           {/* Meeting View Tabs - Only show when not in archive or shared view */}
-          {activePath === 'conversations' && (
+          {activePath === 'conversations' && (hasAnySessions || !!searchQuery) && (
             <>
               <DashboardToolbar
                 view={meetingView}

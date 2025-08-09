@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { DayGroup } from '@/lib/meeting/grouping'
 import { MeetingCardAdapter } from '@/components/dashboard/MeetingCardAdapter'
 import type { Session } from '@/lib/hooks/useSessions'
+import { ChevronDownIcon } from '@heroicons/react/24/outline'
 
 interface TimelineDaySectionProps {
   group: DayGroup
@@ -19,18 +20,30 @@ interface TimelineDaySectionProps {
 }
 
 export const TimelineDaySection: React.FC<TimelineDaySectionProps> = ({ group, collapsed, onToggle, selectedIds, onSelect, onOpen, onFollowUp, onReport, onShare }) => {
+  const contentId = `day-content-${group.key}`
+
   return (
     <section aria-labelledby={`day-${group.key}`} className="relative">
       {/* Sticky Header */}
       <div className="sticky z-10 bg-background/80 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b border-border" style={{ top: '0' }}>
         <button
           id={`day-${group.key}`}
-          className="w-full text-left px-4 sm:px-6 py-2.5 sm:py-3 font-medium flex items-center justify-between"
+          className="w-full text-left px-4 sm:px-6 py-2.5 sm:py-3 font-medium flex items-center justify-between hover:bg-muted/30 transition-colors cursor-pointer"
           onClick={() => onToggle?.(group.key)}
           aria-expanded={!collapsed}
+          aria-controls={contentId}
+          title={collapsed ? 'Expand section' : 'Collapse section'}
         >
-          <span>{group.label}</span>
-          <span className="text-xs text-muted-foreground">{group.sessions.length}</span>
+          <span className="inline-flex items-center gap-2">
+            <ChevronDownIcon
+              className={`h-4 w-4 transition-transform duration-200 ${collapsed ? 'rotate-0' : 'rotate-180'}`}
+              aria-hidden
+            />
+            <span>{group.label}</span>
+          </span>
+          <span className="text-xs text-muted-foreground">
+            {group.sessions.length} {collapsed ? 'hidden' : ''}
+          </span>
         </button>
       </div>
 
@@ -46,6 +59,7 @@ export const TimelineDaySection: React.FC<TimelineDaySectionProps> = ({ group, c
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               className="space-y-3 sm:space-y-4 px-2 sm:px-4 pt-3"
+              id={contentId}
             >
               {group.sessions.map(session => (
                 <li key={session.id} role="listitem" className="relative pl-10 sm:pl-12">

@@ -142,6 +142,12 @@ export function UpgradeStep({ onUpgrade, onSkip, onBack, isLoading, preFetchedEl
     }
   };
 
+  // Core bullets that always appear first
+  const coreBullets: string[] = [
+    '20 hours included per month (Pro plan)',
+    'Generate custom reports',
+  ];
+
   // Personalized bullets based on use case
   const personalizedBullets: string[] = (() => {
     switch (useCase) {
@@ -183,6 +189,8 @@ export function UpgradeStep({ onUpgrade, onSkip, onBack, isLoading, preFetchedEl
         ];
     }
   })();
+
+  const allBullets: string[] = [...coreBullets, ...personalizedBullets];
 
   const effectiveTrialDays = trialDaysOverride ?? preFetchedTrialDays ?? 7;
 
@@ -236,7 +244,7 @@ export function UpgradeStep({ onUpgrade, onSkip, onBack, isLoading, preFetchedEl
               {/* Personalized Feature List */}
               <div className="border-t border-border/50 pt-4">
                 <div className="space-y-2">
-                  {personalizedBullets.map((text, idx) => (
+                  {allBullets.map((text, idx) => (
                     <div key={idx} className="flex items-center gap-2 text-sm">
                       <div className="w-5 h-5 rounded-full bg-green-500/20 flex items-center justify-center flex-shrink-0">
                         <svg className="w-3 h-3 text-green-600" viewBox="0 0 20 20" fill="currentColor">
@@ -291,11 +299,7 @@ export function UpgradeStep({ onUpgrade, onSkip, onBack, isLoading, preFetchedEl
             Continue on Free plan
           </Button>
         </div>
-        <div className="text-center mt-2">
-          <button onClick={onSkip} className="text-xs text-muted-foreground hover:underline">
-            Maybe later
-          </button>
-        </div>
+        {/* Removed redundant 'Maybe later' link; 'Continue on Free plan' already covers this action */}
 
         {/* Assurance */}
         <p className="text-xs text-muted-foreground text-center mt-3">Includes all Pro features during trial • Takes less than 10 seconds</p>
