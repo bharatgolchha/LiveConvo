@@ -39,6 +39,11 @@ export const RealtimeAudioCapture: React.FC<RealtimeAudioCaptureProps> = ({
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const recordedChunksRef = useRef<Blob[]>([]);
   const lastRecordedFileUrlRef = useRef<string | null>(null);
+  const [recordedBlob, setRecordedBlob] = useState<Blob | null>(null);
+  const [recordedFilename, setRecordedFilename] = useState<string | null>(null);
+  const [uploadedUrl, setUploadedUrl] = useState<string | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
+  const [isTranscribing, setIsTranscribing] = useState(false);
 
   // Use the real-time transcription service
   const {
@@ -452,7 +457,7 @@ const requestAllPermissions = async () => {
     
     stopRealtimeRecording();
 
-    // Stop local recorder and persist recording to server; convert to MP3 on server
+    // Stop local recorder and prepare recording blob for manual upload/transcription
     try {
       if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
         mediaRecorderRef.current.stop();
@@ -462,66 +467,9 @@ const requestAllPermissions = async () => {
       if (recordedChunksRef.current.length > 0) {
         const blob = new Blob(recordedChunksRef.current, { type: 'audio/webm' });
         const filename = `live-recording-${Date.now()}.webm`;
-        const path = `live/${filename}`;
-
-        // Upload to server route with conversion and progress
-        try {
-          await new Promise<void>((resolve, reject) => {
-            const fd = new FormData();
-            // Wrap into File where supported; fallback to Blob with name in older browsers
-            let fileLike: File;
-            try {
-              fileLike = new File([blob], filename, { type: 'audio/webm' });
-            } catch (_err) {
-              const fallback = new Blob([blob], { type: 'audio/webm' }) as any;
-              fallback.name = filename;
-              fileLike = fallback as File;
-            }
-            fd.append('file', fileLike);
-            fd.append('path', path);
-            fd.append('convert', 'mp3');
-
-            const xhr = new XMLHttpRequest();
-            xhr.open('POST', '/api/storage/offline-upload');
-            xhr.upload.onprogress = (e) => {
-              if (e.lengthComputable) {
-                setUploadProgress(Math.round((e.loaded / e.total) * 100));
-              }
-            };
-            xhr.onerror = () => reject(new Error('Network error during upload'));
-            xhr.onload = async () => {
-              try {
-                const json = JSON.parse(xhr.responseText || '{}');
-                if (xhr.status >= 200 && xhr.status < 300) {
-                  const url = json?.mp3PublicUrl || json?.publicUrl || null;
-                  if (url) {
-                    lastRecordedFileUrlRef.current = url;
-                    // Fire and forget Deepgram transcription
-                    try {
-                      await fetch('/api/transcribe/deepgram', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ file_url: url })
-                      });
-                    } catch (dgErr) {
-                      console.warn('Deepgram transcription failed:', dgErr);
-                    }
-                    resolve();
-                  } else {
-                    reject(new Error('Upload succeeded but no public URL returned'));
-                  }
-                } else {
-                  reject(new Error(json?.error || `Upload failed (${xhr.status})`));
-                }
-              } catch (err) {
-                reject(err);
-              }
-            };
-            xhr.send(fd);
-          });
-        } finally {
-          setUploadProgress(0);
-        }
+        setRecordedBlob(blob);
+        setRecordedFilename(filename);
+        setUploadedUrl(null);
       }
     } catch (saveErr) {
       console.warn('Saving recording failed:', saveErr);
@@ -552,6 +500,77 @@ const requestAllPermissions = async () => {
     console.log('🛑 Calling onStop callback NOW');
     onStop?.();
     console.log('✅ onStop callback completed');
+  };
+
+  // Upload the recorded blob to server for conversion/storage
+  const uploadRecordedBlob = async () => {
+    if (!recordedBlob || !recordedFilename) return;
+    setIsUploading(true);
+    setUploadProgress(0);
+    try {
+      await new Promise<void>((resolve, reject) => {
+        const fd = new FormData();
+        // Append Blob directly with filename to avoid using File constructor
+        fd.append('file', recordedBlob, recordedFilename);
+        fd.append('path', `live/${recordedFilename}`);
+        fd.append('convert', 'mp3');
+
+        const xhr = new XMLHttpRequest();
+        xhr.open('POST', '/api/storage/offline-upload');
+        xhr.upload.onprogress = (e) => {
+          if (e.lengthComputable) {
+            setUploadProgress(Math.round((e.loaded / e.total) * 100));
+          }
+        };
+        xhr.onerror = () => reject(new Error('Network error during upload'));
+        xhr.onload = () => {
+          try {
+            const json = JSON.parse(xhr.responseText || '{}');
+            if (xhr.status >= 200 && xhr.status < 300) {
+              const url = json?.mp3PublicUrl || json?.publicUrl || null;
+              if (url) {
+                lastRecordedFileUrlRef.current = url;
+                setUploadedUrl(url);
+                resolve();
+              } else {
+                reject(new Error('Upload succeeded but no public URL returned'));
+              }
+            } else {
+              reject(new Error(json?.error || `Upload failed (${xhr.status})`));
+            }
+          } catch (err) {
+            reject(err);
+          }
+        };
+        xhr.send(fd);
+      });
+    } catch (err) {
+      console.error('Upload failed:', err);
+    } finally {
+      setIsUploading(false);
+      setUploadProgress(0);
+    }
+  };
+
+  const transcribeUploaded = async () => {
+    if (!uploadedUrl) return;
+    setIsTranscribing(true);
+    try {
+      const resp = await fetch('/api/transcribe/deepgram', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ file_url: uploadedUrl })
+      });
+      if (!resp.ok) {
+        const txt = await resp.text();
+        throw new Error(`Transcription failed: ${txt}`);
+      }
+      // Optionally, handle segments here if needed
+    } catch (err) {
+      console.error('Transcription failed:', err);
+    } finally {
+      setIsTranscribing(false);
+    }
   };
 
   const pauseRecording = () => {
@@ -816,12 +835,37 @@ const requestAllPermissions = async () => {
             >
               Stop
             </Button>
-            {uploadProgress > 0 && (
-              <span className="text-xs text-gray-600">Uploading… {uploadProgress}%</span>
-            )}
           </>
         )}
       </div>
+
+      {/* Post-recording actions */}
+      {!isRecording && recordedBlob && (
+        <div className="flex items-center justify-center gap-3">
+          {!uploadedUrl ? (
+            <Button
+              onClick={uploadRecordedBlob}
+              variant="primary"
+              size="sm"
+              disabled={isUploading}
+            >
+              {isUploading ? `Uploading… ${uploadProgress}%` : 'Upload recording'}
+            </Button>
+          ) : (
+            <Button
+              onClick={transcribeUploaded}
+              variant="primary"
+              size="sm"
+              disabled={isTranscribing}
+            >
+              {isTranscribing ? 'Transcribing…' : 'Transcribe & diarize'}
+            </Button>
+          )}
+          {isUploading && (
+            <span className="text-xs text-gray-600">Uploading… {uploadProgress}%</span>
+          )}
+        </div>
+      )}
 
       {/* System Audio Help */}
       {captureSystemAudio && !isRecording && (

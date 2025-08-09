@@ -44,6 +44,8 @@ export function UploadRecordingModal({ isOpen, onClose, onCreated }: UploadRecor
     isUnlimited: boolean;
   } | null>(null);
   const [uploadProgress, setUploadProgress] = React.useState<number>(0);
+  const [uploadedUrl, setUploadedUrl] = React.useState<string | null>(null);
+  const [isUploading, setIsUploading] = React.useState<boolean>(false);
 
   const speakerStats = React.useMemo(() => {
     const stats: Record<string, { count: number; duration: number; sample?: string }> = {};
@@ -82,6 +84,8 @@ export function UploadRecordingModal({ isOpen, onClose, onCreated }: UploadRecor
       setAiTitle('');
       setLoading(false);
       setError(null);
+      setUploadedUrl(null);
+      setIsUploading(false);
       // cleanup recorder
       try {
         if (recordTimerRef.current) { window.clearInterval(recordTimerRef.current); recordTimerRef.current = null; }
@@ -122,17 +126,73 @@ export function UploadRecordingModal({ isOpen, onClose, onCreated }: UploadRecor
     setLoading(true);
     setStep('transcribe');
     try {
-      // Single reliable path: upload original file to server which converts to MP3 and returns public URL
+      // If using recording mode, require explicit upload first
+      if (inputMode === 'record' && recordedFile && !uploadedUrl) {
+        setError('Please upload the recording first, then click Transcribe & diarize.');
+        setLoading(false);
+        return;
+      }
+
+      // If we already have an uploaded URL (recording path), skip upload and go straight to transcription
+      if (inputMode === 'record' && uploadedUrl) {
+        const resp = await fetch('/api/transcribe/deepgram', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ file_url: uploadedUrl })
+        });
+        let data: any = null; let rawText: string | null = null;
+        try { data = await resp.json(); } catch { try { rawText = await resp.text(); } catch {}
+        }
+        if (!resp.ok) {
+          const snippet = (rawText || '').slice(0, 500);
+          setError(data?.error || `Transcription failed (HTTP ${resp.status})${snippet ? `\n\n${snippet}` : ''}`);
+          setLoading(false);
+          return;
+        }
+        const segs: Segment[] = (data?.segments || []).map((s: any) => ({
+          text: s.text,
+          speaker: s.speaker || 'speaker_1',
+          start: typeof s.start === 'number' ? s.start : 0,
+          end: typeof s.end === 'number' ? s.end : 0,
+          confidence: typeof s.confidence === 'number' ? s.confidence : undefined,
+        }));
+        // Precheck usage
+        try {
+          const { data: { session } } = await supabase.auth.getSession();
+          const preResp = await authenticatedFetch('/api/usage/precheck-offline', session, {
+            method: 'POST',
+            body: JSON.stringify({ segments: segs.map(s => ({ start: s.start, end: s.end })) })
+          });
+          const preData = await preResp.json();
+          if (!preResp.ok || preData?.allowed === false) {
+            setError(preData?.allowed === false ? `Usage limit exceeded. Required ${preData?.requiredMinutes} min, remaining ${preData?.remainingMinutes ?? 0} min.` : (preData?.error || 'Usage precheck failed'));
+            setLoading(false);
+            return;
+          }
+          setPrecheck({
+            allowed: !!preData?.allowed,
+            requiredMinutes: preData?.requiredMinutes ?? 0,
+            remainingMinutes: preData?.remainingMinutes ?? null,
+            isUnlimited: !!preData?.isUnlimited,
+          });
+        } catch (preErr: any) {
+          setError(preErr?.message || 'Failed to verify usage limits');
+          setLoading(false);
+          return;
+        }
+        setSegments(segs);
+        setStep('speakers');
+        return;
+      }
+      // Upload path for user-selected file (upload mode)
       const path = `offline/${Date.now()}-${sourceFile.name}`;
       let fileUrl: string | null = null;
       try {
         const fd = new FormData();
         fd.append('file', sourceFile);
         fd.append('path', path);
-        // Only request conversion when it's a recorded file; preserve original mp3 uploads
-        if (recordedFile) {
-          fd.append('convert', 'mp3');
-        }
+        // Only convert when it's a recorded file; preserve original mp3 uploads
+        if (inputMode === 'record') fd.append('convert', 'mp3');
 
         // Use XHR to report client upload progress
         const upData = await new Promise<any>((resolve, reject) => {
@@ -492,6 +552,13 @@ export function UploadRecordingModal({ isOpen, onClose, onCreated }: UploadRecor
               </>
               ) : (
                 <div className="flex flex-col items-center justify-center py-10">
+                  {/* Small stepper for clarity */}
+                  <div className="mb-4 text-xs text-muted-foreground flex items-center gap-3">
+                    <div className={`px-2 py-0.5 rounded ${!isRecordingAudio && !recordedFile ? 'bg-primary/20 text-primary' : 'bg-muted'}`}>1 · Record</div>
+                    <div className={`px-2 py-0.5 rounded ${recordedFile && !uploadedUrl ? 'bg-primary/20 text-primary' : 'bg-muted'}`}>2 · Upload</div>
+                    <div className={`px-2 py-0.5 rounded ${uploadedUrl ? 'bg-primary/20 text-primary' : 'bg-muted'}`}>3 · Transcribe</div>
+                  </div>
+
                   {/* Recording visualization */}
                   <div className="relative w-28 h-28">
                     <div className="absolute inset-0 rounded-full bg-primary/10 animate-ping" />
@@ -503,9 +570,16 @@ export function UploadRecordingModal({ isOpen, onClose, onCreated }: UploadRecor
                       </svg>
                     </div>
                   </div>
-                  <div className="mt-4 text-sm text-muted-foreground">{isRecordingAudio ? `Recording… ${Math.floor(recordElapsed/60).toString().padStart(2,'0')}:${(recordElapsed%60).toString().padStart(2,'0')}` : recordedFile ? 'Recording complete' : 'Ready to record'}</div>
+                  <div className="mt-2 text-sm text-muted-foreground">
+                    {isRecordingAudio
+                      ? `Recording… ${Math.floor(recordElapsed/60).toString().padStart(2,'0')}:${(recordElapsed%60).toString().padStart(2,'0')}`
+                      : recordedFile
+                        ? (uploadedUrl ? 'Uploaded ✓ — ready to transcribe' : 'Recording complete — please upload')
+                        : 'Ready to record'}
+                  </div>
                   <div className="mt-4 flex items-center gap-3">
                     {!isRecordingAudio ? (
+                      !recordedFile ? (
                       <button className="px-4 py-2 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90" onClick={async () => {
                         try {
                           // Always capture microphone
@@ -605,6 +679,7 @@ export function UploadRecordingModal({ isOpen, onClose, onCreated }: UploadRecor
                           setError(e?.message || 'Failed to start recording');
                         }
                       }} disabled={loading}>Start</button>
+                      ) : null
                     ) : (
                       <button className="px-4 py-2 rounded-lg bg-destructive text-white hover:bg-destructive/90" onClick={() => {
                         try {
@@ -619,20 +694,59 @@ export function UploadRecordingModal({ isOpen, onClose, onCreated }: UploadRecor
                       }} disabled={loading}>Stop</button>
                     )}
                     {recordedFile && !isRecordingAudio && (
-                      <button className="px-3 py-2 rounded-lg bg-muted hover:bg-muted/80 text-foreground" onClick={() => { setRecordedFile(null); setRecordElapsed(0); }}>Reset</button>
+                      <>
+                        <button className="px-3 py-2 rounded-lg bg-muted hover:bg-muted/80 text-foreground" onClick={() => { setRecordedFile(null); setRecordElapsed(0); setUploadedUrl(null); }}>Reset</button>
+                        {!uploadedUrl ? (
+                          <button
+                            className="px-3 py-2 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+                            onClick={async () => {
+                              if (!recordedFile) return;
+                              setIsUploading(true);
+                              const fd = new FormData();
+                              fd.append('file', recordedFile);
+                              fd.append('path', `offline/${Date.now()}-${recordedFile.name}`);
+                              fd.append('convert', 'mp3');
+                              try {
+                                const upResp = await fetch('/api/storage/offline-upload', { method: 'POST', body: fd });
+                                const upData = await upResp.json();
+                                if (!upResp.ok) throw new Error(upData?.error || 'Upload failed');
+                                const url = upData?.mp3PublicUrl || upData?.publicUrl || null;
+                                if (!url) throw new Error('No public URL returned');
+                                setUploadedUrl(url);
+                              } catch (e: any) {
+                                setError(e?.message || 'Upload failed');
+                              } finally {
+                                setIsUploading(false);
+                                setUploadProgress(0);
+                              }
+                            }}
+                            disabled={isUploading}
+                          >
+                            {isUploading ? `Uploading… ${uploadProgress}%` : 'Upload recording'}
+                          </button>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">Uploaded</span>
+                        )}
+                      </>
                     )}
                   </div>
-                  <div className="mt-3 text-xs text-muted-foreground flex items-center gap-2">
+                   <div className="mt-3 text-xs text-muted-foreground flex items-center gap-2">
                     <label className="inline-flex items-center gap-2 cursor-pointer">
-                      <input type="checkbox" checked={captureSystemAudio} onChange={(e)=> setCaptureSystemAudio(e.target.checked)} />
+                      <input type="checkbox" checked={captureSystemAudio} disabled={isRecordingAudio} onChange={(e)=> setCaptureSystemAudio(e.target.checked)} />
                       Capture tab/system audio (share tab audio)
                     </label>
                   </div>
-                  {captureSystemAudio && (
+                   {captureSystemAudio && !isRecordingAudio && (
                     <div className="mt-2 text-[11px] text-muted-foreground/80 text-center max-w-md">
                       Tip: When prompted, pick the meeting tab and enable "Share tab audio" so remote participants are included. We mix mic + tab audio locally for diarization.
-                    </div>
+               </div>
                   )}
+                   {recordedFile && !uploadedUrl && !isRecordingAudio && (
+                     <div className="mt-3 text-xs text-muted-foreground">Next: click <span className="text-foreground font-medium">Upload recording</span> to continue.</div>
+                   )}
+                   {uploadedUrl && (
+                     <div className="mt-3 text-xs text-primary">Uploaded successfully. Now click <span className="font-medium">Transcribe & diarize</span> below.</div>
+                   )}
                 </div>
               )}
             </div>
@@ -797,8 +911,17 @@ export function UploadRecordingModal({ isOpen, onClose, onCreated }: UploadRecor
           {step === 'upload' && (
             <button
               className="text-sm px-3 py-1.5 rounded-md bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
-              disabled={!(file || recordedFile) || loading}
+              disabled={
+                loading ||
+                (!file && !recordedFile) ||
+                (inputMode === 'record' && !!recordedFile && !uploadedUrl)
+              }
               onClick={handleTranscribe}
+              title={
+                inputMode === 'record' && recordedFile && !uploadedUrl
+                  ? 'Please upload the recording first'
+                  : undefined
+              }
             >
               Transcribe & diarize
             </button>
