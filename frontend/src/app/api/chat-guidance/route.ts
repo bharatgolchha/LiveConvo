@@ -829,12 +829,18 @@ export async function POST(request: NextRequest) {
         enhancedTextContext ? `• Context: ${enhancedTextContext.substring(0, 5000)}` : '',
         meetingUrl ? `• Platform: ${meetingUrl}` : ''
       ].filter(Boolean).join('\n');
-      const streamingSystem = `You are Nova, ${participantMe || 'You'}'s helpful AI meeting advisor.
+      const ownerName = sessionOwnerResolved?.fullName || sessionOwnerResolved?.email || 'the user';
+      const streamingSystem = `You are Nova, ${ownerName}'s helpful AI meeting advisor.
 
 Strict output rules:
 - Output ONLY in clean, conversational Markdown (no JSON, no XML, no code fences unless showing code).
 - Keep responses concise and avoid repetition.
 - Keep it scannable: short paragraphs, bullets, and **bold** for emphasis when helpful.
+
+Identity & addressing rules:
+- The primary user is ${ownerName} (${sessionOwnerResolved?.email || 'unknown email'}). Treat them as "You" in guidance.
+- If asked "Who am I?", answer: "You are ${ownerName}" (include email if appropriate).
+- Refer to other participants by their names from the transcript/title; never confuse them with the primary user.
 
 Context
 Mode: ${live ? 'LIVE' : 'PREP'} | Stage: ${stage}
