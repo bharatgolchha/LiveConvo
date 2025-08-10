@@ -737,9 +737,36 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // Resolve session owner from authenticated user (do not trust client input)
+    let sessionOwnerResolved = sessionOwner;
+    try {
+      const authHeader = request.headers.get('authorization');
+      const token = authHeader?.split(' ')[1];
+      if (token) {
+        const supabase = createAuthenticatedSupabaseClient(token);
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          // Fetch user profile for name and personal context if available
+          const { data: userData } = await supabase
+            .from('users')
+            .select('full_name, personal_context')
+            .eq('id', user.id)
+            .single();
+          sessionOwnerResolved = {
+            id: user.id,
+            email: user.email || 'unknown@user',
+            fullName: (userData as any)?.full_name || (user.user_metadata as any)?.full_name || (user.user_metadata as any)?.name || (user.email ? user.email.split('@')[0] : null),
+            personalContext: (userData as any)?.personal_context || finalPersonalContext || null,
+          };
+        }
+      }
+    } catch (e) {
+      // If anything fails, keep whatever we had
+    }
+
     // Generate system prompt based on mode (non-stream default)
     const systemPrompt = mode === 'dashboard' 
-      ? getDashboardSystemPrompt(enhancedDashboardContext, finalPersonalContext || undefined, sessionOwner, searchResults)
+      ? getDashboardSystemPrompt(enhancedDashboardContext, finalPersonalContext || undefined, sessionOwnerResolved, searchResults)
       : getChatGuidanceSystemPrompt(
           effectiveConversationType, 
           isRecording, 
@@ -750,7 +777,7 @@ export async function POST(request: NextRequest) {
           enhancedTextContext || undefined, 
           meetingUrl || undefined,
           effectiveTranscript || undefined,
-          sessionOwner,
+          sessionOwnerResolved,
           aiInstructions || undefined,
           searchResults,
           fileAttachments
