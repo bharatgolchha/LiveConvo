@@ -940,7 +940,7 @@ export const EnhancedAIChat = forwardRef<EnhancedAIChatRef>((props, ref) => {
       
       {/* Messages */}
       <div className="flex-1 overflow-y-auto">
-        <div className="p-4 space-y-4">
+        <div className="p-3 space-y-4">
           <AnimatePresence>
             {messages.map((message) => {
               const Icon = getMessageIcon(message.role, message.isError);
@@ -1138,7 +1138,7 @@ export const EnhancedAIChat = forwardRef<EnhancedAIChatRef>((props, ref) => {
         
         {/* Initial Prompts - Show after welcome message when no other messages */}
         {messages.length === 1 && messages[0].id === 'welcome' && initialPrompts.length > 0 && !isTyping && (
-          <div className="px-4 pb-4">
+          <div className="px-3 pb-3">
             <SuggestedPrompts
               suggestions={initialPrompts}
               onPromptClick={handlePromptClick}
@@ -1172,7 +1172,7 @@ export const EnhancedAIChat = forwardRef<EnhancedAIChatRef>((props, ref) => {
       )}
 
       {/* Input */}
-      <div className="flex-shrink-0 p-4 border-t border-border bg-card/50">
+      <div className="flex-shrink-0 p-3 border-t border-border bg-card/50">
         <form onSubmit={handleSubmit} className="space-y-2">
           {/* File attachments preview - minimal and above input */}
           {canUploadFiles && fileAttachments.length > 0 && (
@@ -1197,7 +1197,7 @@ export const EnhancedAIChat = forwardRef<EnhancedAIChatRef>((props, ref) => {
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 placeholder={canUploadFiles ? "Ask AI anything about the meeting..." : "Ask AI anything... (File uploads available with Pro plan)"}
-                className={`flex-1 px-2 py-2.5 bg-transparent focus:outline-none text-sm ${!canUploadFiles ? 'pl-4' : ''}`}
+                className={`flex-1 px-2 py-2 bg-transparent focus:outline-none text-sm ${!canUploadFiles ? 'pl-4' : ''}`}
                 disabled={isStreaming}
                 maxLength={500}
               />
@@ -1222,12 +1222,12 @@ export const EnhancedAIChat = forwardRef<EnhancedAIChatRef>((props, ref) => {
             </div>
           </div>
 
-          {/* Character count and save status */}
-          <div className="flex justify-between items-center text-xs text-muted-foreground px-1">
+          {/* Character count and save status (compact) */}
+          <div className="flex justify-between items-center text-[11px] text-muted-foreground px-1">
             <span className="flex items-center gap-2">
-              {transcript.length > 0
-                ? `${transcript.length} transcript lines available`
-                : 'No transcript yet'}
+              <span title={transcript.length > 0 ? `${transcript.length} transcript lines available` : 'No transcript yet'}>
+                {transcript.length > 0 ? `${transcript.length} lines` : 'No transcript'}
+              </span>
               {isSaving && (
                 <span className="text-primary animate-pulse">• Saving...</span>
               )}

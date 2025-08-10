@@ -9,7 +9,6 @@ import { QuickActions } from './QuickActions';
 import { supabase } from '@/lib/supabase';
 import { toast } from 'sonner';
 import { 
-  SparklesIcon, 
   ChatBubbleLeftRightIcon,
   LightBulbIcon,
   ChartBarIcon,
@@ -31,15 +30,15 @@ export function AIAdvisorPanel({
 }: AIAdvisorPanelProps & { isMobile?: boolean }) {
   const { botStatus, transcript, meeting, addSmartNote } = useMeetingContext();
   const [activeTab, setActiveTab] = useState<TabType>('chat');
-  const [internalIsMinimized, setInternalIsMinimized] = useState(false);
+  const [internalIsMinimized] = useState(false);
   const [autoSwitched, setAutoSwitched] = useState(false);
+  const [suggestionsCount, setSuggestionsCount] = useState(0);
   const chatRef = useRef<EnhancedAIChatRef>(null);
   const isMobileDetected = useIsMobile();
   const isMobile = isMobileProp ?? isMobileDetected;
   
   // Use external state if provided, otherwise use internal state
   const isMinimized = onMinimizedChange ? externalIsMinimized : internalIsMinimized;
-  const setIsMinimized = onMinimizedChange || setInternalIsMinimized;
 
   const handleClearChat = () => {
     if (chatRef.current && activeTab === 'chat') {
@@ -56,6 +55,15 @@ export function AIAdvisorPanel({
   }, [autoSwitched, botStatus?.status, transcript.length]);
 
   // Listen for suggestion usage events and switch to chat tab
+  useEffect(() => {
+    const updateCount = (e: Event) => {
+      const { count } = (e as CustomEvent).detail || {};
+      setSuggestionsCount(typeof count === 'number' ? count : 0);
+    };
+    window.addEventListener('smartSuggestionsUpdated', updateCount);
+    return () => window.removeEventListener('smartSuggestionsUpdated', updateCount);
+  }, []);
+
   useEffect(() => {
     const handleUseSuggestion = () => {
       setActiveTab('chat');
@@ -141,12 +149,6 @@ export function AIAdvisorPanel({
       icon: ChartBarIcon,
       description: 'Meeting analytics' 
     },
-    { 
-      id: 'settings' as TabType, 
-      label: 'Settings', 
-      icon: Cog6ToothIcon,
-      description: 'Advisor preferences' 
-    },
   ];
 
   const getTabContent = () => {
@@ -166,20 +168,52 @@ export function AIAdvisorPanel({
 
   return (
     <div className={`${isMobile ? 'h-full' : 'h-full'} w-full flex flex-col bg-card ${isMobile ? '' : 'border-l'} border-border transition-all duration-300`}>
-      {/* Header */}
-      <div className="flex-shrink-0 p-4 border-b border-border bg-card/50 backdrop-blur-sm">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-gradient-to-br from-primary/20 to-primary/10 rounded-lg">
-              <SparklesIcon className="w-5 h-5 text-primary" />
+      {/* Compact header with only tabs and a clear button on the right */}
+      {!isMinimized && (
+        <div className="flex-shrink-0 px-4 py-2 border-b border-border bg-card/50 backdrop-blur-sm">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex flex-1">
+              {tabs.map((tab) => {
+                const Icon = tab.icon;
+                const isActive = activeTab === tab.id;
+                return (
+                  <button
+                    key={tab.id}
+                    onClick={() => setActiveTab(tab.id)}
+                    className={`relative flex items-center gap-1.5 px-3 sm:px-4 py-2 sm:py-2.5 transition-all whitespace-nowrap ${
+                      isActive ? 'text-foreground' : 'text-muted-foreground hover:text-foreground'
+                    }`}
+                    title={tab.description}
+                  >
+                    <Icon className="w-3.5 h-3.5 sm:w-4 sm:h-4 flex-shrink-0" />
+                    <span className="text-xs sm:text-sm font-medium hidden md:inline">
+                      {tab.label}
+                      {tab.id === 'suggestions' && suggestionsCount > 0 && (
+                        <span className="ml-1 px-1 py-0.5 text-[10px] bg-primary text-primary-foreground rounded-full leading-none">
+                          {suggestionsCount}
+                        </span>
+                      )}
+                    </span>
+                    {isActive && (
+                      <motion.div
+                        layoutId="activeTab"
+                        className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary"
+                        transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+                      />
+                    )}
+                  </button>
+                );
+              })}
             </div>
-            {!isMinimized && (
-              <h2 className="font-semibold text-foreground text-sm">Nova</h2>
-            )}
-          </div>
-          <div className="flex items-center gap-1">
-            {/* Clear chat button - only show when on chat tab */}
-            {activeTab === 'chat' && !isMinimized && (
+            {/* Settings gear moved here */}
+            <button
+              onClick={() => setActiveTab('settings')}
+              className={`p-1.5 rounded-md transition-colors ${activeTab === 'settings' ? 'bg-muted text-foreground' : 'hover:bg-muted text-muted-foreground'}`}
+              title="Advisor settings"
+            >
+              <Cog6ToothIcon className="w-4 h-4" />
+            </button>
+            {activeTab === 'chat' && (
               <button
                 onClick={handleClearChat}
                 className="p-1.5 hover:bg-muted rounded-md transition-colors text-muted-foreground hover:text-foreground"
@@ -188,58 +222,9 @@ export function AIAdvisorPanel({
                 <TrashIcon className="w-4 h-4" />
               </button>
             )}
-            {!isMobile && (
-              <button
-                onClick={() => setIsMinimized(!isMinimized)}
-                className="p-1.5 hover:bg-muted rounded-md transition-colors"
-                title={isMinimized ? 'Expand' : 'Minimize'}
-              >
-              <motion.div
-                animate={{ rotate: isMinimized ? 180 : 0 }}
-                transition={{ duration: 0.2 }}
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                </svg>
-              </motion.div>
-              </button>
-            )}
           </div>
         </div>
-
-        {/* Tabs */}
-        {!isMinimized && (
-          <div className="flex mt-4 bg-muted/30 rounded-lg p-1">
-            {tabs.map((tab) => {
-              const Icon = tab.icon;
-              return (
-                <button
-                  key={tab.id}
-                  onClick={() => setActiveTab(tab.id)}
-                  className={`flex-1 relative px-2 py-1.5 rounded-md text-xs font-medium transition-all ${
-                    activeTab === tab.id
-                      ? 'bg-primary text-primary-foreground shadow-sm'
-                      : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
-                  }`}
-                  title={tab.description}
-                >
-                  <div className="flex items-center justify-center gap-1">
-                    <Icon className="w-3.5 h-3.5" />
-                    <span className="hidden sm:inline">{tab.label}</span>
-                  </div>
-                  {activeTab === tab.id && (
-                    <motion.div
-                      layoutId="activeTab"
-                      className="absolute inset-0 bg-primary rounded-md shadow-sm"
-                      style={{ zIndex: -1 }}
-                    />
-                  )}
-                </button>
-              );
-            })}
-          </div>
-        )}
-      </div>
+      )}
 
       {/* Content */}
       <div className="flex-1 overflow-hidden">

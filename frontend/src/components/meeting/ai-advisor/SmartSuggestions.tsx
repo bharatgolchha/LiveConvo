@@ -46,6 +46,13 @@ export function SmartSuggestions() {
   const [error, setError] = useState<string | null>(null);
   const [documentContext, setDocumentContext] = useState<string>('');
 
+  // Broadcast suggestion count to other UI (e.g., tab badge)
+  useEffect(() => {
+    try {
+      window.dispatchEvent(new CustomEvent('smartSuggestionsUpdated', { detail: { count: suggestions.length } }));
+    } catch {}
+  }, [suggestions.length]);
+
   // Load document context from chat history and poll for updates
   useEffect(() => {
     const loadDocumentContext = async () => {

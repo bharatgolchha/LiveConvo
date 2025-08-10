@@ -20,8 +20,8 @@ export function SuggestedPrompts({ suggestions, onPromptClick, loading = false }
   }
 
   return (
-    <div className="px-4 py-3 border-t border-border/50">
-      <div className="flex items-center gap-2 mb-2">
+    <div className="px-3 py-2 border-t border-border/50">
+      <div className="flex items-center gap-2 mb-1">
         <SparklesIcon className="w-3.5 h-3.5 text-primary/60" />
         <span className="text-xs text-muted-foreground font-medium">Suggested prompts</span>
       </div>
@@ -38,7 +38,7 @@ export function SuggestedPrompts({ suggestions, onPromptClick, loading = false }
               onClick={() => onPromptClick(suggestion.prompt)}
               disabled={loading}
               className={`
-                flex-shrink-0 px-3 py-1.5 text-xs rounded-full
+                flex-shrink-0 px-2.5 py-1 text-[11px] rounded-full
                 bg-primary/5 hover:bg-primary/10 
                 text-foreground/80 hover:text-foreground
                 border border-primary/10 hover:border-primary/20
