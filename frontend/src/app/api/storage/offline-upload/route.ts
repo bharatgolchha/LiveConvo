@@ -136,22 +136,43 @@ export async function POST(request: NextRequest) {
         const { data: mp3Public } = supabase.storage
           .from('offline-recordings')
           .getPublicUrl(mp3Path)
-        return NextResponse.json({ mp3Path, mp3PublicUrl: mp3Public?.publicUrl, publicUrl: mp3Public?.publicUrl })
+        // Provide a signed URL for playback even if bucket is private
+        const { data: mp3Signed } = await supabase.storage
+          .from('offline-recordings')
+          .createSignedUrl(mp3Path, 60 * 60) // 1 hour
+        return NextResponse.json({ 
+          converted: true,
+          mp3Path, 
+          mp3PublicUrl: mp3Public?.publicUrl, 
+          publicUrl: mp3Public?.publicUrl,
+          signedUrl: mp3Signed?.signedUrl,
+          originalExt,
+          requestedConvert: convert === 'mp3'
+        })
       } catch (e: any) {
+        console.error('MP3 conversion failed, falling back to original upload:', e?.message)
         // Fallback: upload original bytes without conversion to unblock users
         try {
           const ct = file.type || 'audio/webm'
+          const fallbackPath = `${basePathNoExt}.${originalExt || 'webm'}`
           const fallbackUrl = await uploadOriginalFile({
             supabase,
             bucket: 'offline-recordings',
-            uploadPath: `${basePathNoExt}.${originalExt || 'webm'}`,
+            uploadPath: fallbackPath,
             bytes,
             contentType: ct,
           })
+          const { data: signed } = await supabase.storage
+            .from('offline-recordings')
+            .createSignedUrl(fallbackPath, 60 * 60)
           return NextResponse.json({
+            converted: false,
             publicUrl: fallbackUrl,
+            signedUrl: signed?.signedUrl,
             conversion_warning: e?.message || 'MP3 conversion failed, uploaded original format instead',
             fallback_used: true,
+            originalExt,
+            requestedConvert: convert === 'mp3'
           })
         } catch (fallbackErr: any) {
           return jsonError('Upload failed after conversion error', {
@@ -181,7 +202,7 @@ export async function POST(request: NextRequest) {
           bytes,
           contentType: ct,
         })
-        return NextResponse.json({ path: uploadPath, publicUrl: url })
+        return NextResponse.json({ path: uploadPath, publicUrl: url, converted: false, originalExt, requestedConvert: false })
       } catch (upErr: any) {
         return jsonError(upErr?.message || 'Upload failed', { path: uploadPath }, 400)
       }
