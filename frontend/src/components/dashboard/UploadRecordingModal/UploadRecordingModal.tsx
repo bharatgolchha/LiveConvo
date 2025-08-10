@@ -186,39 +186,28 @@ export function UploadRecordingModal({ isOpen, onClose, onCreated }: UploadRecor
         setStep('speakers');
         return;
       }
-      // Upload path for user-selected file (upload mode)
+      // Direct-to-Supabase upload via signed URL (bypasses Vercel limits)
       const path = `offline/${Date.now()}-${sourceFile.name}`;
       let fileUrl: string | null = null;
       try {
-        const fd = new FormData();
-        fd.append('file', sourceFile);
-        fd.append('path', path);
-        // Do not convert on server to avoid env/ffmpeg issues in production; Deepgram accepts webm/ogg/mp4 directly
-
-        // Use XHR to report client upload progress
-        const upData = await new Promise<any>((resolve, reject) => {
-          const xhr = new XMLHttpRequest();
-          xhr.open('POST', '/api/storage/offline-upload');
-          xhr.upload.onprogress = (e) => {
-            if (e.lengthComputable) {
-              const pct = Math.round((e.loaded / e.total) * 100);
-              setUploadProgress(pct);
-            }
-          };
-          xhr.onerror = () => reject(new Error('Network error during upload'));
-          xhr.onload = () => {
-            try {
-              const json = JSON.parse(xhr.responseText || '{}');
-              if (xhr.status >= 200 && xhr.status < 300) resolve(json);
-              else reject(new Error(json?.error || `Upload failed (${xhr.status})`));
-            } catch (err) {
-              reject(err);
-            }
-          };
-          xhr.send(fd);
+        setUploadProgress(1);
+        const sigResp = await fetch('/api/storage/signed-upload', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ path, bucket: 'offline-recordings' })
         });
-        // Support either mp3PublicUrl (when converted) or publicUrl (original upload)
-        fileUrl = upData?.mp3PublicUrl || upData?.publicUrl || null;
+        const sigData = await sigResp.json();
+        if (!sigResp.ok) throw new Error(sigData?.error || 'Failed to get signed upload URL');
+        const token: string = sigData.token;
+        const bucket: string = sigData.bucket || 'offline-recordings';
+
+        const { error: upErr } = await supabase.storage
+          .from(bucket)
+          .uploadToSignedUrl(path, token, sourceFile as File);
+        if (upErr) throw upErr;
+
+        const { data: pub } = supabase.storage.from(bucket).getPublicUrl(path);
+        fileUrl = pub?.publicUrl || null;
       } catch (clientUploadErr: any) {
         setError(clientUploadErr?.message || 'Upload failed');
         setLoading(false);
@@ -693,43 +682,39 @@ export function UploadRecordingModal({ isOpen, onClose, onCreated }: UploadRecor
                     {recordedFile && !isRecordingAudio && (
                       <>
                         <button className="px-3 py-2 rounded-lg bg-muted hover:bg-muted/80 text-foreground" onClick={() => { setRecordedFile(null); setRecordedBlob(null); setRecordedFilename(null); setRecordElapsed(0); setUploadedUrl(null); }}>Reset</button>
-                        {!uploadedUrl ? (
+                            {!uploadedUrl ? (
                           <button
                             className="px-3 py-2 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
                             onClick={async () => {
                               if (!recordedBlob || !recordedFilename) return;
                               setIsUploading(true);
                               try {
-                                await new Promise<void>((resolve, reject) => {
-                                  const fd = new FormData();
-                                  // Append blob with filename to avoid File constructor
-                                  fd.append('file', recordedBlob, recordedFilename);
-                                  fd.append('path', `offline/${Date.now()}-${recordedFilename}`);
-                                  // For recorded files, request MP3 conversion on server
-                                  fd.append('convert', 'mp3');
-                                  const xhr = new XMLHttpRequest();
-                                  xhr.open('POST', '/api/storage/offline-upload');
-                                  xhr.upload.onprogress = (e) => {
-                                    if (e.lengthComputable) setUploadProgress(Math.round((e.loaded / e.total) * 100));
-                                  };
-                                  xhr.onerror = () => reject(new Error('Network error during upload'));
-                                  xhr.onload = () => {
-                                    try {
-                                      const json = JSON.parse(xhr.responseText || '{}');
-                                      if (xhr.status >= 200 && xhr.status < 300) {
-                                        const url = json?.mp3PublicUrl || json?.publicUrl || null;
-                                        if (!url) return reject(new Error('No public URL returned'));
-                                        setUploadedUrl(url);
-                                        resolve();
-                                      } else {
-                                        reject(new Error(json?.error || `Upload failed (${xhr.status})`));
-                                      }
-                                    } catch (err) {
-                                      reject(err as any);
-                                    }
-                                  };
-                                  xhr.send(fd);
+                                setUploadProgress(1);
+                                const path = `offline/${Date.now()}-${recordedFilename}`;
+                                // 1) Create signed URL from server
+                                const sigResp = await fetch('/api/storage/signed-upload', {
+                                  method: 'POST',
+                                  headers: { 'Content-Type': 'application/json' },
+                                  body: JSON.stringify({ path, bucket: 'offline-recordings' })
                                 });
+                                const sigData = await sigResp.json();
+                                if (!sigResp.ok) throw new Error(sigData?.error || 'Failed to get signed upload URL');
+                                const token: string = sigData.token;
+                                const bucket: string = sigData.bucket || 'offline-recordings';
+
+                                // 2) Convert blob to File for upload API
+                                const fileForUpload = new File([recordedBlob], recordedFilename, { type: recordedBlob.type || 'audio/mpeg' });
+
+                                // 3) Direct upload to Supabase using signed URL
+                                const { error: upErr } = await supabase.storage
+                                  .from(bucket)
+                                  .uploadToSignedUrl(path, token, fileForUpload);
+                                if (upErr) throw upErr;
+
+                                const { data: pub } = supabase.storage.from(bucket).getPublicUrl(path);
+                                const url = pub?.publicUrl || null;
+                                if (!url) throw new Error('No public URL returned');
+                                setUploadedUrl(url);
                               } catch (e: any) {
                                 setError(e?.message || 'Upload failed');
                               } finally {

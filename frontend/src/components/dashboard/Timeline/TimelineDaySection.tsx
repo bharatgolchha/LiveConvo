@@ -63,8 +63,6 @@ export const TimelineDaySection: React.FC<TimelineDaySectionProps> = ({ group, c
             >
               {group.sessions.map(session => (
                 <li key={session.id} role="listitem" className="relative pl-10 sm:pl-12">
-                  {/* Dot on rail */}
-                  <span className="absolute left-6 sm:left-8 top-4 -translate-x-1/2 w-2.5 h-2.5 rounded-full bg-primary shadow" aria-hidden />
                   <MeetingCardAdapter
                     session={session as any}
                     selected={!!selectedIds?.has(session.id)}

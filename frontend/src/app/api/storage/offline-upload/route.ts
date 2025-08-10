@@ -81,8 +81,19 @@ export async function POST(request: NextRequest) {
 
     const form = await request.formData()
     const file = form.get('file') as File | null
-    const pathOverride = (form.get('path') as string | null) || undefined
+    const rawPath = (form.get('path') as string | null) || undefined
     const convert = (form.get('convert') as string | null) || undefined
+
+    // Sanitize path override (keep folder structure; sanitize only filename)
+    let pathOverride: string | undefined = undefined
+    if (rawPath && typeof rawPath === 'string') {
+      const trimmed = rawPath.replace(/^\/+/, '') // remove any leading slashes
+      const parts = trimmed.split('/')
+      const base = parts.pop() || ''
+      const dir = parts.join('/')
+      const sanitizedBase = base.replace(/[^a-zA-Z0-9._-]/g, '_')
+      pathOverride = dir ? `${dir}/${sanitizedBase}` : sanitizedBase
+    }
 
     if (!file) {
       return NextResponse.json({ error: 'No file provided' }, { status: 400 })
