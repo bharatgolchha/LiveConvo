@@ -78,8 +78,8 @@ export function LiveTranscriptTab() {
     if (filteredTranscript.length === 0) return [] as any[];
     const groups: any[] = [];
     const MAX_GAP_MS = 8 * 1000; // 8s max gap – conservative to avoid over-grouping
-    const MAX_LINES_PER_GROUP = 2; // limit grouping to 2 lines
-    const MAX_LINE_LEN = 140; // only merge short-ish lines
+    const MAX_LINES_PER_GROUP = 3; // allow slightly longer paragraphs
+    const MAX_LINE_LEN = 160; // modestly longer lines for natural flow
     let current: any | null = null;
     
     for (const msg of filteredTranscript) {

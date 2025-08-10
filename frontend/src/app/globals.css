@@ -174,6 +174,12 @@
     --timeline-action-bg: 38 100% 92%;
     --timeline-question: 160 60% 15%;    /* primary-900 #0B3D2E */
     --timeline-question-bg: 160 60% 90%;
+
+    /* Chat bubble tokens (light) */
+    --bubble-me-bg: var(--app-primary) / 0.10;      /* subtle primary tint */
+    --bubble-me-border: var(--app-primary) / 0.25;  /* soft border */
+    --bubble-other-bg: var(--muted);                /* neutral card */
+    --bubble-border: var(--border);
   }
 
   .dark {
@@ -244,6 +250,12 @@
     --timeline-action-bg: 158 16% 10%;   /* surface-1 #141A18 */
     --timeline-question: 158 52% 61%;    /* primary-600 #59D3A3 */
     --timeline-question-bg: 158 16% 10%; /* surface-1 #141A18 */
+
+    /* Chat bubble tokens (dark) */
+    --bubble-me-bg: var(--app-primary) / 0.18;      /* slightly stronger tint for dark */
+    --bubble-me-border: var(--app-primary) / 0.30;
+    --bubble-other-bg: var(--muted);
+    --bubble-border: var(--border);
   }
 
   @media (prefers-color-scheme: dark) {

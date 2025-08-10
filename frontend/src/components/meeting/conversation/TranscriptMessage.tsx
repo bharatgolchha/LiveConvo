@@ -178,7 +178,7 @@ function TranscriptMessageComponent({ message, previousSpeaker, isSelected, onTo
         </div>
 
         {/* Message Content */}
-        <div className={`flex-1 min-w-0 max-w-[85%] ${isMe ? 'flex flex-col items-end' : 'flex flex-col items-start'}`}>
+        <div className={`flex-1 min-w-0 max-w-[90%] md:max-w-[720px] ${isMe ? 'flex flex-col items-end' : 'flex flex-col items-start'}`}>
           {showAvatar && (
             <motion.div 
               initial={{ opacity: 0 }}
@@ -226,12 +226,11 @@ function TranscriptMessageComponent({ message, previousSpeaker, isSelected, onTo
             <div className={`
               relative px-4 py-3 rounded-2xl shadow-sm border transition-all duration-200
               ${isMe 
-                ? 'bg-primary text-primary-foreground border-primary/20' 
-                : 'bg-card text-card-foreground border-border hover:border-border/80'
+                ? 'bg-[hsl(var(--app-primary)/0.14)] text-foreground border-[hsl(var(--app-primary)/0.25)]' 
+                : 'bg-[hsl(var(--muted))] text-foreground border-[hsl(var(--border))]'
               }
               ${message.isPartial ? '' : ''}
-              ${isMe ? 'ring-1 ring-yellow-400/30' : ''}
-              ${isSelected ? 'ring-2 ring-primary/60 border-primary/40' : ''}
+              ${isSelected ? 'ring-2 ring-[hsl(var(--app-primary))] border-[hsl(var(--app-primary)/0.35)]' : ''}
               group-hover:shadow-md
             `}
             onClick={handleToggleSelect}
@@ -239,7 +238,7 @@ function TranscriptMessageComponent({ message, previousSpeaker, isSelected, onTo
             tabIndex={0}
             onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleToggleSelect(e); } }}
             >
-              <p className={`text-sm leading-relaxed whitespace-pre-wrap break-words ${
+              <p className={`text-[15px] leading-7 whitespace-pre-wrap break-words ${
                 message.isPartial ? 'italic' : ''
               }`}>
                 {message.text}
@@ -335,8 +334,8 @@ function TranscriptMessageComponent({ message, previousSpeaker, isSelected, onTo
             <div className={`
               absolute top-3 w-3 h-3 transform rotate-45 border transition-all duration-200
               ${isMe 
-                ? 'right-[-6px] bg-primary border-primary/20' 
-                : 'left-[-6px] bg-card border-border'
+                ? 'right-[-6px] bg-[hsl(var(--app-primary)/0.14)] border-[hsl(var(--app-primary)/0.25)]' 
+                : 'left-[-6px] bg-[hsl(var(--muted))] border-[hsl(var(--border))]'
               }
             `} />
           </motion.div>
