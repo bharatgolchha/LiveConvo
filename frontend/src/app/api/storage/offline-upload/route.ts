@@ -1,5 +1,29 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase'
+
+function jsonError(message: string, details?: unknown, status: number = 500) {
+  // Trim stack/details to avoid huge responses
+  const safeDetails = details && typeof details === 'object'
+    ? Object.fromEntries(Object.entries(details as any).slice(0, 10))
+    : details;
+  return NextResponse.json({ error: message, details: safeDetails }, { status })
+}
+
+async function uploadOriginalFile(args: {
+  supabase: ReturnType<typeof createServerSupabaseClient>,
+  bucket: string,
+  uploadPath: string,
+  bytes: Buffer,
+  contentType: string,
+}) {
+  const { supabase, bucket, uploadPath, bytes, contentType } = args
+  const { error: upErr } = await supabase.storage
+    .from(bucket)
+    .upload(uploadPath, bytes, { contentType, upsert: true })
+  if (upErr) throw new Error(upErr.message)
+  const { data: pub } = supabase.storage.from(bucket).getPublicUrl(uploadPath)
+  return pub?.publicUrl || null
+}
 async function convertToMp3(inputBuffer: Buffer): Promise<Buffer> {
   // Dynamic import to avoid bundling in environments where not needed
   const ffmpeg = (await import('fluent-ffmpeg')).default as any
@@ -32,9 +56,17 @@ export const runtime = 'nodejs'
 
 export async function POST(request: NextRequest) {
   try {
+    // Environment validation for clearer errors in production
+    if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+      return jsonError('Supabase server configuration missing', {
+        hasUrl: !!process.env.NEXT_PUBLIC_SUPABASE_URL,
+        hasServiceRoleKey: !!process.env.SUPABASE_SERVICE_ROLE_KEY,
+      })
+    }
+
     const contentType = request.headers.get('content-type') || ''
     if (!contentType.includes('multipart/form-data')) {
-      return NextResponse.json({ error: 'Expected multipart/form-data' }, { status: 400 })
+      return jsonError('Expected multipart/form-data', undefined, 400)
     }
 
     const form = await request.formData()
@@ -52,7 +84,12 @@ export async function POST(request: NextRequest) {
     // Note: ignore errors if already exists
     try {
       await supabase.storage.createBucket('offline-recordings', { public: true })
-    } catch (_e) {}
+    } catch (_e) {
+      // Ignore if exists; log others
+      if (process.env.NODE_ENV !== 'production') {
+        console.warn('Bucket create skipped/failed (likely exists):', (_e as any)?.message)
+      }
+    }
 
     const bytes = Buffer.from(await file.arrayBuffer())
     const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_')
@@ -73,14 +110,34 @@ export async function POST(request: NextRequest) {
           .from('offline-recordings')
           .upload(mp3Path, mp3Buffer, { contentType: 'audio/mpeg', upsert: true })
         if (upMp3Err) {
-          return NextResponse.json({ error: upMp3Err.message }, { status: 400 })
+          return jsonError(upMp3Err.message, { path: mp3Path }, 400)
         }
         const { data: mp3Public } = supabase.storage
           .from('offline-recordings')
           .getPublicUrl(mp3Path)
         return NextResponse.json({ mp3Path, mp3PublicUrl: mp3Public?.publicUrl, publicUrl: mp3Public?.publicUrl })
       } catch (e: any) {
-        return NextResponse.json({ error: e?.message || 'MP3 conversion failed' }, { status: 500 })
+        // Fallback: upload original bytes without conversion to unblock users
+        try {
+          const ct = file.type || 'audio/webm'
+          const fallbackUrl = await uploadOriginalFile({
+            supabase,
+            bucket: 'offline-recordings',
+            uploadPath: `${basePathNoExt}.${originalExt || 'webm'}`,
+            bytes,
+            contentType: ct,
+          })
+          return NextResponse.json({
+            publicUrl: fallbackUrl,
+            conversion_warning: e?.message || 'MP3 conversion failed, uploaded original format instead',
+            fallback_used: true,
+          })
+        } catch (fallbackErr: any) {
+          return jsonError('Upload failed after conversion error', {
+            conversionError: e?.message,
+            fallbackError: fallbackErr?.message,
+          })
+        }
       }
     } else {
       // Upload original file without conversion
@@ -95,19 +152,21 @@ export async function POST(request: NextRequest) {
         else if (originalExt === 'm4a' || originalExt === 'mp4') ct = 'audio/mp4'
       }
 
-      const { error: upErr } = await supabase.storage
-        .from('offline-recordings')
-        .upload(uploadPath, bytes, { contentType: ct, upsert: true })
-      if (upErr) {
-        return NextResponse.json({ error: upErr.message }, { status: 400 })
+      try {
+        const url = await uploadOriginalFile({
+          supabase,
+          bucket: 'offline-recordings',
+          uploadPath,
+          bytes,
+          contentType: ct,
+        })
+        return NextResponse.json({ path: uploadPath, publicUrl: url })
+      } catch (upErr: any) {
+        return jsonError(upErr?.message || 'Upload failed', { path: uploadPath }, 400)
       }
-      const { data: pub } = supabase.storage
-        .from('offline-recordings')
-        .getPublicUrl(uploadPath)
-      return NextResponse.json({ path: uploadPath, publicUrl: pub?.publicUrl })
     }
   } catch (err: any) {
-    return NextResponse.json({ error: err?.message || 'Upload failed' }, { status: 500 })
+    return jsonError(err?.message || 'Upload failed')
   }
 }
 

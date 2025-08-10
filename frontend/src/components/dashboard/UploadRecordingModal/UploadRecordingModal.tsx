@@ -193,8 +193,7 @@ export function UploadRecordingModal({ isOpen, onClose, onCreated }: UploadRecor
         const fd = new FormData();
         fd.append('file', sourceFile);
         fd.append('path', path);
-        // Only convert when it's a recorded file; preserve original mp3 uploads
-        if (inputMode === 'record') fd.append('convert', 'mp3');
+        // Do not convert on server to avoid env/ffmpeg issues in production; Deepgram accepts webm/ogg/mp4 directly
 
         // Use XHR to report client upload progress
         const upData = await new Promise<any>((resolve, reject) => {
@@ -706,7 +705,6 @@ export function UploadRecordingModal({ isOpen, onClose, onCreated }: UploadRecor
                                   // Append blob with filename to avoid File constructor
                                   fd.append('file', recordedBlob, recordedFilename);
                                   fd.append('path', `offline/${Date.now()}-${recordedFilename}`);
-                                  fd.append('convert', 'mp3');
                                   const xhr = new XMLHttpRequest();
                                   xhr.open('POST', '/api/storage/offline-upload');
                                   xhr.upload.onprogress = (e) => {
