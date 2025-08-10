@@ -705,6 +705,8 @@ export function UploadRecordingModal({ isOpen, onClose, onCreated }: UploadRecor
                                   // Append blob with filename to avoid File constructor
                                   fd.append('file', recordedBlob, recordedFilename);
                                   fd.append('path', `offline/${Date.now()}-${recordedFilename}`);
+                                  // For recorded files, request MP3 conversion on server
+                                  fd.append('convert', 'mp3');
                                   const xhr = new XMLHttpRequest();
                                   xhr.open('POST', '/api/storage/offline-upload');
                                   xhr.upload.onprogress = (e) => {
