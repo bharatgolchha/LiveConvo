@@ -203,6 +203,7 @@ interface ParsedContext {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
+    const streamMode = Boolean((body as any)?.stream);
     
     // Validate body
     const BodySchema = z.object({
@@ -736,7 +737,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Generate system prompt based on mode
+    // Generate system prompt based on mode (non-stream default)
     const systemPrompt = mode === 'dashboard' 
       ? getDashboardSystemPrompt(enhancedDashboardContext, finalPersonalContext || undefined, sessionOwner, searchResults)
       : getChatGuidanceSystemPrompt(
@@ -754,6 +755,8 @@ export async function POST(request: NextRequest) {
           searchResults,
           fileAttachments
         );
+
+    // Note: For streaming, we'll add a lightweight override message later to request plain markdown.
 
     // Debug: Log the system prompt
     console.log('🤖 Nova System Prompt:');
@@ -789,16 +792,47 @@ export async function POST(request: NextRequest) {
       });
     }
 
+    // Build messages differently for streaming vs non-streaming
+    let messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }>;
+    if (streamMode) {
+      const live = isRecording && transcriptLength > 0;
+      const stage = getConversationStage(transcriptLength);
+      const meetingBits = [
+        conversationTitle ? `• Title: "${conversationTitle}"` : '',
+        enhancedTextContext ? `• Context: ${enhancedTextContext.substring(0, 5000)}` : '',
+        meetingUrl ? `• Platform: ${meetingUrl}` : ''
+      ].filter(Boolean).join('\n');
+      const streamingSystem = `You are Nova, ${participantMe || 'You'}'s helpful AI meeting advisor.
+
+Strict output rules:
+- Output ONLY in clean, conversational Markdown (no JSON, no XML, no code fences unless showing code).
+- Keep responses concise and avoid repetition.
+- Keep it scannable: short paragraphs, bullets, and **bold** for emphasis when helpful.
+
+Context
+Mode: ${live ? 'LIVE' : 'PREP'} | Stage: ${stage}
+${meetingBits ? `\n🎯 MEETING DETAILS:\n${meetingBits}\n` : ''}
+${effectiveTranscript ? `\nConversation Transcript (for context):\n${effectiveTranscript}` : ''}`;
+
+      messages = [
+        ...(smartNotesPrompt ? [{ role: 'system', content: smartNotesPrompt }] as any : []),
+        { role: 'system', content: streamingSystem },
+        ...chatMessages as any,
+      ];
+    } else {
+      messages = [
+        ...(smartNotesPrompt ? [{ role: 'system', content: smartNotesPrompt }] as any : []),
+        { role: 'system', content: systemPrompt },
+        ...chatMessages as any,
+      ];
+    }
+
     const requestBody: any = {
       model: defaultModel,
-      messages: [
-        ...(smartNotesPrompt ? [{ role: 'system', content: smartNotesPrompt }] : []),
-        { role: 'system', content: systemPrompt },
-        ...chatMessages,
-      ],
+      messages,
       temperature: 0.4,
       max_tokens: 4000,
-      response_format: { type: 'json_object' }
+      ...(streamMode ? {} : { response_format: { type: 'json_object' } })
     };
 
     // Add file-parser plugin if PDFs are attached
@@ -816,6 +850,105 @@ export async function POST(request: NextRequest) {
     // Log the full request body for debugging multimodal requests
     if (fileAttachments && fileAttachments.length > 0) {
       console.log('🚀 Full OpenRouter request body:', JSON.stringify(requestBody, null, 2));
+    }
+
+    // If streaming is requested, stream assistant text only and return early
+    if (streamMode) {
+      try {
+        // Build streaming request (no JSON response_format)
+        const streamingBody: any = {
+          ...requestBody,
+          stream: true,
+        };
+        delete streamingBody.response_format;
+
+        const upstream = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${apiKey}`,
+            'Content-Type': 'application/json',
+            'HTTP-Referer': 'https://liveconvo.app',
+            'X-Title': 'liveprompt.ai AI Coach',
+          },
+          body: JSON.stringify(streamingBody)
+        });
+
+        if (!upstream.ok || !upstream.body) {
+          const errorText = await upstream.text();
+          console.error('OpenRouter API (stream) error:', upstream.status, errorText);
+          return NextResponse.json(
+            { error: `OpenRouter API error: ${upstream.status}` },
+            { status: upstream.status }
+          );
+        }
+
+        // Transform SSE stream into plain text token stream
+        const textEncoder = new TextEncoder();
+        const textDecoder = new TextDecoder();
+
+        const stream = new ReadableStream<Uint8Array>({
+          async start(controller) {
+            const reader = upstream.body!.getReader();
+            let buffer = '';
+
+            try {
+              while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+                buffer += textDecoder.decode(value, { stream: true });
+
+                // SSE events separated by two newlines
+                const events = buffer.split('\n\n');
+                buffer = events.pop() || '';
+
+                for (const event of events) {
+                  const lines = event.split('\n');
+                  for (const line of lines) {
+                    const trimmed = line.trim();
+                    if (!trimmed.startsWith('data:')) continue;
+                    const dataStr = trimmed.replace(/^data:\s*/, '');
+                    if (dataStr === '[DONE]') {
+                      // End of stream
+                      controller.close();
+                      return;
+                    }
+                    try {
+                      const json = JSON.parse(dataStr);
+                      // OpenAI-style delta content (OpenRouter compatible)
+                      const delta = json?.choices?.[0]?.delta?.content
+                        ?? json?.choices?.[0]?.message?.content
+                        ?? '';
+                      if (delta) {
+                        controller.enqueue(textEncoder.encode(delta));
+                      }
+                    } catch (e) {
+                      // Non-JSON line, ignore
+                    }
+                  }
+                }
+              }
+              // Flush any remaining buffered data (unlikely to contain complete event)
+              controller.close();
+            } catch (err) {
+              console.error('Streaming transform error:', err);
+              controller.error(err);
+            }
+          }
+        });
+
+        return new Response(stream, {
+          headers: {
+            'Content-Type': 'text/plain; charset=utf-8',
+            'Cache-Control': 'no-cache, no-transform',
+          }
+        });
+      } catch (e) {
+        console.error('Failed to stream from OpenRouter:', e);
+        return NextResponse.json(
+          { error: 'Streaming failed' },
+          { status: 500 }
+        );
+      }
     }
 
     const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {

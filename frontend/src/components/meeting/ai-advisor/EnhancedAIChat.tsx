@@ -14,7 +14,6 @@ import {
 } from '@heroicons/react/24/outline';
 import ReactMarkdown from 'react-markdown';
 import { useMeetingContext } from '@/lib/meeting/context/MeetingContext';
-import { useChatGuidance } from '@/lib/meeting/hooks/useChatGuidance';
 import { supabase } from '@/lib/supabase';
 import { SuggestedPrompts } from './SuggestedPrompts';
 import { MinimalFileInput, MinimalFileAttachments, FileAttachment } from '@/components/meeting/file-upload';
@@ -41,12 +40,12 @@ export interface EnhancedAIChatRef {
 
 export const EnhancedAIChat = forwardRef<EnhancedAIChatRef>((props, ref) => {
   const { meeting, transcript, smartNotes, summary, linkedConversations, personalContext, fileAttachments, setFileAttachments, addFileAttachment, removeFileAttachment, clearFileAttachments } = useMeetingContext();
-  const { sendMessage, loading } = useChatGuidance();
   const { hasFeature } = useSubscription();
   const { loadChatHistory, saveChatHistory, isSaving, isLoading: isLoadingHistory } = useChatPersistence(meeting?.id);
   const [input, setInput] = useState('');
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isTyping, setIsTyping] = useState(false);
+  const [isStreaming, setIsStreaming] = useState(false);
   const [isLivePrompting, setIsLivePrompting] = useState(false);
   const [suggestedPrompts, setSuggestedPrompts] = useState<SuggestedAction[]>([]);
   const [initialPrompts, setInitialPrompts] = useState<SuggestedAction[]>([]);
@@ -370,7 +369,7 @@ export const EnhancedAIChat = forwardRef<EnhancedAIChatRef>((props, ref) => {
   const handleSubmit = async (e?: React.FormEvent, customMessage?: string, customContext?: string) => {
     e?.preventDefault();
     const messageToSend = customMessage || input.trim();
-    if (!messageToSend || loading) return;
+    if (!messageToSend || isStreaming) return;
 
     // Don't send request if meeting data is not loaded yet
     if (!meeting?.id) {
@@ -402,6 +401,11 @@ export const EnhancedAIChat = forwardRef<EnhancedAIChatRef>((props, ref) => {
     }
     
     setIsTyping(true);
+    setIsStreaming(true);
+    const streamingTimeout = setTimeout(() => {
+      setIsStreaming(false);
+      setIsTyping(false);
+    }, 60000);
 
     try {
       // Build formatted transcript (full conversation)
@@ -453,7 +457,47 @@ export const EnhancedAIChat = forwardRef<EnhancedAIChatRef>((props, ref) => {
           timestamp: msg.timestamp
         }));
 
-      const response = await fetch('/api/chat-guidance', {
+      // Prepare message id; defer bubble creation until first token
+      const aiMessageId = `ai-${Date.now()}`;
+      let hasCreatedBubble = false;
+
+      // Start suggestions fetch in parallel (decoupled)
+      (async () => {
+        try {
+          const { data: { session } } = await supabase.auth.getSession();
+          const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+          if (session?.access_token) headers['Authorization'] = `Bearer ${session.access_token}`;
+          const WINDOW = 40;
+          const recent = transcript.slice(-WINDOW).map(t => `${t.displayName || t.speaker || 'Participant'}: ${t.text}`).join('\n');
+          const historical = transcript.length > WINDOW ? `\n[Earlier conversation: ${transcript.length - WINDOW} previous messages not shown for brevity]` : '';
+          const transcriptForSuggestions = recent + historical;
+          const resp = await fetch(`/api/meeting/${meeting?.id}/smart-suggestions`, {
+            method: 'POST',
+            headers,
+            body: JSON.stringify({
+              transcript: transcriptForSuggestions,
+              summary: summary || null,
+              meetingType: meeting?.type || 'meeting',
+              meetingTitle: meeting?.title,
+              context: meeting?.context,
+              aiInstructions: (meeting as any)?.ai_instructions || null,
+              stage: transcript.length < 5 ? 'opening' : transcript.length < 15 ? 'discovery' : transcript.length < 30 ? 'discussion' : 'closing',
+              participantMe: meeting?.participantMe || 'You',
+              sessionOwner: meeting?.sessionOwner,
+              documentContext: null
+            })
+          });
+          if (resp.ok) {
+            const data = await resp.json();
+            if (Array.isArray(data.suggestions)) {
+              setSuggestedPrompts(data.suggestions.map((s: any) => ({ text: s.text, prompt: s.prompt, impact: s.impact })));
+            }
+          }
+        } catch {}
+      })();
+
+      // Stream assistant text
+      const streamResponse = await fetch('/api/chat-guidance', {
         method: 'POST',
         headers: authHeaders,
         body: JSON.stringify({
@@ -461,11 +505,11 @@ export const EnhancedAIChat = forwardRef<EnhancedAIChatRef>((props, ref) => {
           sessionId: meeting?.id,
           conversationType: meeting?.type || 'meeting',
           conversationTitle: meeting?.title,
-          textContext: customContext || meeting?.context, // Use custom context if provided
+          textContext: customContext || meeting?.context,
           meetingUrl: meeting?.meetingUrl,
           transcript: transcriptText,
           transcriptLength: transcript.length,
-          chatHistory: chatHistory, // Include the chat history!
+          chatHistory: chatHistory,
           smartNotes: smartNotes.map(n => ({ category: n.category, content: n.content, importance: n.importance })),
           summary: summary ? {
             tldr: summary.tldr,
@@ -474,55 +518,64 @@ export const EnhancedAIChat = forwardRef<EnhancedAIChatRef>((props, ref) => {
             decisions: summary.decisions,
             topics: summary.topics
           } : undefined,
-          isRecording: true, // Assume recording if we have transcript
+          isRecording: true,
           sessionOwner: meeting?.sessionOwner,
           fileAttachments: fileAttachments.map(file => ({
             type: file.type.startsWith('image/') ? 'image' : 'pdf',
             dataUrl: file.dataUrl || '',
             filename: file.name
-          }))
+          })),
+          stream: true
         })
       });
-
-      if (!response.ok) {
-        throw new Error('Failed to get AI response');
+      if (!streamResponse.ok || !streamResponse.body) {
+        throw new Error('Failed to stream AI response');
+      }
+      const reader = streamResponse.body.getReader();
+      const decoder = new TextDecoder();
+      let receivedAny = false;
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        const chunk = decoder.decode(value, { stream: true });
+        if (!chunk) continue;
+        // Create the bubble on first token to avoid empty ghost bubble
+        receivedAny = true;
+        if (!hasCreatedBubble) {
+          const initialContent = isSearching && mightTriggerSearch
+            ? `🔎 *Found relevant information from past conversations*\n\n${chunk}`
+            : chunk;
+          const newMsg: ChatMessage = {
+            id: aiMessageId,
+            role: 'assistant',
+            content: initialContent,
+            timestamp: new Date().toISOString()
+          };
+          setMessages(prev => [...prev, newMsg]);
+          hasCreatedBubble = true;
+        } else {
+          setMessages(prev => prev.map(m => m.id === aiMessageId ? { ...m, content: m.content + chunk } : m));
+        }
       }
 
-      const data = await response.json();
-      console.log('AI response data:', data);
+      // End of stream reached; re-enable UI
+      setIsStreaming(false);
+      setIsTyping(false);
 
-      // Extract response, suggested actions, and document summary
-      const aiResponse = data.response || data;
-      const suggestedActions = data.suggestedActions || [];
-      const documentSummary = data.documentSummary;
-
-      // Add AI response
-      let responseContent = typeof aiResponse === 'string' ? aiResponse : aiResponse.response || 'I understand. How can I help you further?';
-      
-      // Add search indicator if a search was performed
-      if (isSearching && mightTriggerSearch) {
-        responseContent = `🔎 *Found relevant information from past conversations*\n\n${responseContent}`;
-      }
-      
-      const aiMessage: ChatMessage = {
-        id: `ai-${Date.now()}`,
-        role: 'assistant',
-        content: responseContent,
-        timestamp: new Date().toISOString()
-      };
-
-      setMessages(prev => [...prev, aiMessage]);
-      
-      // Document summaries are now handled in processDocumentsWithAI
-      
       // Clear file attachments after successful send
       if (fileAttachments.length > 0) {
         clearFileAttachments();
       }
-      
-      // Update suggested prompts
-      if (suggestedActions.length > 0) {
-        setSuggestedPrompts(suggestedActions);
+
+      // Safety: if the stream finished without any token (rare), add a fallback message
+      if (!receivedAny) {
+        const fallback: ChatMessage = {
+          id: aiMessageId,
+          role: 'assistant',
+          content: 'I’m here and ready. How would you like me to help with this conversation?',
+          timestamp: new Date().toISOString()
+        };
+        setMessages(prev => [...prev, fallback]);
       }
     } catch (error) {
       console.error('Chat error:', error);
@@ -540,6 +593,8 @@ export const EnhancedAIChat = forwardRef<EnhancedAIChatRef>((props, ref) => {
     } finally {
       setIsTyping(false);
       setIsSearching(false);
+      setIsStreaming(false);
+      clearTimeout(streamingTimeout);
     }
   };
 
@@ -574,7 +629,7 @@ export const EnhancedAIChat = forwardRef<EnhancedAIChatRef>((props, ref) => {
   };
 
   const handleLivePrompt = async () => {
-    if (loading || isLivePrompting || transcript.length === 0) return;
+    if (isStreaming || isLivePrompting || transcript.length === 0) return;
 
     setIsLivePrompting(true);
     
@@ -599,7 +654,7 @@ export const EnhancedAIChat = forwardRef<EnhancedAIChatRef>((props, ref) => {
   };
 
   const handlePromptClick = (prompt: string) => {
-    if (loading) return;
+    if (isStreaming) return;
     
     // Set the input to the prompt and submit
     setInput(prompt);
@@ -1087,7 +1142,7 @@ export const EnhancedAIChat = forwardRef<EnhancedAIChatRef>((props, ref) => {
             <SuggestedPrompts
               suggestions={initialPrompts}
               onPromptClick={handlePromptClick}
-              loading={loading || isLoadingInitialPrompts}
+              loading={isLoadingInitialPrompts || isStreaming}
             />
           </div>
         )}
@@ -1098,7 +1153,7 @@ export const EnhancedAIChat = forwardRef<EnhancedAIChatRef>((props, ref) => {
         <SuggestedPrompts
           suggestions={suggestedPrompts}
           onPromptClick={handlePromptClick}
-          loading={loading}
+          loading={isStreaming}
         />
       )}
 
@@ -1132,7 +1187,7 @@ export const EnhancedAIChat = forwardRef<EnhancedAIChatRef>((props, ref) => {
               {canUploadFiles && (
                 <MinimalFileInput
                   onFileSelect={handleFileSelect}
-                  disabled={loading || isProcessingFiles || fileAttachments.length >= 3}
+                  disabled={isStreaming || isProcessingFiles || fileAttachments.length >= 3}
                   className="ml-2"
                 />
               )}
@@ -1143,14 +1198,14 @@ export const EnhancedAIChat = forwardRef<EnhancedAIChatRef>((props, ref) => {
                 onChange={(e) => setInput(e.target.value)}
                 placeholder={canUploadFiles ? "Ask AI anything about the meeting..." : "Ask AI anything... (File uploads available with Pro plan)"}
                 className={`flex-1 px-2 py-2.5 bg-transparent focus:outline-none text-sm ${!canUploadFiles ? 'pl-4' : ''}`}
-                disabled={loading}
+                disabled={isStreaming}
                 maxLength={500}
               />
               {transcript.length > 0 && (
                 <button
                   type="button"
                   onClick={handleLivePrompt}
-                  disabled={loading || isLivePrompting}
+                  disabled={isStreaming || isLivePrompting}
                   className="mr-2 p-2 text-amber-500 hover:text-amber-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                   title="Quick suggestion - What's next?"
                 >
@@ -1159,7 +1214,7 @@ export const EnhancedAIChat = forwardRef<EnhancedAIChatRef>((props, ref) => {
               )}
               <button
                 type="submit"
-                disabled={!input.trim() || loading}
+                disabled={!input.trim() || isStreaming}
                 className="mr-2 p-2 text-primary hover:text-primary/80 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
                 <PaperAirplaneIcon className="w-4 h-4" />
