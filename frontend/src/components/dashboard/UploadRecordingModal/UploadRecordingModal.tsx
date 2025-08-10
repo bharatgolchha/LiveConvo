@@ -188,26 +188,27 @@ export function UploadRecordingModal({ isOpen, onClose, onCreated }: UploadRecor
         return;
       }
       // Direct-to-Supabase upload via signed URL (bypasses Vercel limits)
-      const path = `offline/${Date.now()}-${sourceFile.name}`;
+      const proposedPath = `offline/${Date.now()}-${sourceFile.name}`;
       let fileUrl: string | null = null;
       try {
         setUploadProgress(1);
         const sigResp = await fetch('/api/storage/signed-upload', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ path, bucket: 'offline-recordings' })
+          body: JSON.stringify({ path: proposedPath, bucket: 'offline-recordings' })
         });
         const sigData = await sigResp.json();
         if (!sigResp.ok) throw new Error(sigData?.error || 'Failed to get signed upload URL');
         const token: string = sigData.token;
         const bucket: string = sigData.bucket || 'offline-recordings';
+        const sanitizedPath: string = sigData.path;
 
         const { error: upErr } = await supabase.storage
           .from(bucket)
-          .uploadToSignedUrl(path, token, sourceFile as File);
+          .uploadToSignedUrl(sanitizedPath, token, sourceFile as File);
         if (upErr) throw upErr;
 
-        const { data: pub } = supabase.storage.from(bucket).getPublicUrl(path);
+        const { data: pub } = supabase.storage.from(bucket).getPublicUrl(sanitizedPath);
         fileUrl = pub?.publicUrl || null;
       } catch (clientUploadErr: any) {
         setError(clientUploadErr?.message || 'Upload failed');

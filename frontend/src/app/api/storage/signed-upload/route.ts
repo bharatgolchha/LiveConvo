@@ -16,25 +16,33 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json().catch(() => null) as { path?: string, bucket?: string } | null
-    const path = body?.path
+    const rawPath = body?.path
     const bucket = body?.bucket || 'offline-recordings'
-    if (!path || typeof path !== 'string') {
+    if (!rawPath || typeof rawPath !== 'string') {
       return NextResponse.json({ error: 'Missing path' }, { status: 400 })
     }
 
     const supabase = createServerSupabaseClient()
+
+    // Sanitize provided path: keep folders, sanitize only filename to safe charset
+    const trimmed = rawPath.replace(/^\/+/, '')
+    const parts = trimmed.split('/')
+    const base = parts.pop() || ''
+    const dir = parts.join('/')
+    const sanitizedBase = base.replace(/[^a-zA-Z0-9._-]/g, '_')
+    const sanitizedPath = dir ? `${dir}/${sanitizedBase}` : sanitizedBase
 
     // Ensure bucket exists
     try {
       await supabase.storage.createBucket(bucket, { public: true })
     } catch {}
 
-    const { data, error } = await supabase.storage.from(bucket).createSignedUploadUrl(path)
+    const { data, error } = await supabase.storage.from(bucket).createSignedUploadUrl(sanitizedPath)
     if (error || !data) {
       return NextResponse.json({ error: error?.message || 'Failed to create signed upload URL' }, { status: 500 })
     }
 
-    return NextResponse.json({ token: data.token, path, bucket })
+    return NextResponse.json({ token: data.token, path: sanitizedPath, bucket })
   } catch (err: any) {
     return NextResponse.json({ error: err?.message || 'Server error' }, { status: 500 })
   }
