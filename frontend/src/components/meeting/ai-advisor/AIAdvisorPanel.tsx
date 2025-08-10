@@ -205,6 +205,15 @@ export function AIAdvisorPanel({
                 );
               })}
             </div>
+            {/* Personal context indicator (icon only) */}
+            {Boolean((meeting as any)?.personalContext || (meeting as any)?.personal_context || false) && (
+              <div className="p-1.5 text-primary" title="Personal context active">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4">
+                  <path fillRule="evenodd" d="M12 2.25a3.75 3.75 0 1 0 0 7.5 3.75 3.75 0 0 0 0-7.5ZM4.5 20.118a7.5 7.5 0 0 1 15 0 17.94 17.94 0 0 1-7.5 1.632 17.94 17.94 0 0 1-7.5-1.632Z" clipRule="evenodd" />
+                </svg>
+              </div>
+            )}
+
             {/* Settings gear moved here */}
             <button
               onClick={() => setActiveTab('settings')}

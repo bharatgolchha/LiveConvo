@@ -1157,19 +1157,7 @@ export const EnhancedAIChat = forwardRef<EnhancedAIChatRef>((props, ref) => {
         />
       )}
 
-      {/* Personal Context Indicator */}
-      {personalContext && (
-        <div className="mx-4 mb-2">
-          <div className="flex items-center gap-2 px-3 py-2 bg-primary/10 text-primary rounded-lg text-xs">
-            <UserIcon className="w-3 h-3" />
-            <span className="font-medium">Personal context active</span>
-            <span className="text-muted-foreground">•</span>
-            <span className="text-muted-foreground truncate flex-1">
-              {personalContext.substring(0, 50)}...
-            </span>
-          </div>
-        </div>
-      )}
+      {/* Personal context indicator moved to top toolbar in AIAdvisorPanel */}
 
       {/* Input */}
       <div className="flex-shrink-0 p-3 border-t border-border bg-card/50">
