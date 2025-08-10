@@ -30,6 +30,16 @@ async function convertToMp3(inputBuffer: Buffer): Promise<Buffer> {
   const ffmpegPath = process.env.FFMPEG_PATH
   if (ffmpegPath) {
     ffmpeg.setFfmpegPath(ffmpegPath)
+  } else {
+    try {
+      const ffmpegStaticMod: any = await import('ffmpeg-static')
+      const ffmpegStaticPath = (ffmpegStaticMod && (ffmpegStaticMod.default || ffmpegStaticMod)) as string
+      if (ffmpegStaticPath && typeof ffmpegStaticPath === 'string') {
+        ffmpeg.setFfmpegPath(ffmpegStaticPath)
+      }
+    } catch (_e) {
+      // If ffmpeg-static is not available, rely on system ffmpeg in PATH
+    }
   }
 
   const { PassThrough } = await import('stream')
