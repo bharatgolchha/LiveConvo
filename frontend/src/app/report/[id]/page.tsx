@@ -179,9 +179,9 @@ export default function MeetingReportPage() {
       });
 
       // Check for generation errors in summary
-      const hasError = summaryData?.tldr?.includes('Summary generation encountered') || 
-                      summaryData?.tldr?.includes('error') ||
-                      summaryData?.generation_status === 'error';
+      // Reason: Avoid false positives from normal usage of the word "error" inside TLDR content
+      const hasError = summaryData?.generation_status === 'error' ||
+                      Boolean(summaryData?.generation_error);
       
       setHasGenerationError(hasError);
       
@@ -292,7 +292,8 @@ export default function MeetingReportPage() {
           return stats;
         }, {});
         
-        const totalWords = Object.values(speakingStats).reduce((sum: number, count) => sum + (count as number), 0);
+        const values = Object.values(speakingStats) as number[];
+        const totalWords = values.reduce((sum: number, count: number) => sum + count, 0);
         const speakers = Object.keys(speakingStats);
         
         if (speakers.length === 2 && totalWords > 0) {
