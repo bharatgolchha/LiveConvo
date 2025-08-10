@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { MagnifyingGlassIcon, FunnelIcon } from "@heroicons/react/24/outline";
+import { MagnifyingGlassIcon, FunnelIcon, CalendarIcon } from "@heroicons/react/24/outline";
 import { MeetingListTabs } from "./MeetingListTabs";
 import { Button } from "@/components/ui/Button";
 
@@ -21,6 +21,7 @@ export interface DashboardToolbarProps {
   timelineEnabled?: boolean;
   onToggleView?: (mode: 'list' | 'timeline') => void;
   viewMode?: 'list' | 'timeline';
+  onOpenMobileCalendar?: () => void;
 }
 
 export const DashboardToolbar: React.FC<DashboardToolbarProps> = ({
@@ -37,6 +38,7 @@ export const DashboardToolbar: React.FC<DashboardToolbarProps> = ({
   timelineEnabled = true,
   onToggleView,
   viewMode = 'timeline',
+  onOpenMobileCalendar,
 }) => {
   const inputRef = React.useRef<HTMLInputElement | null>(null);
   const wrapperRef = React.useRef<HTMLDivElement | null>(null);
@@ -182,6 +184,17 @@ export const DashboardToolbar: React.FC<DashboardToolbarProps> = ({
           <Button variant="outline" size="sm" onClick={onOpenFilters} className="h-8 px-2.5 text-xs">
             <FunnelIcon className="w-4 h-4" />
           </Button>
+          {onOpenMobileCalendar && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onOpenMobileCalendar}
+              className="h-8 px-2.5 text-xs"
+              aria-label="Open upcoming meetings"
+            >
+              <CalendarIcon className="w-4 h-4" />
+            </Button>
+          )}
         </div>
       </div>
 

@@ -1068,6 +1068,7 @@ const DashboardPage: React.FC = () => {
                 resultsCount={totalFilteredCount}
                 timelineEnabled={true}
                 viewMode={'timeline'}
+                onOpenMobileCalendar={() => setShowMobileMeetings(true)}
               />
               <FilterChipsBar
                 chips={getActiveChips()}
@@ -1453,16 +1454,7 @@ const DashboardPage: React.FC = () => {
         isNewSession={isNewSession}
       />
 
-      {/* Mobile Meetings Toggle Button */}
-      {hasAnySessions && (
-        <button
-          onClick={() => setShowMobileMeetings(!showMobileMeetings)}
-          className="xl:hidden fixed bottom-28 right-6 z-30 bg-primary text-primary-foreground rounded-full p-3 shadow-lg"
-          aria-label="View upcoming meetings"
-        >
-          <CalendarIcon className="h-5 w-5" />
-        </button>
-      )}
+      {/* Mobile Meetings Toggle Button removed (duplicate) */}
       
       {/* Mobile Meetings Drawer */}
       {showMobileMeetings && (
@@ -1484,6 +1476,8 @@ const DashboardPage: React.FC = () => {
             </div>
             <UpcomingMeetingsSidebar 
               className="flex h-full"
+              isMobile={true}
+              onClose={() => setShowMobileMeetings(false)}
             />
           </div>
         </div>

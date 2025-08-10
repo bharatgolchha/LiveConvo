@@ -19,6 +19,7 @@
 ## 📋 Current Sprint Tasks
 ### 2025-08-10
 - Add `docs/record_upload.md`: Detailed step-by-step documentation for the dashboard upload/record flow, including storage upload, Deepgram transcription/diarization, usage precheck, session creation, transcript persistence, and finalize path.
+ - [x] Remove duplicate mobile meetings floating button from dashboard (`frontend/src/app/dashboard/page.tsx`).
 
 ### 🚀 New Features
 

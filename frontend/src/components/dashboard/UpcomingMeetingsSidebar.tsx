@@ -44,7 +44,7 @@ export const UpcomingMeetingsSidebar: React.FC<UpcomingMeetingsSidebarProps> = (
   onClose
 }) => {
   const { session } = useAuth();
-  const [isOpen, setIsOpen] = useState(defaultOpen);
+  const [isOpen, setIsOpen] = useState(isMobile ? true : defaultOpen);
   const [meetings, setMeetings] = useState<UpcomingMeeting[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<'today' | 'week' | 'all'>('week');
@@ -67,16 +67,18 @@ export const UpcomingMeetingsSidebar: React.FC<UpcomingMeetingsSidebarProps> = (
 
   // Load sidebar state from localStorage
   useEffect(() => {
+    if (isMobile) return;
     const savedState = localStorage.getItem('upcomingMeetingsSidebarOpen');
     if (savedState !== null) {
       setIsOpen(savedState === 'true');
     }
-  }, []);
+  }, [isMobile]);
 
   // Save sidebar state to localStorage
   useEffect(() => {
+    if (isMobile) return;
     localStorage.setItem('upcomingMeetingsSidebarOpen', isOpen.toString());
-  }, [isOpen]);
+  }, [isOpen, isMobile]);
 
   // Load meetings and check calendar connection
   useEffect(() => {
@@ -361,6 +363,11 @@ export const UpcomingMeetingsSidebar: React.FC<UpcomingMeetingsSidebarProps> = (
   };
 
   const toggleSidebar = () => {
+    if (isMobile) {
+      setIsOpen(false);
+      onClose?.();
+      return;
+    }
     setIsOpen(!isOpen);
   };
 
@@ -407,7 +414,7 @@ export const UpcomingMeetingsSidebar: React.FC<UpcomingMeetingsSidebarProps> = (
     <>
       {/* Drawer-Style Toggle Button (shown when sidebar is closed) */}
       <AnimatePresence>
-        {!isOpen && (
+        {!isOpen && !isMobile && (
           <motion.div
             initial={{ x: 48 }}
             animate={{ x: 0 }}
@@ -479,19 +486,18 @@ export const UpcomingMeetingsSidebar: React.FC<UpcomingMeetingsSidebarProps> = (
             animate={{ width: isMobile ? '100%' : 380, opacity: 1 }}
             exit={{ width: 0, opacity: 0 }}
             transition={{ type: "spring", stiffness: 300, damping: 30 }}
-            className={`bg-card border-l border-border flex flex-col shadow-xl z-30 h-full relative ${className}`}
+            className={`bg-card ${isMobile ? 'border-t' : 'border-l'} border-border flex flex-col shadow-xl z-30 h-full relative ${className}`}
             style={{ maxWidth: isMobile ? '100vw' : '380px' }}
           >
             {/* Header */}
-            <div className="p-4 border-b border-border">
+            <div className="p-4 border-b border-border sticky top-0 bg-card z-10">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <CalendarIcon className="w-5 h-5 text-primary" />
                   <h2 className="text-sm font-semibold">Upcoming Meetings</h2>
                 </div>
                 <div className="flex items-center gap-1">
-                  
-                  {hasCalendarConnection && (
+                  {!isMobile && hasCalendarConnection && (
                     <CalendarQuickActions
                       connection={calendarConnection}
                       preferences={calendarPreferences}
@@ -501,7 +507,7 @@ export const UpcomingMeetingsSidebar: React.FC<UpcomingMeetingsSidebarProps> = (
                   )}
 
                   {/* Schedule Meeting Button - only when connected */}
-                  {hasCalendarConnection && (
+                  {!isMobile && hasCalendarConnection && (
                     <Button
                       onClick={() => setShowScheduleModal(true)}
                       variant="ghost"
@@ -527,9 +533,13 @@ export const UpcomingMeetingsSidebar: React.FC<UpcomingMeetingsSidebarProps> = (
                     variant="ghost"
                     size="sm"
                     className="p-1.5"
-                    title="Hide sidebar"
+                    title={isMobile ? 'Close' : 'Hide sidebar'}
                   >
-                    <ChevronRightIcon className="w-4 h-4" />
+                    {isMobile ? (
+                      <XMarkIcon className="w-4 h-4" />
+                    ) : (
+                      <ChevronRightIcon className="w-4 h-4" />
+                    )}
                   </Button>
                 </div>
               </div>
