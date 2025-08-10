@@ -8,6 +8,7 @@ import {
   Calendar,
   AlertTriangle,
   CheckCircle,
+  CheckCircle2,
   Clock,
   Users,
   MessageSquare,
@@ -19,7 +20,6 @@ import {
   Search,
   X,
   Sparkles,
-  CheckCircle2,
   Circle
 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
@@ -418,13 +418,23 @@ export function TabbedReport({ report, activeTab, setActiveTab, handleManualFina
             </div>
 
             {/* Executive Summary with Key Outcome */}
-            <div className="p-6 bg-card border border-border rounded-lg shadow-sm">
-              <div className="flex items-center gap-3 mb-4">
-                <div className="w-8 h-8 bg-primary/10 rounded-lg flex items-center justify-center">
-                  <FileText className="w-4 h-4 text-primary" />
+            <div className="relative overflow-hidden bg-gradient-to-br from-card via-card/95 to-primary/5 border border-border/50 rounded-xl shadow-lg">
+              {/* Decorative gradient orb */}
+              <div className="absolute -top-20 -right-20 w-40 h-40 bg-primary/10 rounded-full blur-3xl" />
+              <div className="absolute -bottom-20 -left-20 w-40 h-40 bg-secondary/10 rounded-full blur-3xl" />
+              
+              <div className="relative p-6">
+                <div className="flex items-center justify-between mb-5">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-gradient-to-br from-primary/20 to-primary/10 rounded-xl flex items-center justify-center shadow-sm">
+                      <FileText className="w-5 h-5 text-primary" />
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-semibold text-foreground">Executive Summary</h3>
+                      <p className="text-xs text-muted-foreground">Key insights from your conversation</p>
+                    </div>
+                  </div>
                 </div>
-                <h3 className="text-lg font-semibold text-foreground">Executive Summary</h3>
-              </div>
               {(finalizing || finalizationProgress || report.summary.tldr === 'Summary generation is pending. Please check back in a few moments.') ? (
                 <div className="bg-accent/10 rounded-lg p-4 border border-accent/20">
                   {(finalizing || finalizationProgress) ? (
@@ -472,42 +482,73 @@ export function TabbedReport({ report, activeTab, setActiveTab, handleManualFina
                 </div>
               ) : (
                 <div className="space-y-4">
-                  <div className="bg-primary/10 rounded-lg p-4 border border-primary/20">
-                    <div className="flex items-start gap-3">
-                      <div className="w-6 h-6 bg-primary rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
-                        <span className="text-primary-foreground text-xs font-bold">TL;DR</span>
+                  {/* Main Summary Card */}
+                  <div className="bg-gradient-to-r from-background/80 to-background/60 backdrop-blur-sm rounded-xl p-5 border border-border/40 shadow-sm">
+                    <div className="flex items-start gap-4">
+                      <div className="relative flex-shrink-0">
+                        <div className="absolute inset-0 bg-primary/20 rounded-full blur-xl" />
+                        <div className="relative w-8 h-8 bg-gradient-to-br from-primary to-primary/80 rounded-full flex items-center justify-center shadow-lg">
+                          <span className="text-primary-foreground text-[10px] font-bold">TL;DR</span>
+                        </div>
                       </div>
-                      <p className="text-foreground leading-relaxed">
-                        {report.summary.tldr}
-                      </p>
+                      <div className="flex-1">
+                        <p className="text-foreground leading-relaxed text-sm sm:text-base">
+                          {report.summary.tldr}
+                        </p>
+                      </div>
                     </div>
                   </div>
                   
                   {/* Key Outcome and Critical Insight */}
-                  {(report.summary.keyOutcome || report.summary.criticalInsight) && (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {(report.summary.keyOutcome || report.summary.criticalInsight || report.summary.immediateAction) && (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                       {report.summary.keyOutcome && (
-                        <div className="p-4 bg-secondary/10 rounded-lg border border-secondary/20">
-                          <div className="flex items-center gap-2 mb-2">
-                            <CheckCircle className="w-5 h-5 text-secondary" />
-                            <span className="text-sm font-medium text-muted-foreground">Key Outcome</span>
+                        <div className="group relative overflow-hidden p-4 bg-gradient-to-br from-secondary/10 to-secondary/5 rounded-xl border border-secondary/20 hover:border-secondary/40 transition-all duration-300">
+                          <div className="absolute top-0 right-0 w-20 h-20 bg-secondary/10 rounded-full blur-2xl group-hover:bg-secondary/20 transition-colors" />
+                          <div className="relative">
+                            <div className="flex items-center gap-2 mb-2">
+                              <div className="w-6 h-6 bg-secondary/20 rounded-lg flex items-center justify-center">
+                                <CheckCircle2 className="w-4 h-4 text-secondary" />
+                              </div>
+                              <span className="text-xs font-medium text-secondary">Key Outcome</span>
+                            </div>
+                            <p className="text-sm text-foreground leading-relaxed">{report.summary.keyOutcome}</p>
                           </div>
-                          <p className="text-foreground">{report.summary.keyOutcome}</p>
                         </div>
                       )}
                       {report.summary.criticalInsight && (
-                        <div className="p-4 bg-accent/10 rounded-lg border border-accent/20">
-                          <div className="flex items-center gap-2 mb-2">
-                            <Lightbulb className="w-5 h-5 text-accent-foreground" />
-                            <span className="text-sm font-medium text-muted-foreground">Critical Insight</span>
+                        <div className="group relative overflow-hidden p-4 bg-gradient-to-br from-accent/10 to-accent/5 rounded-xl border border-accent/20 hover:border-accent/40 transition-all duration-300">
+                          <div className="absolute top-0 right-0 w-20 h-20 bg-accent/10 rounded-full blur-2xl group-hover:bg-accent/20 transition-colors" />
+                          <div className="relative">
+                            <div className="flex items-center gap-2 mb-2">
+                              <div className="w-6 h-6 bg-accent/20 rounded-lg flex items-center justify-center">
+                                <Lightbulb className="w-4 h-4 text-accent-foreground" />
+                              </div>
+                              <span className="text-xs font-medium text-accent-foreground">Critical Insight</span>
+                            </div>
+                            <p className="text-sm text-foreground leading-relaxed">{report.summary.criticalInsight}</p>
                           </div>
-                          <p className="text-foreground">{report.summary.criticalInsight}</p>
+                        </div>
+                      )}
+                      {report.summary.immediateAction && (
+                        <div className="group relative overflow-hidden p-4 bg-gradient-to-br from-primary/10 to-primary/5 rounded-xl border border-primary/20 hover:border-primary/40 transition-all duration-300 md:col-span-2">
+                          <div className="absolute top-0 right-0 w-20 h-20 bg-primary/10 rounded-full blur-2xl group-hover:bg-primary/20 transition-colors" />
+                          <div className="relative">
+                            <div className="flex items-center gap-2 mb-2">
+                              <div className="w-6 h-6 bg-primary/20 rounded-lg flex items-center justify-center">
+                                <Zap className="w-4 h-4 text-primary" />
+                              </div>
+                              <span className="text-xs font-medium text-primary">Immediate Action</span>
+                            </div>
+                            <p className="text-sm text-foreground leading-relaxed">{report.summary.immediateAction}</p>
+                          </div>
                         </div>
                       )}
                     </div>
                   )}
                 </div>
               )}
+              </div>
             </div>
 
             {/* Participant Contributions */}

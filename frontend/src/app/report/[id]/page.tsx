@@ -7,18 +7,12 @@ import {
   Clock,
   Users,
   FileText,
-  CheckCircle,
   AlertTriangle,
   Calendar,
-  TrendingUp,
   Share,
-  Copy,
-  ExternalLink,
-  PlayCircle,
   MessageSquare,
   Target,
   Lightbulb,
-  Star,
   BarChart3,
   RefreshCw
 } from 'lucide-react';
@@ -26,18 +20,15 @@ import { Button } from '@/components/ui/Button';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { TabbedReport } from '@/components/report/TabbedReport';
-import { ReportGenerationProgress } from '@/components/report/ReportGenerationProgress';
 import { ThemeToggle } from '@/components/ui/ThemeToggle';
 import { ShareReportModal } from '@/components/report/ShareReportModal';
 import { CollaborationPanel } from '@/components/collaboration/CollaborationPanel';
-import { ParticipantsList } from '@/components/report/ParticipantsList';
 import Link from 'next/link';
 import Image from 'next/image';
 import { 
   Home,
   LogOut,
   Sparkles,
-  ChevronRight,
   UserPlus
 } from 'lucide-react';
 import type {
@@ -217,7 +208,7 @@ export default function MeetingReportPage() {
               await fetchMeetingReport();
               return;
             } else {
-              let errorData;
+              let errorData: any;
               try {
                 errorData = await finalizeResponse.json();
               } catch (jsonError) {
@@ -233,7 +224,7 @@ export default function MeetingReportPage() {
               const hint = errorData?.hint ? ` (${errorData.hint})` : '';
               setError(`Failed to generate summary: ${errorMessage}${hint}`);
             }
-          } catch (finalizeError) {
+          } catch (finalizeError: any) {
             console.error('❌ Error finalizing session:', finalizeError);
             setError(`Failed to finalize session: ${finalizeError instanceof Error ? finalizeError.message : 'Unknown error'}`);
           }
@@ -298,7 +289,6 @@ export default function MeetingReportPage() {
         
         if (speakers.length === 2 && totalWords > 0) {
           const speaker1 = speakers[0];
-          const speaker2 = speakers[1];
           const speaker1Percentage = Math.round((speakingStats[speaker1] / totalWords) * 100);
           const speaker2Percentage = 100 - speaker1Percentage;
           
@@ -323,9 +313,16 @@ export default function MeetingReportPage() {
         goalAchievement: effectivenessScore?.breakdown?.objectives || effectivenessMetrics.objective_achievement || effectivenessMetrics.agenda_alignment || 0
       };
 
+      // Log the title data for debugging
+      console.log('📋 Session Title Data:', {
+        summaryTitle: summaryData?.title,
+        sessionTitle: sessionData.session.title,
+        finalTitle: summaryData?.title || sessionData.session.title || 'Meeting Report'
+      });
+      
       const reportData: MeetingReport = {
         id: meetingId,
-        title: summaryData?.title || sessionData.session.title || 'Meeting Report',
+        title: sessionData.session.title || summaryData?.title || 'Meeting Report',
         type: sessionData.session.conversation_type || 'meeting',
         platform: 'LiveConvo',
         duration: duration,
@@ -397,40 +394,9 @@ export default function MeetingReportPage() {
     return hours > 0 ? `${hours}h ${minutes}m` : `${minutes}m`;
   };
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      weekday: 'long',
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
-  };
 
-  const getPlatformIcon = (platform: string) => {
-    switch (platform.toLowerCase()) {
-      case 'zoom': return '📹';
-      case 'google_meet': return '📱';
-      case 'teams': return '💼';
-      default: return '🎥';
-    }
-  };
 
-  const getEffectivenessColor = (score: number) => {
-    if (score >= 80) return 'text-primary';
-    if (score >= 60) return 'text-accent';
-    return 'text-destructive';
-  };
 
-  const getPriorityColor = (priority: string) => {
-    switch (priority) {
-      case 'high': return 'bg-destructive/10 text-destructive border-destructive/20';
-      case 'medium': return 'bg-accent/15 text-accent-foreground border-accent/30';
-      case 'low': return 'bg-primary/10 text-primary border-primary/20';
-      default: return 'bg-muted text-muted-foreground border-border';
-    }
-  };
 
   const handleShare = () => {
     setShareModalOpen(true);
@@ -627,32 +593,33 @@ export default function MeetingReportPage() {
   };
 
   return (
-    <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+    <div className="min-h-screen bg-gradient-to-br from-background via-background to-accent/5">
+      {/* Modern Sticky Header with Integrated Tabs */}
+      <header className="fixed top-0 left-0 right-0 z-50 w-full bg-background/95 backdrop-blur-xl border-b border-border/40 shadow-sm">
         <div className="container mx-auto px-4">
-          <div className="flex h-16 items-center justify-between">
+          {/* Top Header Row */}
+          <div className="flex h-12 items-center justify-between">
             {/* Logo and Brand */}
-            <Link href="/" className="flex items-center gap-2 group">
+            <Link href="/" className="flex items-center gap-3 group">
               <Image 
                 src={theme === 'dark' 
                   ? "/Logos/DarkMode.png"
                   : "/Logos/LightMode.png"
                 }
                 alt="liveprompt.ai - AI-powered conversation intelligence platform"
-                width={140}
-                height={32}
-                className="object-contain transition-transform group-hover:scale-105"
+                width={120}
+                height={28}
+                className="object-contain transition-all duration-300 group-hover:scale-105"
               />
-              <span className="hidden sm:inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs bg-primary/10 border border-primary/30 text-primary">
-                <Sparkles className="w-3 h-3" />
-                Meeting Report
-              </span>
+              <div className="hidden lg:flex items-center gap-2">
+                <div className="h-6 w-px bg-border/60" />
+                <span className="text-sm font-medium text-muted-foreground">Report</span>
+              </div>
             </Link>
 
             {/* Right Side Actions */}
-            <div className="flex items-center gap-3">
-              <ThemeToggle className="h-9 w-9" />
+            <div className="flex items-center gap-2">
+              <ThemeToggle className="h-8 w-8" />
               
               {user ? (
                 // Authenticated User Actions
@@ -661,19 +628,19 @@ export default function MeetingReportPage() {
                     onClick={() => router.push('/dashboard')}
                     variant="ghost"
                     size="sm"
-                    className="hidden sm:flex items-center gap-2"
+                    className="hidden sm:flex items-center gap-1.5 h-8 px-3"
                   >
-                    <Home className="w-4 h-4" />
-                    Dashboard
+                    <Home className="w-3.5 h-3.5" />
+                    <span className="text-xs">Dashboard</span>
                   </Button>
                   <Button
                     onClick={handleSignOut}
-                    variant="outline"
+                    variant="ghost"
                     size="sm"
-                    className="flex items-center gap-2"
+                    className="flex items-center gap-1.5 h-8 px-3"
                   >
-                    <LogOut className="w-4 h-4" />
-                    <span className="hidden sm:inline">Sign Out</span>
+                    <LogOut className="w-3.5 h-3.5" />
+                    <span className="hidden sm:inline text-xs">Sign Out</span>
                   </Button>
                 </>
               ) : (
@@ -683,95 +650,176 @@ export default function MeetingReportPage() {
                     <Button
                       variant="ghost"
                       size="sm"
-                      className="hidden sm:flex items-center gap-2"
+                      className="hidden sm:flex items-center gap-1.5 h-8 px-3"
                     >
-                      Sign In
+                      <span className="text-xs">Sign In</span>
                     </Button>
                   </Link>
                   <Link href="/auth/signup">
                     <Button
                       variant="primary"
                       size="sm"
-                      className="flex items-center gap-2 shadow-lg hover:shadow-xl transition-all"
+                      className="flex items-center gap-1.5 h-8 px-3 shadow-md hover:shadow-lg transition-all"
                     >
-                      <UserPlus className="w-4 h-4" />
-                      <span>Get Started Free</span>
-                      <ChevronRight className="w-3 h-3" />
+                      <UserPlus className="w-3.5 h-3.5" />
+                      <span className="text-xs">Get Started</span>
                     </Button>
                   </Link>
                 </>
               )}
             </div>
           </div>
-        </div>
-      </header>
-
-      <div className="container mx-auto px-4 py-6">
-        <div className="max-w-6xl mx-auto">
-          {/* Report Header */}
-          <div className="mb-6">
-            {/* Top Row - Title and Actions */}
-            <div className="flex items-start justify-between mb-4">
-              <div className="flex-1">
-                <h1 className="text-2xl font-bold text-foreground mb-2">
-                  {report.title}
-                </h1>
-                <div className="flex items-center gap-3 flex-wrap">
-                  <span className={`px-3 py-1 text-xs font-medium rounded-full border ${getMeetingTypeBadge(report.type).color}`}>
-                    {getMeetingTypeBadge(report.type).label}
-                  </span>
-                  <span className="text-sm text-muted-foreground flex items-center gap-1">
-                    <Clock className="w-3 h-3" />
-                    {formatDuration(report.duration)}
-                  </span>
-                  <span className="text-sm text-muted-foreground">
-                    {formatDate(report.startedAt)}
-                  </span>
-                </div>
-                <div className="mt-3">
-                  <ParticipantsList 
-                    sessionId={meetingId} 
-                    fallbackParticipants={report.participants}
-                  />
-                </div>
-              </div>
+          
+          {/* Integrated Tab Navigation */}
+          {report && (
+            <div className="flex items-center justify-between border-t border-border/30">
+              <nav className="flex-1 flex gap-0.5 sm:gap-1 px-1 overflow-x-auto scrollbar-hide">
+                {[
+                  { id: 'overview', label: 'Overview', icon: FileText, badge: null },
+                  { id: 'insights', label: 'Insights', icon: Lightbulb, badge: report.summary.keyDecisions?.length || 0 },
+                  { id: 'actions', label: 'Actions', icon: Target, badge: report.summary.actionItems.length },
+                  { id: 'analytics', label: 'Analytics', icon: BarChart3, badge: null },
+                  { id: 'followup', label: 'Follow-up', icon: Calendar, badge: null },
+                  { id: 'transcript', label: 'Transcript', icon: MessageSquare, badge: null },
+                  { id: 'custom', label: 'Custom', icon: Sparkles, badge: null }
+                ].map((tab) => {
+                  const Icon = tab.icon;
+                  return (
+                    <button
+                      key={tab.id}
+                      onClick={() => setActiveTab(tab.id)}
+                      className={`relative py-2.5 px-2 sm:px-3 text-[10px] sm:text-xs font-medium transition-all duration-200 whitespace-nowrap flex-shrink-0 group ${
+                        activeTab === tab.id
+                          ? 'text-primary bg-primary/5'
+                          : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
+                      }`}
+                    >
+                      <div className="flex items-center gap-1 sm:gap-1.5">
+                        <Icon className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+                        <span className="hidden sm:inline">{tab.label}</span>
+                        <span className="sm:hidden">
+                          {tab.id === 'overview' ? 'View' :
+                           tab.id === 'insights' ? 'Insights' :
+                           tab.id === 'actions' ? 'Tasks' :
+                           tab.id === 'analytics' ? 'Stats' :
+                           tab.id === 'followup' ? 'Next' :
+                           tab.id === 'transcript' ? 'Text' :
+                           'Custom'}
+                        </span>
+                        {tab.badge !== null && tab.badge > 0 && (
+                          <span className={`ml-1 px-1.5 py-0.5 text-[10px] rounded-full transition-all duration-200 ${
+                            activeTab === tab.id 
+                              ? 'bg-primary text-primary-foreground' 
+                              : 'bg-muted text-muted-foreground'
+                          }`}>
+                            {tab.badge}
+                          </span>
+                        )}
+                      </div>
+                      {activeTab === tab.id && (
+                        <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-primary to-primary/70 rounded-t-full animate-in slide-in-from-bottom-1 duration-200" />
+                      )}
+                    </button>
+                  );
+                })}
+              </nav>
               
-              {/* Action Buttons */}
-              <div className="flex items-center gap-2">
-                {/* Show refresh button if there's a generation error */}
+              {/* Quick Actions */}
+              <div className="flex items-center gap-1 px-2 border-l border-border/30">
                 {hasGenerationError && (
                   <Button 
                     onClick={handleRegenerate} 
-                    variant="destructive" 
+                    variant="ghost" 
                     size="sm" 
-                    className="h-8"
+                    className="h-7 px-2"
                     disabled={isRegenerating}
                     title="Regenerate report due to error"
                   >
-                    <RefreshCw className={`w-3 h-3 mr-1.5 ${isRegenerating ? 'animate-spin' : ''}`} />
-                    {isRegenerating ? 'Regenerating...' : 'Refresh Report'}
+                    <RefreshCw className={`w-3.5 h-3.5 ${isRegenerating ? 'animate-spin' : ''}`} />
                   </Button>
                 )}
-                <Button 
-                  onClick={() => router.push(`/meeting/${meetingId}`)} 
-                  variant="ghost" 
-                  size="sm" 
-                  className="h-8"
-                  title="View conversation details"
-                >
-                  <MessageSquare className="w-3 h-3 mr-1.5" />
-                  View Conversation
-                </Button>
-                <Button onClick={handleShare} variant="outline" size="sm" className="h-8">
-                  <Share className="w-3 h-3 mr-1.5" />
-                  Share
+                <Button onClick={handleShare} variant="ghost" size="sm" className="h-7 px-2">
+                  <Share className="w-3.5 h-3.5" />
                 </Button>
               </div>
             </div>
-            
-            {/* Divider */}
-            <div className="h-px bg-border" />
-          </div>
+          )}
+        </div>
+      </header>
+
+      {/* Add padding top to account for fixed header */}
+      <div className="container mx-auto px-4 pt-[108px] sm:pt-[112px] pb-4">
+        <div className="max-w-6xl mx-auto">
+          {/* Compact Meeting Info Section */}
+          {report && (
+            <div className="mb-4 p-3 bg-card border border-border rounded-lg">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                {/* Meeting Details */}
+                <div className="flex-1">
+                  <div className="mb-1">
+                    <div className="flex items-start sm:items-center gap-2 flex-col sm:flex-row">
+                      <h1 className="text-base sm:text-lg font-bold text-foreground">
+                        {report.title || 'Untitled Conversation'}
+                      </h1>
+                      <span className={`inline-flex items-center px-1.5 py-0.5 text-[10px] font-medium rounded border ${getMeetingTypeBadge(report.type).color}`}>
+                        {getMeetingTypeBadge(report.type).label}
+                      </span>
+                    </div>
+                    {report.summary?.tldr && report.summary.tldr !== 'Summary generation is pending. Please check back in a few moments.' && (
+                      <p className="text-[11px] text-muted-foreground mt-1 line-clamp-1">
+                        {report.summary.tldr.length > 100 ? report.summary.tldr.substring(0, 100) + '...' : report.summary.tldr}
+                      </p>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-3 text-[11px] text-muted-foreground">
+                    <span className="flex items-center gap-1">
+                      <Clock className="w-3 h-3" />
+                      {formatDuration(report.duration)}
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <Calendar className="w-3 h-3" />
+                      {new Date(report.startedAt).toLocaleDateString('en-US', {
+                        month: 'short',
+                        day: 'numeric'
+                      })}
+                    </span>
+                    <span className="hidden sm:flex items-center gap-1">
+                      <Users className="w-3 h-3" />
+                      {report.participants.me}, {report.participants.them}
+                    </span>
+                  </div>
+                </div>
+                
+                {/* Quick Stats - Simple Text */}
+                <div className="flex items-center gap-3 sm:gap-4">
+                  <div className="text-center">
+                    <div className="text-sm font-semibold text-foreground">
+                      {report.summary.keyDecisions?.length || 0}
+                    </div>
+                    <div className="text-[10px] text-muted-foreground">Decisions</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-sm font-semibold text-foreground">
+                      {report.summary.actionItems.length}
+                    </div>
+                    <div className="text-[10px] text-muted-foreground">Actions</div>
+                  </div>
+                  
+                  {/* Action Button */}
+                  <Button 
+                    onClick={() => router.push(`/meeting/${meetingId}`)} 
+                    variant="ghost" 
+                    size="sm" 
+                    className="h-7 px-2 text-[11px]"
+                    title="View conversation"
+                  >
+                    <MessageSquare className="w-3.5 h-3.5" />
+                    <span className="hidden sm:inline ml-1">View</span>
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Error Banner */}
           {hasGenerationError && (
@@ -789,16 +837,19 @@ export default function MeetingReportPage() {
             </div>
           )}
           
-          {/* Tabbed Report Component */}
-          <TabbedReport 
-            report={report}
-            activeTab={activeTab}
-            setActiveTab={setActiveTab}
-            handleManualFinalize={handleManualFinalize}
-            handleRefreshData={fetchMeetingReport}
-            finalizing={finalizing}
-            finalizationProgress={finalizationProgress}
-          />
+          {/* Tabbed Report Component - Now without its own tabs */}
+          {report && (
+            <TabbedReport 
+              report={report}
+              activeTab={activeTab}
+              setActiveTab={setActiveTab}
+              handleManualFinalize={handleManualFinalize}
+              handleRefreshData={fetchMeetingReport}
+              finalizing={finalizing}
+              finalizationProgress={finalizationProgress}
+              hideNavigation={true}
+            />
+          )}
 
 
           {/* Share Modal */}
