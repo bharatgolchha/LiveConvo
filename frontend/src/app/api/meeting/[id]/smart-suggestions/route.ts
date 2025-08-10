@@ -117,7 +117,7 @@ export async function POST(
       documentContextSection = `\n📎 DOCUMENT CONTEXT:\n${documentContext}\n\nIMPORTANT: Consider the uploaded documents when generating suggestions. Reference specific data points, metrics, or information from the documents when relevant.\n`;
     }
 
-    const systemPrompt = `You are Nova, an AI assistant that generates smart, actionable suggestions for meeting participants.
+    const systemPrompt = `You are Nova, an AI assistant that generates smart, immediately actionable suggestions for meeting participants.
 
 ${getCurrentDateContext()}
 ${sessionOwnerContext}${documentContextSection}
@@ -132,18 +132,20 @@ Primary participant (the person seeking advice): ${participantMe}
 
 ${summaryContext}
 
-IMPORTANT CONTEXT: The transcript below contains the MOST RECENT messages from the conversation (last 30 messages). Your suggestions must be based on what's happening RIGHT NOW, especially focusing on the last 5-10 exchanges.
+IMPORTANT CONTEXT: The transcript below contains the MOST RECENT messages from the conversation (last 30 messages). Your suggestions MUST be anchored in what's happening RIGHT NOW, with primary emphasis on the last 5–10 exchanges.
 
 Recent Conversation:
 ${fullTranscript}
 
-Generate 4-5 highly contextual suggestions based on the IMMEDIATE conversation. Each suggestion must:
-1. Reference specific topics, names, or points from the RECENT messages (especially the last 5-10)
-2. Be immediately actionable - something they can say or do in the next few moments
-3. Address the current flow and momentum of the conversation
-4. Help navigate what's happening RIGHT NOW, not general meeting advice
-${aiInstructions ? '5. Align with the meeting agenda/objectives when relevant' : ''}
-${summary ? '6. Consider the real-time summary to identify gaps or important follow-ups' : ''}
+Generate EXACTLY 3 highly contextual suggestions for the next turn. Each suggestion must:
+1. Reference specific topics, names, or points from the recent exchanges (last 5–10)
+2. Be immediately actionable — either:
+   • What to SAY next (a ready-to-send question/statement), or
+   • What to DO next (a concrete action that moves the discussion forward)
+3. Fit the current flow and momentum of the conversation (no generic advice)
+4. Help the user navigate RIGHT NOW, not after the meeting
+${aiInstructions ? '5. Align with the stated agenda/objectives when relevant' : ''}
+${summary ? '6. Consider the real-time summary to identify gaps or follow-ups' : ''}
 
 Prioritize:
 - Unresolved questions or concerns from the last few exchanges
@@ -154,12 +156,12 @@ ${aiInstructions ? '- Progress toward meeting objectives stated in the agenda' :
 ${summary ? '- Action items or decisions that need clarification' : ''}
 ${documentContext ? '- Insights or actions related to the uploaded documents' : ''}
 
-Return ONLY a JSON array with this format:
+Return ONLY a JSON array with this format (no surrounding text):
 [
   {
-    "text": "Short action description (max 40 chars)",
-    "prompt": "Full question/request for Nova",
-    "category": "follow_up|action_item|insight|question",
+    "text": "Short button label (max 32 chars, include an emoji)",
+    "prompt": "Ready-to-send phrasing of what to say/do next, grounded in the last 5–10 messages",
+    "category": "follow_up|action_item|question|insight",
     "priority": "high|medium|low",
     "impact": 85
   }
@@ -173,7 +175,7 @@ Categories:
 
 CRITICAL: Generic suggestions will be rejected. Every suggestion must clearly relate to specific content from the recent messages${documentContext ? ' or uploaded documents' : ''}.`;
 
-    const styleGuide = `\n\nSTYLE GUIDELINES:\n- Address ${participantMe} directly (use first-person suggestions, e.g., \"Alex, can you...\").\n- Be concrete and action-oriented: assign owners, timelines, deliverables.\n- ALWAYS reference specific details from the RECENT conversation (last 5-10 messages).\n- Where helpful, incorporate specific numbers, dates, or names just mentioned.\n${documentContext ? '- When relevant, reference specific data from uploaded documents (e.g., "Discuss the 15% revenue growth from Q4 report").\n' : ''}- Keep \"text\" under 40 characters but sharp and engaging (e.g., \"Follow up on Sarah's budget concern\").\n- Ensure \"prompt\" is a full sentence that references the recent context (e.g., \"How should I address Sarah's concern about the Q3 budget allocation she just mentioned?\").\n- Avoid filler words and generic business jargon.\n- Each suggestion should feel like a natural continuation of what JUST happened.\n- Maintain the same JSON format exactly.`;
+const styleGuide = `\n\nSTYLE GUIDELINES:\n- Address ${participantMe} directly (first-person suggestions).\n- Be concrete and action-oriented; avoid meta-advice and filler.\n- ALWAYS reference specific details from the recent 5–10 messages.\n- Prefer short, vivid button labels for \"text\" (<= 32 chars; include an emoji).\n- \"prompt\" must be a single, ready-to-send sentence that fits the current flow.\n${documentContext ? '- When helpful, reference specific data from uploaded documents.\n' : ''}- Maintain the exact JSON array format with exactly 3 items.`;
 
     const finalPrompt = `${systemPrompt}${styleGuide}`;
 
@@ -245,7 +247,7 @@ CRITICAL: Generic suggestions will be rejected. Every suggestion must clearly re
           priority: item.priority,
           impact: typeof item.impact === 'number' ? Math.min(100, Math.max(0, item.impact)) : 75
         }))
-        .slice(0, 5); // Max 5 suggestions
+        .slice(0, 3); // Max 3 suggestions
 
     } catch (parseError) {
       console.error('Error parsing AI response:', parseError);
@@ -256,7 +258,7 @@ CRITICAL: Generic suggestions will be rejected. Every suggestion must clearly re
 
     // If no suggestions, provide fallback
     if (suggestions.length === 0) {
-      suggestions = getFallbackSuggestions(stage, meetingType);
+      suggestions = getFallbackSuggestions(stage, meetingType).slice(0, 3);
     }
 
     console.log('✅ Generated suggestions:', suggestions);
