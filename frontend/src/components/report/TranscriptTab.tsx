@@ -54,17 +54,22 @@ export function TranscriptTab({ sessionId, sharedToken }: TranscriptTabProps) {
     // Only fetch data once on initial mount
     if (sessionId && (sharedToken || session?.access_token) && !hasInitiallyLoaded) {
       fetchTranscript();
-      // Only fetch recording if subscription is loaded and user has access (or it's a shared view)
-      if (!subscriptionLoading && (hasRecordingAccess || sharedToken)) {
+      // Always try to fetch the recording once subscription state is known
+      // Reason: Match meeting page behavior and still gate downloads via hasRecordingAccess
+      if (!subscriptionLoading) {
         fetchRecording();
-      } else if (!subscriptionLoading && !hasRecordingAccess && !sharedToken) {
-        // Set recording to null if no access
-        setRecording(null);
-        setRecordingLoading(false);
       }
       setHasInitiallyLoaded(true);
     }
-  }, [sessionId, session?.access_token, sharedToken, subscriptionLoading, hasRecordingAccess, hasInitiallyLoaded]);
+  }, [sessionId, session?.access_token, sharedToken, subscriptionLoading, hasInitiallyLoaded]);
+
+  // If subscription state resolves after initial mount, attempt to fetch recording then
+  useEffect(() => {
+    if (!sessionId) return;
+    if (!(sharedToken || session?.access_token)) return;
+    if (subscriptionLoading) return;
+    fetchRecording();
+  }, [sessionId, session?.access_token, sharedToken, subscriptionLoading]);
 
   const fetchTranscript = async () => {
     if (!sessionId) return;
