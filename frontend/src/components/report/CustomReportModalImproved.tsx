@@ -17,9 +17,7 @@ import {
   Loader2,
   Copy,
   Check,
-  Share2,
   FileText,
-  Clock,
   Trash2,
   Link2,
   Globe,
@@ -35,8 +33,6 @@ import {
   ClipboardList
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
-import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
 import { Switch } from '@/components/ui/switch';
 
 interface CustomReportModalProps {
@@ -58,7 +54,50 @@ interface CustomReport {
   metadata?: any;
 }
 
-export function CustomReportModal({ 
+// Template definitions with icons and descriptions
+const templates = [
+  { 
+    value: 'executive', 
+    label: 'Executive Summary',
+    icon: Target,
+    description: 'High-level overview for leadership',
+    color: 'text-blue-500',
+    bgColor: 'bg-blue-50 dark:bg-blue-950'
+  },
+  { 
+    value: 'technical', 
+    label: 'Technical Report',
+    icon: BarChart3,
+    description: 'Detailed technical analysis',
+    color: 'text-green-500',
+    bgColor: 'bg-green-50 dark:bg-green-950'
+  },
+  { 
+    value: 'action_items', 
+    label: 'Action Items',
+    icon: ClipboardList,
+    description: 'Tasks and next steps',
+    color: 'text-orange-500',
+    bgColor: 'bg-orange-50 dark:bg-orange-950'
+  },
+  { 
+    value: 'stakeholder', 
+    label: 'Stakeholder Update',
+    icon: Users,
+    description: 'Progress and status report',
+    color: 'text-purple-500',
+    bgColor: 'bg-purple-50 dark:bg-purple-950'
+  },
+];
+
+const templatePrompts: Record<string, string> = {
+  executive: 'Generate an executive summary focusing on key decisions, outcomes, and strategic implications.',
+  technical: 'Create a detailed technical report including discussed technologies, implementation details, and technical decisions.',
+  action_items: 'Generate a comprehensive list of action items with owners, deadlines, and priority levels.',
+  stakeholder: 'Create a stakeholder update highlighting progress, blockers, and next steps.',
+};
+
+export function CustomReportModalImproved({ 
   isOpen, 
   onClose, 
   sessionId, 
@@ -75,59 +114,23 @@ export function CustomReportModal({
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [isCopied, setIsCopied] = useState(false);
   const [selectedTemplate, setSelectedTemplate] = useState('');
+  
+  // Advanced options
+  const [showAdvanced, setShowAdvanced] = useState(false);
   const [includeLinkedConversations, setIncludeLinkedConversations] = useState(false);
   const [enableWebSearch, setEnableWebSearch] = useState(false);
   const [linkedConversations, setLinkedConversations] = useState<any[]>([]);
   const [loadingLinkedConversations, setLoadingLinkedConversations] = useState(false);
+  
+  // Suggestions
   const [promptSuggestions, setPromptSuggestions] = useState<string[]>([]);
   const [isSuggesting, setIsSuggesting] = useState(false);
   const [showSuggestions, setShowSuggestions] = useState(false);
-  const [showAdvanced, setShowAdvanced] = useState(false);
+  
+  // Preferences
   const [audience, setAudience] = useState<string>('');
   const [tone, setTone] = useState<string>('');
   const [lengthPref, setLengthPref] = useState<string>('');
-
-  const templates = [
-    { 
-      value: 'executive', 
-      label: 'Executive Summary',
-      icon: Target,
-      description: 'High-level overview for leadership',
-      color: 'text-blue-500',
-      bgColor: 'bg-blue-50 dark:bg-blue-950'
-    },
-    { 
-      value: 'technical', 
-      label: 'Technical Report',
-      icon: BarChart3,
-      description: 'Detailed technical analysis',
-      color: 'text-green-500',
-      bgColor: 'bg-green-50 dark:bg-green-950'
-    },
-    { 
-      value: 'action_items', 
-      label: 'Action Items',
-      icon: ClipboardList,
-      description: 'Tasks and next steps',
-      color: 'text-orange-500',
-      bgColor: 'bg-orange-50 dark:bg-orange-950'
-    },
-    { 
-      value: 'stakeholder', 
-      label: 'Stakeholder Update',
-      icon: Users,
-      description: 'Progress and status report',
-      color: 'text-purple-500',
-      bgColor: 'bg-purple-50 dark:bg-purple-950'
-    },
-  ];
-
-  const templatePrompts: Record<string, string> = {
-    executive: 'Generate an executive summary focusing on key decisions, outcomes, and strategic implications.',
-    technical: 'Create a detailed technical report including discussed technologies, implementation details, and technical decisions.',
-    action_items: 'Generate a comprehensive list of action items with owners, deadlines, and priority levels.',
-    stakeholder: 'Create a stakeholder update highlighting progress, blockers, and next steps.',
-  };
 
   useEffect(() => {
     if (selectedTemplate && templatePrompts[selectedTemplate]) {
@@ -245,8 +248,6 @@ export function CustomReportModal({
     setError(null);
     
     try {
-      const reportTitle = prompt.slice(0, 100) + (prompt.length > 100 ? '...' : '');
-      
       const response = await fetch(`/api/reports/${sessionId}/custom/save`, {
         method: 'POST',
         headers: {
@@ -265,7 +266,6 @@ export function CustomReportModal({
       }
 
       const result = await response.json();
-      console.log('Save response:', result);
       setCurrentReport(result.report || result);
       setHasUnsavedChanges(false);
       
@@ -273,23 +273,21 @@ export function CustomReportModal({
         onReportGenerated();
       }
 
-      // After successful save: reset inputs and close modal
-      try {
-        setGeneratedReport('');
-        setPrompt('');
-        setSelectedTemplate('');
-        setCurrentReport(null);
-        setLinkedConversations([]);
-        setIncludeLinkedConversations(false);
-        setEnableWebSearch(false);
-        setPromptSuggestions([]);
-        setAudience('');
-        setTone('');
-        setLengthPref('');
-        setShowAdvanced(false);
-        setShowSuggestions(false);
-      } catch {}
-
+      // Reset and close
+      setGeneratedReport('');
+      setPrompt('');
+      setSelectedTemplate('');
+      setCurrentReport(null);
+      setLinkedConversations([]);
+      setIncludeLinkedConversations(false);
+      setEnableWebSearch(false);
+      setPromptSuggestions([]);
+      setAudience('');
+      setTone('');
+      setLengthPref('');
+      setShowAdvanced(false);
+      setShowSuggestions(false);
+      
       onClose();
     } catch (error) {
       console.error('Error saving report:', error);
@@ -300,7 +298,6 @@ export function CustomReportModal({
   };
 
   const handleCopyReport = async () => {
-    // The generatedReport is already in markdown format
     await navigator.clipboard.writeText(generatedReport);
     setIsCopied(true);
     setTimeout(() => setIsCopied(false), 2000);
@@ -388,8 +385,8 @@ export function CustomReportModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent className="max-w-5xl h-[90vh] flex flex-col p-0 border-border/50">
-        <DialogHeader className="px-6 pt-6 pb-4 border-b border-border/50">
+      <DialogContent className="max-w-5xl h-[90vh] flex flex-col p-0">
+        <DialogHeader className="px-6 pt-6 pb-4 border-b">
           <DialogTitle className="flex items-center gap-2 text-lg">
             <Sparkles className="w-5 h-5 text-primary" />
             Custom Report Generator
@@ -403,7 +400,7 @@ export function CustomReportModal({
           {!generatedReport ? (
             <div className="h-full flex flex-col">
               {/* Template Selection - Clean Grid */}
-              <div className="px-6 py-4 border-b border-border/50 bg-muted/10">
+              <div className="px-6 py-4 border-b bg-muted/20">
                 <div className="flex items-center justify-between mb-3">
                   <h3 className="text-sm font-medium">Choose a template to get started</h3>
                   <Button
@@ -423,10 +420,10 @@ export function CustomReportModal({
                       <button
                         key={template.value}
                         onClick={() => setSelectedTemplate(template.value)}
-                        className={`relative p-4 rounded-lg border transition-all group ${
+                        className={`relative p-4 rounded-lg border-2 transition-all group ${
                           selectedTemplate === template.value
                             ? 'border-primary bg-primary/5'
-                            : 'border-border/50 hover:border-primary/50 hover:bg-muted/30'
+                            : 'border-border hover:border-primary/50 hover:bg-muted/50'
                         }`}
                       >
                         <div className={`${template.bgColor} rounded-lg p-2 w-fit mb-2`}>
@@ -474,12 +471,12 @@ export function CustomReportModal({
                       value={prompt}
                       onChange={(e) => setPrompt(e.target.value)}
                       placeholder="E.g., Generate a technical architecture document focusing on the API design decisions..."
-                      className="w-full h-32 px-4 py-3 text-sm bg-background border border-border/50 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary"
+                      className="w-full h-32 px-4 py-3 text-sm bg-background border border-border rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary"
                     />
 
                     {/* AI Suggestions - Compact Display */}
                     {showSuggestions && promptSuggestions.length > 0 && (
-                      <div className="bg-muted/20 rounded-lg p-3 space-y-2 border border-border/30">
+                      <div className="bg-muted/30 rounded-lg p-3 space-y-2">
                         <div className="flex items-center justify-between">
                           <p className="text-xs font-medium text-muted-foreground">
                             AI Suggestions
@@ -499,7 +496,7 @@ export function CustomReportModal({
                                 setPrompt(suggestion);
                                 setShowSuggestions(false);
                               }}
-                              className="w-full text-left p-2 bg-background/50 border border-border/30 rounded-md hover:bg-primary/5 hover:border-primary/50 transition-colors group"
+                              className="w-full text-left p-2 bg-background border border-border rounded-md hover:bg-primary/5 hover:border-primary/50 transition-colors group"
                             >
                               <p className="text-xs line-clamp-2 group-hover:text-primary">
                                 {suggestion}
@@ -512,7 +509,7 @@ export function CustomReportModal({
                   </div>
 
                   {/* Advanced Options - Collapsible */}
-                  <div className="border border-border/50 rounded-lg">
+                  <div className="border rounded-lg">
                     <button
                       onClick={() => setShowAdvanced(!showAdvanced)}
                       className="w-full px-4 py-3 flex items-center justify-between hover:bg-muted/30 transition-colors"
@@ -529,7 +526,7 @@ export function CustomReportModal({
                     </button>
                     
                     {showAdvanced && (
-                      <div className="px-4 pb-4 space-y-4 border-t border-border/50">
+                      <div className="px-4 pb-4 space-y-4 border-t">
                         {/* Preferences */}
                         <div className="pt-4 space-y-3">
                           <p className="text-xs font-medium text-muted-foreground">
@@ -540,26 +537,26 @@ export function CustomReportModal({
                               value={audience}
                               onChange={(e) => setAudience(e.target.value)}
                               placeholder="Audience (e.g., executives)"
-                              className="px-3 py-2 text-xs bg-background/50 border border-border/30 rounded-md focus:outline-none focus:ring-1 focus:ring-primary/50 focus:border-primary/50"
+                              className="px-3 py-2 text-xs bg-background border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary"
                             />
                             <input
                               value={tone}
                               onChange={(e) => setTone(e.target.value)}
                               placeholder="Tone (e.g., formal)"
-                              className="px-3 py-2 text-xs bg-background/50 border border-border/30 rounded-md focus:outline-none focus:ring-1 focus:ring-primary/50 focus:border-primary/50"
+                              className="px-3 py-2 text-xs bg-background border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary"
                             />
                             <input
                               value={lengthPref}
                               onChange={(e) => setLengthPref(e.target.value)}
                               placeholder="Length (e.g., 2 pages)"
-                              className="px-3 py-2 text-xs bg-background/50 border border-border/30 rounded-md focus:outline-none focus:ring-1 focus:ring-primary/50 focus:border-primary/50"
+                              className="px-3 py-2 text-xs bg-background border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary"
                             />
                           </div>
                         </div>
 
                         {/* Toggle Options */}
                         <div className="space-y-3">
-                          <div className="flex items-center justify-between p-3 bg-muted/20 rounded-lg border border-border/30">
+                          <div className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
                             <div className="flex items-center gap-2">
                               <Link2 className="w-4 h-4 text-muted-foreground" />
                               <div>
@@ -578,7 +575,7 @@ export function CustomReportModal({
                             />
                           </div>
 
-                          <div className="flex items-center justify-between p-3 bg-muted/20 rounded-lg border border-border/30">
+                          <div className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
                             <div className="flex items-center gap-2">
                               <Globe className="w-4 h-4 text-muted-foreground" />
                               <div>
@@ -608,7 +605,7 @@ export function CustomReportModal({
                               {linkedConversations.map((session) => (
                                 <div
                                   key={session.id}
-                                  className="p-2 bg-background/50 rounded border border-border/30 text-xs"
+                                  className="p-2 bg-background rounded border border-border/50 text-xs"
                                 >
                                   <p className="font-medium truncate">{session.title}</p>
                                   <p className="text-muted-foreground">
@@ -636,7 +633,7 @@ export function CustomReportModal({
                   )}
 
                   {error && (
-                    <div className="p-3 bg-destructive/10 border border-destructive/30 rounded-lg">
+                    <div className="p-3 bg-destructive/10 border border-destructive/20 rounded-lg">
                       <p className="text-sm text-destructive">{error}</p>
                     </div>
                   )}
@@ -644,7 +641,7 @@ export function CustomReportModal({
               </div>
 
               {/* Footer Actions */}
-              <div className="px-6 py-4 border-t border-border/50 bg-muted/5">
+              <div className="px-6 py-4 border-t bg-muted/10">
                 <div className="flex items-center justify-between">
                   <Button
                     variant="outline"
@@ -674,21 +671,19 @@ export function CustomReportModal({
               </div>
             </div>
           ) : (
-            <div className="h-full flex flex-col">
+            <>
               <div className="flex-1 overflow-hidden px-6 py-4">
-                <div className="h-full">
-                  <CustomReportEditor
-                    content={generatedReport}
-                    onChange={(content) => {
-                      setGeneratedReport(content);
-                      setHasUnsavedChanges(true);
-                    }}
-                  />
-                </div>
+                <CustomReportEditor
+                  content={generatedReport}
+                  onChange={(content) => {
+                    setGeneratedReport(content);
+                    setHasUnsavedChanges(true);
+                  }}
+                />
               </div>
               
-              <div className="px-6 py-4 border-t border-border/50 bg-muted/5 flex-shrink-0">
-                <div className="flex items-center justify-between">
+              <DialogFooter className="px-6 py-4 border-t bg-muted/10">
+                <div className="flex items-center justify-between w-full">
                   <div className="flex items-center gap-2">
                     <Button
                       variant="outline"
@@ -737,8 +732,8 @@ export function CustomReportModal({
                     </Button>
                   )}
                 </div>
-              </div>
-            </div>
+              </DialogFooter>
+            </>
           )}
         </div>
       </DialogContent>

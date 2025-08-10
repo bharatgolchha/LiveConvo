@@ -57,7 +57,7 @@ export function CustomReportEditor({ content, onChange, placeholder }: CustomRep
     },
     editorProps: {
       attributes: {
-        class: 'prose prose-sm dark:prose-invert max-w-none focus:outline-none min-h-[400px] px-4 py-3',
+        class: 'prose prose-sm dark:prose-invert max-w-none focus:outline-none h-full px-4 py-3 bg-transparent',
       },
     },
   });
@@ -342,8 +342,8 @@ export function CustomReportEditor({ content, onChange, placeholder }: CustomRep
       title={title}
       className={`p-2 rounded-md transition-colors ${
         isActive 
-          ? 'bg-primary text-primary-foreground' 
-          : 'text-muted-foreground hover:text-foreground hover:bg-muted'
+          ? 'bg-primary/90 text-primary-foreground' 
+          : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
       } ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
     >
       {children}
@@ -351,8 +351,8 @@ export function CustomReportEditor({ content, onChange, placeholder }: CustomRep
   );
 
   return (
-    <div className="flex flex-col h-full border border-border rounded-lg overflow-hidden bg-background">
-      <div className="flex items-center gap-1 p-2 border-b border-border bg-muted/50">
+    <div className="flex flex-col h-full border border-border/50 rounded-lg bg-background/50">
+      <div className="flex items-center gap-1 p-2 border-b border-border/50 bg-muted/30 flex-shrink-0">
         <div className="flex items-center gap-1">
           <ToolbarButton
             onClick={() => editor.chain().focus().toggleBold().run()}
@@ -377,7 +377,7 @@ export function CustomReportEditor({ content, onChange, placeholder }: CustomRep
           </ToolbarButton>
         </div>
 
-        <div className="w-px h-6 bg-border mx-1" />
+        <div className="w-px h-6 bg-border/30 mx-1" />
 
         <div className="flex items-center gap-1">
           <ToolbarButton
@@ -403,7 +403,7 @@ export function CustomReportEditor({ content, onChange, placeholder }: CustomRep
           </ToolbarButton>
         </div>
 
-        <div className="w-px h-6 bg-border mx-1" />
+        <div className="w-px h-6 bg-border/30 mx-1" />
 
         <div className="flex items-center gap-1">
           <ToolbarButton
@@ -429,7 +429,7 @@ export function CustomReportEditor({ content, onChange, placeholder }: CustomRep
           </ToolbarButton>
         </div>
 
-        <div className="w-px h-6 bg-border mx-1" />
+        <div className="w-px h-6 bg-border/30 mx-1" />
 
         <div className="flex items-center gap-1">
           <ToolbarButton
@@ -460,8 +460,8 @@ export function CustomReportEditor({ content, onChange, placeholder }: CustomRep
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto">
-        <EditorContent editor={editor} />
+      <div className="flex-1 overflow-y-auto min-h-0">
+        <EditorContent editor={editor} className="h-full" />
       </div>
     </div>
   );
