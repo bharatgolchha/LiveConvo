@@ -18,10 +18,10 @@ export async function GET(request: NextRequest) {
     }
 
     const clientId = process.env.MICROSOFT_CLIENT_ID;
-    const redirectUri = process.env.MICROSOFT_REDIRECT_URI || `${process.env.NEXT_PUBLIC_APP_URL}/api/calendar/auth/outlook/callback`;
+    const redirectUri = process.env.MICROSOFT_REDIRECT_URI; // Must exactly match Azure app's registered redirect URI
 
     if (!clientId || !redirectUri) {
-      return NextResponse.json({ error: 'Microsoft OAuth not configured' }, { status: 500 });
+      return NextResponse.json({ error: 'Microsoft OAuth not configured: missing MICROSOFT_CLIENT_ID or MICROSOFT_REDIRECT_URI' }, { status: 500 });
     }
 
     // Block connecting a different provider if an active connection exists

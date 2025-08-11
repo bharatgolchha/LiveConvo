@@ -15,7 +15,7 @@ export async function GET(request: NextRequest) {
     }
 
     if (!code || !state) {
-      return NextResponse.redirect(new URL('/dashboard/settings?error=missing_params', request.url));
+      return NextResponse.redirect(new URL('/dashboard?tab=settings&error=missing_params', request.url));
     }
 
     // Decode state
@@ -34,10 +34,25 @@ export async function GET(request: NextRequest) {
 
     // Exchange code for tokens with Microsoft
     const tokenUrl = 'https://login.microsoftonline.com/common/oauth2/v2.0/token';
+
+    // Validate required env vars and use the exact redirect URI registered in Azure
+    const clientId = process.env.MICROSOFT_CLIENT_ID;
+    const clientSecret = process.env.MICROSOFT_CLIENT_SECRET;
+    const redirectUri = process.env.MICROSOFT_REDIRECT_URI;
+
+    if (!clientId || !clientSecret || !redirectUri) {
+      console.error('Microsoft OAuth env vars missing', {
+        hasClientId: Boolean(clientId),
+        hasClientSecret: Boolean(clientSecret),
+        hasRedirectUri: Boolean(redirectUri),
+      });
+      return NextResponse.redirect(new URL('/dashboard?tab=settings&error=ms_oauth_not_configured', request.url));
+    }
+
     const tokenParams = new URLSearchParams({
-      client_id: process.env.MICROSOFT_CLIENT_ID!,
-      client_secret: process.env.MICROSOFT_CLIENT_SECRET!,
-      redirect_uri: process.env.MICROSOFT_REDIRECT_URI || `${process.env.NEXT_PUBLIC_APP_URL}/api/calendar/auth/outlook/callback`,
+      client_id: clientId,
+      client_secret: clientSecret,
+      redirect_uri: redirectUri,
       grant_type: 'authorization_code',
       code
     });
@@ -162,8 +177,12 @@ export async function GET(request: NextRequest) {
       });
 
     if (insertError) {
-      console.error('Failed to save MS calendar connection:', insertError);
-      return NextResponse.redirect(new URL('/dashboard?tab=settings&error=save_failed', request.url));
+      // If duplicate, treat as success by proceeding to redirect
+      const errorCode = (insertError as any)?.code;
+      if (errorCode !== '23505') {
+        console.error('Failed to save MS calendar connection:', insertError);
+        return NextResponse.redirect(new URL('/dashboard?tab=settings&error=save_failed', request.url));
+      }
     }
 
     // Ensure default preferences
@@ -180,7 +199,9 @@ export async function GET(request: NextRequest) {
       }, { onConflict: 'user_id' });
 
     // Redirect to success
-    const redirectUrl = new URL(oauthState.redirect_url, request.url);
+    // Redirect back to the public app URL origin (prevents https://localhost redirects via ngrok)
+    const appBase = process.env.NEXT_PUBLIC_APP_URL || request.url;
+    const redirectUrl = new URL(oauthState.redirect_url, appBase);
     redirectUrl.searchParams.set('calendar_connected', 'outlook');
     return NextResponse.redirect(redirectUrl);
   } catch (error) {
