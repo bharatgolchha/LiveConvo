@@ -384,13 +384,27 @@ async function processFinalization({
     throw limitError;
   }
 
-  // Create meeting context
+  // Derive an effective conversation type. If it's missing or too generic, classify via AI.
+  let effectiveConversationType = (conversationType || sessionData.conversation_type || '').trim();
+  try {
+    const isGeneric = !effectiveConversationType || ['meeting', 'general', 'team'].includes(effectiveConversationType.toLowerCase());
+    if (isGeneric) {
+      const classified = await classifyConversationType(transcriptText);
+      if (classified) {
+        effectiveConversationType = classified;
+      }
+    }
+  } catch (classificationError) {
+    console.warn('⚠️ Failed to classify conversation type via AI. Using fallback:', classificationError);
+  }
+
+  // Normalize into a small set used by downstream prompts
   const normalizedType = (() => {
-    const lowerType = conversationType?.toLowerCase() || '';
+    const lowerType = effectiveConversationType?.toLowerCase() || '';
     if (lowerType.includes('sales') || lowerType.includes('demo')) return 'sales';
     if (lowerType.includes('interview') || lowerType.includes('hiring')) return 'interview';
-    if (lowerType.includes('support') || lowerType.includes('help')) return 'support';
-    if (lowerType.includes('meeting') || lowerType.includes('sync')) return 'meeting';
+    if (lowerType.includes('support') || lowerType.includes('help') || lowerType.includes('customer')) return 'support';
+    if (lowerType.includes('standup') || lowerType.includes('sync') || lowerType.includes('meeting')) return 'meeting';
     return 'general';
   })();
 
@@ -506,7 +520,8 @@ async function processFinalization({
       finalized_at: new Date().toISOString(),
       recording_duration_seconds: finalDurationSeconds,
       bot_recording_minutes: finalBillableMinutes,
-      bot_billable_amount: Number((finalBillableMinutes * 0.10).toFixed(2))
+      bot_billable_amount: Number((finalBillableMinutes * 0.10).toFixed(2)),
+      conversation_type: effectiveConversationType || normalizedType
     })
     .eq('id', sessionId);
 
@@ -659,7 +674,7 @@ async function processFinalization({
           },
           summary,
           transcript: transcriptText,
-          conversationType,
+          conversationType: effectiveConversationType || normalizedType,
           appUrl
         });
         
@@ -684,7 +699,7 @@ async function processFinalization({
     summary,
     finalization: finalData,
     transcript: transcriptText,
-    conversationType,
+    conversationType: effectiveConversationType || normalizedType,
     conversationTitle,
     finalizedAt: new Date().toISOString()
   };
@@ -696,6 +711,67 @@ async function processFinalization({
   }
 
   return result;
+}
+
+/**
+ * Classify conversation type from transcript using OpenRouter.
+ * Returns a lowercase label such as "sales", "support", "meeting", "interview", or a concise custom type.
+ */
+async function classifyConversationType(transcript: string): Promise<string | null> {
+  try {
+    const model = await getAIModelForAction(AIAction.SUMMARY);
+    const prompt = [
+      'Determine the most fitting conversation type for the following transcript. '
+      + 'Choose one of: sales, support, meeting, interview. '
+      + 'If none fits, output a short custom type (1-2 words).',
+      '',
+      'Return ONLY a JSON object exactly like: {"type": "sales"}',
+      '',
+      'Transcript:',
+      transcript.slice(0, 8000)
+    ].join('\n');
+
+    const requestBody: any = {
+      model,
+      messages: [
+        { role: 'system', content: 'You classify conversation types. Always return valid JSON only.' },
+        { role: 'user', content: prompt }
+      ],
+      temperature: 0,
+      max_tokens: 100
+    };
+
+    if (model.includes('openai/')) {
+      requestBody.response_format = { type: 'json_object' };
+    }
+
+    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${openrouterApiKey}`,
+        'Content-Type': 'application/json',
+        'HTTP-Referer': 'https://liveconvo.app',
+        'X-Title': 'liveprompt.ai Conversation Type Classifier'
+      },
+      body: JSON.stringify(requestBody)
+    });
+
+    if (!response.ok) {
+      const errText = await response.text();
+      console.warn('Type classification OpenRouter error:', response.status, errText.slice(0, 300));
+      return null;
+    }
+
+    const data = await response.json();
+    let raw = data?.choices?.[0]?.message?.content || '';
+    if (raw.includes('```')) raw = raw.replace(/```(?:json)?\s*\n?/g, '').replace(/```\s*$/g, '').trim();
+    const parsed = JSON.parse(raw);
+    const value = (parsed?.type || '').toString().trim();
+    return value ? value.toLowerCase() : null;
+  } catch (err) {
+    console.warn('Type classification failed:', err);
+    return null;
+  }
 }
 
 // Helper function to build full context

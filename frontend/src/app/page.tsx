@@ -149,7 +149,7 @@ export default function LandingPage() {
             <div className="max-w-4xl mx-auto text-center px-6 sm:px-8 lg:px-12">
             <div className="flex flex-wrap items-center justify-center gap-3 mb-6">
               <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-gradient-to-r from-app-success/10 to-app-info/10">
-                <span className="text-sm font-medium bg-gradient-to-r from-app-success to-app-info bg-clip-text text-transparent">✨ Meet Nova - Your Multilingual AI Agent</span>
+                <span className="text-sm font-medium bg-gradient-to-r from-app-success to-app-info bg-clip-text text-transparent">✨ Works with Meet, Zoom, and Teams</span>
               </div>
             </div>
             
