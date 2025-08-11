@@ -6,9 +6,13 @@ import { UpcomingMeeting } from '@/types/calendar';
 interface RawEventData {
   summary?: string;
   title?: string;
+  subject?: string; // Outlook subject
   description?: string;
   location?: string;
-  hangoutLink?: string;
+  hangoutLink?: string; // Google
+  onlineMeeting?: { joinUrl?: string }; // Outlook
+  onlineMeetingUrl?: string; // Outlook
+  webLink?: string; // Outlook
   attendees?: Array<{
     email?: string;
     displayName?: string;
@@ -82,10 +86,11 @@ export async function GET(request: NextRequest) {
       days = 30; // Show 30 days ahead for 'all' filter
     }
 
-    // Check cache first
+    // Check cache first (allow bypass with ?nocache=1)
+    const bypassCache = searchParams.get('nocache') === '1';
     const cacheKey = `events_${user.id}_${filter || days}`;
     const cached = eventsCache.get(cacheKey);
-    if (cached && Date.now() - cached.timestamp < CACHE_DURATION) {
+    if (!bypassCache && cached && Date.now() - cached.timestamp < CACHE_DURATION) {
       return NextResponse.json({ meetings: cached.data });
     }
 
@@ -114,18 +119,42 @@ export async function GET(request: NextRequest) {
     const autoJoinEnabled = calendarPrefs?.auto_join_enabled || false;
 
     // Transform the data to match our TypeScript types
-    const upcomingMeetings: UpcomingMeeting[] = (meetings || []).map((meeting: Record<string, unknown>) => ({
+    const normalizeAttendees = (list: any[]): Array<Record<string, unknown>> => {
+      if (!Array.isArray(list)) return [];
+      return list.map((att: any) => {
+        const rawStatus: string | undefined = att.response_status || att.responseStatus;
+        const normalizedStatus = rawStatus
+          ? rawStatus.replace(/[A-Z]/g, (m) => `_${m.toLowerCase()}`).toLowerCase()
+          : undefined;
+        return {
+          email: att.email || null,
+          name: att.name || att.displayName || null,
+          response_status: normalizedStatus as any,
+          is_organizer: Boolean(att.is_organizer || att.organizer || att.self || false)
+        };
+      });
+    };
+
+    const upcomingMeetings: UpcomingMeeting[] = (meetings || []).map((meeting: Record<string, any>) => ({
       event_id: meeting.event_id,
       title: meeting.title,
       description: meeting.description,
       start_time: meeting.start_time,
       end_time: meeting.end_time,
       meeting_url: meeting.meeting_url,
-      attendees: meeting.attendees || [],
+      attendees: normalizeAttendees(meeting.attendees || []),
       is_organizer: meeting.is_organizer,
       bot_scheduled: meeting.bot_scheduled,
       calendar_email: meeting.calendar_email,
       calendar_provider: meeting.calendar_provider,
+      platform: meeting.platform || ((): string | undefined => {
+        const url: string | undefined = meeting.meeting_url;
+        if (!url) return undefined;
+        if (url.includes('meet.google.com')) return 'google_calendar';
+        if (url.includes('teams.microsoft.com') || url.includes('live.com/meet')) return 'microsoft_outlook';
+        if (url.includes('zoom.us')) return 'zoom';
+        return undefined;
+      })(),
       auto_join_enabled: meeting.auto_join_enabled ?? autoJoinEnabled, // Use per-event preference, fallback to global
       auto_session_created: meeting.auto_session_created || false,
       auto_session_id: meeting.auto_session_id,
@@ -326,7 +355,7 @@ export async function POST(request: NextRequest) {
         if (event.raw) {
           try {
             rawData = typeof event.raw === 'string' ? JSON.parse(event.raw) as RawEventData : event.raw;
-            title = rawData.summary || rawData.title || event.platform_id || 'Untitled Event';
+            title = rawData.subject || rawData.summary || rawData.title || (event as any).title || 'Untitled Event';
             description = rawData.description || null;
             location = rawData.location || null;
             
@@ -352,7 +381,7 @@ export async function POST(request: NextRequest) {
         // Determine the best possible meeting URL
         let meetingUrl: string | null = event.meeting_url || null;
 
-        // Google Meet / Zoom links often live in nested fields
+        // Google Meet / Zoom / Teams links often live in nested fields
         if (!meetingUrl && rawData) {
           meetingUrl = rawData.hangoutLink || null;
 
@@ -362,6 +391,11 @@ export async function POST(request: NextRequest) {
             if (videoEntry?.uri) {
               meetingUrl = videoEntry.uri;
             }
+          }
+
+          // Outlook
+          if (!meetingUrl) {
+            meetingUrl = rawData.onlineMeeting?.joinUrl || rawData.onlineMeetingUrl || rawData.webLink || null;
           }
         }
 

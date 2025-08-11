@@ -824,12 +824,8 @@ export async function POST(request: NextRequest) {
     if (streamMode) {
       const live = isRecording && transcriptLength > 0;
       const stage = getConversationStage(transcriptLength);
-      const meetingBits = [
-        conversationTitle ? `• Title: "${conversationTitle}"` : '',
-        enhancedTextContext ? `• Context: ${enhancedTextContext.substring(0, 5000)}` : '',
-        meetingUrl ? `• Platform: ${meetingUrl}` : ''
-      ].filter(Boolean).join('\n');
       const ownerName = sessionOwnerResolved?.fullName || sessionOwnerResolved?.email || 'the user';
+
       // Build a compact RAG section for streaming if we have search results
       const streamingRagSection = (results: any[] | null) => {
         if (!results || results.length === 0) return '';
@@ -849,7 +845,45 @@ export async function POST(request: NextRequest) {
         }
       };
 
-      const streamingSystem = `You are Nova, ${ownerName}'s helpful AI meeting advisor.
+      // Build compact sections for dashboard mode
+      const buildDashboardSections = (ctx: any) => {
+        if (!ctx) return '';
+        let out = '';
+        if (ctx.searchResults && Array.isArray(ctx.searchResults) && ctx.searchResults.length > 0) {
+          // RAG results will be rendered via streamingRagSection, so skip here to avoid duplication
+        }
+        if (ctx.recentMeetings && ctx.recentMeetings.length > 0) {
+          out += '\n📊 RECENT MEETINGS:\n';
+          ctx.recentMeetings.slice(0, 5).forEach((m: any, i: number) => {
+            const d = m.created_at ? formatMeetingDate(m.created_at) : '';
+            const link = m.url ? `[${m.title}](${m.url})` : `"${m.title}"`;
+            out += `${i + 1}. ${link}${d ? ` (${d})` : ''}\n`;
+            if (m.summary) out += `   Summary: ${m.summary}\n`;
+          });
+        }
+        if (ctx.actionItems && ctx.actionItems.length > 0) {
+          out += '\n✅ ACTION ITEMS:\n';
+          ctx.actionItems.slice(0, 5).forEach((a: any) => {
+            out += `• ${a.title}${a.priority ? ` [${a.priority}]` : ''}${a.dueDate ? ` - Due: ${formatMeetingDate(a.dueDate)}` : ''}\n`;
+          });
+        }
+        if (ctx.upcomingEvents && ctx.upcomingEvents.length > 0) {
+          out += '\n📅 UPCOMING MEETINGS:\n';
+          ctx.upcomingEvents.slice(0, 5).forEach((e: any) => {
+            out += `• "${e.title}" - ${new Date(e.startTime).toLocaleString('en-US', { month: 'short', day: 'numeric' })}\n`;
+          });
+        }
+        return out;
+      };
+
+      // Build compact sections for meeting mode
+      const meetingBits = [
+        conversationTitle ? `• Title: "${conversationTitle}"` : '',
+        enhancedTextContext ? `• Context: ${enhancedTextContext.substring(0, 5000)}` : '',
+        meetingUrl ? `• Platform: ${meetingUrl}` : ''
+      ].filter(Boolean).join('\n');
+
+      const meetingStreamingSystem = `You are Nova, ${ownerName}'s helpful AI meeting advisor.
 
 Strict output rules:
 - Output ONLY in clean, conversational Markdown (no JSON, no XML, no code fences unless showing code).
@@ -866,6 +900,23 @@ Mode: ${live ? 'LIVE' : 'PREP'} | Stage: ${stage}
 ${meetingBits ? `\n🎯 MEETING DETAILS:\n${meetingBits}\n` : ''}
 ${searchResults && searchResults.length ? `\n${streamingRagSection(searchResults)}\n` : ''}
 ${effectiveTranscript ? `\nConversation Transcript (for context):\n${effectiveTranscript}` : ''}`;
+
+      const dashboardStreamingSystem = `You are Nova, ${ownerName}'s dashboard AI assistant.
+
+Strict output rules:
+- Output ONLY in clean, conversational Markdown (no JSON, no XML, no code fences unless showing code).
+- Keep responses concise and avoid repetition.
+- Keep it scannable: short paragraphs, bullets, and **bold** for emphasis when helpful.
+
+Identity & addressing rules:
+- The primary user is ${ownerName} (${sessionOwnerResolved?.email || 'unknown email'}). Treat them as "You".
+
+Context
+${finalPersonalContext ? `\n👤 PERSONAL CONTEXT:\n${finalPersonalContext}\n` : ''}
+${searchResults && searchResults.length ? `\n${streamingRagSection(searchResults)}\n` : ''}
+${enhancedDashboardContext ? buildDashboardSections(enhancedDashboardContext) : ''}`;
+
+      const streamingSystem = mode === 'dashboard' ? dashboardStreamingSystem : meetingStreamingSystem;
 
       messages = [
         ...(smartNotesPrompt ? [{ role: 'system', content: smartNotesPrompt }] as any : []),

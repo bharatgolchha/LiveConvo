@@ -13,7 +13,7 @@ import {
 
 interface QuickStartChecklistProps {
   hasCalendarConnection: boolean;
-  onConnectCalendar: () => void;
+  onConnectCalendar: (provider?: 'google' | 'outlook') => void;
   onStartMeeting: () => void;
   onUploadRecording: () => void;
 }
@@ -34,6 +34,9 @@ export const QuickStartChecklist: React.FC<QuickStartChecklistProps> = ({
 }) => {
   const completedSteps = hasCalendarConnection ? 1 : 0;
   const totalSteps = 3;
+  const googleEnabled = process.env.NEXT_PUBLIC_GOOGLE_CALENDAR_ENABLED === 'true';
+  const outlookEnabled = process.env.NEXT_PUBLIC_OUTLOOK_CALENDAR_ENABLED === 'true';
+  const providerText = googleEnabled && outlookEnabled ? 'Google or Outlook' : googleEnabled ? 'Google' : 'Outlook';
 
   return (
     <div className="w-full max-w-3xl mx-auto">
@@ -54,10 +57,10 @@ export const QuickStartChecklist: React.FC<QuickStartChecklistProps> = ({
       </div>
 
       <div className="space-y-3">
-        {/* Step 1: Connect Calendar */}
+        {/* Step 1: Connect Calendars (navigates to settings) */}
         <motion.button
           type="button"
-          onClick={onConnectCalendar}
+          onClick={() => onConnectCalendar()}
           disabled={hasCalendarConnection}
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
@@ -77,9 +80,7 @@ export const QuickStartChecklist: React.FC<QuickStartChecklistProps> = ({
           </div>
           <div className="flex-1">
             <div className="flex items-center gap-2">
-              <span className={`font-medium ${hasCalendarConnection ? '' : 'text-primary-foreground'}`}>
-                Connect Google Calendar
-              </span>
+              <span className={`font-medium ${hasCalendarConnection ? '' : 'text-primary-foreground'}`}>Connect Calendars</span>
               {hasCalendarConnection && (
                 <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
                   <CheckCircleIcon className="w-4 h-4 text-app-success" />
@@ -87,9 +88,7 @@ export const QuickStartChecklist: React.FC<QuickStartChecklistProps> = ({
                 </span>
               )}
             </div>
-            <p className={`text-sm ${hasCalendarConnection ? 'text-muted-foreground' : 'text-primary-foreground/90'}`}>
-              See upcoming meetings, enable auto‑join, and get summaries delivered.
-            </p>
+            <p className={`text-sm ${hasCalendarConnection ? 'text-muted-foreground' : 'text-primary-foreground/90'}`}>Sync your {providerText} calendar to see upcoming meetings, auto‑join at start time, and get AI‑powered notes.</p>
           </div>
           {!hasCalendarConnection && <ArrowRightIcon className="w-5 h-5 opacity-90" />}
         </motion.button>

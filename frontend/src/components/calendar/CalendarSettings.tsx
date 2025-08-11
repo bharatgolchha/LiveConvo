@@ -177,6 +177,7 @@ export const CalendarSettings: React.FC = () => {
 
   const hasGoogleConnection = connections.some(c => c.provider === 'google_calendar');
   const hasOutlookConnection = connections.some(c => c.provider === 'microsoft_outlook');
+  const hasAnyConnection = connections.length > 0;
 
   return (
     <div className="space-y-6">
@@ -184,33 +185,7 @@ export const CalendarSettings: React.FC = () => {
       <Card className="p-6">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-xl font-semibold">Connected Calendars</h2>
-          {(googleEnabled || outlookEnabled) && (
-            <div className="flex gap-2">
-              {googleEnabled && !hasGoogleConnection && (
-                <Button
-                  onClick={() => handleConnectCalendar('google')}
-                  disabled={connecting}
-                  size="sm"
-                  className="flex items-center gap-2"
-                >
-                  <PlusIcon className="w-4 h-4" />
-                  Connect Google Calendar
-                </Button>
-              )}
-              {outlookEnabled && !hasOutlookConnection && (
-                <Button
-                  onClick={() => handleConnectCalendar('outlook')}
-                  disabled={connecting}
-                  variant="outline"
-                  size="sm"
-                  className="flex items-center gap-2"
-                >
-                  <PlusIcon className="w-4 h-4" />
-                  Connect Outlook
-                </Button>
-              )}
-            </div>
-          )}
+          {/* No header buttons when there are no connections to avoid duplicate CTAs */}
         </div>
 
         {connections.length === 0 ? (
@@ -218,14 +193,14 @@ export const CalendarSettings: React.FC = () => {
             <p className="text-muted-foreground mb-4">
               No calendars connected yet. Connect your calendar to automatically join meetings and enable AI-powered meeting assistance.
             </p>
-            <div className="flex justify-center gap-4">
+            <div className="flex justify-center gap-3 flex-wrap">
               {googleEnabled && (
                 <Button
                   onClick={() => handleConnectCalendar('google')}
                   disabled={connecting}
-                  className="flex items-center gap-2"
+                  className="flex items-center gap-2 px-4 py-5"
                 >
-                  <img src="/google-calendar-icon.svg" alt="Google Calendar" className="w-5 h-5" />
+                  <img src="/platform-logos/meet.png" alt="Google" className="w-5 h-5" />
                   Connect Google Calendar
                 </Button>
               )}
@@ -234,9 +209,9 @@ export const CalendarSettings: React.FC = () => {
                   onClick={() => handleConnectCalendar('outlook')}
                   disabled={connecting}
                   variant="outline"
-                  className="flex items-center gap-2"
+                  className="flex items-center gap-2 px-4 py-5"
                 >
-                  <img src="/outlook-icon.svg" alt="Outlook" className="w-5 h-5" />
+                  <img src="/platform-logos/teams.png" alt="Outlook" className="w-5 h-5" />
                   Connect Outlook
                 </Button>
               )}

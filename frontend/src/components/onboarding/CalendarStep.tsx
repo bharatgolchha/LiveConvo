@@ -99,7 +99,10 @@ export const CalendarStep: React.FC<CalendarStepProps> = ({
     }
   }, [session, updateData, data.calendar_connected]);
 
-  const handleConnectCalendar = async () => {
+  const [pendingProvider, setPendingProvider] = useState<'google' | 'outlook' | null>(null);
+
+  const handleConnectCalendar = async (provider: 'google' | 'outlook' = 'google') => {
+    setPendingProvider(provider);
     setShowPermissionModal(true);
   };
 
@@ -109,7 +112,8 @@ export const CalendarStep: React.FC<CalendarStepProps> = ({
       setConnectionError(null);
       setShowPermissionModal(false);
 
-      const response = await fetch('/api/calendar/auth/google', {
+      const provider = pendingProvider ?? 'google';
+      const response = await fetch(`/api/calendar/auth/${provider}`, {
         headers: {
           'Authorization': `Bearer ${session?.access_token}`
         }
@@ -133,11 +137,16 @@ export const CalendarStep: React.FC<CalendarStepProps> = ({
 
   const handlePermissionModalClose = () => {
     setShowPermissionModal(false);
+    setPendingProvider(null);
   };
 
+  const googleEnabled = process.env.NEXT_PUBLIC_GOOGLE_CALENDAR_ENABLED === 'true';
+  const outlookEnabled = process.env.NEXT_PUBLIC_OUTLOOK_CALENDAR_ENABLED === 'true';
+  const providerText = googleEnabled && outlookEnabled ? 'Google or Outlook' : googleEnabled ? 'Google' : 'Outlook';
+
   const calendarBenefits = [
-    'Automatically join meetings with AI assistance',
-    'Get meeting prep and context before calls',
+    'Auto‑join meetings right on time',
+    'Get pre‑call prep and AI guidance',
     'Sync your schedule for better insights'
   ];
 
@@ -153,12 +162,8 @@ export const CalendarStep: React.FC<CalendarStepProps> = ({
           <CalendarIcon className="w-8 h-8 text-blue-500" />
         </motion.div>
         
-        <h2 className="text-2xl font-bold text-foreground mb-2">
-          Connect Your Calendar
-        </h2>
-        <p className="text-muted-foreground">
-          Get the most out of liveprompt.ai by connecting your Google Calendar
-        </p>
+        <h2 className="text-2xl font-bold text-foreground mb-2">Connect your calendar</h2>
+        <p className="text-muted-foreground">Sync your {providerText} calendar to enable auto‑join, pre‑call prep, and AI‑powered notes.</p>
       </div>
 
       <div className="space-y-4">
@@ -183,28 +188,57 @@ export const CalendarStep: React.FC<CalendarStepProps> = ({
               ))}
             </div>
 
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {googleEnabled && (
             <Button
-              onClick={handleConnectCalendar}
+              onClick={() => handleConnectCalendar('google')}
               disabled={isConnecting}
-              className="w-full bg-white hover:bg-gray-50 text-gray-700 dark:bg-gray-100 dark:hover:bg-gray-200 dark:text-gray-800 border border-gray-300 dark:border-gray-200 py-3 text-base font-medium shadow-lg hover:shadow-xl transition-all duration-200 flex items-center justify-center gap-2"
+              variant="primary"
+              className="w-full py-4 px-6 text-base font-medium shadow-sm hover:shadow-md transition-all duration-200 flex items-center justify-center gap-3 rounded-lg group"
             >
-              {isConnecting ? (
+              {isConnecting && pendingProvider === 'google' ? (
                 <>
-                  <div className="w-4 h-4 border-2 border-gray-700 dark:border-gray-800 border-t-transparent rounded-full animate-spin" />
-                  Connecting...
+                  <div className="w-5 h-5 border-2 border-app-primary border-t-transparent rounded-full animate-spin" />
+                  <span>Connecting...</span>
                 </>
               ) : (
                 <>
-                  <svg className="w-5 h-5" viewBox="0 0 48 48" fill="none">
-                    <path fill="#FFC107" d="M43.611,20.083H42V20H24v8h11.303c-1.649,4.657-6.08,8-11.303,8c-6.627,0-12-5.373-12-12c0-6.627,5.373-12,12-12c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657C34.046,6.053,29.268,4,24,4C12.955,4,4,12.955,4,24c0,11.045,8.955,20,20,20c11.045,0,20-8.955,20-20C44,22.659,43.862,21.35,43.611,20.083z"/>
-                    <path fill="#FF3D00" d="M6.306,14.691l6.571,4.819C14.655,15.108,18.961,12,24,12c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657C34.046,6.053,29.268,4,24,4C16.318,4,9.656,8.337,6.306,14.691z"/>
-                    <path fill="#4CAF50" d="M24,44c5.166,0,9.86-1.977,13.409-5.192l-6.19-5.238C29.211,35.091,26.715,36,24,36c-5.202,0-9.619-3.317-11.283-7.946l-6.522,5.025C9.505,39.556,16.227,44,24,44z"/>
-                    <path fill="#1976D2" d="M43.611,20.083H42V20H24v8h11.303c-0.792,2.237-2.231,4.166-4.087,5.571c0.001-0.001,0.002-0.001,0.003-0.002l6.19,5.238C36.971,39.205,44,34,44,24C44,22.659,43.862,21.35,43.611,20.083z"/>
-                  </svg>
-                  Connect Google Calendar
+                  <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-white/15 group-hover:bg-white/20 transition-colors">
+                    <svg className="w-5 h-5" viewBox="0 0 48 48" fill="none">
+                      <path fill="#FFC107" d="M43.611,20.083H42V20H24v8h11.303c-1.649,4.657-6.08,8-11.303,8c-6.627,0-12-5.373-12-12c0-6.627,5.373-12,12-12c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657C34.046,6.053,29.268,4,24,4C12.955,4,4,12.955,4,24c0,11.045,8.955,20,20,20c11.045,0,20-8.955,20-20C44,22.659,43.862,21.35,43.611,20.083z"/>
+                      <path fill="#FF3D00" d="M6.306,14.691l6.571,4.819C14.655,15.108,18.961,12,24,12c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657C34.046,6.053,29.268,4,24,4C16.318,4,9.656,8.337,6.306,14.691z"/>
+                      <path fill="#4CAF50" d="M24,44c5.166,0,9.86-1.977,13.409-5.192l-6.19-5.238C29.211,35.091,26.715,36,24,36c-5.202,0-9.619-3.317-11.283-7.946l-6.522,5.025C9.505,39.556,16.227,44,24,44z"/>
+                      <path fill="#1976D2" d="M43.611,20.083H42V20H24v8h11.303c-0.792,2.237-2.231,4.166-4.087,5.571c0.001-0.001,0.002-0.001,0.003-0.002l6.19,5.238C36.971,39.205,44,34,44,24C44,22.659,43.862,21.35,43.611,20.083z"/>
+                    </svg>
+                  </div>
+                  <span className="font-medium">Connect Google Calendar</span>
                 </>
               )}
             </Button>
+            )}
+            {outlookEnabled && (
+            <Button
+              onClick={() => handleConnectCalendar('outlook')}
+              disabled={isConnecting}
+              variant="primary"
+              className="w-full py-4 px-6 text-base font-medium shadow-sm hover:shadow-md transition-all duration-200 flex items-center justify-center gap-3 rounded-lg group"
+            >
+              {isConnecting && pendingProvider === 'outlook' ? (
+                <>
+                  <div className="w-5 h-5 border-2 border-app-primary border-t-transparent rounded-full animate-spin" />
+                  <span>Connecting...</span>
+                </>
+              ) : (
+                <>
+                  <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-white/15 group-hover:bg-white/20 transition-colors">
+                    <img src="/platform-logos/teams.png" alt="Outlook" className="w-5 h-5" />
+                  </div>
+                  <span className="font-medium">Connect Outlook</span>
+                </>
+              )}
+            </Button>
+            )}
+            </div>
           </>
         ) : (
           <motion.div

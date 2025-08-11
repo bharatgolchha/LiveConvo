@@ -20,10 +20,11 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Check cache first
+    // Check cache first (allow bypass with ?nocache=1)
+    const bypassCache = request.nextUrl.searchParams.get('nocache') === '1';
     const cacheKey = `connections_${user.id}`;
     const cached = connectionCache.get(cacheKey);
-    if (cached && Date.now() - cached.timestamp < CACHE_DURATION) {
+    if (!bypassCache && cached && Date.now() - cached.timestamp < CACHE_DURATION) {
       return NextResponse.json({ connections: cached.data });
     }
 
@@ -42,7 +43,7 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // For each connection, check its status on Recall.ai
+    // For each connection, check its status on Recall.ai and enrich with provider account email
     const recallApiKey = process.env.RECALL_AI_API_KEY;
     const recallRegion = process.env.RECALL_AI_REGION || 'us-west-2';
     
@@ -61,10 +62,30 @@ export async function GET(request: NextRequest) {
 
             if (statusResponse.ok) {
               const calendarData = await statusResponse.json();
+              const providerEmail =
+                calendarData.platform_email ||
+                calendarData.email ||
+                calendarData.account_email ||
+                calendarData.platform_account_email ||
+                (calendarData.account && (calendarData.account.email || calendarData.account.primary_email)) ||
+                (calendarData.user && (calendarData.user.email || calendarData.user.primary_email)) ||
+                (calendarData.owner && calendarData.owner.email) ||
+                null;
+              const providerDisplayName =
+                calendarData.platform_display_name ||
+                calendarData.account_display_name ||
+                (calendarData.account && (calendarData.account.display_name || calendarData.account.name)) ||
+                (calendarData.user && (calendarData.user.display_name || calendarData.user.name)) ||
+                (calendarData.owner && (calendarData.owner.name || calendarData.owner_display_name)) ||
+                null;
+
               return {
                 ...connection,
                 recall_status: calendarData.status,
-                recall_status_changes: calendarData.status_changes
+                recall_status_changes: calendarData.status_changes,
+                provider_email: providerEmail,
+                provider_display_name: providerDisplayName,
+                platform: calendarData.platform
               };
             }
           } catch (err) {
@@ -74,13 +95,17 @@ export async function GET(request: NextRequest) {
         })
       );
 
-      // Cache the result
-      connectionCache.set(cacheKey, { data: connectionsWithStatus, timestamp: Date.now() });
+      // Cache the result (unless bypassing cache explicitly)
+      if (!bypassCache) {
+        connectionCache.set(cacheKey, { data: connectionsWithStatus, timestamp: Date.now() });
+      }
       return NextResponse.json({ connections: connectionsWithStatus });
     }
 
-    // Cache the result
-    connectionCache.set(cacheKey, { data: connections || [], timestamp: Date.now() });
+    // Cache the result (unless bypassing cache explicitly)
+    if (!bypassCache) {
+      connectionCache.set(cacheKey, { data: connections || [], timestamp: Date.now() });
+    }
     return NextResponse.json({ connections: connections || [] });
   } catch (error) {
     console.error('Error in calendar connections:', error);

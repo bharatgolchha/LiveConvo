@@ -818,20 +818,16 @@ const DashboardPage: React.FC = () => {
 
   // Option A primary CTA: connect calendar
   const handleConnectCalendar = async () => {
+    // Navigate to Settings > Calendar tab
     try {
-      const headers: HeadersInit = {};
-      if (authSession?.access_token) {
-        headers['Authorization'] = `Bearer ${authSession.access_token}`;
-      }
-      const response = await fetch('/api/calendar/auth/google?redirect=/dashboard', { headers });
-      if (response.ok) {
-        const data = await response.json();
-        if (data.auth_url && typeof window !== 'undefined') {
-          window.location.href = data.auth_url;
-        }
+      setActivePath('settings');
+      if (typeof window !== 'undefined') {
+        const url = new URL(window.location.href);
+        url.hash = 'calendar';
+        window.history.replaceState({}, '', url.toString());
       }
     } catch (error) {
-      console.error('Failed to initiate calendar connection:', error);
+      console.error('Failed to navigate to settings:', error);
     }
   };
 

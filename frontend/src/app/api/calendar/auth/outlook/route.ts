@@ -2,26 +2,26 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createServerSupabaseClient } from '@/lib/supabase';
 import { CalendarOAuthState } from '@/types/calendar';
 
+// Generates the Microsoft OAuth authorization URL for Outlook calendar connection
 export async function GET(request: NextRequest) {
   try {
     const supabase = createServerSupabaseClient();
     const token = request.headers.get('Authorization')?.replace('Bearer ', '');
-    
+
     if (!token) {
       return NextResponse.json({ error: 'No authorization token' }, { status: 401 });
     }
 
     const { data: { user }, error: authError } = await supabase.auth.getUser(token);
-    
     if (authError || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const clientId = process.env.GOOGLE_CLIENT_ID;
-    const redirectUri = process.env.GOOGLE_REDIRECT_URI || `${process.env.NEXT_PUBLIC_APP_URL}/api/calendar/auth/google/callback`;
-    
-    if (!clientId) {
-      return NextResponse.json({ error: 'Google OAuth not configured' }, { status: 500 });
+    const clientId = process.env.MICROSOFT_CLIENT_ID;
+    const redirectUri = process.env.MICROSOFT_REDIRECT_URI; // Must exactly match Azure app's registered redirect URI
+
+    if (!clientId || !redirectUri) {
+      return NextResponse.json({ error: 'Microsoft OAuth not configured: missing MICROSOFT_CLIENT_ID or MICROSOFT_REDIRECT_URI' }, { status: 500 });
     }
 
     // Block connecting a different provider if an active connection exists
@@ -33,59 +33,53 @@ export async function GET(request: NextRequest) {
       .limit(1)
       .maybeSingle();
 
-    if (existingConn && existingConn.provider && existingConn.provider !== 'google_calendar') {
+    if (existingConn && existingConn.provider && existingConn.provider !== 'microsoft_outlook') {
       return NextResponse.json({ error: 'A different calendar provider is already connected' }, { status: 409 });
     }
 
-    // Get the redirect URL from the request
+    // Determine where to return the user after success
     let redirectUrl = request.nextUrl.searchParams.get('redirect') || '/dashboard';
-    
-    // Check if we're in the onboarding flow
     const referer = request.headers.get('referer');
     if (referer && referer.includes('/onboarding')) {
-      // Preserve the onboarding URL with calendar_connected flag
       const onboardingUrl = new URL(referer);
       onboardingUrl.searchParams.set('calendar_connected', 'true');
       redirectUrl = onboardingUrl.pathname + onboardingUrl.search;
     }
-    
+
     // Create state parameter with user info
     const state: CalendarOAuthState = {
       user_id: user.id,
       redirect_url: redirectUrl,
-      provider: 'google_calendar',
+      provider: 'microsoft_outlook',
       timestamp: Date.now()
     };
-
     const encodedState = Buffer.from(JSON.stringify(state)).toString('base64');
 
-    // Google OAuth scopes
+    // Microsoft scopes (URLSearchParams will encode spaces as '+', so join with spaces)
     const scopes = [
+      'offline_access',
       'openid',
-      'https://www.googleapis.com/auth/calendar.events.readonly',
-      'https://www.googleapis.com/auth/userinfo.email',
-      'https://www.googleapis.com/auth/userinfo.profile'
+      'email',
+      // Needed so we can fetch the connected account's email via Graph /me
+      'https://graph.microsoft.com/User.Read',
+      'https://graph.microsoft.com/Calendars.Read'
     ].join(' ');
 
-    // Build Google OAuth URL
     const params = new URLSearchParams({
       client_id: clientId,
       redirect_uri: redirectUri,
       response_type: 'code',
+      response_mode: 'query',
       scope: scopes,
-      access_type: 'offline',
-      prompt: 'consent',
       state: encodedState
     });
 
-    const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`;
-
+    const authUrl = `https://login.microsoftonline.com/common/oauth2/v2.0/authorize?${params.toString()}`;
     return NextResponse.json({ auth_url: authUrl });
   } catch (error) {
-    console.error('Error creating Google OAuth URL:', error);
-    return NextResponse.json(
-      { error: 'Failed to create authentication URL' },
-      { status: 500 }
-    );
+    console.error('Error creating Microsoft OAuth URL:', error);
+    return NextResponse.json({ error: 'Failed to create authentication URL' }, { status: 500 });
   }
 }
+
+

@@ -16,8 +16,9 @@ import { Button } from '@/components/ui/Button';
 import { CalendarPermissionModal } from './CalendarPermissionModal';
 
 interface CalendarEmptyStateProps {
-  onConnectCalendar: () => void;
+  onConnectCalendar: (provider?: 'google' | 'outlook') => void;
   isConnecting?: boolean;
+  showOutlook?: boolean;
 }
 
 const CalendarIllustration: React.FC = () => (
@@ -176,10 +177,17 @@ const SampleMeetingCard: React.FC<{ delay: number }> = ({ delay }) => (
 
 export const CalendarEmptyState: React.FC<CalendarEmptyStateProps> = ({ 
   onConnectCalendar,
-  isConnecting = false 
+  isConnecting = false,
+  showOutlook = process.env.NEXT_PUBLIC_OUTLOOK_CALENDAR_ENABLED === 'true'
 }) => {
   const [showBenefits, setShowBenefits] = useState(false);
   const [showPermissionModal, setShowPermissionModal] = useState(false);
+  const googleEnabled = process.env.NEXT_PUBLIC_GOOGLE_CALENDAR_ENABLED === 'true';
+  const providerText = showOutlook && googleEnabled
+    ? 'Google or Outlook'
+    : googleEnabled
+      ? 'Google'
+      : 'Outlook';
 
   const handlePermissionModalContinue = () => {
     setShowPermissionModal(false);
@@ -236,7 +244,7 @@ export const CalendarEmptyState: React.FC<CalendarEmptyStateProps> = ({
           animate={{ opacity: 1 }}
           transition={{ delay: 0.3 }}
         >
-          Connect Your Calendar
+          Connect your calendar
         </motion.h3>
         
         <motion.p 
@@ -245,39 +253,53 @@ export const CalendarEmptyState: React.FC<CalendarEmptyStateProps> = ({
           animate={{ opacity: 1 }}
           transition={{ delay: 0.4 }}
         >
-          Sync your Google Calendar to see upcoming meetings, enable auto-join, and get AI-powered meeting insights.
+          Sync your {providerText} calendar to see upcoming meetings, auto-join at start time, and get AI-powered coaching and notes.
         </motion.p>
 
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.5 }}
-          className="space-y-3"
+          className="space-y-3 w-full"
         >
-          <Button
-            onClick={() => setShowPermissionModal(true)}
-            disabled={isConnecting}
-            className="w-full bg-gradient-to-r from-app-primary to-app-primary-dark hover:from-app-primary-dark hover:to-app-primary text-primary-foreground shadow-lg hover:shadow-xl transform hover:scale-105 transition-all"
-            size="lg"
-          >
-            {isConnecting ? (
-              <>
-                <motion.div
-                  animate={{ rotate: 360 }}
-                  transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-                  className="w-5 h-5 mr-2"
-                >
-                  <ArrowRightIcon />
-                </motion.div>
-                Connecting...
-              </>
-            ) : (
-              <>
-                <img src="https://ucvfgfbjcrxbzppwjpuu.supabase.co/storage/v1/object/public/images/7123030_google_calendar_icon.png" alt="Google Calendar" className="w-5 h-5 mr-2" />
-                Connect Google Calendar
-              </>
+          <div className="grid grid-cols-1 gap-3">
+            <Button
+              onClick={() => setShowPermissionModal(true)}
+              disabled={isConnecting}
+              className="w-full bg-gradient-to-r from-app-primary to-app-primary-dark hover:from-app-primary-dark hover:to-app-primary text-primary-foreground shadow-lg hover:shadow-xl transform hover:scale-105 transition-all"
+              size="lg"
+            >
+              {isConnecting ? (
+                <>
+                  <motion.div
+                    animate={{ rotate: 360 }}
+                    transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
+                    className="w-5 h-5 mr-2"
+                  >
+                    <ArrowRightIcon />
+                  </motion.div>
+                  Connecting...
+                </>
+              ) : (
+                <>
+                  <img src="/platform-logos/meet.png" alt="Google Calendar" className="w-5 h-5 mr-2" />
+                  Connect Google Calendar
+                </>
+              )}
+            </Button>
+            {showOutlook && (
+              <Button
+                onClick={() => onConnectCalendar('outlook')}
+                disabled={isConnecting}
+                variant="outline"
+                className="w-full flex items-center justify-center gap-2"
+                size="lg"
+              >
+                <img src="/platform-logos/teams.png" alt="Outlook" className="w-5 h-5" />
+                Connect Outlook
+              </Button>
             )}
-          </Button>
+          </div>
 
           <button
             onClick={() => setShowBenefits(!showBenefits)}

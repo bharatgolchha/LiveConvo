@@ -96,22 +96,33 @@ export const CalendarConnectionCard: React.FC<CalendarConnectionCardProps> = ({
     switch (connection.provider) {
       case 'google_calendar':
         return (
-          <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900/20 rounded-lg flex items-center justify-center">
-            <svg className="w-6 h-6 text-blue-600 dark:text-blue-400" viewBox="0 0 24 24">
-              <path fill="currentColor" d="M19,19H5V8H19M16,1V3H8V1H6V3H5C3.89,3 3,3.89 3,5V19A2,2 0 0,0 5,21H19A2,2 0 0,0 21,19V5C21,3.89 20.1,3 19,3H18V1M17,12H12V17H17V12Z" />
-            </svg>
+          <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900/20 rounded-lg flex items-center justify-center overflow-hidden">
+            <img
+              src="https://ucvfgfbjcrxbzppwjpuu.supabase.co/storage/v1/object/public/images/7123030_google_calendar_icon.png"
+              alt="Google Calendar"
+              className="w-6 h-6"
+            />
           </div>
         );
       case 'microsoft_outlook':
         return (
-          <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900/20 rounded-lg flex items-center justify-center">
-            <svg className="w-6 h-6 text-blue-600 dark:text-blue-400" viewBox="0 0 24 24">
-              <path fill="currentColor" d="M7.5,2A5.5,5.5 0 0,0 2,7.5A5.5,5.5 0 0,0 7.5,13A5.5,5.5 0 0,0 13,7.5A5.5,5.5 0 0,0 7.5,2M7.5,4A3.5,3.5 0 0,1 11,7.5A3.5,3.5 0 0,1 7.5,11A3.5,3.5 0 0,1 4,7.5A3.5,3.5 0 0,1 7.5,4M14,4V6H22V4H14M14,8V10H22V8H14M14,12V14H22V12H14M2,15V22H22V15H2M4,17H20V20H4V17Z" />
-            </svg>
+          <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900/20 rounded-lg flex items-center justify-center overflow-hidden">
+            <img src="/logos-recorders/teams.png" alt="Outlook" className="w-6 h-6" />
           </div>
         );
       default:
         return null;
+    }
+  };
+
+  const getProviderLabel = () => {
+    switch (connection.provider) {
+      case 'google_calendar':
+        return 'Google';
+      case 'microsoft_outlook':
+        return 'Outlook';
+      default:
+        return 'Calendar';
     }
   };
 
@@ -122,14 +133,19 @@ export const CalendarConnectionCard: React.FC<CalendarConnectionCardProps> = ({
           {getProviderIcon()}
           <div>
             <div className="flex items-center gap-2">
-              <h3 className="font-medium">{connection.display_name || connection.email}</h3>
+              <h3 className="font-medium">{(connection as any).provider_display_name || connection.display_name || connection.email}</h3>
               {connection.is_active ? (
                 <CheckCircleIcon className="w-4 h-4 text-green-500" />
               ) : (
                 <ExclamationCircleIcon className="w-4 h-4 text-yellow-500" />
               )}
             </div>
-            <p className="text-sm text-muted-foreground">{connection.email}</p>
+            <p className="text-sm text-muted-foreground">
+              {(connection as any).provider_email || connection.email}
+              <span className="ml-2 inline-flex items-center text-xs px-2 py-0.5 rounded-full bg-muted text-foreground/80 border border-border/50">
+                {getProviderLabel()}
+              </span>
+            </p>
             <div className="flex items-center gap-2 mt-1">
               {connection.last_synced_at && (
                 <p className="text-xs text-muted-foreground">
@@ -158,7 +174,7 @@ export const CalendarConnectionCard: React.FC<CalendarConnectionCardProps> = ({
             variant="ghost"
             size="sm"
             className="flex items-center gap-2"
-            title="Force refresh from Google Calendar"
+            title={`Force refresh from ${getProviderLabel()} Calendar`}
           >
             <ArrowPathIcon className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
             Refresh

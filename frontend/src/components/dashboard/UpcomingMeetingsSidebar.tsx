@@ -16,6 +16,7 @@ import {
 import { format, isToday, isTomorrow, isThisWeek, differenceInMinutes } from 'date-fns';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
+import { AttendeeListModal } from '@/components/calendar/AttendeeListModal';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { CalendarEventCard } from '@/components/calendar/CalendarEventCard';
@@ -134,8 +135,23 @@ export const UpcomingMeetingsSidebar: React.FC<UpcomingMeetingsSidebarProps> = (
     }
   };
 
-  const handleConnectCalendar = async () => {
-    setShowPermissionModal(true);
+  const handleConnectCalendar = async (provider: 'google' | 'outlook' = 'google') => {
+    if (provider === 'google') {
+      setShowPermissionModal(true);
+      return;
+    }
+    // Directly initiate Outlook when chosen from empty state secondary button
+    try {
+      setIsConnectingCalendar(true);
+      const headers = { 'Authorization': `Bearer ${session?.access_token}` };
+      const response = await fetch('/api/calendar/auth/outlook', { headers });
+      if (response.ok) {
+        const data = await response.json();
+        if (data.auth_url) window.location.href = data.auth_url;
+      }
+    } finally {
+      setIsConnectingCalendar(false);
+    }
   };
 
   const handlePermissionModalContinue = async () => {
@@ -410,6 +426,8 @@ export const UpcomingMeetingsSidebar: React.FC<UpcomingMeetingsSidebarProps> = (
     ? differenceInMinutes(new Date(nextMeeting.start_time), new Date())
     : null;
 
+  const [showAttendees, setShowAttendees] = useState(false);
+
   return (
     <>
       {/* Drawer-Style Toggle Button (shown when sidebar is closed) */}
@@ -623,6 +641,7 @@ export const UpcomingMeetingsSidebar: React.FC<UpcomingMeetingsSidebarProps> = (
                 <CalendarEmptyState 
                   onConnectCalendar={handleConnectCalendar}
                   isConnecting={isConnectingCalendar}
+                  showOutlook={process.env.NEXT_PUBLIC_OUTLOOK_CALENDAR_ENABLED === 'true'}
                 />
               ) : loading ? (
                 <MeetingCardSkeleton count={4} />
@@ -718,18 +737,17 @@ export const UpcomingMeetingsSidebar: React.FC<UpcomingMeetingsSidebarProps> = (
   );
 };
 
-// Helper function to get meeting platform logo
-const getMeetingPlatformLogo = (meetingUrl: string | null) => {
+// Helper function to get meeting platform logo (prefer explicit platform if present)
+const getMeetingPlatformLogo = (meetingUrl: string | null, platform?: string | null) => {
+  if (platform === 'google_calendar') return '/platform-logos/meet.png';
+  if (platform === 'microsoft_outlook') return '/platform-logos/teams.png';
+  if (platform === 'zoom') return '/platform-logos/zoom.png';
+
   if (!meetingUrl) return null;
-  
-  if (meetingUrl.includes('zoom.us')) {
-    return '/platform-logos/zoom.png';
-  } else if (meetingUrl.includes('teams.microsoft.com')) {
-    return '/platform-logos/teams.png';
-  } else if (meetingUrl.includes('meet.google.com')) {
-    return '/platform-logos/meet.png';
-  }
-  
+  if (meetingUrl.includes('zoom.us')) return '/platform-logos/zoom.png';
+  if (meetingUrl.includes('teams.microsoft.com')) return '/platform-logos/teams.png';
+  if (meetingUrl.includes('live.com/meet')) return '/platform-logos/teams.png';
+  if (meetingUrl.includes('meet.google.com')) return '/platform-logos/meet.png';
   return null;
 };
 
@@ -737,11 +755,12 @@ const getMeetingPlatformLogo = (meetingUrl: string | null) => {
 const MeetingCard: React.FC<{ meeting: UpcomingMeeting }> = ({ meeting }) => {
   const { session } = useAuth();
   const [isUpdatingAutoJoin, setIsUpdatingAutoJoin] = useState(false);
+  const [showAttendees, setShowAttendees] = useState(false);
   const startTime = new Date(meeting.start_time);
   const endTime = new Date(meeting.end_time);
   const duration = differenceInMinutes(endTime, startTime);
   const isNow = new Date() >= startTime && new Date() <= endTime;
-  const platformLogo = getMeetingPlatformLogo(meeting.meeting_url || null);
+  const platformLogo = getMeetingPlatformLogo(meeting.meeting_url || null, meeting.platform || null);
   
   // Determine the current auto-join state
   // If auto_join_enabled is null, it uses the global preference
@@ -808,12 +827,12 @@ const MeetingCard: React.FC<{ meeting: UpcomingMeeting }> = ({ meeting }) => {
               <span>{duration} min</span>
             </div>
             {meeting.attendees && meeting.attendees.length > 0 && (
-              <div className="flex items-center gap-1 mt-1">
+              <button className="flex items-center gap-1 mt-1 text-left" onClick={() => setShowAttendees(true)}>
                 <UserGroupIcon className="w-3 h-3 text-muted-foreground" />
                 <span className="text-xs text-muted-foreground">
                   {meeting.attendees.length} attendee{meeting.attendees.length === 1 ? '' : 's'}
                 </span>
-              </div>
+              </button>
             )}
           </div>
         </div>
@@ -846,6 +865,14 @@ const MeetingCard: React.FC<{ meeting: UpcomingMeeting }> = ({ meeting }) => {
             <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
           )}
         </div>
+      )}
+      {showAttendees && (
+        <AttendeeListModal
+          isOpen={showAttendees}
+          onClose={() => setShowAttendees(false)}
+          attendees={meeting.attendees || []}
+          title={meeting.title}
+        />
       )}
     </motion.div>
   );

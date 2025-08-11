@@ -108,12 +108,17 @@ export async function POST(request: NextRequest) {
               .upsert({
                 calendar_connection_id: connection.id,
                 external_event_id: event.data.event.id,
-                title: event.data.event.title,
+                title: event.data.event.title || event.data.event.subject,
                 description: event.data.event.description,
                 start_time: event.data.event.start_time,
                 end_time: event.data.event.end_time,
-                meeting_url: event.data.event.meeting_url,
-                attendees: event.data.event.attendees || [],
+                meeting_url: event.data.event.meeting_url || event.data.event.onlineMeeting?.joinUrl || event.data.event.onlineMeetingUrl || event.data.event.webLink,
+                attendees: (Array.isArray(event.data.event.attendees) ? event.data.event.attendees : []).map((att: any) => ({
+                  email: att.email || null,
+                  name: att.displayName || att.name || null,
+                  response_status: (att.response_status || att.responseStatus || '').toLowerCase().replace('needsaction', 'needs_action') || null,
+                  is_organizer: Boolean(att.organizer || att.self || false)
+                })),
                 location: event.data.event.location,
                 organizer_email: event.data.event.organizer?.email,
                 is_organizer: false, // Will be determined by comparing with calendar email
