@@ -220,6 +220,18 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ onSessionsDeleted 
     return hours > 0 ? `${hours}h ${minutes}m` : `${minutes}m`;
   };
 
+  // Allow deep-linking via hash (?tab=calendar or #calendar)
+  const initialTab = (() => {
+    if (typeof window !== 'undefined') {
+      const url = new URL(window.location.href);
+      const byQuery = url.searchParams.get('tab');
+      const byHash = url.hash?.replace('#', '');
+      if (byQuery) return byQuery;
+      if (byHash) return byHash;
+    }
+    return 'subscription';
+  })();
+
   return (
     <div className="max-w-4xl mx-auto p-6">
       <div className="mb-8">
@@ -227,7 +239,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ onSessionsDeleted 
         <p className="text-muted-foreground mt-2">Manage your account settings and preferences</p>
       </div>
 
-      <Tabs defaultValue="subscription" className="space-y-6">
+      <Tabs defaultValue={initialTab} className="space-y-6">
         <TabsList className="grid w-full grid-cols-8">
           <TabsTrigger value="subscription" className="flex items-center gap-2">
             <CreditCardIcon className="w-4 h-4" />

@@ -190,7 +190,7 @@ export async function POST(request: NextRequest) {
           const sixtyDaysAgo = new Date();
           sixtyDaysAgo.setDate(sixtyDaysAgo.getDate() - 60);
           
-          const validEvents = activeEvents.filter((event: { start_time: string; raw?: { summary?: string; title?: string } }) => {
+          const validEvents = activeEvents.filter((event: { start_time: string; raw?: { summary?: string; title?: string; subject?: string } }) => {
             const eventDate = new Date(event.start_time);
             if (eventDate < sixtyDaysAgo) {
               console.warn(`Filtering out stale event in webhook: ${event.raw?.summary || event.raw?.title || 'Untitled'} from ${event.start_time}`);
@@ -205,12 +205,17 @@ export async function POST(request: NextRequest) {
           const eventsToInsert = validEvents.map((event: any) => ({
             calendar_connection_id: connection.id,
             external_event_id: event.id,
-            title: event.raw?.summary || event.raw?.title || 'Untitled Event',
+            title: event.raw?.subject || event.raw?.summary || event.raw?.title || 'Untitled Event',
             description: event.raw?.description || null,
             start_time: event.start_time,
             end_time: event.end_time,
-            meeting_url: event.meeting_url,
-            attendees: event.raw?.attendees || [],
+            meeting_url: event.meeting_url || event.raw?.onlineMeeting?.joinUrl || event.raw?.onlineMeetingUrl || event.raw?.webLink || null,
+            attendees: (Array.isArray(event.raw?.attendees) ? event.raw.attendees : []).map((att: any) => ({
+              email: att.email || null,
+              name: att.displayName || att.name || null,
+              response_status: (att.response_status || att.responseStatus || '').toLowerCase().replace('needsaction', 'needs_action') || null,
+              is_organizer: Boolean(att.organizer || att.self || false)
+            })),
             location: event.raw?.location || null,
             organizer_email: event.raw?.organizer?.email || connection.email,
             is_organizer: event.raw?.organizer?.email === connection.email,

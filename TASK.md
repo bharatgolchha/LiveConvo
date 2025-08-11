@@ -17,6 +17,10 @@
 # liveprompt.ai - Task Tracker
 
 ## 📋 Current Sprint Tasks
+### 2025-08-11
+- [ ] Outlook Calendar Integration via Recall.ai OAuth (Microsoft)
+  - Create checklist `recall_outlook_checklist.md` and implement steps: Azure app verification, backend authorize URL, callback forwarder, UI connect button, persistence, webhooks, preferences, QA, production.
+
 ### 2025-08-10
 - Add `docs/record_upload.md`: Detailed step-by-step documentation for the dashboard upload/record flow, including storage upload, Deepgram transcription/diarization, usage precheck, session creation, transcript persistence, and finalize path.
  - [x] Remove duplicate mobile meetings floating button from dashboard (`frontend/src/app/dashboard/page.tsx`).

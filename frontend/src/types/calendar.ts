@@ -104,6 +104,8 @@ export interface UpcomingMeeting {
   bot_scheduled: boolean;
   calendar_email: string;
   calendar_provider: CalendarProvider;
+  // Derived platform for icon rendering: 'google_calendar' | 'microsoft_outlook' | 'zoom'
+  platform?: string;
   auto_join_enabled?: boolean;
   auto_session_created?: boolean;
   auto_session_id?: string;
