@@ -6,6 +6,9 @@ interface Participant {
   name: string;
   initials: string;
   color: string;
+  email?: string;
+  response_status?: string;
+  is_organizer?: boolean;
 }
 
 interface ParticipantsListProps {
@@ -22,19 +25,21 @@ interface ParticipantsListProps {
 
 export function ParticipantsList({ sessionId, showLabel = true, maxVisible, fallbackParticipants, participants: providedParticipants, size = 'md' }: ParticipantsListProps) {
   const [participants, setParticipants] = useState<Participant[]>(providedParticipants || []);
-  const [loading, setLoading] = useState(!providedParticipants);
+  const providedHasEmails = Array.isArray(providedParticipants) && providedParticipants.some((p: any) => p && p.email);
+  const [loading, setLoading] = useState(!providedParticipants || !providedHasEmails);
   const [expanded, setExpanded] = useState(false);
   const { session } = useAuth();
 
   useEffect(() => {
-    // Only fetch if participants are not provided
-    if (!providedParticipants) {
+    // Fetch if none provided or lacking email enrichment
+    if (!providedParticipants || !providedHasEmails) {
       fetchParticipants();
     } else {
       setParticipants(providedParticipants);
       setLoading(false);
     }
-  }, [sessionId, providedParticipants]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sessionId, providedHasEmails, Array.isArray(providedParticipants) ? providedParticipants.length : 0]);
 
   const fetchParticipants = async () => {
     try {
@@ -47,7 +52,7 @@ export function ParticipantsList({ sessionId, showLabel = true, maxVisible, fall
       
       if (response.ok) {
         const data = await response.json();
-        setParticipants(data.participants);
+        setParticipants((data.participants || []) as Participant[]);
       } else {
         // Fallback to provided participants
         if (fallbackParticipants) {
@@ -183,7 +188,7 @@ export function ParticipantsList({ sessionId, showLabel = true, maxVisible, fall
           <div
             key={index}
             className={`group flex items-center ${isSmall ? 'gap-1 px-1.5 py-0.5' : 'gap-1.5 px-2.5 py-1'} bg-muted/50 dark:bg-muted/30 border border-border hover:border-primary/50 rounded-full transition-all duration-200 hover:shadow-sm cursor-default`}
-            title={participant.name}
+            title={`${participant.name}${participant.email ? ` • ${participant.email}` : ''}`}
           >
             <div
               className={`${isSmall ? 'w-4 h-4' : 'w-6 h-6'} ${participant.color} ${getTextColorForBg(participant.color)} rounded-full flex items-center justify-center ${isSmall ? 'text-[8px]' : 'text-[10px]'} font-bold shadow-sm ring-2 ring-white dark:ring-background transition-transform duration-200 group-hover:scale-110`}
@@ -191,6 +196,11 @@ export function ParticipantsList({ sessionId, showLabel = true, maxVisible, fall
               {participant.initials}
             </div>
             <span className={`${isSmall ? 'text-[10px]' : 'text-xs'} text-foreground font-medium`}>{participant.name}</span>
+            {participant.email && (
+              <span className={`${isSmall ? 'hidden' : 'inline'} ${isSmall ? '' : 'text-[10px]'} text-muted-foreground`}>
+                \u00A0· {participant.email}
+              </span>
+            )}
           </div>
         ))}
         {remainingCount > 0 && (

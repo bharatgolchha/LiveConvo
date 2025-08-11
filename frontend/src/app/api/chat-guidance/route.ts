@@ -830,6 +830,25 @@ export async function POST(request: NextRequest) {
         meetingUrl ? `• Platform: ${meetingUrl}` : ''
       ].filter(Boolean).join('\n');
       const ownerName = sessionOwnerResolved?.fullName || sessionOwnerResolved?.email || 'the user';
+      // Build a compact RAG section for streaming if we have search results
+      const streamingRagSection = (results: any[] | null) => {
+        if (!results || results.length === 0) return '';
+        try {
+          let section = '🔎 RELEVANT PAST CONVERSATIONS & CONTEXT:\n';
+          results.slice(0, 5).forEach((r: any, i: number) => {
+            const d = r.created_at || r.date || '';
+            const score = Math.round(((r.score || r.similarity || 0) as number) * 100);
+            section += `${i + 1}. "${r.title}"${d ? ` (${formatMeetingDate(d)})` : ''}\n`;
+            if (r.tldr) section += `   Summary: ${r.tldr}\n`;
+            else if (r.summary) section += `   Summary: ${r.summary}\n`;
+            section += `   Relevance: ${isNaN(score) ? 'N/A' : `${score}%`}\n\n`;
+          });
+          return section;
+        } catch {
+          return '';
+        }
+      };
+
       const streamingSystem = `You are Nova, ${ownerName}'s helpful AI meeting advisor.
 
 Strict output rules:
@@ -845,6 +864,7 @@ Identity & addressing rules:
 Context
 Mode: ${live ? 'LIVE' : 'PREP'} | Stage: ${stage}
 ${meetingBits ? `\n🎯 MEETING DETAILS:\n${meetingBits}\n` : ''}
+${searchResults && searchResults.length ? `\n${streamingRagSection(searchResults)}\n` : ''}
 ${effectiveTranscript ? `\nConversation Transcript (for context):\n${effectiveTranscript}` : ''}`;
 
       messages = [
@@ -1260,7 +1280,6 @@ Example format WITHOUT files:
     {"text": "🎯 Offer options", "prompt": "What flexible pricing options can I present?", "impact": 80}
   ]
 }
-
 Example format WITH files:
 {
   "response": "I've analyzed the contract you uploaded. The key terms include a 3-year commitment at $50,000 annually with auto-renewal. There's a 30-day termination clause that requires written notice.",
