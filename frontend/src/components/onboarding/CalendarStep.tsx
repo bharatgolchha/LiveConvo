@@ -102,8 +102,33 @@ export const CalendarStep: React.FC<CalendarStepProps> = ({
   const [pendingProvider, setPendingProvider] = useState<'google' | 'outlook' | null>(null);
 
   const handleConnectCalendar = async (provider: 'google' | 'outlook' = 'google') => {
-    setPendingProvider(provider);
-    setShowPermissionModal(true);
+    if (provider === 'google') {
+      setPendingProvider('google');
+      setShowPermissionModal(true);
+      return;
+    }
+
+    // Outlook: skip modal and go straight to Microsoft OAuth
+    try {
+      setIsConnecting(true);
+      setConnectionError(null);
+      const response = await fetch(`/api/calendar/auth/outlook`, {
+        headers: {
+          'Authorization': `Bearer ${session?.access_token}`
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to get authorization URL');
+      }
+
+      const { auth_url } = await response.json();
+      window.location.href = auth_url;
+    } catch (error) {
+      console.error('Calendar connection error (Outlook):', error);
+      setConnectionError('Failed to connect Outlook. Please try again.');
+      setIsConnecting(false);
+    }
   };
 
   const handlePermissionModalContinue = async () => {
