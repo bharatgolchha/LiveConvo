@@ -31,24 +31,54 @@ export function ParticipantsList({ sessionId, showLabel = true, maxVisible, fall
   const { session } = useAuth();
 
   useEffect(() => {
-    // Fetch if none provided or lacking email enrichment
-    if (!providedParticipants || !providedHasEmails) {
-      fetchParticipants();
-    } else {
-      setParticipants(providedParticipants);
-      setLoading(false);
-    }
+    let abortController: AbortController | null = null;
+
+    const loadParticipants = async () => {
+      // Fetch if none provided or lacking email enrichment
+      if (!providedParticipants || !providedHasEmails) {
+        // Only fetch if we have a valid sessionId
+        if (sessionId) {
+          abortController = new AbortController();
+          await fetchParticipants(abortController.signal);
+        } else {
+          setLoading(false);
+        }
+      } else {
+        setParticipants(providedParticipants);
+        setLoading(false);
+      }
+    };
+
+    loadParticipants();
+
+    // Cleanup function to abort fetch on unmount
+    return () => {
+      if (abortController) {
+        abortController.abort();
+      }
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sessionId, providedHasEmails, Array.isArray(providedParticipants) ? providedParticipants.length : 0]);
 
-  const fetchParticipants = async () => {
+  const fetchParticipants = async (signal?: AbortSignal) => {
     try {
+      // Ensure we have a valid sessionId before making the request
+      if (!sessionId) {
+        console.warn('No sessionId provided for fetching participants');
+        setLoading(false);
+        return;
+      }
+
       const headers: HeadersInit = { 'Content-Type': 'application/json' };
       if (session?.access_token) {
         headers['Authorization'] = `Bearer ${session.access_token}`;
       }
 
-      const response = await fetch(`/api/sessions/${sessionId}/participants`, { headers });
+      const response = await fetch(`/api/sessions/${sessionId}/participants`, { 
+        headers,
+        method: 'GET',
+        signal: signal || AbortSignal.timeout(10000) // Use provided signal or 10 second timeout
+      });
       
       if (response.ok) {
         const data = await response.json();
@@ -74,10 +104,13 @@ export function ParticipantsList({ sessionId, showLabel = true, maxVisible, fall
           setParticipants(fallbackList);
         }
       }
-    } catch (error) {
-      console.error('Error fetching participants:', error);
-      // Use fallback if available
-      if (fallbackParticipants) {
+    } catch (error: any) {
+      // Don't log abort errors (these are expected when component unmounts)
+      if (error?.name !== 'AbortError') {
+        console.error('Error fetching participants:', error);
+      }
+      // Use fallback if available and not an abort error
+      if (fallbackParticipants && error?.name !== 'AbortError') {
         const fallbackList: Participant[] = [];
         if (fallbackParticipants.me && fallbackParticipants.me !== 'You') {
           fallbackList.push({

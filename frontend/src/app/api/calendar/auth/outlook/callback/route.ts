@@ -24,12 +24,12 @@ export async function GET(request: NextRequest) {
       oauthState = JSON.parse(Buffer.from(state, 'base64').toString());
     } catch (err) {
       console.error('Invalid state parameter:', err);
-      return NextResponse.redirect(new URL('/dashboard/settings?error=invalid_state', request.url));
+      return NextResponse.redirect(new URL('/dashboard?tab=settings&error=invalid_state', request.url));
     }
 
     // Verify state timestamp (5 minute expiry)
     if (Date.now() - oauthState.timestamp > 5 * 60 * 1000) {
-      return NextResponse.redirect(new URL('/dashboard/settings?error=state_expired', request.url));
+      return NextResponse.redirect(new URL('/dashboard?tab=settings&error=state_expired', request.url));
     }
 
     // Exchange code for tokens with Microsoft
@@ -66,7 +66,7 @@ export async function GET(request: NextRequest) {
     if (!tokenResponse.ok) {
       const txt = await tokenResponse.text();
       console.error('MS token exchange failed:', txt);
-      return NextResponse.redirect(new URL('/dashboard/settings?error=token_exchange_failed', request.url));
+      return NextResponse.redirect(new URL('/dashboard?tab=settings&error=token_exchange_failed', request.url));
     }
 
     const tokens = await tokenResponse.json() as {
