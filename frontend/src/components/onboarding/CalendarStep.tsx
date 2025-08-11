@@ -58,7 +58,7 @@ export const CalendarStep: React.FC<CalendarStepProps> = ({
         
         let shouldUpdateCalendarStatus = false;
         
-        if (calendarConnected === 'true' || calendarConnected === 'google') {
+        if (calendarConnected === 'true' || calendarConnected === 'google' || calendarConnected === 'outlook') {
           console.log('✅ Calendar connected via URL param');
           shouldUpdateCalendarStatus = true;
         }

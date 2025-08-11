@@ -64,9 +64,24 @@ export async function GET(request: NextRequest) {
     });
 
     if (!tokenResponse.ok) {
-      const txt = await tokenResponse.text();
-      console.error('MS token exchange failed:', txt);
-      return NextResponse.redirect(new URL('/dashboard?tab=settings&error=token_exchange_failed', request.url));
+      let errCode = 'unknown_error';
+      let errDesc = '';
+      try {
+        const body = await tokenResponse.json();
+        errCode = body.error || errCode;
+        errDesc = body.error_description || '';
+        console.error('MS token exchange failed:', body);
+      } catch {
+        const txt = await tokenResponse.text();
+        console.error('MS token exchange failed (non-JSON):', txt);
+        errDesc = txt?.slice(0, 180) || '';
+      }
+      const redirect = new URL('/dashboard', request.url);
+      redirect.searchParams.set('tab', 'settings');
+      redirect.searchParams.set('error', 'token_exchange_failed');
+      redirect.searchParams.set('ms_error', errCode);
+      if (errDesc) redirect.searchParams.set('ms_error_desc', errDesc.substring(0, 180));
+      return NextResponse.redirect(redirect);
     }
 
     const tokens = await tokenResponse.json() as {

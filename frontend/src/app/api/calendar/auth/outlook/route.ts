@@ -71,7 +71,9 @@ export async function GET(request: NextRequest) {
       response_type: 'code',
       response_mode: 'query',
       scope: scopes,
-      state: encodedState
+      state: encodedState,
+      // Force consent to ensure refresh_token issuance on first connect in some tenants
+      prompt: 'consent'
     });
 
     const authUrl = `https://login.microsoftonline.com/common/oauth2/v2.0/authorize?${params.toString()}`;
