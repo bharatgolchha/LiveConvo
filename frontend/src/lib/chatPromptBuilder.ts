@@ -181,7 +181,7 @@ export function buildChatMessages(
   runningSummary?: string,
   personalContext?: string,
   textContext?: string,
-  transcriptCharLimit: number = 4000,
+  transcriptCharLimit: number = 8000,
   participantMe?: string,
   participantThem?: string,
   fileAttachments?: Array<{
@@ -206,7 +206,7 @@ export function buildChatMessages(
   // 2. Compact context line (single system msg)
   const contextPieces: string[] = [];
   if (conversationType) contextPieces.push(`type:${conversationType}`);
-  if (runningSummary) contextPieces.push(`summary:${runningSummary.slice(0, 500)}`);
+  if (runningSummary) contextPieces.push(`summary:${runningSummary}`);
   if (personalContext) contextPieces.push(`me:${personalContext.slice(0, 300)}`);
   if (textContext) contextPieces.push(`ctx:${textContext.slice(0, 300)}`);
 
@@ -214,7 +214,7 @@ export function buildChatMessages(
     ? [{ role: 'system' as const, content: contextPieces.join(' | ') }]
     : [];
 
-  // 3. Full transcript or intelligently truncated
+  // 3. Full transcript or intelligently truncated (include only once; system prompt will not duplicate it)
   const transcriptSnippet = transcript?.trim();
   let transcriptContent = '';
   
@@ -234,7 +234,7 @@ export function buildChatMessages(
   }
   
   const transcriptMsg = transcriptContent
-    ? [{ role: 'system' as const, content: `###TRANSCRIPT\n${transcriptContent}` }]
+    ? [{ role: 'system' as const, content: `TRANSCRIPT:\n${transcriptContent}` }]
     : [];
 
   // 4. Format the final user message with file attachments

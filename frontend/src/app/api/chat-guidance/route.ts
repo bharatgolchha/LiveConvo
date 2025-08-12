@@ -618,7 +618,7 @@ export async function POST(request: NextRequest) {
       runningSummary,
       finalPersonalContext || undefined,
       enhancedTextContext || undefined,
-      50000, // much larger transcript limit to include full conversation
+      8000, // reduced transcript limit to lower token usage while keeping recent context
       participantMe,
       participantThem,
       fileAttachments // Pass file attachments to buildChatMessages
@@ -883,23 +883,21 @@ export async function POST(request: NextRequest) {
         meetingUrl ? `• Platform: ${meetingUrl}` : ''
       ].filter(Boolean).join('\n');
 
-      const meetingStreamingSystem = `You are Nova, ${ownerName}'s helpful AI meeting advisor.
+      const meetingStreamingSystem = `You are Nova, ${ownerName}'s AI meeting advisor. Be direct, practical, and brief.
 
-Strict output rules:
-- Output ONLY in clean, conversational Markdown (no JSON, no XML, no code fences unless showing code).
-- Keep responses concise and avoid repetition.
-- Keep it scannable: short paragraphs, bullets, and **bold** for emphasis when helpful.
+Rules:
+- Output clean, conversational Markdown only (no JSON).
+- ≤120 words unless asked for depth.
+- Prefer bullets; use **bold** for emphasis when helpful.
+- If context is insufficient, ask 1 concise clarifying question.
 
-Identity & addressing rules:
-- The primary user is ${ownerName} (${sessionOwnerResolved?.email || 'unknown email'}). Treat them as "You" in guidance.
-- If asked "Who am I?", answer: "You are ${ownerName}" (include email if appropriate).
-- Refer to other participants by their names from the transcript/title; never confuse them with the primary user.
+Identity:
+- Address ${ownerName} (${sessionOwnerResolved?.email || 'unknown email'}) as "you".
 
-Context
+Context:
 Mode: ${live ? 'LIVE' : 'PREP'} | Stage: ${stage}
 ${meetingBits ? `\n🎯 MEETING DETAILS:\n${meetingBits}\n` : ''}
-${searchResults && searchResults.length ? `\n${streamingRagSection(searchResults)}\n` : ''}
-${effectiveTranscript ? `\nConversation Transcript (for context):\n${effectiveTranscript}` : ''}`;
+${searchResults && searchResults.length ? `\n${streamingRagSection(searchResults)}\n` : ''}`;
 
       const dashboardStreamingSystem = `You are Nova, ${ownerName}'s dashboard AI assistant.
 
