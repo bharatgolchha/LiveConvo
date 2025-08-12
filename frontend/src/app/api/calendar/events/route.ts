@@ -106,6 +106,7 @@ export async function GET(request: NextRequest) {
       .from('calendar_events')
       .select(`
         id,
+        external_event_id,
         title,
         description,
         start_time,
@@ -114,6 +115,10 @@ export async function GET(request: NextRequest) {
         attendees,
         is_organizer,
         bot_scheduled,
+        auto_join_enabled,
+        auto_session_created,
+        auto_session_id,
+        auto_bot_status,
         calendar_connections!inner (
           email,
           provider,
@@ -162,7 +167,8 @@ export async function GET(request: NextRequest) {
     };
 
     const upcomingMeetings: UpcomingMeeting[] = (meetings || []).map((meeting: Record<string, any>) => ({
-      event_id: meeting.id,
+      // Use the provider's event identifier for client actions (PATCH/GET routes expect external_event_id)
+      event_id: meeting.external_event_id || meeting.id,
       title: meeting.title,
       description: meeting.description,
       start_time: meeting.start_time,
@@ -181,10 +187,10 @@ export async function GET(request: NextRequest) {
         if (url.includes('zoom.us')) return 'zoom';
         return undefined;
       })(),
-      auto_join_enabled: meeting.auto_join_enabled ?? autoJoinEnabled, // Use per-event preference, fallback to global
-      auto_session_created: meeting.auto_session_created || false,
-      auto_session_id: meeting.auto_session_id,
-      auto_bot_status: meeting.auto_bot_status
+      auto_join_enabled: (meeting.auto_join_enabled ?? autoJoinEnabled) as boolean, // per-event preference, fallback to global
+      auto_session_created: Boolean(meeting.auto_session_created),
+      auto_session_id: meeting.auto_session_id || undefined,
+      auto_bot_status: meeting.auto_bot_status as any
     }));
 
     // If filter is 'today', only return meetings starting today
