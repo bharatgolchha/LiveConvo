@@ -486,13 +486,6 @@ export function DashboardChatbot() {
                 </button>
               )}
               <button
-                onClick={() => setIsMinimized(!isMinimized)}
-                className="p-1 hover:bg-muted rounded-md transition-colors"
-                title={isMinimized ? "Expand" : "Minimize"}
-              >
-                <ChevronDownIcon className={`w-4 h-4 transition-transform ${isMinimized ? 'rotate-180' : ''}`} />
-              </button>
-              <button
                 onClick={() => {
                   setIsExpanded(false);
                   setIsFullscreen(false);

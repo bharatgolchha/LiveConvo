@@ -509,18 +509,40 @@ async function processFinalization({
     triggerEmbeddingsGenerationAsync({ batchSize: 5 });
   }
 
-  // Update session status and billing fields first
-  const finalDurationSeconds = Math.floor(Number(sessionDuration) || 0);
-  const finalBillableMinutes = Math.ceil(Math.max(0, Number(sessionDuration)) / 60);
-  
+  // Update session status and billing fields with safety against decreasing duration
+  const computedFinalDurationSeconds = Math.floor(Number(sessionDuration) || 0);
+  const computedFinalBillableMinutes = Math.ceil(Math.max(0, Number(sessionDuration)) / 60);
+
+  // Fetch existing to ensure we never reduce recorded duration
+  const { data: existingSessionForDuration } = await authenticatedSupabase
+    .from('sessions')
+    .select('recording_duration_seconds, recording_started_at, recording_ended_at')
+    .eq('id', sessionId)
+    .single();
+
+  const startedAtIso = existingSessionForDuration?.recording_started_at;
+  const endedAtIso = existingSessionForDuration?.recording_ended_at;
+  const startedAtMs = startedAtIso ? new Date(startedAtIso as unknown as string).getTime() : undefined;
+  const endedAtMs = endedAtIso ? new Date(endedAtIso as unknown as string).getTime() : undefined;
+  const durationFromStartEnd = startedAtMs && endedAtMs && endedAtMs > startedAtMs
+    ? Math.floor((endedAtMs - startedAtMs) / 1000)
+    : 0;
+
+  const safeFinalDurationSeconds = Math.max(
+    computedFinalDurationSeconds || 0,
+    Number(existingSessionForDuration?.recording_duration_seconds) || 0,
+    durationFromStartEnd || 0
+  );
+  const safeFinalBillableMinutes = Math.ceil(Math.max(0, safeFinalDurationSeconds) / 60);
+
   await authenticatedSupabase
     .from('sessions')
     .update({ 
       status: 'completed',
       finalized_at: new Date().toISOString(),
-      recording_duration_seconds: finalDurationSeconds,
-      bot_recording_minutes: finalBillableMinutes,
-      bot_billable_amount: Number((finalBillableMinutes * 0.10).toFixed(2)),
+      recording_duration_seconds: safeFinalDurationSeconds,
+      bot_recording_minutes: safeFinalBillableMinutes,
+      bot_billable_amount: Number((safeFinalBillableMinutes * 0.10).toFixed(2)),
       conversation_type: effectiveConversationType || normalizedType
     })
     .eq('id', sessionId);
@@ -528,13 +550,13 @@ async function processFinalization({
   // Now compute and persist offline usage into bot_usage_tracking using the final duration
   try {
     // Only record if there is no recall_bot_id
-    if (!sessionData.recall_bot_id && finalBillableMinutes > 0) {
+    if (!sessionData.recall_bot_id && safeFinalBillableMinutes > 0) {
       const offlineBotId = `offline-${sessionId}`;
       const serviceClient = createServerSupabaseClient();
-      const startedAt = sessionData.created_at ? new Date(sessionData.created_at) : new Date(Date.now() - (finalDurationSeconds * 1000));
-      const endedAt = new Date(startedAt.getTime() + (finalDurationSeconds * 1000));
+      const startedAt = sessionData.created_at ? new Date(sessionData.created_at) : new Date(Date.now() - (safeFinalDurationSeconds * 1000));
+      const endedAt = new Date(startedAt.getTime() + (safeFinalDurationSeconds * 1000));
       
-      console.log(`📊 Recording offline usage: ${finalDurationSeconds}s → ${finalBillableMinutes} minutes for session ${sessionId}`);
+      console.log(`📊 Recording offline usage: ${safeFinalDurationSeconds}s → ${safeFinalBillableMinutes} minutes for session ${sessionId}`);
       
       // Double-check: if a bot_usage_tracking entry already exists, compare durations and use the larger
       const { data: existingEntry } = await serviceClient
@@ -543,12 +565,12 @@ async function processFinalization({
         .eq('bot_id', offlineBotId)
         .single();
         
-      let finalSecondsToUse = finalDurationSeconds;
-      let finalMinutesToUse = finalBillableMinutes;
+      let finalSecondsToUse = safeFinalDurationSeconds;
+      let finalMinutesToUse = safeFinalBillableMinutes;
       
       if (existingEntry) {
         // Use the larger of existing vs new duration (safety against partial writes)
-        finalSecondsToUse = Math.max(existingEntry.total_recording_seconds || 0, finalDurationSeconds);
+        finalSecondsToUse = Math.max(existingEntry.total_recording_seconds || 0, safeFinalDurationSeconds);
         finalMinutesToUse = Math.ceil(finalSecondsToUse / 60);
         console.log(`🔍 Existing entry found with ${existingEntry.total_recording_seconds}s, using max: ${finalSecondsToUse}s → ${finalMinutesToUse} minutes`);
       }

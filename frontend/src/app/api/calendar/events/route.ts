@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerSupabaseClient } from '@/lib/supabase';
-import { UpcomingMeeting } from '@/types/calendar';
+import { UpcomingMeeting, CalendarAttendee } from '@/types/calendar';
 
 // Type definitions
 interface RawEventData {
@@ -94,15 +94,41 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ meetings: cached.data });
     }
 
-    // Call the stored function to get upcoming meetings
+    // Build time window
+    const now = new Date();
+    const windowEnd = new Date();
+    windowEnd.setDate(windowEnd.getDate() + days);
+    const nowIso = now.toISOString();
+    const windowEndIso = windowEnd.toISOString();
+
+    // Query events directly to include ongoing meetings (end_time >= now)
     const { data: meetings, error } = await supabase
-      .rpc('get_upcoming_meetings', {
-        p_user_id: user.id,
-        p_days_ahead: days
-      });
+      .from('calendar_events')
+      .select(`
+        id,
+        title,
+        description,
+        start_time,
+        end_time,
+        meeting_url,
+        attendees,
+        is_organizer,
+        bot_scheduled,
+        calendar_connections!inner (
+          email,
+          provider,
+          is_active,
+          user_id
+        )
+      `)
+      .gte('end_time', nowIso)
+      .lte('start_time', windowEndIso)
+      .eq('calendar_connections.user_id', user.id)
+      .eq('calendar_connections.is_active', true)
+      .order('start_time', { ascending: true });
 
     if (error) {
-      console.error('Error fetching upcoming meetings:', error);
+      console.error('Error fetching calendar events:', error);
       return NextResponse.json(
         { error: 'Failed to fetch upcoming meetings' },
         { status: 500 }
@@ -119,7 +145,7 @@ export async function GET(request: NextRequest) {
     const autoJoinEnabled = calendarPrefs?.auto_join_enabled || false;
 
     // Transform the data to match our TypeScript types
-    const normalizeAttendees = (list: any[]): Array<Record<string, unknown>> => {
+    const normalizeAttendees = (list: any[]): CalendarAttendee[] => {
       if (!Array.isArray(list)) return [];
       return list.map((att: any) => {
         const rawStatus: string | undefined = att.response_status || att.responseStatus;
@@ -127,16 +153,16 @@ export async function GET(request: NextRequest) {
           ? rawStatus.replace(/[A-Z]/g, (m) => `_${m.toLowerCase()}`).toLowerCase()
           : undefined;
         return {
-          email: att.email || null,
-          name: att.name || att.displayName || null,
+          email: att.email || '',
+          name: att.name || att.displayName || undefined,
           response_status: normalizedStatus as any,
           is_organizer: Boolean(att.is_organizer || att.organizer || att.self || false)
-        };
+        } as CalendarAttendee;
       });
     };
 
     const upcomingMeetings: UpcomingMeeting[] = (meetings || []).map((meeting: Record<string, any>) => ({
-      event_id: meeting.event_id,
+      event_id: meeting.id,
       title: meeting.title,
       description: meeting.description,
       start_time: meeting.start_time,
@@ -145,8 +171,8 @@ export async function GET(request: NextRequest) {
       attendees: normalizeAttendees(meeting.attendees || []),
       is_organizer: meeting.is_organizer,
       bot_scheduled: meeting.bot_scheduled,
-      calendar_email: meeting.calendar_email,
-      calendar_provider: meeting.calendar_provider,
+      calendar_email: meeting.calendar_connections?.email,
+      calendar_provider: meeting.calendar_connections?.provider,
       platform: meeting.platform || ((): string | undefined => {
         const url: string | undefined = meeting.meeting_url;
         if (!url) return undefined;

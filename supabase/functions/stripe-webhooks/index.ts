@@ -96,6 +96,44 @@ Deno.serve(async (req: Request) => {
 
     // Process the event
     try {
+      // Small helper to upsert a subscription, with fallback for unique customer constraint
+      const upsertSubscriptionWithCustomerFallback = async (subscriptionData: any) => {
+        // First try normal upsert on stripe_subscription_id
+        const { data: subData, error: subError } = await supabase
+          .from('subscriptions')
+          .upsert(subscriptionData, {
+            onConflict: 'stripe_subscription_id'
+          })
+          .select();
+
+        if (!subError) {
+          return { data: subData, error: null };
+        }
+
+        const msg = String(subError?.message || '');
+        const isCustomerUniqueConflict = msg.includes('subscriptions_stripe_customer_id_key') || msg.includes('duplicate key value violates unique constraint') && msg.includes('stripe_customer_id');
+
+        if (!isCustomerUniqueConflict) {
+          return { data: null, error: subError };
+        }
+
+        // Fallback: update existing row for this customer id
+        console.log('Detected unique constraint on stripe_customer_id, updating existing subscription row for customer');
+        const updatePayload = { ...subscriptionData };
+        delete updatePayload.created_at;
+
+        const { data: updData, error: updErr } = await supabase
+          .from('subscriptions')
+          .update(updatePayload)
+          .eq('stripe_customer_id', subscriptionData.stripe_customer_id)
+          .select();
+
+        if (updErr) {
+          return { data: null, error: updErr };
+        }
+        return { data: updData, error: null };
+      };
+
       // Handle checkout session completed
       if (event.type === 'checkout.session.completed') {
         const session = event.data.object as Stripe.Checkout.Session;
@@ -133,13 +171,13 @@ Deno.serve(async (req: Request) => {
             
           if (!userData) {
             console.error('WARNING: User not found for customer:', session.customer);
-            // This is likely a data sync issue - return 200 to not retry forever
+            // Ask Stripe to retry later; user record may not be ready yet
             return new Response(JSON.stringify({ 
-              received: true, 
-              warning: 'User not found - check data sync' 
+              received: false, 
+              error: 'User not found - will retry' 
             }), {
               headers: { 'Content-Type': 'application/json', ...corsHeaders },
-              status: 200,
+              status: 400,
             });
           }
           
@@ -248,19 +286,10 @@ Deno.serve(async (req: Request) => {
             console.warn('⚠️ WARNING: Creating subscription without organization_id for user:', userData.id);
           }
           
-          const { data: subData, error: subError } = await supabase
-            .from('subscriptions')
-            .upsert(subscriptionData, {
-              onConflict: 'stripe_subscription_id'
-            })
-            .select();
-            
+          const { data: subData, error: subError } = await upsertSubscriptionWithCustomerFallback(subscriptionData);
           if (subError) {
-            console.error('Failed to update subscription:', subError);
-            return new Response('Database error', { 
-              status: 500,
-              headers: corsHeaders 
-            });
+            console.error('Failed to upsert/update subscription:', subError);
+            return new Response('Database error', { status: 500, headers: corsHeaders });
           }
           
           console.log('✅ Subscription created/updated:', subData);
@@ -872,19 +901,10 @@ Deno.serve(async (req: Request) => {
         
         console.log('Upserting subscription:', subscriptionData);
         
-        const { data: subData, error: subError } = await supabase
-          .from('subscriptions')
-          .upsert(subscriptionData, {
-            onConflict: 'stripe_subscription_id'
-          })
-          .select();
-          
+        const { data: subData, error: subError } = await upsertSubscriptionWithCustomerFallback(subscriptionData);
         if (subError) {
-          console.error('Subscription insert error:', subError);
-          return new Response('Database error', { 
-            status: 500,
-            headers: corsHeaders 
-          });
+          console.error('Subscription upsert/update error:', subError);
+          return new Response('Database error', { status: 500, headers: corsHeaders });
         }
         
         console.log('Subscription created/updated:', subData);
@@ -1070,6 +1090,20 @@ Deno.serve(async (req: Request) => {
 
       // Handle other event types
       console.log('Unhandled event type:', event.type);
+      // Best-effort log event for observability
+      try {
+        await supabase.from('webhook_logs').insert({
+          webhook_type: 'stripe',
+          event_type: event.type,
+          event_id: event.id,
+          payload: event,
+          processed: true,
+          created_at: new Date().toISOString(),
+          processed_at: new Date().toISOString()
+        });
+      } catch (_e) {
+        // ignore logging failures
+      }
       return new Response(JSON.stringify({ received: true, event_type: event.type }), {
         headers: { 'Content-Type': 'application/json', ...corsHeaders },
         status: 200,

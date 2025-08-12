@@ -19,6 +19,7 @@ import {
   Home
 } from 'lucide-react';
 import { TabbedReport } from '@/components/report/TabbedReport';
+import { ParticipantsList } from '@/components/report/ParticipantsList';
 import { Button } from '@/components/ui/Button';
 
 interface Participant {
@@ -336,10 +337,14 @@ export default function SharedReportPage() {
                     <Calendar className="w-3 h-3" />
                     {formatDate(report.createdAt)}
                   </span>
-                  <span className="hidden sm:flex items-center gap-1">
-                    <Users className="w-3 h-3" />
-                    {report.participants.me}, {report.participants.them}
-                  </span>
+                  <div className="flex items-center gap-1">
+                    <ParticipantsList
+                      sessionId={report.id}
+                      showLabel={false}
+                      fallbackParticipants={{ me: report.participants.me, them: report.participants.them }}
+                      size="sm"
+                    />
+                  </div>
                 </div>
               </div>
               

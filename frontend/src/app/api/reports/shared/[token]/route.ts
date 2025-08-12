@@ -242,17 +242,56 @@ export async function GET(
       return { me: 50, them: 50 };
     })();
 
+    // Compute safe duration using max of stored, transcript max timestamp, and start/end diff
+    const storedDuration = Number(sessionData?.recording_duration_seconds) || 0;
+    const transcriptMax = (sessionData?.transcripts || []).reduce((max: number, t: any) => {
+      const s = Number(t.end_time_seconds ?? t.start_time_seconds ?? 0);
+      return Math.max(max, isFinite(s) ? s : 0);
+    }, 0);
+    const startedAtMs = sessionData?.recording_started_at
+      ? new Date(sessionData.recording_started_at).getTime()
+      : (sessionData?.created_at ? new Date(sessionData.created_at).getTime() : undefined);
+    const endedAtMs = sessionData?.recording_ended_at
+      ? new Date(sessionData.recording_ended_at).getTime()
+      : undefined;
+    const startEndDiff = startedAtMs && endedAtMs && endedAtMs > startedAtMs
+      ? Math.floor((endedAtMs - startedAtMs) / 1000)
+      : 0;
+    const safeDuration = Math.max(storedDuration, transcriptMax, startEndDiff);
+
+    // Resolve reliable participant names using transcript if stored names are generic
+    const isGeneric = (name?: string | null) => {
+      const n = (name || '').trim().toLowerCase();
+      return !n || ['you','participant','participants','speaker 1','speaker 2','me','them'].includes(n);
+    };
+    const transcriptSpeakerTotals: Record<string, number> = (sessionData?.transcripts || []).reduce((acc: Record<string, number>, t: any) => {
+      const speaker = (t.speaker || '').trim();
+      if (!speaker) return acc;
+      const words = t.content?.split(' ').length || 0;
+      acc[speaker] = (acc[speaker] || 0) + words;
+      return acc;
+    }, {});
+    const rankedSpeakers = Object.entries(transcriptSpeakerTotals)
+      .sort((a, b) => b[1] - a[1])
+      .map(([name]) => name);
+    const resolvedMe = !isGeneric(sessionData?.participant_me)
+      ? sessionData?.participant_me
+      : (rankedSpeakers[0] || 'You');
+    const resolvedThem = !isGeneric(sessionData?.participant_them)
+      ? sessionData?.participant_them
+      : (rankedSpeakers.find(n => n !== resolvedMe) || rankedSpeakers[1] || 'Participant');
+
     // Build filtered report data
     const filteredReport = {
       id: sessionData.id,
       title: sessionData.title,
       type: sessionData.conversation_type,
-      duration: sessionData.recording_duration_seconds,
+      duration: safeDuration,
       wordCount: wordCount,
       speakingTime: speakingTime,
       participants: {
-        me: sessionData.participant_me || 'Participant 1',
-        them: sessionData.participant_them || 'Participant 2'
+        me: resolvedMe || 'Participant 1',
+        them: resolvedThem || 'Participant 2'
       },
       participantsList: participantsList,
       createdAt: sessionData.created_at,

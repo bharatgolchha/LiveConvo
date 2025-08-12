@@ -81,34 +81,40 @@ export const UpcomingMeetingsSidebar: React.FC<UpcomingMeetingsSidebarProps> = (
     localStorage.setItem('upcomingMeetingsSidebarOpen', isOpen.toString());
   }, [isOpen, isMobile]);
 
-  // Load meetings and check calendar connection
+  // Check calendar connection when sidebar opens or session changes
   useEffect(() => {
     if (session?.access_token && calendarEnabled && isOpen) {
       checkCalendarConnection();
+    }
+  }, [session, calendarEnabled, isOpen]);
+
+  // Load meetings only when connected
+  useEffect(() => {
+    if (session?.access_token && calendarEnabled && isOpen && hasCalendarConnection) {
       loadMeetings();
     }
-  }, [session, filter, calendarEnabled, isOpen]);
+  }, [session, filter, calendarEnabled, isOpen, hasCalendarConnection]);
 
-  // Auto-refresh meetings every 5 minutes when sidebar is open
+  // Auto-refresh meetings every 5 minutes when sidebar is open and connected
   useEffect(() => {
-    if (!isOpen || !calendarEnabled || !session?.access_token) return;
+    if (!isOpen || !calendarEnabled || !session?.access_token || !hasCalendarConnection) return;
 
     const intervalId = setInterval(() => {
       loadMeetings();
     }, AUTO_REFRESH_INTERVAL);
 
     return () => clearInterval(intervalId);
-  }, [isOpen, calendarEnabled, session?.access_token, filter]);
+  }, [isOpen, calendarEnabled, session?.access_token, filter, hasCalendarConnection]);
 
-  // Refresh when sidebar is opened after being closed for a while
+  // Refresh when sidebar is opened after being closed for a while and connected
   useEffect(() => {
-    if (isOpen && lastRefreshTime) {
+    if (isOpen && lastRefreshTime && hasCalendarConnection) {
       const timeSinceLastRefresh = Date.now() - lastRefreshTime.getTime();
       if (timeSinceLastRefresh > AUTO_REFRESH_INTERVAL) {
         loadMeetings();
       }
     }
-  }, [isOpen]);
+  }, [isOpen, hasCalendarConnection]);
 
   const checkCalendarConnection = async () => {
     try {
@@ -541,7 +547,7 @@ export const UpcomingMeetingsSidebar: React.FC<UpcomingMeetingsSidebarProps> = (
                     variant="ghost"
                     size="sm"
                     className="p-1.5"
-                    disabled={isRefreshing}
+                    disabled={isRefreshing || hasCalendarConnection === false}
                     title="Refresh meetings"
                   >
                     <ArrowPathIcon className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
@@ -562,39 +568,41 @@ export const UpcomingMeetingsSidebar: React.FC<UpcomingMeetingsSidebarProps> = (
                 </div>
               </div>
 
-              {/* Filter Tabs */}
-              <div className="flex gap-1 mt-3">
-                <button
-                  onClick={() => setFilter('today')}
-                  className={`flex-1 px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
-                    filter === 'today' 
-                      ? 'bg-primary text-primary-foreground' 
-                      : 'text-muted-foreground hover:bg-muted/50'
-                  }`}
-                >
-                  Today
-                </button>
-                <button
-                  onClick={() => setFilter('week')}
-                  className={`flex-1 px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
-                    filter === 'week' 
-                      ? 'bg-primary text-primary-foreground' 
-                      : 'text-muted-foreground hover:bg-muted/50'
-                  }`}
-                >
-                  This Week
-                </button>
-                <button
-                  onClick={() => setFilter('all')}
-                  className={`flex-1 px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
-                    filter === 'all' 
-                      ? 'bg-primary text-primary-foreground' 
-                      : 'text-muted-foreground hover:bg-muted/50'
-                  }`}
-                >
-                  All
-                </button>
-              </div>
+              {/* Header secondary row: show tabs only when connected; nothing otherwise */}
+              {hasCalendarConnection ? (
+                <div className="flex gap-1 mt-3">
+                  <button
+                    onClick={() => setFilter('today')}
+                    className={`flex-1 px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
+                      filter === 'today' 
+                        ? 'bg-primary text-primary-foreground' 
+                        : 'text-muted-foreground hover:bg-muted/50'
+                    }`}
+                  >
+                    Today
+                  </button>
+                  <button
+                    onClick={() => setFilter('week')}
+                    className={`flex-1 px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
+                      filter === 'week' 
+                        ? 'bg-primary text-primary-foreground' 
+                        : 'text-muted-foreground hover:bg-muted/50'
+                    }`}
+                  >
+                    This Week
+                  </button>
+                  <button
+                    onClick={() => setFilter('all')}
+                    className={`flex-1 px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
+                      filter === 'all' 
+                        ? 'bg-primary text-primary-foreground' 
+                        : 'text-muted-foreground hover:bg-muted/50'
+                    }`}
+                  >
+                    All
+                  </button>
+                </div>
+              ) : null}
             </div>
 
             {/* Sync Progress */}
@@ -798,7 +806,7 @@ const MeetingCard: React.FC<{ meeting: UpcomingMeeting }> = ({ meeting }) => {
     <motion.div
       whileHover={{ scale: 1.02 }}
       className={`bg-background border border-border rounded-lg p-3 transition-all ${
-        isNow ? 'ring-2 ring-primary shadow-sm' : ''
+        isNow ? 'ring-2 ring-green-500 shadow-sm' : ''
       }`}
     >
       <div className="flex items-start justify-between gap-2">
@@ -812,6 +820,11 @@ const MeetingCard: React.FC<{ meeting: UpcomingMeeting }> = ({ meeting }) => {
           )}
           <div className="flex-1 min-w-0">
             <h4 className="text-sm font-medium truncate flex items-center gap-2">
+              {isNow && (
+                <Badge className="bg-green-600 text-white text-[10px] px-1.5 py-0">
+                  Ongoing
+                </Badge>
+              )}
               {meeting.title.includes('Engagement with Liveprompt.ai') && (
                 <Badge variant="secondary" className="text-xs px-1.5 py-0">
                   Auto
