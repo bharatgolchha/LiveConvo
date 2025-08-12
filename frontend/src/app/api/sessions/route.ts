@@ -112,7 +112,7 @@ export async function GET(request: NextRequest) {
         user_id,
         organization_id
       `,
-        { count: 'exact' }
+        { count: 'planned' }
       )
       .is('deleted_at', null)  // Only get non-deleted sessions
       .order('created_at', { ascending: false });

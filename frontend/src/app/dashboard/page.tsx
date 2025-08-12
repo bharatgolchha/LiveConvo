@@ -137,6 +137,29 @@ const DashboardPage: React.FC = () => {
   const [isNavigating, setIsNavigating] = useState(false);
   const [navigationSessionTitle, setNavigationSessionTitle] = useState('');
   const [isNewSession, setIsNewSession] = useState(false);
+  const [selectedPersonId, setSelectedPersonId] = useState<string | null>(null);
+  const [personModalOpen, setPersonModalOpen] = useState(false);
+  const [personModalInitial, setPersonModalInitial] = useState<any>(null);
+  // Listen for People events from MeetingCard
+  useEffect(() => {
+    const handleAdd = (e: any) => {
+      setActivePath('people');
+      setPersonModalInitial({ full_name: e.detail?.name || '', primary_email: e.detail?.email || '' });
+      setPersonModalOpen(true);
+    };
+    const handleOpen = (e: any) => {
+      setActivePath('people');
+      // Keep UX: we can search by email if needed; for now open modal prefilled to edit
+      setPersonModalInitial({ primary_email: e.detail?.email || '' });
+      setPersonModalOpen(true);
+    };
+    window.addEventListener('people:add', handleAdd as any);
+    window.addEventListener('people:open', handleOpen as any);
+    return () => {
+      window.removeEventListener('people:add', handleAdd as any);
+      window.removeEventListener('people:open', handleOpen as any);
+    };
+  }, []);
   // Removed groupByThread state - always use list view
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(20); // Number of items per page
@@ -1036,6 +1059,8 @@ const DashboardPage: React.FC = () => {
                 router.push('/pricing');
               } else if (path === 'referrals') {
                 router.push('/dashboard/referrals');
+              } else if (path === 'people') {
+                setActivePath('people');
               } else {
                 setActivePath(path);
               }
@@ -1089,6 +1114,23 @@ const DashboardPage: React.FC = () => {
               />
             ) : activePath === 'action_items' ? (
               <ActionItemsBoard />
+            ) : activePath === 'people' ? (
+              <div className="p-2 sm:p-0">
+                {(() => {
+                  const PeopleList = require('@/components/people/PeopleList').default;
+                  const PersonDetailPanel = require('@/components/people/PersonDetailPanel').default;
+                  const PersonModal = require('@/components/people/PersonModal').default;
+                  if (selectedPersonId) {
+                    return <PersonDetailPanel id={selectedPersonId} onBack={() => setSelectedPersonId(null)} />;
+                  }
+                  return (
+                    <>
+                      <PeopleList onOpenPerson={(id: string) => setSelectedPersonId(id)} />
+                      <PersonModal open={personModalOpen} onClose={(saved?: boolean) => { setPersonModalOpen(false); if (saved) { /* refresh if needed */ } }} initial={personModalInitial || {}} />
+                    </>
+                  );
+                })()}
+              </div>
             ) : !hasAnySessions && activePath !== 'archive' && activePath !== 'shared' && !searchQuery ? (
               <EmptyState 
                 onNewConversation={handleNewConversation} 

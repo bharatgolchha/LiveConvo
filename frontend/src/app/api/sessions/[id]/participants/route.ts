@@ -1,6 +1,6 @@
+import { headers } from 'next/headers';
 import { NextRequest, NextResponse } from 'next/server';
 import { createAuthenticatedSupabaseClient } from '@/lib/supabase';
-import { headers } from 'next/headers';
 
 export const dynamic = 'force-dynamic';
 
@@ -61,7 +61,7 @@ export async function GET(
     if (calendarParticipants.length > 0) {
       // Use calendar participants if available
       const seen = new Set<string>();
-      const participants = calendarParticipants.flatMap((p: string | { name?: string; email?: string }) => {
+      const participants = calendarParticipants.flatMap((p: string | { name?: string; email?: string; response_status?: string; is_organizer?: boolean }) => {
         // Support two shapes:
         // 1) String ("Jane Doe") coming from sessions.participants JSON array
         // 2) Object from calendar attendee list { name, email, response_status, ... }
@@ -73,13 +73,13 @@ export async function GET(
         }
         seen.add(displayName);
 
-        return [{
+          return [{
           name: displayName,
           email: isString ? undefined : p.email,
           initials: getInitials(displayName),
           color: getColorForName(displayName),
-          response_status: isString ? undefined : p.response_status,
-          is_organizer: isString ? undefined : p.is_organizer
+            response_status: isString ? undefined : (p as any).response_status,
+            is_organizer: isString ? undefined : (p as any).is_organizer
         }];
       });
       

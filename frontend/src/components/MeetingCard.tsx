@@ -297,7 +297,7 @@ export const MeetingCard = React.memo(({
             <span className="text-xs rounded-full bg-muted px-2 py-0.5 text-muted-foreground">
               {meetingType}
             </span>
-            {/* Participant pills - use pre-loaded data to avoid API calls */}
+            {/* Participant pills with People actions */}
             <div className="sm:hidden">
               <ParticipantsList 
                 sessionId={id} 
@@ -308,6 +308,13 @@ export const MeetingCard = React.memo(({
                   participantMe || participantThem ? { me: participantMe || '', them: participantThem || '' } : undefined
                 }
                 size="sm"
+                onAddPerson={(p) => {
+                  const detail = { name: (p as any).name, email: (p as any).email };
+                  window.dispatchEvent(new CustomEvent('people:add', { detail }));
+                }}
+                onOpenPerson={(email) => {
+                  window.dispatchEvent(new CustomEvent('people:open', { detail: { email } }));
+                }}
               />
             </div>
             <div className="hidden sm:block">
@@ -319,6 +326,13 @@ export const MeetingCard = React.memo(({
                 fallbackParticipants={
                   participantMe || participantThem ? { me: participantMe || '', them: participantThem || '' } : undefined
                 }
+                onAddPerson={(p) => {
+                  const detail = { name: (p as any).name, email: (p as any).email };
+                  window.dispatchEvent(new CustomEvent('people:add', { detail }));
+                }}
+                onOpenPerson={(email) => {
+                  window.dispatchEvent(new CustomEvent('people:open', { detail: { email } }));
+                }}
               />
             </div>
             <span className="text-muted-foreground hidden sm:inline">• {formatDuration(durationSec)}</span>

@@ -58,14 +58,14 @@ async function ensureAuthToken() {
 chrome.runtime.onInstalled.addListener(async () => {
   console.log('LivePrompt Extension installed');
   // Fetch Supabase config first (no auth required)
-  await fetchSupabaseConfig();
+  fetchSupabaseConfig(); // fire-and-forget to avoid blocking UI init
   loadAuthToken();
   setupAuthRefreshAlarm();
 });
 
 chrome.runtime.onStartup.addListener(async () => {
   // Fetch Supabase config first (no auth required)
-  await fetchSupabaseConfig();
+  fetchSupabaseConfig(); // fire-and-forget
   loadAuthToken();
   setupAuthRefreshAlarm();
 });
@@ -251,9 +251,21 @@ chrome.runtime.onMessage.addListener((request, _sender, sendResponse) => {
       return true;
       
     case 'GET_AUTH_STATUS':
-      ensureAuthToken().then(() => {
-        sendResponse({ isAuthenticated: !!authToken, token: authToken });
-      });
+      // Respond immediately with best-known state to avoid UI stalls
+      if (authToken) {
+        sendResponse({ isAuthenticated: true, token: authToken });
+      } else {
+        chrome.storage.local.get(['authToken']).then((res) => {
+          if (res?.authToken) {
+            authToken = res.authToken;
+            sendResponse({ isAuthenticated: true, token: authToken });
+          } else {
+            sendResponse({ isAuthenticated: false });
+          }
+        });
+        // Kick off background refresh non-blocking
+        checkAndRefreshToken();
+      }
       return true;
       
     case 'CREATE_SESSION':
@@ -617,6 +629,9 @@ async function handleWebSessionToken(msg) {
   // Set up refresh alarm if not already set
   setupAuthRefreshAlarm();
   
+  // Notify UI (sidepanel) that auth state has updated so it can re-render immediately
+  safeSendMessage({ type: 'AUTH_UPDATED' });
+
   // Fetch latest sessions / active session right away
   fetchActiveSession();
   return { success: true };

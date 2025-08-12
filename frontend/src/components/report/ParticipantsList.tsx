@@ -21,14 +21,18 @@ interface ParticipantsListProps {
   };
   participants?: Participant[]; // Pre-loaded participants data to avoid API calls
   size?: 'sm' | 'md'; // Size variant for mobile optimization
+  onAddPerson?: (participant: Participant) => void;
+  onOpenPerson?: (email: string) => void;
+  knownPeopleEmails?: string[];
 }
 
-export function ParticipantsList({ sessionId, showLabel = true, maxVisible, fallbackParticipants, participants: providedParticipants, size = 'md' }: ParticipantsListProps) {
+export function ParticipantsList({ sessionId, showLabel = true, maxVisible, fallbackParticipants, participants: providedParticipants, size = 'md', onAddPerson, onOpenPerson, knownPeopleEmails = [] }: ParticipantsListProps) {
   const [participants, setParticipants] = useState<Participant[]>(providedParticipants || []);
   const providedHasEmails = Array.isArray(providedParticipants) && providedParticipants.some((p: any) => p && p.email);
   const [loading, setLoading] = useState(!providedParticipants || !providedHasEmails);
   const [expanded, setExpanded] = useState(false);
   const { session } = useAuth();
+  const [knownCache, setKnownCache] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     let abortController: AbortController | null = null;
@@ -133,6 +137,29 @@ export function ParticipantsList({ sessionId, showLabel = true, maxVisible, fall
     }
   };
 
+  // Check existence of emails in People (per email) and cache results
+  useEffect(() => {
+    const checkKnown = async () => {
+      if (!session?.access_token) return;
+      const headers: HeadersInit = { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` };
+      const emails = participants.map(p => (p.email || '').toLowerCase()).filter(Boolean);
+      const toCheck = emails.filter(e => knownCache[e] === undefined);
+      if (toCheck.length === 0) return;
+      const updates: Record<string, boolean> = {};
+      for (const email of toCheck) {
+        try {
+          const res = await fetch(`/api/people?limit=1&offset=0&q=${encodeURIComponent(email)}`, { headers });
+          if (res.ok) {
+            const data = await res.json();
+            updates[email] = Array.isArray(data.items) && data.items.length > 0;
+          }
+        } catch {}
+      }
+      if (Object.keys(updates).length > 0) setKnownCache(prev => ({ ...prev, ...updates }));
+    };
+    checkKnown();
+  }, [participants, session?.access_token]);
+
   const getInitials = (name: string): string => {
     const words = name.trim().split(' ').filter(w => w.length > 0);
     if (words.length === 0) return '??';
@@ -217,25 +244,40 @@ export function ParticipantsList({ sessionId, showLabel = true, maxVisible, fall
         {showLabel && <span className="font-medium">Participants:</span>}
       </div>
       <div className={`flex items-center ${isSmall ? 'gap-1' : 'gap-1.5'} flex-wrap`}>
-        {visibleParticipants.map((participant, index) => (
-          <div
-            key={index}
-            className={`group flex items-center ${isSmall ? 'gap-1 px-1.5 py-0.5' : 'gap-1.5 px-2.5 py-1'} bg-muted/50 dark:bg-muted/30 border border-border hover:border-primary/50 rounded-full transition-all duration-200 hover:shadow-sm cursor-default`}
-            title={`${participant.name}${participant.email ? ` • ${participant.email}` : ''}`}
-          >
+        {visibleParticipants.map((participant, index) => {
+          const email = (participant.email || '').toLowerCase();
+          const isKnown = email ? (knownPeopleEmails.includes(email) || knownCache[email] === true) : false;
+          return (
             <div
-              className={`${isSmall ? 'w-4 h-4' : 'w-6 h-6'} ${participant.color} ${getTextColorForBg(participant.color)} rounded-full flex items-center justify-center ${isSmall ? 'text-[8px]' : 'text-[10px]'} font-bold shadow-sm ring-2 ring-white dark:ring-background transition-transform duration-200 group-hover:scale-110`}
+              key={index}
+              className={`group flex items-center ${isSmall ? 'gap-1 px-1.5 py-0.5' : 'gap-1.5 px-2.5 py-1'} bg-muted/50 dark:bg-muted/30 border border-border hover:border-primary/50 rounded-full transition-all duration-200 hover:shadow-sm`}
+              title={`${participant.name}${participant.email ? ` • ${participant.email}` : ''}`}
             >
-              {participant.initials}
+              <div
+                className={`${isSmall ? 'w-4 h-4' : 'w-6 h-6'} ${participant.color} ${getTextColorForBg(participant.color)} rounded-full flex items-center justify-center ${isSmall ? 'text-[8px]' : 'text-[10px]'} font-bold shadow-sm ring-2 ring-white dark:ring-background transition-transform duration-200 group-hover:scale-110`}
+              >
+                {participant.initials}
+              </div>
+              <span className={`${isSmall ? 'text-[10px]' : 'text-xs'} text-foreground font-medium`}>{participant.name}</span>
+              {participant.email && (
+                <span className={`${isSmall ? 'hidden' : 'inline'} ${isSmall ? '' : 'text-[10px]'} text-muted-foreground`}>
+                  \u00A0· {participant.email}
+                </span>
+              )}
+              <button
+                type="button"
+                onClick={() => {
+                  if (email && isKnown && onOpenPerson) onOpenPerson(email);
+                  else if (onAddPerson) onAddPerson(participant);
+                }}
+                title={email && isKnown ? 'Open person' : 'Add to People'}
+                className={`ml-1 hidden group-hover:inline-flex items-center justify-center rounded-full border ${isSmall ? 'px-1 text-[10px]' : 'px-1.5 text-xs'} ${email && isKnown ? 'border-primary text-primary' : 'border-green-600 text-green-600'} hover:bg-muted/40`}
+              >
+                {email && isKnown ? '↗' : '+'}
+              </button>
             </div>
-            <span className={`${isSmall ? 'text-[10px]' : 'text-xs'} text-foreground font-medium`}>{participant.name}</span>
-            {participant.email && (
-              <span className={`${isSmall ? 'hidden' : 'inline'} ${isSmall ? '' : 'text-[10px]'} text-muted-foreground`}>
-                \u00A0· {participant.email}
-              </span>
-            )}
-          </div>
-        ))}
+          );
+        })}
         {remainingCount > 0 && (
           <button
             type="button"

@@ -7,7 +7,7 @@ import {
   ShareIcon,
   ClockIcon,
 } from '@heroicons/react/24/outline';
-import { Crown, Gift } from 'lucide-react';
+import { Crown, Gift, Users } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
 export interface UsageStats {
@@ -77,6 +77,7 @@ const DashboardSidebar: React.FC<DashboardSidebarProps> = ({ usageStats, activeP
 
   const navItems = [
     { path: 'conversations', label: 'Meetings', icon: MicrophoneIcon, count: activeCount },
+    { path: 'people', label: 'People', icon: Users },
     { path: 'action_items', label: 'Action Items', icon: ClockIcon, count: pendingCount },
     { path: 'shared', label: 'Shared Meetings', icon: ShareIcon, count: sharedCount },
     { path: 'archive', label: 'Archive', icon: ArchiveBoxIcon, count: archivedCount },

@@ -210,7 +210,7 @@ async function fetchSessions(
   const sort = searchParams.get('sort');
   
   // Use FTS RPC when searching or when relevance sort requested
-  const shouldUseFTS = !!search || sort === 'relevance';
+  const shouldUseFTS = (!!search && (search?.length || 0) >= 2) || sort === 'relevance';
   
   console.log('📊 fetchSessions params:', {
     status,
@@ -421,8 +421,8 @@ async function fetchSessions(
         p_date_to: dateTo ? `${dateTo}T23:59:59` : null,
         p_platform: platform || null,
         p_speakers: speakers || null,
-        p_limit: limit,
-        p_offset: offset,
+        p_limit: Math.min(limit, 50),
+        p_offset: Math.max(offset, 0),
         p_sort: sort || 'recent'
       });
 

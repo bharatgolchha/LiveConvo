@@ -17,6 +17,21 @@
 # liveprompt.ai - Task Tracker
 
 ## 📋 Current Sprint Tasks
+### 2025-08-12
+- [ ] People System: Design and plan `people` data model and ingestion
+  - Create `people.md` with schema plan, RLS, indexes, views, ingestion/backfill, UI/API
+  - Verify sources: `calendar_events.attendees`, `sessions.participants`, shares/emails tables
+  - Plan migrations and idempotent backfill for Dev first, then Prod rollout
+  - Phases to execute (see `people_checklist.md`):
+    - [x] Phase 1: Dev schema (tables, indexes, RLS)
+    - [x] Phase 2: Dev backfill (calendar + sessions)
+    - [ ] Phase 3: Dev views (person activity)
+    - [ ] Phase 4: Dev API
+    - [ ] Phase 5: Dev UI/UX
+    - [ ] Phase 6: Production rollout
+    - [ ] Phase 7: Analytics & monitoring
+    - [ ] Phase 8: Documentation & maintenance
+
 ### 2025-08-11
 - [ ] Outlook Calendar Integration via Recall.ai OAuth (Microsoft)
   - Create checklist `recall_outlook_checklist.md` and implement steps: Azure app verification, backend authorize URL, callback forwarder, UI connect button, persistence, webhooks, preferences, QA, production.

@@ -9,8 +9,13 @@ let refreshInterval = null;
 
 // Initialize popup
 document.addEventListener('DOMContentLoaded', () => {
-  checkAuthStatus();
   setupEventListeners();
+  // Show login skeleton immediately
+  document.getElementById('auth-section').classList.remove('hidden');
+  document.getElementById('main-section').classList.add('hidden');
+  document.getElementById('logout-btn').style.display = 'none';
+  // Non-blocking auth check so UI paints fast
+  setTimeout(checkAuthStatus, 0);
   startSmartRefresh();
 });
 
@@ -36,6 +41,11 @@ function startSmartRefresh() {
           checkActiveSession();
           loadSessions();
           loadMeetings(); // Also refresh meetings
+        } else {
+          // Ensure login UI is visible when not authenticated
+          document.getElementById('main-section').classList.add('hidden');
+          document.getElementById('auth-section').classList.remove('hidden');
+          document.getElementById('logout-btn').style.display = 'none';
         }
         isRefreshing = false;
       });
@@ -67,6 +77,18 @@ chrome.runtime.onMessage.addListener((msg)=>{
     loadMeetings();
   }
   if(msg.type==='ACTIVE_SESSION_CLEARED'){ activeSession=null; hideActiveSession(); loadSessions(); }
+  if(msg.type==='AUTH_UPDATED'){
+    // Switch to main view and load fresh data after background authenticates
+    document.getElementById('auth-section').classList.add('hidden');
+    document.getElementById('main-section').classList.remove('hidden');
+    document.getElementById('logout-btn').style.display = 'flex';
+    // Debounce multiple possible AUTH_UPDATED bursts
+    setTimeout(() => {
+      checkActiveSession();
+      loadSessions();
+      loadMeetings();
+    }, 0);
+  }
 });
 
 function setupEventListeners() {

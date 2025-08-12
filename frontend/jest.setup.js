@@ -97,3 +97,46 @@ global.cancelAnimationFrame = jest.fn()
 beforeEach(() => {
   jest.clearAllMocks()
 }) 
+
+// Lightweight ESM dependency mocks to stabilize tests
+jest.mock('react-markdown', () => ({
+  __esModule: true,
+  default: ({ children }) => <div>{Array.isArray(children) ? children.join('') : children}</div>,
+}))
+
+// Prevent ESM import issues from supabase client during tests
+jest.mock('@supabase/supabase-js', () => {
+  const stubChain = () => ({
+    select: jest.fn(() => stubChain()),
+    update: jest.fn(() => stubChain()),
+    insert: jest.fn(() => stubChain()),
+    delete: jest.fn(() => stubChain()),
+    eq: jest.fn(() => stubChain()),
+    order: jest.fn(() => stubChain()),
+    single: jest.fn(async () => ({ data: null, error: null })),
+    maybeSingle: jest.fn(async () => ({ data: null, error: null })),
+    limit: jest.fn(() => stubChain()),
+    range: jest.fn(async () => ({ data: [], count: 0, error: null })),
+  })
+  return {
+    createClient: () => ({
+      auth: {
+        getUser: jest.fn(async () => ({ data: { user: { id: 'test-user' } }, error: null })),
+        getSession: jest.fn(async () => ({ data: { session: null }, error: null })),
+      },
+      from: jest.fn(() => stubChain()),
+    }),
+  }
+})
+
+// Mock Auth context to avoid provider requirement in isolated component tests
+jest.mock('@/contexts/AuthContext', () => ({
+  __esModule: true,
+  useAuth: () => ({
+    user: { id: 'test-user', email: 'test@example.com' },
+    session: { user: { id: 'test-user' } },
+    signIn: jest.fn(),
+    signOut: jest.fn(),
+  }),
+  AuthProvider: ({ children }) => children,
+}))
