@@ -9,6 +9,10 @@ export function useRealtimeSummary(sessionId: string) {
   const [error, setError] = useState<Error | null>(null);
   const [lastSummaryLength, setLastSummaryLength] = useState(0);
   const [hasLoadedCache, setHasLoadedCache] = useState(false);
+  const [isManualCooldown, setIsManualCooldown] = useState(false);
+  const manualCooldownTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const manualCooldownIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const [manualCooldownRemaining, setManualCooldownRemaining] = useState<number>(0);
 
   // Track the timestamp of the last successful AI summary generation to avoid
   // calling the AI service too frequently. We enforce a **minimum 60-second**
@@ -273,8 +277,37 @@ export function useRealtimeSummary(sessionId: string) {
 
   // Manual refresh function for the refresh button
   const refreshSummary = useCallback(() => {
+    // Prevent refresh if currently generating or within manual cooldown
+    if (isManualCooldown || loading) return;
+
+    // Start 60s cooldown immediately upon click
+    setIsManualCooldown(true);
+    setManualCooldownRemaining(60);
+    if (manualCooldownTimeoutRef.current) {
+      clearTimeout(manualCooldownTimeoutRef.current);
+    }
+    manualCooldownTimeoutRef.current = setTimeout(() => {
+      setIsManualCooldown(false);
+      setManualCooldownRemaining(0);
+    }, 60000);
+
+    // Start 1s countdown ticker
+    if (manualCooldownIntervalRef.current) {
+      clearInterval(manualCooldownIntervalRef.current);
+    }
+    manualCooldownIntervalRef.current = setInterval(() => {
+      setManualCooldownRemaining((prev) => {
+        const next = Math.max(0, prev - 1);
+        if (next === 0 && manualCooldownIntervalRef.current) {
+          clearInterval(manualCooldownIntervalRef.current);
+          manualCooldownIntervalRef.current = null;
+        }
+        return next;
+      });
+    }, 1000);
+
     generateSummary(true); // Force refresh regardless of message count
-  }, [generateSummary]);
+  }, [generateSummary, isManualCooldown, loading]);
 
   // Generate summary when transcript updates significantly
   useEffect(() => {
@@ -307,5 +340,17 @@ export function useRealtimeSummary(sessionId: string) {
     return () => clearInterval(interval);
   }, [generateSummary, transcript.length, lastSummaryLength, isRecordingActive]);
 
-  return { loading, error, refreshSummary };
+  // Cleanup manual cooldown timer on unmount
+  useEffect(() => {
+    return () => {
+      if (manualCooldownTimeoutRef.current) {
+        clearTimeout(manualCooldownTimeoutRef.current);
+      }
+      if (manualCooldownIntervalRef.current) {
+        clearInterval(manualCooldownIntervalRef.current);
+      }
+    };
+  }, []);
+
+  return { loading, error, refreshSummary, isManualCooldown, manualCooldownRemaining };
 }

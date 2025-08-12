@@ -18,7 +18,7 @@ import {
 
 export function RealtimeSummaryTab() {
   const { meeting, summary, setSummary, botStatus } = useMeetingContext();
-  const { loading, error, refreshSummary } = useRealtimeSummary(meeting?.id || '');
+  const { loading, error, refreshSummary, isManualCooldown, manualCooldownRemaining } = useRealtimeSummary(meeting?.id || '');
 
   const isRecordingActive = botStatus?.status === 'in_call' || botStatus?.status === 'joining';
 
@@ -49,11 +49,11 @@ export function RealtimeSummaryTab() {
         </p>
         <button
           onClick={refreshSummary}
-          disabled={loading}
+            disabled={loading || isManualCooldown}
           className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 disabled:opacity-50 transition-colors"
         >
           <ArrowPathIcon className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-          {loading ? 'Retrying...' : 'Try Again'}
+          {loading ? 'Retrying...' : (isManualCooldown ? `Try again in ${manualCooldownRemaining}s` : 'Try Again')}
         </button>
       </div>
     );
@@ -72,11 +72,11 @@ export function RealtimeSummaryTab() {
         {!isRecordingActive && (
           <button
             onClick={refreshSummary}
-            disabled={loading}
+            disabled={loading || isManualCooldown}
             className="flex items-center gap-1.5 px-3 py-1.5 bg-primary text-primary-foreground rounded-md text-xs font-medium hover:bg-primary/90 disabled:opacity-50 transition-colors mt-3"
           >
             <SparklesIcon className="w-3 h-3" />
-            Generate Insights
+            {isManualCooldown ? `Available in ${manualCooldownRemaining}s` : 'Generate Insights'}
           </button>
         )}
       </div>
@@ -147,12 +147,12 @@ export function RealtimeSummaryTab() {
             <ExportMenu />
             <button
               onClick={refreshSummary}
-              disabled={loading}
+              disabled={loading || isManualCooldown}
               className="flex items-center gap-1 px-2 py-1 hover:bg-muted/50 rounded text-xs font-medium text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50"
               title="Refresh summary"
             >
               <ArrowPathIcon className={`w-3 h-3 ${loading ? 'animate-spin' : ''}`} />
-              <span className="hidden sm:inline">{loading ? 'Updating' : 'Refresh'}</span>
+              <span className="hidden sm:inline">{loading ? 'Updating' : (isManualCooldown ? `Refresh in ${manualCooldownRemaining}s` : 'Refresh')}</span>
             </button>
           </div>
         </div>

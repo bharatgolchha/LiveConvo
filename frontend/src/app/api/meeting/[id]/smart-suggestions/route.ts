@@ -117,9 +117,49 @@ export async function POST(
       documentContextSection = `\n📎 DOCUMENT CONTEXT:\n${documentContext}\n\nIMPORTANT: Consider the uploaded documents when generating suggestions. Reference specific data points, metrics, or information from the documents when relevant.\n`;
     }
 
-    const systemPrompt = `You are Nova, an AI assistant that generates smart, immediately actionable suggestions for meeting participants.
+    // Build system and user messages for better adherence
+    const systemMessage = `You are Nova, an AI assistant that generates helpful, context-aware meeting advice. Your output should guide the user on what to consider, ask, or do next. Avoid writing first-person lines to say unless explicitly asked.
 
-${getCurrentDateContext()}
+OUTPUT FORMAT RULES:
+- Return ONLY a raw JSON array. No prose before or after. No markdown. No code fences/backticks.
+- Exactly 3 items in the array. Keys must be: text, advice, category, priority, impact, why, whyType, evidence. Optional: examplePhrase.
+
+QUALITY RULES:
+- Every suggestion MUST be grounded in the last 5–10 messages.
+- Include at least one concrete entity/term from the recent messages (e.g., a person, product, metric) when relevant.
+- The "text" label is <= 24 chars and includes 1 emoji.
+ - The "advice" is an elaboration (1–2 sentences, ~15–45 words) about what to consider, ask, or do next. It must be practical and specific, and MUST NOT be an exact first-person line to say.
+- Mix of types across: speak_advice | action_step | strategy | question_to_consider | insight.
+ - The "why" field is a concise ANALYSIS (one line) of why this is relevant NOW, using impact/outcome phrasing. Prefer stems like "This will …", "Doing this will …", or "Asking this will …". Do not quote verbatim lines. Explain the trigger using recent context:
+  • unresolved question was asked
+  • new topic/name/metric was introduced
+  • agenda/summary/document item needs follow-up
+  • decision/milestone is pending or blocked
+  Keep it specific (<= 120 chars), reference the recent term/name/metric, avoid generic phrases.
+- The "whyType" must be one of: unresolved_question | new_topic | metric_change | blocker | agenda_alignment | doc_reference | decision_pending.
+- The "evidence" object must contain { msgIndex: "mNN", quote: "<= 90 chars" } citing a numbered recent line.
+- You MAY include an optional "examplePhrase" that is a possible one-sentence wording the user could say if they ask for phrasing; keep it <= 140 chars.
+
+GOOD VS BAD EXAMPLES (illustrative; not to be copied):
+BAD (generic, ungrounded):
+[
+  {"text":"❓ Ask a question","advice":"Probe further","category":"question_to_consider","priority":"medium","impact":70,"why":"Too vague; no link to recent details","whyType":"new_topic","evidence":{"msgIndex":"m22","quote":"…"}}
+]
+GOOD (anchored to recent details, single-sentence prompts):
+ [
+  {"text":"⏱️ Confirm timeline","advice":"Clarify the beta timeline by asking for the specific Q3 date and who is accountable; this prevents planning drift.","category":"speak_advice","priority":"high","impact":90,"why":"This will close the loop on the Q3 beta date just mentioned","whyType":"unresolved_question","evidence":{"msgIndex":"m29","quote":"…Q3 for beta…"},"examplePhrase":"Can we confirm the Q3 rollout date you mentioned for the beta?"},
+  {"text":"📊 ROI example","advice":"Relate your value narrative to the 15% churn figure using a similar customer case and a 3‑month outcome to make ROI concrete.","category":"insight","priority":"medium","impact":85,"why":"This will tie recommendations to the 15% churn raised moments ago","whyType":"metric_change","evidence":{"msgIndex":"m30","quote":"…15% churn…"},"examplePhrase":"Given the 15% churn you noted, may I share a 3‑month ROI case that matched that profile?"},
+  {"text":"📅 Lock next step","advice":"Schedule a short security review with the named stakeholder this week; confirm agenda and artifacts to unblock the evaluation path.","category":"action_step","priority":"high","impact":92,"why":"Doing this will unblock progress on the security review","whyType":"blocker","evidence":{"msgIndex":"m28","quote":"…security review…"},"examplePhrase":"Shall we schedule a 30‑min review with Priya this week?"}
+ ]`;
+
+    // Number recent transcript lines so the model can cite m-indexes in evidence
+    const numberedTranscript = fullTranscript
+      .split('\n')
+      .filter(Boolean)
+      .map((line, idx) => `m${idx + 1}) ${line}`)
+      .join('\n');
+
+    const userMessage = `${getCurrentDateContext()}
 ${sessionOwnerContext}${documentContextSection}
 Meeting Context:
 - Type: ${meetingType}
@@ -134,50 +174,10 @@ ${summaryContext}
 
 IMPORTANT CONTEXT: The transcript below contains the MOST RECENT messages from the conversation (last 30 messages). Your suggestions MUST be anchored in what's happening RIGHT NOW, with primary emphasis on the last 5–10 exchanges.
 
-Recent Conversation:
-${fullTranscript}
+ Recent Conversation:
+${numberedTranscript}
 
-Generate EXACTLY 3 highly contextual suggestions for the next turn. Each suggestion must:
-1. Reference specific topics, names, or points from the recent exchanges (last 5–10)
-2. Be immediately actionable — either:
-   • What to SAY next (a ready-to-send question/statement), or
-   • What to DO next (a concrete action that moves the discussion forward)
-3. Fit the current flow and momentum of the conversation (no generic advice)
-4. Help the user navigate RIGHT NOW, not after the meeting
-${aiInstructions ? '5. Align with the stated agenda/objectives when relevant' : ''}
-${summary ? '6. Consider the real-time summary to identify gaps or follow-ups' : ''}
-
-Prioritize:
-- Unresolved questions or concerns from the last few exchanges
-- Topics that were just introduced but not fully explored
-- Opportunities to clarify or expand on recent points
-- Natural next steps based on what was just discussed
-${aiInstructions ? '- Progress toward meeting objectives stated in the agenda' : ''}
-${summary ? '- Action items or decisions that need clarification' : ''}
-${documentContext ? '- Insights or actions related to the uploaded documents' : ''}
-
-Return ONLY a JSON array with this format (no surrounding text):
-[
-  {
-    "text": "Short button label (max 32 chars, include an emoji)",
-    "prompt": "Ready-to-send phrasing of what to say/do next, grounded in the last 5–10 messages",
-    "category": "follow_up|action_item|question|insight",
-    "priority": "high|medium|low",
-    "impact": 85
-  }
-]
-
-Categories:
-- follow_up: Direct follow-up to something just mentioned
-- action_item: Immediate next steps based on recent discussion
-- insight: Analysis of current dynamics or recent exchanges
-- question: Clarifying questions about points just raised
-
-CRITICAL: Generic suggestions will be rejected. Every suggestion must clearly relate to specific content from the recent messages${documentContext ? ' or uploaded documents' : ''}.`;
-
-const styleGuide = `\n\nSTYLE GUIDELINES:\n- Address ${participantMe} directly (first-person suggestions).\n- Be concrete and action-oriented; avoid meta-advice and filler.\n- ALWAYS reference specific details from the recent 5–10 messages.\n- Prefer short, vivid button labels for \"text\" (<= 32 chars; include an emoji).\n- \"prompt\" must be a single, ready-to-send sentence that fits the current flow.\n${documentContext ? '- When helpful, reference specific data from uploaded documents.\n' : ''}- Maintain the exact JSON array format with exactly 3 items.`;
-
-    const finalPrompt = `${systemPrompt}${styleGuide}`;
+ TASK: Generate EXACTLY 3 suggestions meeting the rules above. Types should be one of: speak_advice, action_step, strategy, question_to_consider, insight. Prioritize unresolved questions, newly introduced topics, and natural next steps. If an agenda exists, align at least one item to it. Ensure why and evidence are provided for each item.`;
 
     // Get the AI model for smart suggestions
     const defaultModel = await getAIModelForAction(AIAction.SMART_SUGGESTIONS);
@@ -193,10 +193,8 @@ const styleGuide = `\n\nSTYLE GUIDELINES:\n- Address ${participantMe} directly (
       body: JSON.stringify({
         model: defaultModel,
         messages: [
-          {
-            role: 'user',
-            content: finalPrompt
-          }
+          { role: 'system', content: systemMessage },
+          { role: 'user', content: userMessage }
         ],
         max_tokens: 1000,
         temperature: 0.7
@@ -236,16 +234,26 @@ const styleGuide = `\n\nSTYLE GUIDELINES:\n- Address ${participantMe} directly (
         .filter((item: any) => 
           item && 
           typeof item.text === 'string' && 
-          typeof item.prompt === 'string' &&
-          ['follow_up', 'action_item', 'insight', 'question'].includes(item.category) &&
+          (typeof item.advice === 'string' || typeof item.prompt === 'string') &&
+          // accept both legacy categories and new ones; normalize later if needed
+          ['follow_up', 'action_item', 'insight', 'question', 'speak_advice', 'action_step', 'strategy', 'question_to_consider'].includes(item.category) &&
           ['high', 'medium', 'low'].includes(item.priority)
         )
         .map((item: any) => ({
-          text: item.text.substring(0, 80), // Limit text length (was 50)
-          prompt: item.prompt.substring(0, 400), // Limit prompt length (was 200)
+          text: item.text.trim().substring(0, 40), // Allow longer label to avoid clipping
+          // Store advice as primary; keep prompt for backward compatibility
+          advice: typeof item.advice === 'string' ? item.advice.trim().replace(/\s+/g, ' ').substring(0, 280) : undefined,
+          prompt: typeof item.prompt === 'string' ? item.prompt.trim().replace(/\s+/g, ' ').substring(0, 200) : undefined,
           category: item.category,
           priority: item.priority,
-          impact: typeof item.impact === 'number' ? Math.min(100, Math.max(0, item.impact)) : 75
+          impact: typeof item.impact === 'number' ? Math.min(100, Math.max(0, item.impact)) : 75,
+          why: typeof item.why === 'string' ? item.why.trim().replace(/\s+/g, ' ').substring(0, 120) : undefined,
+          whyType: typeof item.whyType === 'string' ? item.whyType : undefined,
+          evidence: item.evidence && typeof item.evidence === 'object' ? {
+            msgIndex: typeof item.evidence.msgIndex === 'string' ? item.evidence.msgIndex : undefined,
+            quote: typeof item.evidence.quote === 'string' ? item.evidence.quote.trim().substring(0, 90) : undefined
+          } : undefined,
+          examplePhrase: typeof item.examplePhrase === 'string' ? item.examplePhrase.trim().substring(0, 140) : undefined
         }))
         .slice(0, 3); // Max 3 suggestions
 

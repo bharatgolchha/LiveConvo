@@ -23,8 +23,15 @@ const UPDATE_FREQUENCY = 25; // Update suggestions every N new messages
 
 interface SuggestionChip {
   text: string;
-  prompt: string;
+  prompt?: string;
+  advice?: string;
   impact?: number;
+  why?: string;
+  whyType?: string;
+  evidence?: { msgIndex?: string; quote?: string };
+  examplePhrase?: string;
+  category?: string;
+  priority?: string;
 }
 
 interface Suggestion {
@@ -143,9 +150,8 @@ export function SmartSuggestions() {
     try {
       // Use sliding window for recent transcript
       const recentMessages = transcript.slice(-TRANSCRIPT_WINDOW_SIZE);
-      const recentTranscript = recentMessages.map(t => 
-        `${t.displayName || t.speaker}: ${t.text}`
-      ).join('\n');
+      const recentLines: string[] = recentMessages.map(t => `${t.displayName || t.speaker}: ${t.text}`);
+      const recentTranscript = recentLines.join('\n');
 
       // Add context about earlier conversation if needed
       const historicalContext = transcript.length > TRANSCRIPT_WINDOW_SIZE 
@@ -197,29 +203,134 @@ export function SmartSuggestions() {
       console.log('📝 Smart suggestions response:', data);
 
       if (data.suggestions && Array.isArray(data.suggestions)) {
-        const newSuggestions = data.suggestions.map((suggestion: any) => ({
-          text: suggestion.text,
-          prompt: suggestion.prompt,
-          impact: suggestion.impact || 75,
-          category: suggestion.category,
-          priority: suggestion.priority
-        }));
-        setSuggestions(newSuggestions);
-        console.log('✅ AI suggestions updated:', newSuggestions.length);
+        const seenTexts = new Set((suggestions || []).map(s => s.text));
+
+        // Helper to score overlap and pick a quote from recent lines
+        const { rankAndAnnotate } = buildRankingHelpers();
+        const ranked = rankAndAnnotate(data.suggestions, recentLines, seenTexts)
+          .slice(0, 3)
+          .map(s => ({
+            text: s.text,
+            advice: s.advice,
+            prompt: s.prompt,
+            impact: s.impact,
+            why: s.why,
+            whyType: s.whyType,
+            evidence: s.evidence,
+            examplePhrase: s.examplePhrase,
+            category: s.category,
+            priority: s.priority
+          }));
+
+        setSuggestions(ranked);
+        console.log('✅ AI suggestions updated:', ranked.length);
       } else {
         console.warn('⚠️ No suggestions in response, using fallback:', data);
         // Use fallback suggestions
-        setSuggestions(getFallbackSuggestions());
+        const raw = getFallbackSuggestions();
+        const { addWhyWithoutRanking } = buildRankingHelpers();
+        setSuggestions(addWhyWithoutRanking(raw, recentLines));
       }
     } catch (error) {
       console.error('❌ Error generating suggestions:', error);
       setError(error instanceof Error ? error.message : 'Failed to generate suggestions');
       // Use fallback suggestions on error
-      setSuggestions(getFallbackSuggestions());
+      const raw = getFallbackSuggestions();
+      const { addWhyWithoutRanking } = buildRankingHelpers();
+      setSuggestions(addWhyWithoutRanking(raw, []));
     } finally {
       setLoading(false);
     }
   };
+
+  // Lightweight ranking utilities
+  function buildRankingHelpers() {
+    const STOPWORDS = new Set<string>([
+      'the','and','for','with','you','your','are','this','that','was','were','from','have','has','had','but','not','can','could','would','should','they','them','their','our','ours','about','into','over','under','out','in','on','at','to','of','a','an','it','as','is','be','or','by','we','i','me','my','mine','so','if','then','than','just','also','too','very','more','most','some','any','much','many'
+    ]);
+    const tokenize = (text: string): string[] => {
+      return (text || '')
+        .toLowerCase()
+        .split(/[^a-z0-9@\.\-\_]+/)
+        .filter(Boolean)
+        .filter(tok => tok.length > 2 && !STOPWORDS.has(tok));
+    };
+
+    const overlapScore = (a: string, b: string): number => {
+      if (!a || !b) return 0;
+      const ta = new Set(tokenize(a));
+      const tb = tokenize(b);
+      if (ta.size === 0 || tb.length === 0) return 0;
+      let hit = 0;
+      for (const t of tb) if (ta.has(t)) hit++;
+      return hit / Math.max(5, tb.length);
+    };
+
+    const cleanLine = (line: string): string => {
+      // Remove leading speaker labels like "You:" or "Alex:"
+      const parts = line.split(': ');
+      if (parts.length > 1 && parts[0].length <= 20) {
+        return parts.slice(1).join(': ');
+      }
+      return line;
+    };
+
+    const bestQuoteForPrompt = (content: string, lines: string[]) => {
+      let best = { quote: '', score: 0 };
+      const recent = lines.slice(-10);
+      for (const raw of recent) {
+        const line = cleanLine(raw);
+        if (line.length < 25) continue; // ignore very short lines
+        const s = overlapScore(content, line);
+        if (s > best.score) best = { quote: line, score: s };
+      }
+      // Confidence threshold: if too low, omit
+      if (best.score < 0.12) return { quote: '', score: 0 };
+      // Trim quote to a meaningful excerpt around the first overlapping token
+      const promptTokens = Array.from(new Set(tokenize(content)));
+      let idx = -1;
+      for (const tok of promptTokens) {
+        idx = best.quote.toLowerCase().indexOf(tok);
+        if (idx >= 0) break;
+      }
+      if (idx >= 0) {
+        const start = Math.max(0, idx - 40);
+        const end = Math.min(best.quote.length, idx + 80);
+        let excerpt = best.quote.slice(start, end).trim();
+        if (start > 0) excerpt = '…' + excerpt;
+        if (end < best.quote.length) excerpt = excerpt + '…';
+        return { quote: excerpt, score: best.score };
+      }
+      // Fallback to centered crop
+      const fallback = best.quote.length > 120 ? best.quote.slice(0, 117).trim() + '…' : best.quote;
+      return { quote: fallback, score: best.score };
+    };
+
+    const rankAndAnnotate = (items: any[], recent: string[], seen: Set<string>) => {
+      const ranked = items.map((it: any) => {
+        const content = String(it.advice || it.prompt || '');
+        const { quote, score } = bestQuoteForPrompt(content, recent);
+        const novelty = seen.has(String(it.text)) ? 0 : 1;
+        const impact = typeof it.impact === 'number' ? it.impact : 75;
+        const rank = 2 * score + 0.2 * (impact / 100) + 0.5 * novelty;
+        // Prefer AI-provided why; if missing, use excerpt as fallback
+        const finalWhy = typeof it.why === 'string' && it.why.trim().length > 0 ? it.why : (quote || undefined);
+        return { ...it, why: finalWhy, _rank: rank };
+      })
+      .sort((a, b) => b._rank - a._rank);
+      return ranked;
+    };
+
+    const addWhyWithoutRanking = (chips: SuggestionChip[], recent: string[]) => {
+      return chips.map(ch => {
+        const content = String(ch.advice || ch.prompt || '');
+        const { quote } = bestQuoteForPrompt(content, recent);
+        return { ...ch, why: quote || undefined };
+      });
+    };
+
+    return { rankAndAnnotate, addWhyWithoutRanking };
+  }
 
   const getConversationStage = () => {
     // Simple heuristic to determine conversation stage based on transcript length and content
@@ -285,24 +396,21 @@ export function SmartSuggestions() {
   };
 
   const useSuggestion = async (suggestion: SuggestionChip) => {
-    if (!suggestion.prompt) return;
-
     try {
       // Mark as used (visual feedback)
       setSuggestions(prev => 
         prev.map(s => s.text === suggestion.text ? { ...s, isUsed: true } : s)
       );
 
-      // Dispatch event to trigger AI chat with the suggestion
-      const event = new CustomEvent('useSuggestion', {
-        detail: {
-          suggestion: suggestion.prompt,
-          chipText: suggestion.text
-        }
-      });
+      const messageToSend = suggestion.prompt 
+        || suggestion.examplePhrase 
+        || (suggestion.advice ? `Please craft a concise, one-sentence message I could say now based on this advice: "${suggestion.advice}"` : 'Can you help me phrase this?');
+
+      // Dispatch event to trigger AI chat with the suggestion or phrasing request
+      const event = new CustomEvent('useSuggestion', { detail: { suggestion: messageToSend, chipText: suggestion.text } });
       window.dispatchEvent(event);
 
-      console.log('💡 Using suggestion:', suggestion.prompt);
+      console.log('💡 Using suggestion:', messageToSend);
     } catch (error) {
       console.error('Error using suggestion:', error);
     }
@@ -339,7 +447,7 @@ export function SmartSuggestions() {
     e.stopPropagation(); // Prevent triggering the useSuggestion click
 
     try {
-      const textToCopy = `${suggestion.text}\n\n${suggestion.prompt}`;
+      const textToCopy = `${suggestion.text}\n\nadvice: ${suggestion.advice || ''}\n${suggestion.prompt ? `phrase: ${suggestion.prompt}` : ''}`.trim();
       await navigator.clipboard.writeText(textToCopy);
       toast.success('Copied to clipboard');
       console.log('📋 Copied to clipboard:', suggestion.text);
@@ -431,7 +539,7 @@ export function SmartSuggestions() {
                   
                   <div className="flex-1 min-w-0 cursor-pointer" onClick={() => useSuggestion(suggestion)}>
                     <div className="flex items-center gap-2 mb-1">
-                      <h4 className="font-medium text-sm truncate">
+                      <h4 className="font-medium text-sm line-clamp-2 break-words">
                         {suggestion.text}
                       </h4>
                       {suggestion.impact && (
@@ -441,11 +549,25 @@ export function SmartSuggestions() {
                       )}
                     </div>
                     
-                    {suggestion.prompt && (
-                      <p className="text-xs text-muted-foreground line-clamp-4">
-                        {suggestion.prompt}
-                      </p>
-                    )}
+                      {(suggestion.advice || suggestion.prompt) && (
+                        <p className="text-xs text-muted-foreground line-clamp-4">
+                          {suggestion.advice || suggestion.prompt}
+                        </p>
+                      )}
+                      {suggestion.why && (
+                        <div
+                          className="mt-2 px-2.5 py-2 rounded-md border text-[11px] flex items-start gap-2 bg-muted/40 border-border/60 text-muted-foreground"
+                          title={suggestion.why}
+                        >
+                          <LightBulbIcon className="w-3.5 h-3.5 mt-0.5 text-amber-500 shrink-0" />
+                          <div className="leading-snug">
+                            <span className="opacity-90">{suggestion.why}</span>
+                            {suggestion.evidence?.msgIndex && (
+                              <span className="ml-2 opacity-60">• From {suggestion.evidence.msgIndex}</span>
+                            )}
+                          </div>
+                        </div>
+                      )}
                   </div>
                   
                   <div className="flex-shrink-0 flex items-center gap-1">
