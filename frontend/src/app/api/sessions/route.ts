@@ -35,6 +35,7 @@ export async function GET(request: NextRequest) {
     const search = searchParams.get('search');
     const conversationType = searchParams.get('conversation_type');
     const includeShared = searchParams.get('includeShared') === 'true';
+    const onlyMine = searchParams.get('onlyMine') === 'true';
 
     // Get current user from Supabase auth using the access token.
     // Primary source: `Authorization` header. Fallback: `token` URL param
@@ -166,8 +167,14 @@ export async function GET(request: NextRequest) {
       // Include both user's own meetings and shared meetings
       // RLS will automatically handle this - we just need to not filter by organization
       // The sessions RLS policy already includes shared meetings
+    } else if (onlyMine) {
+      // Restrict strictly to the current user's own meetings within their current organization
+      query = query
+        .eq('user_id', user.id)
+        .eq('organization_id', userData.current_organization_id);
     } else {
-      // Show only user's own meetings from their organization
+      // Default: Show only user's organization meetings (may include others in org if RLS allows)
+      // Note: UI should pass onlyMine=true where needed to restrict to the user
       query = query.eq('organization_id', userData.current_organization_id);
     }
 
@@ -486,29 +493,38 @@ async function getLinkedConversations(sessionIds: string[], organizationId: stri
 
     // Process the linked conversations data
     if (linkedData && linkedData.length > 0) {
-      // Group by session_id
-      linkedData.forEach((link: {
+      // Group by session_id; handle both object and array forms for joined row
+      type LinkedSessionObj = {
+        id: string;
+        title: string;
+        created_at: string;
+        conversation_type: string;
+      };
+      type LinkedRow = {
         session_id: string;
         linked_session_id: string;
-        linked_session: {
-          id: string;
-          title: string;
-          created_at: string;
-          conversation_type: string;
-        } | null;
-      }) => {
+        linked_session: LinkedSessionObj | LinkedSessionObj[] | null;
+      };
+
+      (linkedData as LinkedRow[]).forEach((link) => {
         const sessionId = link.session_id;
         const linkedSession = link.linked_session;
-        
-        if (linkedSession) {
+
+        const sessionsArray: LinkedSessionObj[] = Array.isArray(linkedSession)
+          ? linkedSession
+          : linkedSession
+          ? [linkedSession]
+          : [];
+
+        if (sessionsArray.length > 0) {
           const existingData = linkedMap.get(sessionId) || { count: 0, conversations: [] };
-          
-          existingData.conversations.push({
-            id: linkedSession.id,
-            title: linkedSession.title || 'Untitled Conversation'
+          sessionsArray.forEach((ls) => {
+            existingData.conversations.push({
+              id: ls.id,
+              title: ls.title || 'Untitled Conversation'
+            });
           });
           existingData.count = existingData.conversations.length;
-          
           linkedMap.set(sessionId, existingData);
         }
       });

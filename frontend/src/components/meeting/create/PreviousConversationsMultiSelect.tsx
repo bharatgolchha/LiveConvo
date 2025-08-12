@@ -150,7 +150,7 @@ export function PreviousConversationsMultiSelect({ selected, setSelected }: Prop
       const params = new URLSearchParams({ 
         limit: '10',
         status: 'completed', // Only show completed meetings
-        includeShared: 'true' // Include meetings shared with the user
+        onlyMine: 'true' // Restrict to current user's meetings only
       });
       
       const res = await fetch(`/api/sessions?${params.toString()}`, {
@@ -176,7 +176,7 @@ export function PreviousConversationsMultiSelect({ selected, setSelected }: Prop
       const params = new URLSearchParams({ 
         limit: '15',
         status: 'completed', // Only show completed meetings
-        includeShared: 'true' // Include meetings shared with the user
+        onlyMine: 'true' // Restrict to current user's meetings only
       });
       
       if (query.length >= 2) {
