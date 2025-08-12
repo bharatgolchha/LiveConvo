@@ -11,6 +11,8 @@ import {
   ArrowTrendingDownIcon
 } from '@heroicons/react/24/outline';
 import { useMeetingContext } from '@/lib/meeting/context/MeetingContext';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import { supabase } from '@/lib/supabase';
 
 interface SpeakerStats {
@@ -281,8 +283,8 @@ export function MeetingInsights() {
               <HeartIcon className="w-4 h-4" />
               AI Analysis
             </h4>
-            <div className="p-4 bg-gradient-to-br from-primary/5 to-primary/10 rounded-lg border border-primary/20">
-              <p className="text-sm leading-relaxed">{insights}</p>
+            <div className="prose prose-sm dark:prose-invert max-w-none break-words whitespace-pre-wrap p-4 bg-gradient-to-br from-primary/5 to-primary/10 rounded-lg border border-primary/20">
+              <ReactMarkdown remarkPlugins={[remarkGfm]}>{insights}</ReactMarkdown>
             </div>
           </div>
         )}

@@ -3,7 +3,7 @@ import { useMeetingContext } from '../context/MeetingContext';
 import { RealtimeSummary } from '../types/transcript.types';
 import { supabase } from '@/lib/supabase';
 
-export function useRealtimeSummary(sessionId: string) {
+export function useRealtimeSummary(sessionId: string, options?: { timelineMode?: boolean; getSessionTimeCursor?: () => number }) {
   const { setSummary, transcript, botStatus } = useMeetingContext();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
@@ -119,13 +119,61 @@ export function useRealtimeSummary(sessionId: string) {
       }
 
       // Prepare request body with full transcript and participant names
-      const requestBody = {
+      const requestBody: any = {
         transcript: transcript,
         totalMessageCount: transcript.length,
         participantMe,
         participantThem,
         conversationType
       };
+
+      // Attach either full refresh (no prevSummary) or incremental context (prevSummary + last lines)
+      try {
+        if (!forceRefresh) {
+          // Build chunk from the last N transcript lines (not just delta) for stability
+          const LINES = 60; // adjustable window of recent lines
+          const recentMessages = transcript.slice(-LINES);
+          if (recentMessages && recentMessages.length > 0) {
+            const chunkLines = recentMessages
+              .filter((m) => m && (m.text || (m as any).content))
+              .map((m) => {
+                const name = (m as any).displayName || (m as any).speaker || '';
+                const text = (m as any).text || (m as any).content || '';
+                return `${name ? name + ': ' : ''}${text}`.trim();
+              });
+            const chunkJoined = chunkLines.join('\n');
+            // Bound the chunk to ~5000 chars to keep tokens low
+            requestBody.newTranscriptChunk = chunkJoined.slice(-5000);
+          }
+
+          const { data: sessionRow } = await supabase
+            .from('sessions')
+            .select('realtime_summary_cache')
+            .eq('id', sessionId)
+            .single();
+          if (sessionRow?.realtime_summary_cache) {
+            requestBody.prevSummary = sessionRow.realtime_summary_cache;
+          }
+        } else {
+          // Force refresh: send only the full transcript (already included) and omit prevSummary/newTranscriptChunk
+          delete requestBody.prevSummary;
+          delete requestBody.newTranscriptChunk;
+        }
+      } catch (e) {
+        console.warn('⚠️ Failed to attach summary context:', e);
+      }
+
+      // Timeline mode parameters
+      if (options?.timelineMode) {
+        requestBody.timelineMode = true;
+        // Prefer provided cursor; otherwise infer from last transcript message if timeSeconds available
+        const inferredCursor = typeof options.getSessionTimeCursor === 'function'
+          ? options.getSessionTimeCursor()
+          : (transcript[transcript.length - 1] && (transcript[transcript.length - 1] as any).timeSeconds) || undefined;
+        if (typeof inferredCursor === 'number') {
+          requestBody.sessionTimeCursor = inferredCursor;
+        }
+      }
 
       console.log('📤 API Request body:', {
         transcriptLength: transcript.length,
@@ -152,88 +200,48 @@ export function useRealtimeSummary(sessionId: string) {
       const response = await fetch(`/api/sessions/${sessionId}/realtime-summary`, {
         method: 'POST',
         headers: authHeaders,
-        body: JSON.stringify(requestBody)
+        body: JSON.stringify({ ...requestBody, outputFormat: 'markdown' })
       });
 
-      if (!response.ok) {
-        // Get detailed error information
-        let errorDetails;
-        let errorText = '';
-        
-        try {
-          errorText = await response.text();
-          console.log('🔍 Raw API Error Response:', errorText || '<empty response>');
-          
-          // Try to parse as JSON, fallback to text
-          if (errorText) {
-            try {
-              errorDetails = JSON.parse(errorText);
-            } catch {
-              errorDetails = { error: errorText, status: response.status };
-            }
-          } else {
-            // Handle empty response
-            errorDetails = { 
-              error: 'Empty error response from server', 
-              status: response.status,
-              statusText: response.statusText
-            };
-          }
-        } catch (readError) {
-          console.error('Failed to read error response:', readError);
-          errorDetails = { 
-            error: 'Failed to read error response', 
-            status: response.status,
-            statusText: response.statusText 
-          };
-        }
-        
-        console.error('❌ API Error Response:', {
-          status: response.status,
-          statusText: response.statusText,
-          errorDetails,
-          url: response.url,
-          rawResponse: errorText || '<empty>',
-          requestBody: {
-            sessionId,
-            totalMessageCount: requestBody.totalMessageCount,
-            transcriptLength: transcript.length
-          }
-        });
-        
-        // Construct meaningful error message
-        const errorMessage = errorDetails.message || errorDetails.error || response.statusText || 'Unknown error';
-        throw new Error(`Failed to generate summary: ${errorMessage} (Status: ${response.status})`);
+      if (!response.ok || !response.body) {
+        throw new Error(`Failed to start streaming: ${response.status}`);
       }
 
-      const data = await response.json();
-      
-      const summary: RealtimeSummary = {
-        tldr: data.tldr || 'Meeting in progress...',
-        keyPoints: data.keyPoints || [],
-        actionItems: data.actionItems || [],
-        decisions: data.decisions || [],
-        topics: data.topics || [],
-        lastUpdated: new Date().toISOString()
-      };
+      // Stream and progressively update UI; also normalize extra blank lines
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let accumulated = '';
+      const normalize = (t: string) => t.replace(/\r/g, '');
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        accumulated += decoder.decode(value, { stream: true });
+        const normalized = normalize(accumulated);
+        setSummary({
+          tldr: normalized,
+          keyPoints: [],
+          actionItems: [],
+          decisions: [],
+          topics: [],
+          lastUpdated: new Date().toISOString()
+        });
+      }
 
-      // Save summary to database cache
+      // Save final to cache
       await supabase
         .from('sessions')
         .update({ 
-          realtime_summary_cache: summary,
-          updated_at: new Date().toISOString()
+          realtime_summary_cache: { tldr: accumulated, keyPoints: [], actionItems: [], decisions: [], topics: [], lastUpdated: new Date().toISOString() },
+          updated_at: new Date().toISOString() 
         })
         .eq('id', sessionId);
-
-      setSummary(summary);
       // Update the last refresh timestamp only after a successful generation
       lastRefreshTime.current = now;
       setLastSummaryLength(transcript.length);
       
       console.log('✅ Generated summary from full transcript', {
         transcriptLength: transcript.length,
-        summaryLength: summary.tldr.length
+        summaryLength: accumulated.length
       });
       
     } catch (err) {

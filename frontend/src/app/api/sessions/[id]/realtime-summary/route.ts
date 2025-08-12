@@ -18,7 +18,19 @@ const requestSchema = z.object({
   totalMessageCount: z.number().optional(),
   participantMe: z.string().optional(),
   participantThem: z.string().optional(),
-  conversationType: z.string().optional()
+  conversationType: z.string().optional(),
+  outputFormat: z.enum(['json','markdown']).optional(),
+  timelineMode: z.boolean().optional(),
+  sessionTimeCursor: z.number().optional(),
+  // Incremental update fields (optional)
+  prevSummary: z.object({
+    tldr: z.string().optional(),
+    keyPoints: z.array(z.string()).optional(),
+    actionItems: z.array(z.string()).optional(),
+    decisions: z.array(z.string()).optional(),
+    topics: z.array(z.string()).optional()
+  }).optional(),
+  newTranscriptChunk: z.string().optional()
 });
 
 interface TranscriptMessage {
@@ -118,7 +130,12 @@ export async function POST(
       totalMessageCount = 0,
       participantMe = 'You',
       participantThem = 'Them',
-      conversationType = 'meeting'
+      conversationType = 'meeting',
+      prevSummary,
+      newTranscriptChunk,
+      outputFormat,
+      timelineMode = false,
+      sessionTimeCursor
     } = parsed.data;
 
     if (!Array.isArray(transcript) || transcript.length === 0) {
@@ -147,32 +164,27 @@ export async function POST(
       return NextResponse.json({ error: 'No valid transcript content found in messages' }, { status: 400 });
     }
 
-    // Improved speaker name resolution
+    // Improved speaker name resolution with timestamp prefix for better timeline density
     const transcriptText = validMessages
       .map((msg: TranscriptMessage) => {
         let speakerName = participantThem; // Default fallback
-        
-        // Priority order for speaker identification:
-        // 1. Use displayName if available (from Recall.ai or other sources)
-        // 2. Check if speaker is 'ME', 'user', or indicates the session owner
-        // 3. Check isOwner flag if available
-        // 4. Use the speaker field directly if it's a meaningful name
-        // 5. Fall back to participant names
-        
         if (msg.displayName && msg.displayName.trim().length > 0) {
           speakerName = msg.displayName.trim();
         } else if (msg.speaker === 'ME' || msg.speaker === 'user' || msg.isOwner === true) {
           speakerName = participantMe;
-        } else if (msg.speaker && 
-                   msg.speaker !== 'user' && 
-                   msg.speaker !== 'participant' && 
-                   msg.speaker !== 'speaker' &&
-                   msg.speaker.trim().length > 0) {
-          // Use speaker field if it contains a meaningful name (not generic identifiers)
+        } else if (msg.speaker && msg.speaker !== 'user' && msg.speaker !== 'participant' && msg.speaker !== 'speaker' && msg.speaker.trim().length > 0) {
           speakerName = msg.speaker.trim();
         }
-        
-        return `${speakerName}: ${msg.text || msg.content || ''}`.trim();
+        // mm:ss prefix if available
+        let timePrefix = '';
+        const anyMsg: any = msg;
+        if (typeof anyMsg.timeSeconds === 'number' && !Number.isNaN(anyMsg.timeSeconds)) {
+          const ts = anyMsg.timeSeconds;
+          const m = Math.max(0, Math.floor(ts / 60));
+          const s = Math.max(0, Math.floor(ts % 60));
+          timePrefix = `[${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}] `;
+        }
+        return `${timePrefix}${speakerName}: ${msg.text || anyMsg.content || ''}`.trim();
       })
       .join('\n');
 
@@ -204,35 +216,63 @@ export async function POST(
 
     const model = await getAIModelForAction(AIAction.REALTIME_SUMMARY);
 
-    // Simple prompt for analyzing the full transcript
-    const systemPrompt = `You are a helpful AI assistant that analyzes a live ${conversationType} conversation between ${participantMe} and ${participantThem}. 
+    // Build compact prompts for either incremental or initial mode
+    const wantMarkdown = outputFormat === 'markdown';
+    const compactSystem = (mode: 'initial' | 'incremental') => wantMarkdown
+      ? `You maintain a live meeting summary.
 
-${getCurrentDateContext()}
+Output:
+- Return concise, readable GitHub-flavored Markdown (GFM). No unnecessary blank lines.
+- Use section headings exactly:
+  ## Executive Insights
+  ## Key Points
+  ## Decisions
+  ## Action Items
+  ## Topics
+- Bullets must be single-line starting with "- ". Avoid double line breaks except between sections.
+- TL;DR must be one paragraph (≤ 2 sentences) under Executive Insights.
+- ${mode === 'incremental' ? 'Merge new info and update sections without repeating unchanged bullets.' : 'Create a clean seed summary from the provided transcript excerpt.'}`
+      : `You maintain a live meeting summary.
 
-Analyze the entire transcript and create a comprehensive summary in the JSON format below. 
+Rules:
+- Return JSON only, no markdown.
+- TL;DR ≤ 2 sentences.
+- ≤ 5 items each: keyPoints, actionItems, decisions, topics.
+- ${mode === 'incremental' ? 'Merge new info into existing summary without losing earlier facts.' : 'Create a seed summary from the provided transcript excerpt.'}
 
-Focus on:
-- TL;DR of what has been discussed
-- Key discussion points and insights
-- Any action items or decisions made
-- Main topics covered
-- Overall conversation sentiment and progress
+JSON:
+{"tldr":"...","keyPoints":[...],"actionItems":[...],"decisions":[...],"topics":[...]}`;
 
-Return ONLY valid JSON without markdown or extra text. Required JSON format:
-{
-  "tldr": "Brief summary of the conversation",
-  "keyPoints": ["Point 1", "Point 2", "Point 3"],
-  "actionItems": ["Action 1", "Action 2"],
-  "decisions": ["Decision 1"],
-  "topics": ["Topic 1", "Topic 2"]
-}`;
+    // Timeline system prompt (line-delimited bullets with timestamps)
+    const timelineSystem = (cursor: number | undefined) => `You produce live timeline entries for a meeting.
 
-    const userPrompt = `Analyze this ${conversationType} conversation between ${participantMe} and ${participantThem}:
+Output:
+- Return ONLY new entries after ${cursor != null ? `${Math.max(0, Math.floor(cursor/60))}:${String(Math.floor(cursor%60)).padStart(2,'0')}` : '00:00'}.
+- Format each as a single-line GFM bullet with no blank lines: "- [mm:ss] | type: text"
+- type ∈ {decision|action|key_point|question|risk|topic}
+- Keep text ≤ 140 characters. No headings, no summaries, no extra paragraphs.`;
 
-Total messages: ${validMessages.length}
+    const initialUser = `Context: ${conversationType} between ${participantMe} and ${participantThem}.
 
-Full Transcript:
-${transcriptText}`;
+INITIAL TRANSCRIPT (bounded):
+${transcriptText.slice(-10000)}`; // cap initial to last ~10k chars
+
+    // For incremental updates, prefer newTranscriptChunk if provided; otherwise compute a bounded tail (wider to boost recall)
+    const deltaChunk = (newTranscriptChunk && newTranscriptChunk.trim().length > 0)
+      ? newTranscriptChunk
+      : transcriptText.slice(-10000); // ~10k chars
+
+    const incrementalUser = `EXISTING SUMMARY:
+${JSON.stringify({
+  tldr: prevSummary?.tldr || '',
+  keyPoints: prevSummary?.keyPoints || [],
+  actionItems: prevSummary?.actionItems || [],
+  decisions: prevSummary?.decisions || [],
+  topics: prevSummary?.topics || []
+}, null, 0)}
+
+NEW TRANSCRIPT CHUNK (latest only):
+${deltaChunk}`;
 
     console.log('🤖 Summary generation request:', {
       sessionId,
@@ -242,6 +282,293 @@ ${transcriptText}`;
       transcriptLength: transcriptText.length
     });
 
+    // TIMELINE-ONLY MODE: Stream line-delimited bullets and return early
+    {
+      const upstream = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          'Content-Type': 'application/json',
+          'HTTP-Referer': 'https://liveconvo.app',
+          'X-Title': 'liveconvo-realtime-timeline'
+        },
+        body: JSON.stringify({
+          model,
+          messages: [
+            { role: 'system', content: timelineSystem(sessionTimeCursor) },
+            { role: 'user', content: `ONLY OUTPUT LINES. FORMAT: - [mm:ss] | type: text\nLATEST CHUNK:\n${deltaChunk}` }
+          ],
+          temperature: 0.1,
+          max_tokens: 1200,
+          stream: true
+        })
+      });
+
+      if (!upstream.ok || !upstream.body) {
+        const errText = await upstream.text().catch(() => '');
+        console.error('OpenRouter stream error (timeline-only):', upstream.status, errText);
+        return NextResponse.json(
+          { error: 'AI service unavailable. Please try again later.' },
+          { status: upstream.status }
+        );
+      }
+
+      const textDecoder = new TextDecoder();
+      const textEncoder = new TextEncoder();
+      let buffer = '';
+
+      const stream = new ReadableStream<Uint8Array>({
+        async start(controller) {
+          const reader = upstream.body!.getReader();
+          try {
+            while (true) {
+              const { done, value } = await reader.read();
+              if (done) break;
+              buffer += textDecoder.decode(value, { stream: true });
+              const events = buffer.split('\n\n');
+              buffer = events.pop() || '';
+              for (const event of events) {
+                const lines = event.split('\n');
+                for (const line of lines) {
+                  const trimmed = line.trim();
+                  if (!trimmed.startsWith('data:')) continue;
+                  const dataStr = trimmed.replace(/^data:\s*/, '');
+                  if (dataStr === '[DONE]') { controller.close(); return; }
+                  try {
+                    const json = JSON.parse(dataStr);
+                    const delta = json?.choices?.[0]?.delta?.content ?? json?.choices?.[0]?.message?.content ?? '';
+                    if (delta) {
+                      // Pass through raw chunk (client will parse/format); ensure CRs removed
+                      const candidate = delta.replace(/\r/g, '');
+                      controller.enqueue(textEncoder.encode(candidate));
+                    }
+                  } catch {}
+                }
+              }
+            }
+            controller.close();
+          } catch (err) {
+            console.error('Streaming transform error (timeline-only):', err);
+            controller.error(err);
+          }
+        }
+      });
+
+      return new NextResponse(stream, {
+        headers: {
+          'Content-Type': 'text/plain; charset=utf-8',
+          'Cache-Control': 'no-cache, no-transform'
+        }
+      });
+    }
+
+    // If markdown is requested, stream the response back and collapse excess blank lines
+    if (wantMarkdown) {
+      // If timeline mode, use a specialized prompt and normalization to remove blank lines entirely
+      if (timelineMode) {
+        const upstream = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${apiKey}`,
+            'Content-Type': 'application/json',
+            'HTTP-Referer': 'https://liveconvo.app',
+            'X-Title': 'liveconvo-realtime-timeline'
+          },
+          body: JSON.stringify({
+            model,
+            messages: [
+              { role: 'system', content: timelineSystem(sessionTimeCursor) },
+              { role: 'user', content: `ONLY OUTPUT LINES. FORMAT: - [mm:ss] | type: text\nLATEST CHUNK:\n${deltaChunk}` }
+            ],
+            temperature: 0.1,
+            max_tokens: 1200,
+            stream: true
+          })
+        });
+
+        if (!upstream.ok || !upstream.body) {
+          const errText = await upstream.text().catch(() => '');
+          console.error('OpenRouter stream error (timeline):', upstream.status, errText);
+          return NextResponse.json(
+            { error: 'AI service unavailable. Please try again later.' },
+            { status: upstream.status }
+          );
+        }
+
+        // For timeline, strip all blank lines and only pass valid bullet lines through
+        const textDecoder = new TextDecoder();
+        const textEncoder = new TextEncoder();
+        let buffer = '';
+
+        const stream = new ReadableStream<Uint8Array>({
+          async start(controller) {
+            const reader = upstream.body!.getReader();
+            try {
+              while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+                buffer += textDecoder.decode(value, { stream: true });
+                const events = buffer.split('\n\n');
+                buffer = events.pop() || '';
+                for (const event of events) {
+                  const lines = event.split('\n');
+                  for (const line of lines) {
+                    const trimmed = line.trim();
+                    if (!trimmed.startsWith('data:')) continue;
+                    const dataStr = trimmed.replace(/^data:\s*/, '');
+                    if (dataStr === '[DONE]') { controller.close(); return; }
+                    try {
+                      const json = JSON.parse(dataStr);
+                      const delta = json?.choices?.[0]?.delta?.content ?? json?.choices?.[0]?.message?.content ?? '';
+                      if (delta) {
+                        // Accept only bullet lines; drop blank lines
+                        const candidate = delta.replace(/\r/g, '');
+                        const validLines = candidate
+                          .split('\n')
+                          .map(l => l.trimEnd())
+                          // relax type matching to ANY token before colon; keep mm:ss strict
+                          .filter(l => /^- \[\d{1,2}:\d{2}\] \|\s*[^:]+:\s+/.test(l));
+                        if (validLines.length) controller.enqueue(textEncoder.encode(validLines.join('\n')));
+                      }
+                    } catch {}
+                  }
+                }
+              }
+              controller.close();
+            } catch (err) {
+              console.error('Streaming transform error (timeline):', err);
+              controller.error(err);
+            }
+          }
+        });
+
+        return new NextResponse(stream, {
+          headers: {
+            'Content-Type': 'text/plain; charset=utf-8',
+            'Cache-Control': 'no-cache, no-transform'
+          }
+        });
+      }
+
+      const upstream = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          'Content-Type': 'application/json',
+          'HTTP-Referer': 'https://liveconvo.app',
+          'X-Title': 'liveconvo-realtime-summary'
+        },
+        body: JSON.stringify({
+          model,
+          messages: prevSummary
+            ? [
+                { role: 'system', content: compactSystem('incremental') },
+                { role: 'user', content: incrementalUser }
+              ]
+            : [
+                { role: 'system', content: compactSystem('initial') },
+                { role: 'user', content: initialUser }
+              ],
+          temperature: 0.1,
+          max_tokens: 2500,
+          stream: true
+        })
+      });
+
+      if (!upstream.ok || !upstream.body) {
+        const errText = await upstream.text().catch(() => '');
+        console.error('OpenRouter stream error:', upstream.status, errText);
+        return NextResponse.json(
+          { error: 'AI service unavailable. Please try again later.' },
+          { status: upstream.status }
+        );
+      }
+
+      // Transform SSE to plain text and normalize newlines (max one blank line)
+      const textDecoder = new TextDecoder();
+      const textEncoder = new TextEncoder();
+
+      let newlineRun = 0; // count of consecutive \n emitted
+
+      const normalizeChunk = (input: string) => {
+        let out = '';
+        for (let i = 0; i < input.length; i++) {
+          const ch = input[i];
+          if (ch === '\n') {
+            newlineRun += 1;
+            if (newlineRun <= 2) {
+              // allow at most one blank line between sections => two newlines in a row
+              out += ch;
+            }
+          } else {
+            newlineRun = 0;
+            out += ch;
+          }
+        }
+        // Additional markdown tightening: remove extra blank lines before bullets and after headings
+        out = out
+          // trim trailing spaces
+          .replace(/[\t ]+$/gm, '')
+          // no blank line before list items
+          .replace(/\n{2,}(-|\*|\d+\.) /g, '\n$1 ')
+          // no extra blank line after headings
+          .replace(/(^|\n)(#{1,6}[^\n]*?)\n{2,}/g, '$1$2\n');
+        return out;
+      };
+
+      const stream = new ReadableStream<Uint8Array>({
+        async start(controller) {
+          const reader = upstream.body!.getReader();
+          let buffer = '';
+          try {
+            while (true) {
+              const { done, value } = await reader.read();
+              if (done) break;
+              buffer += textDecoder.decode(value, { stream: true });
+              const events = buffer.split('\n\n');
+              buffer = events.pop() || '';
+              for (const event of events) {
+                const lines = event.split('\n');
+                for (const line of lines) {
+                  const trimmed = line.trim();
+                  if (!trimmed.startsWith('data:')) continue;
+                  const dataStr = trimmed.replace(/^data:\s*/, '');
+                  if (dataStr === '[DONE]') {
+                    controller.close();
+                    return;
+                  }
+                  try {
+                    const json = JSON.parse(dataStr);
+                    const delta = json?.choices?.[0]?.delta?.content
+                      ?? json?.choices?.[0]?.message?.content
+                      ?? '';
+                    if (delta) {
+                      const normalized = normalizeChunk(delta);
+                      if (normalized) controller.enqueue(textEncoder.encode(normalized));
+                    }
+                  } catch {
+                    // ignore non-JSON lines
+                  }
+                }
+              }
+            }
+            controller.close();
+          } catch (err) {
+            console.error('Streaming transform error (realtime summary):', err);
+            controller.error(err);
+          }
+        }
+      });
+
+      return new NextResponse(stream, {
+        headers: {
+          'Content-Type': 'text/plain; charset=utf-8',
+          'Cache-Control': 'no-cache, no-transform'
+        }
+      });
+    }
+
+    // Non-markdown (JSON) path
     const openRouterResponse = await fetch('https://openrouter.ai/api/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -252,12 +579,17 @@ ${transcriptText}`;
       },
       body: JSON.stringify({
         model,
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: userPrompt }
-        ],
+        messages: prevSummary
+          ? [
+              { role: 'system', content: compactSystem('incremental') },
+              { role: 'user', content: incrementalUser }
+            ]
+          : [
+              { role: 'system', content: compactSystem('initial') },
+              { role: 'user', content: initialUser }
+            ],
         temperature: 0.1,
-        max_tokens: 1000,
+        max_tokens: 2500,
         response_format: { type: 'json_object' }
       })
     });
@@ -272,6 +604,9 @@ ${transcriptText}`;
     }
 
     const data = await openRouterResponse.json();
+    const content = data?.choices?.[0]?.message?.content?.trim() || '';
+
+    // JSON mode
     let summaryJson: {
       tldr?: string;
       keyPoints?: string[];
@@ -279,17 +614,14 @@ ${transcriptText}`;
       decisions?: string[];
       topics?: string[];
     };
-    
     try {
-      summaryJson = JSON.parse(data.choices[0].message.content.trim());
+      summaryJson = JSON.parse(content);
     } catch (err) {
       console.error('Failed to parse AI JSON:', err);
-      console.error('Raw response:', data.choices[0].message.content);
-      
+      console.error('Raw response:', content);
       return NextResponse.json({ error: 'Failed to parse AI response' }, { status: 500 });
     }
 
-    // Ensure required fields exist with fallbacks
     const responsePayload = {
       tldr: summaryJson.tldr || 'Conversation in progress',
       keyPoints: Array.isArray(summaryJson.keyPoints) ? summaryJson.keyPoints : [],

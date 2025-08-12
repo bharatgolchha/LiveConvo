@@ -18,9 +18,10 @@ const ChatHistorySchema = z.object({
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const authHeader = request.headers.get('authorization');
     if (!authHeader) {
       return NextResponse.json(
@@ -36,7 +37,7 @@ export async function GET(
     const { data: session, error } = await supabase
       .from('sessions')
       .select('ai_chat_history')
-      .eq('id', params.id)
+      .eq('id', id)
       .single();
 
     if (error) {
@@ -62,9 +63,10 @@ export async function GET(
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const authHeader = request.headers.get('authorization');
     if (!authHeader) {
       return NextResponse.json(
@@ -87,7 +89,7 @@ export async function POST(
         ai_chat_history: validatedData,
         updated_at: new Date().toISOString()
       })
-      .eq('id', params.id);
+      .eq('id', id);
 
     if (error) {
       console.error('Error saving chat history:', error);
