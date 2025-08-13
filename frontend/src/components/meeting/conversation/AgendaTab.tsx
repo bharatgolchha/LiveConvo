@@ -4,6 +4,7 @@ import { supabase } from '@/lib/supabase';
 import { CheckCircleIcon, ClockIcon, PlusIcon, RefreshCwIcon, Settings, PencilIcon, Trash2Icon, SparklesIcon, ClipboardListIcon } from 'lucide-react';
 import { toast } from 'sonner';
 import { MeetingSettingsModal } from '@/components/meeting/settings/MeetingSettingsModal';
+import { AgendaDraggableList } from './AgendaDraggableList';
 
 type AgendaItem = {
   id: string;
@@ -32,6 +33,7 @@ export function AgendaTab() {
   const [savingContext, setSavingContext] = useState(false);
   const [debugOpen, setDebugOpen] = useState(false);
   const [debugData, setDebugData] = useState<{ rawContentPreview?: string; systemPromptChars?: number; userPromptChars?: number; agendaUpdates?: any[] } | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
 
   const loadItems = useCallback(async () => {
     if (!sessionId) return;
@@ -73,6 +75,25 @@ export function AgendaTab() {
       supabase.removeChannel(channel);
     };
   }, [sessionId, loadItems]);
+
+  // Check admin status for current user to control debug visibility
+  useEffect(() => {
+    const checkAdmin = async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) { setIsAdmin(false); return; }
+        const { data: userData } = await supabase
+          .from('users')
+          .select('is_admin')
+          .eq('id', user.id)
+          .single();
+        setIsAdmin(!!userData?.is_admin);
+      } catch {
+        setIsAdmin(false);
+      }
+    };
+    checkAdmin();
+  }, []);
 
   const stats = useMemo(() => {
     const total = items.length;
@@ -226,7 +247,7 @@ export function AgendaTab() {
             userPromptChars: dbg.debug?.userPromptChars,
             agendaUpdates: dbg.agendaUpdates || []
           });
-          setDebugOpen(true);
+          if (isAdmin) setDebugOpen(true);
         }
       } catch {}
       await loadItems();
@@ -237,7 +258,7 @@ export function AgendaTab() {
     } finally {
       setRefreshing(false);
     }
-  }, [sessionId, loadItems, transcript, meeting]);
+  }, [sessionId, loadItems, transcript, meeting, isAdmin]);
 
   if (!sessionId) return <div className="p-4 text-sm text-muted-foreground">No session selected.</div>;
   if (loading) return <div className="p-4 text-sm text-muted-foreground">Loading agenda…</div>;
@@ -266,7 +287,7 @@ export function AgendaTab() {
             <RefreshCwIcon className={`w-3 h-3 ${refreshing ? 'animate-spin' : ''}`} />
             Refresh
           </button>
-          {debugData && (
+          {isAdmin && debugData && (
             <button
               onClick={() => setDebugOpen(true)}
               className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded border border-dashed hover:bg-muted"
@@ -356,71 +377,105 @@ export function AgendaTab() {
             </div>
           </div>
         )}
-        {items.map((item) => (
-          <div key={item.id} className="flex items-center gap-3 px-3 py-2 rounded border border-border bg-card">
-            <button
-              onClick={() => toggleItem(item)}
-              className={`w-5 h-5 rounded-full border flex items-center justify-center ${item.status === 'done' ? 'bg-primary border-primary text-primary-foreground' : 'border-muted-foreground/40'}`}
-              aria-label={item.status === 'done' ? 'Mark as open' : 'Mark as done'}
-            >
-              {item.status === 'done' ? <CheckCircleIcon className="w-4 h-4" /> : <ClockIcon className="w-4 h-4 text-muted-foreground" />}
-            </button>
-            <div className="flex-1 min-w-0">
-              {editId === item.id ? (
-                <div className="flex items-center gap-2">
-                  <input
-                    value={editTitle}
-                    onChange={(e) => setEditTitle(e.target.value)}
-                    className="flex-1 text-sm px-2 py-1 rounded border border-border bg-background"
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') saveEdit();
-                      if (e.key === 'Escape') { setEditId(null); setEditTitle(''); }
+        <AgendaDraggableList
+          items={items}
+          className="space-y-2"
+          onReorder={async (orderedIds) => {
+            // Optimistic reorder: compute updated order_index locally and send PATCH requests
+            const idToIndex: Record<string, number> = {};
+            orderedIds.forEach((id, idx) => { idToIndex[id] = idx; });
+            // Fire-and-forget updates; realtime will refresh, but we also manually reload when done
+            const { data: { session } } = await supabase.auth.getSession();
+            const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+            if (session?.access_token) headers['Authorization'] = `Bearer ${session.access_token}`;
+
+            // Optimistic UI update
+            setItems(prev => prev
+              .slice()
+              .sort((a, b) => (idToIndex[a.id] ?? 0) - (idToIndex[b.id] ?? 0))
+              .map((it) => ({ ...it, order_index: idToIndex[it.id] ?? it.order_index }))
+            );
+
+            try {
+              await Promise.all(
+                orderedIds.map((id) => fetch(`/api/sessions/${sessionId}/agenda/${id}`, {
+                  method: 'PATCH',
+                  headers,
+                  body: JSON.stringify({ order_index: idToIndex[id] })
+                }))
+              );
+            } catch (e) {
+              console.warn('Reorder failed, reloading items', e);
+            } finally {
+              await loadItems();
+            }
+          }}
+          renderItem={(item) => (
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => toggleItem(item)}
+                className={`w-5 h-5 rounded-full border flex items-center justify-center ${item.status === 'done' ? 'bg-primary border-primary text-primary-foreground' : 'border-muted-foreground/40'}`}
+                aria-label={item.status === 'done' ? 'Mark as open' : 'Mark as done'}
+              >
+                {item.status === 'done' ? <CheckCircleIcon className="w-4 h-4" /> : <ClockIcon className="w-4 h-4 text-muted-foreground" />}
+              </button>
+              <div className="flex-1 min-w-0">
+                {editId === item.id ? (
+                  <div className="flex items-center gap-2">
+                    <input
+                      value={editTitle}
+                      onChange={(e) => setEditTitle(e.target.value)}
+                      className="flex-1 text-sm px-2 py-1 rounded border border-border bg-background"
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') saveEdit();
+                        if (e.key === 'Escape') { setEditId(null); setEditTitle(''); }
+                      }}
+                      autoFocus
+                    />
+                    <button onClick={saveEdit} className="text-xs px-2 py-1 rounded bg-primary text-primary-foreground hover:opacity-90">Save</button>
+                    <button onClick={() => { setEditId(null); setEditTitle(''); }} className="text-xs px-2 py-1 rounded border border-border hover:bg-muted">Cancel</button>
+                  </div>
+                ) : (
+                  <>
+                    <div className="text-sm font-medium truncate" title={item.title}>{item.title}</div>
+                    {item.description && <div className="text-xs text-muted-foreground mt-0.5 truncate" title={item.description}>{item.description}</div>}
+                  </>
+                )}
+              </div>
+              <div className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground uppercase">
+                {item.status.replace('_', ' ')}
+              </div>
+              {editId !== item.id && (
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={() => startEdit(item)}
+                    className="p-1 rounded hover:bg-muted text-muted-foreground"
+                    title="Edit"
+                  >
+                    <PencilIcon className="w-4 h-4" />
+                  </button>
+                  <button
+                    onClick={() => deleteItem(item.id)}
+                    className="p-1 rounded hover:bg-red-500/10 text-red-500"
+                    title="Delete"
+                  >
+                    <Trash2Icon className="w-4 h-4" />
+                  </button>
+                  <button
+                    onClick={() => {
+                      const evt = new CustomEvent('askAboutAgendaItem', { detail: { agendaTitle: item.title, agendaId: item.id } });
+                      window.dispatchEvent(evt);
                     }}
-                    autoFocus
-                  />
-                  <button onClick={saveEdit} className="text-xs px-2 py-1 rounded bg-primary text-primary-foreground hover:opacity-90">Save</button>
-                  <button onClick={() => { setEditId(null); setEditTitle(''); }} className="text-xs px-2 py-1 rounded border border-border hover:bg-muted">Cancel</button>
+                    className="p-1 rounded hover:bg-primary/10 text-primary"
+                    title="Ask Nova about this agenda item"
+                  >
+                    <SparklesIcon className="w-4 h-4" />
+                  </button>
                 </div>
-              ) : (
-                <>
-                  <div className="text-sm font-medium truncate" title={item.title}>{item.title}</div>
-                  {item.description && <div className="text-xs text-muted-foreground mt-0.5 truncate" title={item.description}>{item.description}</div>}
-                </>
               )}
             </div>
-            <div className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground uppercase">
-              {item.status.replace('_', ' ')}
-            </div>
-            {editId !== item.id && (
-              <div className="flex items-center gap-1">
-                <button
-                  onClick={() => startEdit(item)}
-                  className="p-1 rounded hover:bg-muted text-muted-foreground"
-                  title="Edit"
-                >
-                  <PencilIcon className="w-4 h-4" />
-                </button>
-                <button
-                  onClick={() => deleteItem(item.id)}
-                  className="p-1 rounded hover:bg-red-500/10 text-red-500"
-                  title="Delete"
-                >
-                  <Trash2Icon className="w-4 h-4" />
-                </button>
-                <button
-                  onClick={() => {
-                    const evt = new CustomEvent('askAboutAgendaItem', { detail: { agendaTitle: item.title, agendaId: item.id } });
-                    window.dispatchEvent(evt);
-                  }}
-                  className="p-1 rounded hover:bg-primary/10 text-primary"
-                  title="Ask Nova about this agenda item"
-                >
-                  <SparklesIcon className="w-4 h-4" />
-                </button>
-              </div>
-            )}
-          </div>
-        ))}
+          )}
+        />
       </div>
 
       <div className="border-t border-border p-3 flex items-center gap-2">
@@ -441,7 +496,7 @@ export function AgendaTab() {
 
       <MeetingSettingsModal isOpen={settingsOpen} onClose={() => setSettingsOpen(false)} />
 
-      {debugOpen && (
+      {isAdmin && debugOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
           <div className="absolute inset-0 bg-black/60" onClick={() => setDebugOpen(false)} />
           <div className="relative bg-card/95 backdrop-blur-xl rounded-xl shadow-2xl border border-border max-w-3xl w-full mx-4 p-4">

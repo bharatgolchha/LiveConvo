@@ -1,3 +1,10 @@
+## 2025-08-13
+
+- Add: Drag and reorder agenda items in meeting Agenda tab
+  - Implemented `AgendaDraggableList` (native HTML5 DnD, no deps) with a grip handle and smooth optimistic UI
+  - Wired into `frontend/src/components/meeting/conversation/AgendaTab.tsx`
+  - Persists `order_index` via PATCH `/api/sessions/[id]/agenda/[itemId]` and refreshes list; Supabase Realtime also updates peers
+
 ## [2025-08-09] Dashboard: Move search to subheader toolbar and add advanced filters
 
 - Status: In progress
