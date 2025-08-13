@@ -37,11 +37,11 @@ export async function POST(
     if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
     const body = await request.json();
-    const parsed = requestSchema.safeParse(body);
-    if (!parsed.success) {
-      return NextResponse.json({ error: 'Invalid body', details: parsed.error.flatten() }, { status: 400 });
+    const bodyResult = requestSchema.safeParse(body);
+    if (!bodyResult.success) {
+      return NextResponse.json({ error: 'Invalid body', details: bodyResult.error.flatten() }, { status: 400 });
     }
-    const { newTranscript, summary, participantMe = 'You', participantThem = 'Them', conversationType = 'meeting' } = parsed.data;
+    const { newTranscript, summary, participantMe = 'You', participantThem = 'Them', conversationType = 'meeting' } = bodyResult.data;
     if (!Array.isArray(newTranscript) || newTranscript.length === 0) {
       return NextResponse.json({ agendaUpdates: [] });
     }
