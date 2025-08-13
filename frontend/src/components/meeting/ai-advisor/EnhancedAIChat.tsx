@@ -314,6 +314,44 @@ export const EnhancedAIChat = forwardRef<EnhancedAIChatRef>((props, ref) => {
     };
   }, []);
 
+  // Listen for agenda item prompt requests
+  useEffect(() => {
+    const handleAskAboutAgendaItem = async (event: CustomEvent) => {
+      const { agendaTitle, agendaId } = event.detail || {};
+      if (!agendaTitle) return;
+
+      const question = `Help me with this agenda item: "${agendaTitle}". What should I cover or ask next to complete it?`;
+      const context = `Agenda item: ${agendaTitle}\n${agendaId ? `Agenda ID: ${agendaId}` : ''}`.trim();
+
+      const userMessage: ChatMessage = {
+        id: `user-${Date.now()}`,
+        role: 'user',
+        content: `✨ ${question}`,
+        timestamp: new Date().toISOString()
+      };
+      setMessages(prev => [...prev, userMessage]);
+      setIsTyping(true);
+      try {
+        await handleSubmit(undefined, question, context);
+      } catch (error) {
+        console.error('Error asking about agenda item:', error);
+        const errorMessage: ChatMessage = {
+          id: `error-${Date.now()}`,
+          role: 'assistant',
+          content: "I'm sorry, I couldn't process that agenda item. Please try again.",
+          timestamp: new Date().toISOString()
+        };
+        setMessages(prev => [...prev, errorMessage]);
+      } finally {
+        setIsTyping(false);
+      }
+    };
+
+    const typed = (event: Event) => handleAskAboutAgendaItem(event as CustomEvent);
+    window.addEventListener('askAboutAgendaItem', typed);
+    return () => window.removeEventListener('askAboutAgendaItem', typed);
+  }, []);
+
   // Listen for transcript-context questions (uses handler defined after handleSubmit)
   useEffect(() => {
     const typed = (event: Event) => handleAskAboutTranscript(event as CustomEvent);

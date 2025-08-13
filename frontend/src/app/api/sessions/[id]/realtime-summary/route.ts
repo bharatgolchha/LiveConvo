@@ -204,12 +204,14 @@ export async function POST(
 
     const model = await getAIModelForAction(AIAction.REALTIME_SUMMARY);
 
+    // Agenda fulfillment moved to /api/sessions/[id]/agenda/check for efficiency
+    
     // Simple prompt for analyzing the full transcript
     const systemPrompt = `You are a helpful AI assistant that analyzes a live ${conversationType} conversation between ${participantMe} and ${participantThem}. 
 
 ${getCurrentDateContext()}
 
-Analyze the entire transcript and create a comprehensive summary in the JSON format below. 
+Analyze the entire transcript and create a comprehensive summary.
 
 Focus on:
 - TL;DR of what has been discussed
@@ -257,21 +259,33 @@ ${transcriptText}`;
           { role: 'user', content: userPrompt }
         ],
         temperature: 0.1,
-        max_tokens: 1000,
+        max_tokens: 2500,
         response_format: { type: 'json_object' }
       })
     });
 
     if (!openRouterResponse.ok) {
       const errText = await openRouterResponse.text();
+      let parsedErr: any = null;
+      try {
+        parsedErr = errText ? JSON.parse(errText) : null;
+      } catch {}
       console.error('OpenRouter error:', openRouterResponse.status, errText);
       return NextResponse.json(
-        { error: 'AI service unavailable. Please try again later.' },
+        { error: 'AI service unavailable. Please try again later.', providerStatus: openRouterResponse.status, providerBody: parsedErr || errText || null },
         { status: openRouterResponse.status }
       );
     }
 
     const data = await openRouterResponse.json();
+    let content: string | undefined;
+    try {
+      content = data?.choices?.[0]?.message?.content?.trim();
+    } catch {}
+    if (!content) {
+      console.error('AI response missing content field:', data);
+      return NextResponse.json({ error: 'Invalid AI response', raw: data }, { status: 502 });
+    }
     let summaryJson: {
       tldr?: string;
       keyPoints?: string[];
@@ -281,12 +295,12 @@ ${transcriptText}`;
     };
     
     try {
-      summaryJson = JSON.parse(data.choices[0].message.content.trim());
+      summaryJson = JSON.parse(content);
     } catch (err) {
       console.error('Failed to parse AI JSON:', err);
-      console.error('Raw response:', data.choices[0].message.content);
+      console.error('Raw response content:', content);
       
-      return NextResponse.json({ error: 'Failed to parse AI response' }, { status: 500 });
+      return NextResponse.json({ error: 'Failed to parse AI response', raw: content }, { status: 500 });
     }
 
     // Ensure required fields exist with fallbacks
@@ -296,7 +310,7 @@ ${transcriptText}`;
       actionItems: Array.isArray(summaryJson.actionItems) ? summaryJson.actionItems : [],
       decisions: Array.isArray(summaryJson.decisions) ? summaryJson.decisions : [],
       topics: Array.isArray(summaryJson.topics) ? summaryJson.topics : []
-    };
+    } as const;
 
     console.log('✅ Summary generated successfully:', {
       transcriptLength: validMessages.length,

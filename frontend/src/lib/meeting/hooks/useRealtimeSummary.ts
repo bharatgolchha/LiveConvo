@@ -13,6 +13,7 @@ export function useRealtimeSummary(sessionId: string) {
   const manualCooldownTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const manualCooldownIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const [manualCooldownRemaining, setManualCooldownRemaining] = useState<number>(0);
+  const lastAgendaCheckCountRef = useRef<number>(0);
 
   // Track the timestamp of the last successful AI summary generation to avoid
   // calling the AI service too frequently. We enforce a **minimum 60-second**
@@ -231,6 +232,33 @@ export function useRealtimeSummary(sessionId: string) {
         .eq('id', sessionId);
 
       setSummary(summary);
+      // Lightweight agenda check: every +20 messages since last check
+      try {
+        const newSinceLastCheck = transcript.length - lastAgendaCheckCountRef.current;
+        if (newSinceLastCheck >= 20) {
+          const delta = transcript.slice(Math.max(0, transcript.length - newSinceLastCheck - 50));
+          const deltaBody = {
+            newTranscript: delta,
+            summary: {
+              tldr: summary.tldr,
+              keyPoints: summary.keyPoints,
+              decisions: summary.decisions,
+              topics: summary.topics,
+            },
+            participantMe,
+            participantThem,
+            conversationType,
+          };
+          await fetch(`/api/sessions/${sessionId}/agenda/check`, {
+            method: 'POST',
+            headers: authHeaders,
+            body: JSON.stringify(deltaBody),
+          });
+          lastAgendaCheckCountRef.current = transcript.length;
+        }
+      } catch (e) {
+        console.warn('Agenda delta check failed:', e);
+      }
       // Update the last refresh timestamp only after a successful generation
       lastRefreshTime.current = now;
       setLastSummaryLength(transcript.length);

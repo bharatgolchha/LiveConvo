@@ -17,6 +17,7 @@ import { ErrorBoundary } from '@/components/meeting/common/ErrorBoundary';
 import { MeetingDebugInfo } from '@/components/meeting/debug/MeetingDebugInfo';
 import ProtectedRoute from '@/components/auth/ProtectedRoute';
 import { useIsMobile } from '@/lib/hooks/useMediaQuery';
+import { supabase } from '@/lib/supabase';
 
 function MeetingPageContent() {
   const params = useParams();
@@ -35,6 +36,37 @@ function MeetingPageContent() {
 
   // Initialize real-time summary
   useRealtimeSummary(meetingId);
+  
+  // Auto-generate agenda from context on first load
+  useEffect(() => {
+    const run = async () => {
+      try {
+        if (!meetingId) return;
+        // fetch session context to see if text_context or meeting_agenda exists
+        const { data: { session } } = await supabase.auth.getSession();
+        const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+        if (session?.access_token) headers['Authorization'] = `Bearer ${session.access_token}`;
+
+        const resp = await fetch(`/api/sessions/${meetingId}/context`, { headers });
+        if (!resp.ok) return;
+        const data = await resp.json();
+        const hasContext = Boolean(data?.context?.text_context) || Boolean(data?.context?.context_metadata?.meeting_agenda);
+        if (!hasContext) return;
+
+        // check if agenda_items already exist
+        const list = await fetch(`/api/sessions/${meetingId}/agenda`, { headers });
+        const listText = await list.text();
+        let listJson: any = {};
+        try { listJson = listText ? JSON.parse(listText) : {}; } catch { listJson = {}; }
+        const hasItems = Array.isArray(listJson?.items) && listJson.items.length > 0;
+        if (hasItems) return;
+
+        // generate from agenda
+        await fetch(`/api/sessions/${meetingId}/agenda/init`, { method: 'POST', headers });
+      } catch {}
+    };
+    run();
+  }, [meetingId]);
   
   // Initialize personal context
   usePersonalContext();

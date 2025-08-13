@@ -18,6 +18,7 @@ import { PreviousMeetingsTab } from './PreviousMeetingsTab';
 import { RecordingTab } from './RecordingTab';
 import { MultipleRecordingsTab } from './MultipleRecordingsTab';
 import { TabContent } from './TabContent';
+import { AgendaTab } from './AgendaTab';
 
 const tabs = [
   {
@@ -31,6 +32,12 @@ const tabs = [
     label: 'AI Insights',
     icon: DocumentTextIcon,
     description: 'AI-generated meeting summary'
+  },
+  {
+    id: 'agenda' as const,
+    label: 'Agenda',
+    icon: ClipboardDocumentListIcon,
+    description: 'Track agenda progress in real time'
   },
   {
     id: 'notes' as const,
@@ -134,6 +141,7 @@ export function ConversationTabs() {
         <TabContent>
           {activeTab === 'transcript' && <LiveTranscriptTab />}
           {activeTab === 'summary' && <RealtimeSummaryTab />}
+          {activeTab === 'agenda' && <AgendaTab />}
           {activeTab === 'notes' && <SmartNotesTab />}
           {activeTab === 'previous' && meeting?.id && (
             <PreviousMeetingsTab 
