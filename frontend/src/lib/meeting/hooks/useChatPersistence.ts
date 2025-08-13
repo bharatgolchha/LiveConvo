@@ -77,9 +77,22 @@ export function useChatPersistence(sessionId: string | undefined): UseChatPersis
       if (!session?.access_token) {
         throw new Error('No authentication token');
       }
+      // Sanitize messages to avoid invalid payloads (e.g., blank content)
+      const sanitized: ChatMessage[] = (messages || [])
+        .filter((m) => m && typeof m.content === 'string' && m.content.trim().length > 0)
+        .map((m) => ({
+          ...m,
+          content: (m.content || '').toString(),
+        }))
+        .slice(-200); // cap history size
+
+      if (sanitized.length === 0) {
+        setIsSaving(false);
+        return;
+      }
 
       const chatHistory: ChatHistory = {
-        messages,
+        messages: sanitized,
         lastUpdated: new Date().toISOString(),
       };
 
@@ -93,6 +106,8 @@ export function useChatPersistence(sessionId: string | undefined): UseChatPersis
       });
 
       if (!response.ok) {
+        const errText = await response.text().catch(() => '');
+        console.error('Save chat history failed:', response.status, errText);
         throw new Error('Failed to save chat history');
       }
 

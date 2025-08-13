@@ -32,6 +32,18 @@
   }
 })();
 
+// Respond to handshake from the web app to confirm extension presence
+try {
+  window.addEventListener('message', (event) => {
+    const data = event?.data;
+    if (data && data.type === 'LIVEPROMPT_EXT_PING') {
+      window.postMessage({ type: 'LIVEPROMPT_EXT_PONG' }, '*');
+    }
+  });
+} catch (_) {
+  // ignore
+}
+
 // Safe wrapper to avoid "Extension context invalidated" errors
 function safeSendMessage(message) {
   try {

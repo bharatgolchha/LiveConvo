@@ -10,6 +10,7 @@ import {
   CheckCircleIcon,
   QuestionMarkCircleIcon,
 } from '@heroicons/react/24/outline';
+import { useExtensionPresence } from '@/lib/hooks/useExtensionPresence';
 
 interface QuickStartChecklistProps {
   hasCalendarConnection: boolean;
@@ -32,6 +33,7 @@ export const QuickStartChecklist: React.FC<QuickStartChecklistProps> = ({
   onStartMeeting,
   onUploadRecording,
 }) => {
+  const { installed: extensionInstalled, checking } = useExtensionPresence();
   const completedSteps = hasCalendarConnection ? 1 : 0;
   const totalSteps = 3;
   const googleEnabled = process.env.NEXT_PUBLIC_GOOGLE_CALENDAR_ENABLED === 'true';
@@ -57,6 +59,42 @@ export const QuickStartChecklist: React.FC<QuickStartChecklistProps> = ({
       </div>
 
       <div className="space-y-3">
+        {/* Step 0: Download Chrome Extension (first item) */}
+        <motion.a
+          href={process.env.NEXT_PUBLIC_CHROME_WEBSTORE_URL || 'https://chromewebstore.google.com/detail/any-slug/jimjoccdhdmeefjidgkjjhbdkmpgnijn'}
+          target="_blank"
+          rel="noopener noreferrer"
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.02 }}
+          className={`w-full border rounded-lg p-4 flex items-center gap-4 transition-colors ${
+            extensionInstalled
+              ? 'bg-muted/30 border-border cursor-default'
+              : 'bg-card border-border hover:bg-accent/40'
+          }`}
+        >
+          <div className="p-2 rounded-md bg-muted">
+            <img src="/192px.svg" alt="Chrome extension" className="w-6 h-6" />
+          </div>
+          <div className="flex-1">
+            <div className="flex items-center gap-2">
+              <span className="font-medium">Download Chrome extension</span>
+              {extensionInstalled && (
+                <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+                  <CheckCircleIcon className="w-4 h-4 text-app-success" />
+                  Installed
+                </span>
+              )}
+            </div>
+            <p className="text-sm text-muted-foreground">
+              {extensionInstalled
+                ? 'You already have the extension. Jump to connecting your calendar.'
+                : 'Auto-join meetings and capture transcripts reliably.'}
+            </p>
+          </div>
+          {!extensionInstalled && <ArrowRightIcon className="w-5 h-5 text-muted-foreground" />}
+        </motion.a>
+
         {/* Step 1: Connect Calendars (navigates to settings) */}
         <motion.button
           type="button"

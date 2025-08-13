@@ -406,8 +406,17 @@ export function SmartSuggestions() {
         || suggestion.examplePhrase 
         || (suggestion.advice ? `Please craft a concise, one-sentence message I could say now based on this advice: "${suggestion.advice}"` : 'Can you help me phrase this?');
 
-      // Dispatch event to trigger AI chat with the suggestion or phrasing request
-      const event = new CustomEvent('useSuggestion', { detail: { suggestion: messageToSend, chipText: suggestion.text } });
+      // Build rich context from suggestion metadata so AI sees the description/why
+      const contextParts: string[] = [];
+      if (suggestion.text) contextParts.push(`Suggestion: ${suggestion.text}`);
+      if (suggestion.advice) contextParts.push(`Advice: ${suggestion.advice}`);
+      if (suggestion.why) contextParts.push(`Why: ${suggestion.why}`);
+      if (suggestion.category) contextParts.push(`Category: ${suggestion.category}`);
+      if (suggestion.priority) contextParts.push(`Priority: ${suggestion.priority}`);
+      const suggestionContext = contextParts.join('\n');
+
+      // Dispatch event to trigger AI chat with the suggestion and rich context
+      const event = new CustomEvent('useSuggestion', { detail: { suggestion: messageToSend, chipText: suggestion.text, context: suggestionContext } });
       window.dispatchEvent(event);
 
       console.log('💡 Using suggestion:', messageToSend);

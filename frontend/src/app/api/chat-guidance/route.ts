@@ -202,6 +202,61 @@ interface ParsedContext {
 
 export async function POST(request: NextRequest) {
   try {
+    // Basic server-side rate limiting
+    const clientIp = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown-ip';
+    const now = new Date();
+    const minuteWindow = new Date(now.getTime());
+    minuteWindow.setMinutes(minuteWindow.getMinutes() - 1);
+    const dayWindow = new Date(now.getTime());
+    dayWindow.setDate(dayWindow.getDate() - 1);
+
+    // Limits: 15/minute, 500/day per IP/auth grouping
+    const MINUTE_LIMIT = 15;
+    const DAY_LIMIT = 500;
+
+    try {
+      const authHeader = request.headers.get('authorization');
+      const token = authHeader?.split(' ')[1];
+      if (token) {
+        const supabase = createAuthenticatedSupabaseClient(token);
+        const { data: { user } } = await supabase.auth.getUser();
+        const rateKey = user?.id ? `chat:user:${user.id}` : `chat:ip:${clientIp}`;
+        // Fetch current counters
+        const { data: existing } = await supabase
+          .from('api_rate_limits')
+          .select('key, period, window_start, count')
+          .eq('key', rateKey);
+
+        const byPeriod: Record<string, { window_start: string; count: number }> = {};
+        (existing || []).forEach((row: any) => { byPeriod[row.period] = { window_start: row.window_start, count: row.count }; });
+
+        // Minute window logic
+        const minuteRow = byPeriod['minute'];
+        const minuteReset = !minuteRow || new Date(minuteRow.window_start) < minuteWindow;
+        const minuteCount = minuteReset ? 0 : (minuteRow.count || 0);
+        if (minuteCount >= MINUTE_LIMIT) {
+          return NextResponse.json({ error: 'Rate limit exceeded. Try again in a minute.' }, { status: 429 });
+        }
+
+        // Day window logic
+        const dayRow = byPeriod['day'];
+        const dayReset = !dayRow || new Date(dayRow.window_start) < dayWindow;
+        const dayCount = dayReset ? 0 : (dayRow.count || 0);
+        if (dayCount >= DAY_LIMIT) {
+          return NextResponse.json({ error: 'Daily rate limit exceeded. Please try again tomorrow.' }, { status: 429 });
+        }
+
+        // Increment counters
+        const upserts = [
+          { key: rateKey, period: 'minute', window_start: minuteReset ? now.toISOString() : (minuteRow?.window_start || now.toISOString()), count: minuteCount + 1 },
+          { key: rateKey, period: 'day', window_start: dayReset ? now.toISOString() : (dayRow?.window_start || now.toISOString()), count: dayCount + 1 }
+        ];
+        await supabase.from('api_rate_limits').upsert(upserts, { onConflict: 'key,period' });
+      }
+    } catch (e) {
+      // If RL storage fails, do not block; continue
+      console.warn('Rate limit storage error:', e);
+    }
     const body = await request.json();
     const streamMode = Boolean((body as any)?.stream);
     
@@ -367,6 +422,7 @@ export async function POST(request: NextRequest) {
     // ------------------------------------------------------------------
     let combinedContext = textContext || '';
     let aiInstructions: string | null = null;
+    let agendaSection = '';
 
     if (sessionId) {
       const authHeader = request.headers.get('authorization');
@@ -397,6 +453,40 @@ export async function POST(request: NextRequest) {
               instructionsLength: aiInstructions?.length ?? 0,
               instructionsPreview: aiInstructions ? (aiInstructions.substring(0, 100) + (aiInstructions.length > 100 ? '...' : '')) : 'No instructions'
             });
+          }
+
+          // Fetch current agenda items for this session
+          console.log('🔍 Chat Guidance Debug - Fetching agenda items...');
+          const { data: agendaItems, error: agendaError } = await supabase
+            .from('agenda_items')
+            .select('id, title, description, status, order_index')
+            .eq('session_id', sessionId)
+            .order('order_index', { ascending: true })
+            .limit(20);
+
+          if (!agendaError && agendaItems && agendaItems.length > 0) {
+            agendaSection = '\n\n📋 CURRENT MEETING AGENDA:\n';
+            agendaItems.forEach((item, idx) => {
+              const statusEmoji = item.status === 'done' ? '✅' : item.status === 'in_progress' ? '🔄' : '⏳';
+              agendaSection += `${idx + 1}. ${statusEmoji} ${item.title}`;
+              if (item.description) agendaSection += ` - ${item.description}`;
+              agendaSection += ` [${item.status}]\n`;
+            });
+            
+            const completedCount = agendaItems.filter(item => item.status === 'done').length;
+            const progressPercent = Math.round((completedCount / agendaItems.length) * 100);
+            agendaSection += `\nAgenda Progress: ${completedCount}/${agendaItems.length} completed (${progressPercent}%)\n`;
+            
+            console.log('📋 Agenda items found for session:', {
+              sessionId,
+              itemsCount: agendaItems.length,
+              completedCount,
+              progressPercent
+            });
+          } else if (agendaError) {
+            console.error('❌ Error fetching agenda items:', agendaError);
+          } else {
+            console.log('📋 No agenda items found for session:', sessionId);
           }
 
           // 1. Fetch linked conversation IDs
@@ -515,6 +605,12 @@ export async function POST(request: NextRequest) {
             }
           } else {
             console.log('⚠️ No linked conversation IDs found');
+          }
+          
+          // Add agenda items to combined context
+          if (agendaSection) {
+            combinedContext = `${combinedContext}${agendaSection}`;
+            console.log('📋 Added agenda items to context:', agendaSection.substring(0, 200) + '...');
           }
         } catch (e) {
           console.error('❌ Error fetching linked conversation context:', e);

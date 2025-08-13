@@ -12,12 +12,16 @@
 ## Features
 
 * [Features Overview](features/overview.md)
-* [Real-time Transcription](features/transcription.md)
+* [Nova Advisor - AI Assistant](features/nova-advisor.md)
+* [Real-time Transcription & Languages](features/transcription.md)
+* [Meeting Agendas](features/agendas.md)
+* [Meeting Linking & Context](features/meeting-context.md)
 * [AI Guidance](features/ai-guidance.md)
 * [Document Upload](features/document-upload.md)
-* [Checklists](features/checklists.md)
+* [Smart Notes & Checklists](features/checklists.md)
 * [Session Summaries](features/summaries.md)
 * [Timeline View](features/timeline.md)
+* [Video Meeting Integration](features/video-meetings.md)
 
 ## User Guide
 

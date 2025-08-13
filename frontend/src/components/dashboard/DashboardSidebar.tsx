@@ -7,7 +7,7 @@ import {
   ShareIcon,
   ClockIcon,
 } from '@heroicons/react/24/outline';
-import { Crown, Gift } from 'lucide-react';
+import { Crown, Gift, BookOpen } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
 export interface UsageStats {
@@ -135,6 +135,31 @@ const DashboardSidebar: React.FC<DashboardSidebarProps> = ({ usageStats, activeP
 
       {/* Bottom section with usage stats and upgrade button */}
       <div className="mt-auto">
+        {/* Helpful Links */}
+        <div className="px-4 pb-3 space-y-2">
+          <a
+            href={process.env.NEXT_PUBLIC_CHROME_WEBSTORE_URL || 'https://chromewebstore.google.com/detail/any-slug/jimjoccdhdmeefjidgkjjhbdkmpgnijn'}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="w-full flex items-center justify-between px-3 py-2 rounded-lg text-left transition-colors text-muted-foreground hover:bg-muted/50"
+          >
+            <div className="flex items-center space-x-2">
+              <img src="/192px.svg" alt="Extension" className="w-5 h-5" />
+              <span className="text-sm font-medium">Download Extension</span>
+            </div>
+          </a>
+
+          <a
+            href="/how-it-works/sales"
+            className="w-full flex items-center justify-between px-3 py-2 rounded-lg text-left transition-colors text-muted-foreground hover:bg-muted/50"
+          >
+            <div className="flex items-center space-x-2">
+              <BookOpen className="w-5 h-5" />
+              <span className="text-sm font-medium">Help and Docs</span>
+            </div>
+          </a>
+        </div>
+
         {/* Refer and Earn Button */}
         <div className="px-4 pb-3">
           <button

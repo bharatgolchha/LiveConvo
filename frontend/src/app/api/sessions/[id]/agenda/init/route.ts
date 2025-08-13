@@ -134,10 +134,29 @@ Output JSON schema:
       return NextResponse.json({ error: 'Could not generate agenda items' }, { status: 400 });
     }
 
-    const rows = aiItems.map((it, i) => ({ session_id: sessionId, title: it.title, description: it.description || null, order_index: i }));
+    // Idempotency without relying on DB constraints: fetch existing titles and only insert new ones
+    const { data: existingRows, error: existingErr } = await supabase
+      .from('agenda_items')
+      .select('title, order_index')
+      .eq('session_id', sessionId);
+
+    if (existingErr) {
+      return NextResponse.json({ error: existingErr.message }, { status: 500 });
+    }
+
+    const existingTitles = new Set((existingRows || []).map((r: any) => String(r.title).trim().toLowerCase()));
+    const startIndex = (existingRows || []).length;
+    const toInsert = aiItems
+      .filter(it => !existingTitles.has(it.title.trim().toLowerCase()))
+      .map((it, i) => ({ session_id: sessionId, title: it.title, description: it.description || null, order_index: startIndex + i }));
+
+    if (toInsert.length === 0) {
+      return NextResponse.json({ message: 'Agenda already initialized' }, { status: 200 });
+    }
+
     const { data: inserted, error } = await supabase
       .from('agenda_items')
-      .insert(rows)
+      .insert(toInsert)
       .select('*')
       .order('order_index', { ascending: true });
 

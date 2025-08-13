@@ -35,7 +35,7 @@ export function SuggestedPrompts({ suggestions, onPromptClick, loading = false }
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 10 }}
               transition={{ delay: index * 0.05 }}
-              onClick={() => onPromptClick(suggestion.prompt)}
+              onClick={() => onPromptClick((suggestion.prompt && suggestion.prompt.trim()) ? suggestion.prompt : suggestion.text)}
               disabled={loading}
               className={`
                 flex-shrink-0 px-2.5 py-1 text-[11px] rounded-full

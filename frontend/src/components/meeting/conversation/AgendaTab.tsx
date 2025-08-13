@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useMeetingContext } from '@/lib/meeting/context/MeetingContext';
 import { supabase } from '@/lib/supabase';
-import { CheckCircleIcon, ClockIcon, PlusIcon, ArrowUpDownIcon, RefreshCwIcon, Settings, PencilIcon, Trash2Icon, SparklesIcon, ClipboardListIcon } from 'lucide-react';
+import { CheckCircleIcon, ClockIcon, PlusIcon, RefreshCwIcon, Settings, PencilIcon, Trash2Icon, SparklesIcon, ClipboardListIcon } from 'lucide-react';
 import { toast } from 'sonner';
 import { MeetingSettingsModal } from '@/components/meeting/settings/MeetingSettingsModal';
 
@@ -259,13 +259,6 @@ export function AgendaTab() {
             <Settings className="w-3 h-3" />
           </button>
           <button
-            onClick={initFromAgenda}
-            className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded bg-primary text-primary-foreground hover:opacity-90"
-            disabled={initLoading}
-          >
-            <ArrowUpDownIcon className="w-3 h-3" /> Generate from agenda
-          </button>
-          <button
             onClick={fullRefreshCheck}
             className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded border border-border hover:bg-muted"
             disabled={refreshing}
@@ -294,27 +287,14 @@ export function AgendaTab() {
               </div>
               <div className="text-base font-medium">No agenda added yet</div>
               <div className="text-sm text-muted-foreground max-w-md">
-                Kickstart your meeting by generating an agenda from your context, or add items manually below. Nova will auto‑track progress as you go.
+                Upload context to automatically generate an agenda. You can also add items using the bar at the bottom. Nova will auto‑track progress as you go.
               </div>
               <div className="flex items-center gap-2 mt-2">
-                <button
-                  onClick={initFromAgenda}
-                  className="inline-flex items-center gap-1 text-xs px-3 py-1.5 rounded bg-primary text-primary-foreground hover:opacity-90"
-                  disabled={initLoading}
-                >
-                  <SparklesIcon className="w-4 h-4" /> Generate from agenda
-                </button>
-                <button
-                  onClick={() => newItemInputRef.current?.focus()}
-                  className="inline-flex items-center gap-1 text-xs px-3 py-1.5 rounded border border-border hover:bg-muted"
-                >
-                  <PlusIcon className="w-4 h-4" /> Add item
-                </button>
                 <button
                   onClick={() => setShowContextInput((v) => !v)}
                   className="inline-flex items-center gap-1 text-xs px-3 py-1.5 rounded border border-border hover:bg-muted"
                 >
-                  Paste agenda/context
+                  Upload context
                 </button>
               </div>
               <div className="text-xs text-muted-foreground mt-2">

@@ -106,20 +106,8 @@ export function MeetingSettingsModal({ isOpen, onClose }: MeetingSettingsModalPr
         scheduledAt: undefined
       });
 
-      // Auto-generate agenda from context if provided and no items yet
-      try {
-        const agendaResp = await fetch(`/api/sessions/${meeting.id}/agenda`, { headers });
-        const agendaText = await agendaResp.text();
-        let agendaJson: any = {};
-        try { agendaJson = agendaText ? JSON.parse(agendaText) : {}; } catch { agendaJson = {}; }
-        const hasItems = Array.isArray(agendaJson?.items) && agendaJson.items.length > 0;
-        const hasContextNow = Boolean((updated.context || context || '').trim());
-        if (!hasItems && hasContextNow) {
-          await fetch(`/api/sessions/${meeting.id}/agenda/init`, { method: 'POST', headers });
-        }
-      } catch (e) {
-        console.warn('Agenda auto-generate after save failed:', e);
-      }
+      // Note: agenda auto-generation on save removed to avoid duplicate creation.
+      // The meeting page (`/app/meeting/[id]/page.tsx`) now owns agenda initialization.
 
       onClose();
     } catch (e: any) {
