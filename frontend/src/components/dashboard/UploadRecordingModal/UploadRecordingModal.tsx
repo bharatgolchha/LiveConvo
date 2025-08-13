@@ -469,7 +469,7 @@ export function UploadRecordingModal({ isOpen, onClose, onCreated }: UploadRecor
 
   return (
     <div className="fixed inset-0 z-50">
-      <div className="absolute inset-0 bg-black/50" onClick={() => !loading && onClose()} />
+      <div className="absolute inset-0 bg-black/50" onClick={() => { if (!loading && !(inputMode === 'record' && isRecordingAudio)) onClose(); }} />
       <div className="absolute inset-x-0 top-10 mx-auto w-full max-w-2xl rounded-xl border border-border bg-card shadow-2xl overflow-hidden">
         {/* Processing Overlay */}
         {loading && (
@@ -487,7 +487,7 @@ export function UploadRecordingModal({ isOpen, onClose, onCreated }: UploadRecor
             <div className="text-xs px-2 py-0.5 rounded bg-muted text-foreground/90">{step === 'upload' ? '1' : step === 'transcribe' ? '2' : step === 'speakers' ? '3' : '4'}</div>
             <h3 className="text-sm font-semibold text-foreground">{step === 'upload' && 'Upload recording'}{step === 'transcribe' && 'Transcribe & diarize'}{step === 'speakers' && 'Name speakers'}{step === 'review' && 'Review & create'}</h3>
           </div>
-          <button onClick={onClose} className="p-1 rounded-md hover:bg-accent text-foreground" disabled={loading} aria-label="Close">✕</button>
+          <button onClick={onClose} className="p-1 rounded-md hover:bg-accent text-foreground" disabled={loading || (inputMode === 'record' && isRecordingAudio)} aria-label="Close" title={(inputMode === 'record' && isRecordingAudio) ? 'Stop recording to close' : undefined}>✕</button>
         </div>
 
         {/* Body */}
@@ -921,7 +921,7 @@ export function UploadRecordingModal({ isOpen, onClose, onCreated }: UploadRecor
 
         {/* Footer */}
         <div className="flex items-center justify-between px-5 py-3 border-t border-border bg-card/80">
-          <button className="text-sm px-3 py-1.5 rounded-md hover:bg-muted disabled:opacity-50" onClick={() => (step === 'upload' ? onClose() : setStep(step === 'review' ? 'speakers' : step === 'speakers' ? 'transcribe' : 'upload'))} disabled={loading}>
+          <button className="text-sm px-3 py-1.5 rounded-md hover:bg-muted disabled:opacity-50" onClick={() => (step === 'upload' ? onClose() : setStep(step === 'review' ? 'speakers' : step === 'speakers' ? 'transcribe' : 'upload'))} disabled={loading || (inputMode === 'record' && isRecordingAudio)} title={(inputMode === 'record' && isRecordingAudio) ? 'Stop recording to close' : undefined}>
             {step === 'upload' ? 'Cancel' : 'Back'}
           </button>
           {step === 'upload' && (
