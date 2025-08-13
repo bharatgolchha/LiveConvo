@@ -29,6 +29,7 @@ export function CreateMeetingModal({ isOpen, onClose, onStart }: CreateMeetingMo
   const [context, setContext] = useState('');
   const [meetingUrl, setMeetingUrl] = useState('');
   const [aiInstructions, setAiInstructions] = useState('');
+  const [autoJoinEnabled, setAutoJoinEnabled] = useState(true);
   const [selectedPrevious, setSelectedPrevious] = useState<{ id: string; title: string; conversation_type?: string; created_at: string; recording_duration_seconds?: number; status?: string; total_words_spoken?: number }[]>([]);
   
   // Fixed meeting type - simplified for better UX
@@ -45,6 +46,7 @@ export function CreateMeetingModal({ isOpen, onClose, onStart }: CreateMeetingMo
         context: context.trim() || undefined,
         linkedConversationIds: selectedPrevious.map(p => p.id),
         ai_instructions: aiInstructions.trim() || undefined,
+        autoJoinNow: !!(autoJoinEnabled && meetingUrl.trim())
       });
       onClose();
     } catch (error) {
@@ -67,6 +69,7 @@ export function CreateMeetingModal({ isOpen, onClose, onStart }: CreateMeetingMo
     setSelectedPrevious([]);
     setStep(0);
     setIsStarting(false);
+    setAutoJoinEnabled(true);
   };
 
   // Validation for each step
@@ -163,6 +166,8 @@ export function CreateMeetingModal({ isOpen, onClose, onStart }: CreateMeetingMo
                       key="step2"
                       meetingUrl={meetingUrl}
                       setMeetingUrl={setMeetingUrl}
+                      autoJoinEnabled={autoJoinEnabled}
+                      setAutoJoinEnabled={setAutoJoinEnabled}
                     />
                   )}
                 </AnimatePresence>

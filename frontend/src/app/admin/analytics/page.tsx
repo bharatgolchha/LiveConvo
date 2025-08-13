@@ -66,6 +66,9 @@ export default function AdminAnalyticsPage() {
     );
   }
 
+  const maxNewUsers = Math.max(0, ...analytics.userGrowth.map(d => d.newUsers)) || 1;
+  const maxSessions = Math.max(0, ...analytics.sessionMetrics.map(d => d.sessions)) || 1;
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
@@ -96,7 +99,7 @@ export default function AdminAnalyticsPage() {
               </div>
               <div className="flex-1 flex items-center gap-4">
                 <div className="h-8 bg-blue-500 dark:bg-blue-600 rounded" 
-                     style={{ width: `${(day.newUsers / Math.max(...analytics.userGrowth.map(d => d.newUsers))) * 100}%` }}
+                     style={{ width: `${(day.newUsers / maxNewUsers) * 100}%` }}
                 />
                 <span className="text-sm text-gray-900 dark:text-white">
                   +{day.newUsers} users
@@ -123,7 +126,7 @@ export default function AdminAnalyticsPage() {
               </div>
               <div className="flex-1 flex items-center gap-4">
                 <div className="h-8 bg-green-500 dark:bg-green-600 rounded" 
-                     style={{ width: `${(day.sessions / Math.max(...analytics.sessionMetrics.map(d => d.sessions))) * 100}%` }}
+                     style={{ width: `${(day.sessions / maxSessions) * 100}%` }}
                 />
                 <span className="text-sm text-gray-900 dark:text-white">
                   {day.sessions} sessions ({Math.round(day.audioMinutes)} min)
@@ -173,31 +176,35 @@ export default function AdminAnalyticsPage() {
             Top Active Users
           </h3>
           <div className="space-y-3">
-            {analytics.topUsers.map((user, index) => (
-              <div key={user.id} className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <span className="text-sm font-medium text-gray-500 dark:text-gray-400">
-                    #{index + 1}
-                  </span>
-                  <div>
+            {analytics.topUsers.length === 0 ? (
+              <div className="text-sm text-gray-600 dark:text-gray-400">No activity in selected range</div>
+            ) : (
+              analytics.topUsers.map((user, index) => (
+                <div key={user.id} className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <span className="text-sm font-medium text-gray-500 dark:text-gray-400">
+                      #{index + 1}
+                    </span>
+                    <div>
+                      <p className="text-sm font-medium text-gray-900 dark:text-white">
+                        {user.email}
+                      </p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">
+                        {user.organization}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="text-right">
                     <p className="text-sm font-medium text-gray-900 dark:text-white">
-                      {user.email}
+                      {user.sessions} sessions
                     </p>
                     <p className="text-xs text-gray-500 dark:text-gray-400">
-                      {user.organization}
+                      {Math.round(user.audioMinutes)} min
                     </p>
                   </div>
                 </div>
-                <div className="text-right">
-                  <p className="text-sm font-medium text-gray-900 dark:text-white">
-                    {user.sessions} sessions
-                  </p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">
-                    {Math.round(user.audioMinutes)} min
-                  </p>
-                </div>
-              </div>
-            ))}
+              ))
+            )}
           </div>
         </Card>
       </div>

@@ -1,17 +1,22 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { LinkIcon, CheckCircleIcon, XCircleIcon } from '@heroicons/react/24/outline';
-import { validateMeetingUrl, getPlatformIcon, getPlatformName } from '@/lib/meeting/utils/platform-detector';
+import { validateMeetingUrl, getPlatformIcon, getPlatformName, getPlatformLogoPath } from '@/lib/meeting/utils/platform-detector';
 import { MeetingPlatform } from '@/lib/meeting/types/meeting.types';
+import { Switch } from '@/components/ui/switch';
 
 interface MeetingLinkStepProps {
   meetingUrl: string;
   setMeetingUrl: (url: string) => void;
+  autoJoinEnabled?: boolean;
+  setAutoJoinEnabled?: (enabled: boolean) => void;
 }
 
 export function MeetingLinkStep({
   meetingUrl,
-  setMeetingUrl
+  setMeetingUrl,
+  autoJoinEnabled,
+  setAutoJoinEnabled
 }: MeetingLinkStepProps) {
   const [urlValidation, setUrlValidation] = useState<{ valid: boolean; platform?: MeetingPlatform; error?: string } | null>(null);
   const [touched, setTouched] = useState(false);
@@ -29,6 +34,11 @@ export function MeetingLinkStep({
   const handleUrlChange = (value: string) => {
     setMeetingUrl(value);
     if (!touched) setTouched(true);
+    // Default auto-join on once a valid URL is present
+    const validation = validateMeetingUrl(value);
+    if (validation.valid && setAutoJoinEnabled) {
+      setAutoJoinEnabled(true);
+    }
   };
 
   return (
@@ -98,7 +108,13 @@ export function MeetingLinkStep({
             animate={{ opacity: 1, y: 0 }}
             className="flex items-center gap-3 px-4 py-3 bg-gradient-to-r from-primary/10 to-secondary/10 border border-primary/20 rounded-2xl"
           >
-            <div className="text-2xl">{getPlatformIcon(urlValidation.platform)}</div>
+            <div className="shrink-0">
+              <img
+                src={getPlatformLogoPath(urlValidation.platform)}
+                alt={`${getPlatformName(urlValidation.platform)} logo`}
+                className="h-6 w-6"
+              />
+            </div>
             <div>
               <p className="text-sm font-semibold text-foreground">
                 {getPlatformName(urlValidation.platform)} meeting detected
@@ -111,7 +127,19 @@ export function MeetingLinkStep({
         )}
       </div>
 
-
+      {/* Auto-join toggle: only visible when URL valid */}
+      {urlValidation?.valid && (
+        <div className="flex items-center justify-between rounded-2xl border border-border/50 bg-card px-4 py-3">
+          <div className="flex flex-col">
+            <span className="text-sm font-medium text-foreground">Auto-join when meeting starts</span>
+            <span className="text-xs text-muted-foreground">We’ll deploy the bot as soon as you click “Start Meeting”.</span>
+          </div>
+          <Switch
+            checked={!!autoJoinEnabled}
+            onCheckedChange={(checked) => setAutoJoinEnabled && setAutoJoinEnabled(Boolean(checked))}
+          />
+        </div>
+      )}
 
       {/* Info Box */}
       <motion.div 

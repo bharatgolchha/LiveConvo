@@ -581,6 +581,14 @@ const DashboardPage: React.FC = () => {
       const { meeting } = await response.json();
 
       if (meeting && typeof window !== 'undefined') {
+        // If user opted to auto-join now and a meeting URL exists, fire join API in background
+        if (data.autoJoinNow && meeting.meetingUrl) {
+          try {
+            fetch(`/api/sessions/${meeting.id}/join-meeting`, { method: 'POST' });
+          } catch (e) {
+            console.warn('Auto-join trigger failed (non-blocking):', e);
+          }
+        }
         // Navigate to meeting page
         window.location.href = `/meeting/${meeting.id}`;
       }

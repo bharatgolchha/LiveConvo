@@ -64,3 +64,12 @@ export function getPlatformName(platform: MeetingPlatform): string {
   };
   return names[platform];
 }
+
+export function getPlatformLogoPath(platform: MeetingPlatform): string {
+  const logos: Record<MeetingPlatform, string> = {
+    zoom: '/platform-logos/zoom.png',
+    google_meet: '/platform-logos/meet.png',
+    teams: '/platform-logos/teams.png',
+  };
+  return logos[platform];
+}

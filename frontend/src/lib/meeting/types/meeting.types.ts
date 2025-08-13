@@ -42,6 +42,7 @@ export interface CreateMeetingData {
   participantThem?: string;
   linkedConversationIds?: string[];
   ai_instructions?: string;
+  autoJoinNow?: boolean;
 }
 
 export interface MeetingTypeOption {
