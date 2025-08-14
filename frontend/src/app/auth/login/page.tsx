@@ -61,6 +61,15 @@ function LoginContent() {
     const handleAuthenticatedRedirect = async () => {
       if (!user) return;
       try {
+        // If there is a pending invite token, go to invite acceptance immediately
+        try {
+          const token = typeof window !== 'undefined' ? localStorage.getItem('invite_token') : null
+          if (token) {
+            router.push(`/invite/${token}`)
+            return
+          }
+        } catch {}
+
         const { data: userProfile } = await supabase
           .from('users')
           .select('has_completed_onboarding')

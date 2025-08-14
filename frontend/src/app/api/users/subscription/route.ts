@@ -23,43 +23,51 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Get active subscription using the optimized view
-    // Handle multiple subscriptions by taking the first active one
-    console.log('🔍 Fetching subscriptions for user:', user.id);
-    const { data: subscriptions, error: subscriptionError } = await supabase
-      .from('active_user_subscriptions')
-      .select('*')
-      .eq('user_id', user.id)
-      .order('created_at', { ascending: false });
-      
-    console.log('📊 Subscriptions found:', subscriptions?.length || 0);
-    if (subscriptions && subscriptions.length > 0) {
-      console.log('📋 First subscription details:', {
-        id: subscriptions[0].id,
-        status: subscriptions[0].status,
-        plan_name: subscriptions[0].plan_name,
-        organization_id: subscriptions[0].organization_id
-      });
+    // Get user's organization ID first
+    const { data: userDataOrg, error: userOrgErr } = await supabase
+      .from('users')
+      .select('current_organization_id')
+      .eq('id', user.id)
+      .single();
+    
+    if (userOrgErr) {
+      console.error('Error fetching user organization:', userOrgErr);
+    }
+
+    const currentOrgId = userDataOrg?.current_organization_id || null;
+
+    // Prefer organization-level active subscription (team plans) for members
+    console.log('🔍 Resolving active subscription (prefer org) for user:', user.id, 'org:', currentOrgId);
+    let subscriptionData: any = null;
+    let subscriptionError: any = null;
+
+    if (currentOrgId) {
+      const { data: orgSub, error: orgSubErr } = await supabase
+        .from('active_user_subscriptions')
+        .select('*')
+        .eq('organization_id', currentOrgId)
+        .maybeSingle();
+      if (orgSub) subscriptionData = orgSub;
+      subscriptionError = orgSubErr;
+    }
+
+    // Fallback to user-level active subscription (individual)
+    if (!subscriptionData) {
+      const { data: userSub, error: userSubErr } = await supabase
+        .from('active_user_subscriptions')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
+        .maybeSingle();
+      subscriptionData = userSub;
+      subscriptionError = subscriptionError || userSubErr;
     }
 
     if (subscriptionError) {
-      console.error('Error fetching subscription:', subscriptionError);
-      return NextResponse.json(
-        { error: 'Failed to fetch subscription data' },
-        { status: 500 }
-      );
+      console.error('Error resolving active subscription:', subscriptionError);
     }
 
-    // Take the first subscription if multiple exist
-    const subscriptionData = subscriptions && subscriptions.length > 0 ? subscriptions[0] : null;
-    
-    if (subscriptions && subscriptions.length > 1) {
-      console.warn(`User ${user.id} has ${subscriptions.length} active subscriptions, using the most recent one`);
-    }
-
-    // Debug log to see the structure
-    console.log('Subscription data for user:', user.email);
-    console.log('Raw subscription data:', JSON.stringify(subscriptionData, null, 2));
+    console.log('Subscription data resolved for user:', user.email, 'org:', currentOrgId, 'row exists:', !!subscriptionData);
 
     // Plan data is already included in the view, no need to fetch separately
 

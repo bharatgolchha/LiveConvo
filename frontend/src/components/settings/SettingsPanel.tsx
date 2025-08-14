@@ -17,10 +17,12 @@ import {
   ShieldCheckIcon,
   DocumentTextIcon,
   CreditCardIcon,
-  CalendarIcon
+  CalendarIcon,
+  UsersIcon
 } from '@heroicons/react/24/outline';
 import { Gift } from 'lucide-react';
 import { ReferralWidget } from '@/components/referrals/ReferralWidget';
+import TeamMembers from './TeamMembers';
 
 interface SettingsPanelProps {
   onSessionsDeleted?: () => void;
@@ -220,14 +222,18 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ onSessionsDeleted 
     return hours > 0 ? `${hours}h ${minutes}m` : `${minutes}m`;
   };
 
-  // Allow deep-linking via hash (?tab=calendar or #calendar)
+  // Allow deep-linking to settings internal tabs without conflicting with dashboard's `tab`
+  // Priority: settingsTab (query) > hash (#team) > tab (query) if valid settings tab
   const initialTab = (() => {
     if (typeof window !== 'undefined') {
       const url = new URL(window.location.href);
-      const byQuery = url.searchParams.get('tab');
+      const bySettingsQuery = url.searchParams.get('settingsTab');
+      if (bySettingsQuery) return bySettingsQuery;
       const byHash = url.hash?.replace('#', '');
-      if (byQuery) return byQuery;
       if (byHash) return byHash;
+      const byQuery = url.searchParams.get('tab');
+      const valid = new Set(['subscription','referrals','personal','account','calendar','appearance','usage','privacy','team']);
+      if (byQuery && valid.has(byQuery)) return byQuery;
     }
     return 'subscription';
   })();
@@ -240,7 +246,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ onSessionsDeleted 
       </div>
 
       <Tabs defaultValue={initialTab} className="space-y-6">
-        <TabsList className="grid w-full grid-cols-8">
+        <TabsList className="grid w-full grid-cols-9">
           <TabsTrigger value="subscription" className="flex items-center gap-2">
             <CreditCardIcon className="w-4 h-4" />
             <span className="hidden sm:inline">Billing</span>
@@ -272,6 +278,10 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ onSessionsDeleted 
           <TabsTrigger value="privacy" className="flex items-center gap-2">
             <ShieldCheckIcon className="w-4 h-4" />
             <span className="hidden sm:inline">Privacy</span>
+          </TabsTrigger>
+          <TabsTrigger value="team" className="flex items-center gap-2">
+            <UsersIcon className="w-4 h-4" />
+            <span className="hidden sm:inline">Team</span>
           </TabsTrigger>
         </TabsList>
 
@@ -476,6 +486,11 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ onSessionsDeleted 
               </div>
             </div>
           </Card>
+        </TabsContent>
+
+        {/* Team Tab */}
+        <TabsContent value="team" className="space-y-4">
+          <TeamMembers />
         </TabsContent>
       </Tabs>
     </div>

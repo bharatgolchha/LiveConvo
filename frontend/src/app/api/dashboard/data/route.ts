@@ -90,11 +90,23 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    if (!userData?.current_organization_id || !userData?.has_completed_onboarding) {
+    // If user has an organization but onboarding flag is false, self-heal the flag and proceed
+    if (!userData?.current_organization_id) {
       return NextResponse.json(
         { error: 'Setup required', message: 'Please complete onboarding first' },
         { status: 400 }
       );
+    }
+    if (userData?.current_organization_id && userData?.has_completed_onboarding === false) {
+      try {
+        await serviceClient
+          .from('users')
+          .update({ has_completed_onboarding: true })
+          .eq('id', user.id);
+        userData.has_completed_onboarding = true as any;
+      } catch (e) {
+        console.warn('Failed to auto-set has_completed_onboarding, continuing anyway');
+      }
     }
 
     // Create authenticated client with user's token for RLS
@@ -109,7 +121,7 @@ export async function GET(request: NextRequest) {
       fetchUserStats(serviceClient, user.id, userData.current_organization_id),
       
       // 3. Fetch Subscription
-      fetchSubscription(authClient, serviceClient, user.id)
+      fetchSubscription(authClient, serviceClient, user.id, userData.current_organization_id)
     ]);
 
     // Process results
@@ -770,15 +782,32 @@ async function fetchUserStats(
 // Helper function to fetch subscription
 async function fetchSubscription(
   authClient: ReturnType<typeof createAuthenticatedSupabaseClient>,
-  _serviceClient: ReturnType<typeof createServerSupabaseClient>,
-  userId: string
+  serviceClient: ReturnType<typeof createServerSupabaseClient>,
+  userId: string,
+  organizationId: string
 ) {
-  // Get active subscription using the optimized view
-  const { data: subscriptionData, error: subscriptionError } = await authClient
-    .from('active_user_subscriptions')
-    .select('*')
-    .eq('user_id', userId)
-    .maybeSingle();
+  // For team members, prefer org subscription if present
+  let subscriptionData: any = null;
+  let subscriptionError: any = null;
+  try {
+    const { data: orgSub } = await serviceClient
+      .from('active_user_subscriptions')
+      .select('*')
+      .eq('organization_id', organizationId)
+      .maybeSingle();
+    if (orgSub) subscriptionData = orgSub;
+  } catch (e) {
+    subscriptionError = e;
+  }
+  if (!subscriptionData) {
+    const { data: userSub, error: userErr } = await authClient
+      .from('active_user_subscriptions')
+      .select('*')
+      .eq('user_id', userId)
+      .maybeSingle();
+    subscriptionData = userSub;
+    subscriptionError = subscriptionError || userErr;
+  }
 
   if (subscriptionError) {
     console.error('Error fetching subscription:', subscriptionError);

@@ -5,6 +5,13 @@
   - Wired into `frontend/src/components/meeting/conversation/AgendaTab.tsx`
   - Persists `order_index` via PATCH `/api/sessions/[id]/agenda/[itemId]` and refreshes list; Supabase Realtime also updates peers
 
+## 2025-08-14
+
+- Add: Team Plan docs and implementation checklist
+  - Created `team_plan.md` (architecture, flows, endpoints, Stripe sync, RLS, jobs, testing, rollout)
+  - Created `team_plan_checklist.md` (step-by-step execution)
+  - Next: implement RLS policies and server endpoints per docs
+
 ## [2025-08-09] Dashboard: Move search to subheader toolbar and add advanced filters
 
 - Status: In progress

@@ -95,15 +95,39 @@ function OnboardingContent() {
       }
       
       try {
+        // If user already has a current org, skip onboarding regardless of invite tokens
+        try {
+          const headers: HeadersInit = { 'Content-Type': 'application/json' };
+          if (session?.access_token) headers['Authorization'] = `Bearer ${session.access_token}`;
+          const resp = await fetch('/api/users/organization', { headers });
+          if (resp.ok) {
+            const data = await resp.json();
+            if (data.organization_id) {
+              router.push(redirectUrl);
+              return;
+            }
+          }
+        } catch {}
+
+        // If there is a pending invite and no current org yet, redirect to invite acceptance
+        try {
+          const token = typeof window !== 'undefined' ? localStorage.getItem('invite_token') : null
+          if (token) {
+            router.replace(`/invite/${token}`)
+            return
+          }
+        } catch {}
+
         const { data: userData, error } = await supabase
           .from('users')
-          .select('has_completed_onboarding')
+          .select('has_completed_onboarding,current_organization_id')
           .eq('id', user.id)
           .single();
         
-        if (!error && userData?.has_completed_onboarding) {
-          console.log('User already completed onboarding, redirecting...');
+        if (!error && (userData?.has_completed_onboarding || userData?.current_organization_id)) {
+          console.log('User already has org or completed onboarding, redirecting...');
           router.push(redirectUrl);
+          return;
         }
       } catch (error) {
         console.error('Error checking onboarding status:', error);

@@ -14,6 +14,28 @@ import { AuthLayout } from '@/components/auth/AuthLayout'
 import { GoogleAuthButton } from '@/components/auth/GoogleAuthButton'
 import { EmailAuthToggle, BackToGoogleButton } from '@/components/auth/EmailAuthToggle'
 
+function InviteBanner() {
+  if (typeof window === 'undefined') return null as any
+  try {
+    const token = localStorage.getItem('invite_token')
+    if (!token) return null as any
+  } catch { return null as any }
+  return (
+    <motion.div
+      initial={{ opacity: 0, height: 0 }}
+      animate={{ opacity: 1, height: 'auto' }}
+      className="mb-6"
+    >
+      <Alert className="border-blue-500/50 bg-blue-500/10">
+        <div className="flex items-center gap-2">
+          <span className="text-2xl">✉️</span>
+          <span className="text-blue-700 dark:text-blue-300">You're creating an account to join a team via invitation.</span>
+        </div>
+      </Alert>
+    </motion.div>
+  )
+}
+
 function SignUpPageContent() {
   const [fullName, setFullName] = useState('')
   const [email, setEmail] = useState('')
@@ -37,18 +59,25 @@ function SignUpPageContent() {
   }, [user, router])
 
   useEffect(() => {
-    // Check URL params for referral code
+    // Check URL params for referral code and invite token
     const refFromUrl = searchParams.get('ref')
+    const inviteToken = searchParams.get('inviteToken')
+    const emailFromUrl = searchParams.get('email')
+
     if (refFromUrl) {
       setReferralCode(refFromUrl)
-      // Store in localStorage for persistence
-      localStorage.setItem('ref_code', refFromUrl)
+      try { localStorage.setItem('ref_code', refFromUrl) } catch {}
     } else {
-      // Check localStorage for referral code
-      const storedRef = localStorage.getItem('ref_code')
-      if (storedRef) {
-        setReferralCode(storedRef)
-      }
+      const storedRef = typeof window !== 'undefined' ? localStorage.getItem('ref_code') : null
+      if (storedRef) setReferralCode(storedRef)
+    }
+
+    if (inviteToken) {
+      try { localStorage.setItem('invite_token', inviteToken) } catch {}
+    }
+
+    if (emailFromUrl) {
+      setEmail(emailFromUrl)
     }
   }, [searchParams])
 
@@ -78,6 +107,14 @@ function SignUpPageContent() {
     if (error) {
       setError(error.message)
     } else {
+      // If this signup was initiated from an invite, route back to invite acceptance
+      try {
+        const token = typeof window !== 'undefined' ? localStorage.getItem('invite_token') : null
+        if (token) {
+          router.push(`/invite/${token}`)
+          return
+        }
+      } catch {}
       router.push('/auth/login?message=Check your email to confirm your account')
     }
     
@@ -107,6 +144,9 @@ function SignUpPageContent() {
       title="Create your account"
       subtitle="Join the future of AI-powered conversations"
     >
+
+      {/* Invite CTA banner */}
+      <InviteBanner />
 
       {error && (
         <motion.div
