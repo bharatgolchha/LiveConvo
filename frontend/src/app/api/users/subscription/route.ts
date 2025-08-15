@@ -40,14 +40,106 @@ export async function GET(request: NextRequest) {
     console.log('🔍 Resolving active subscription (prefer org) for user:', user.id, 'org:', currentOrgId);
     let subscriptionData: any = null;
     let subscriptionError: any = null;
+    let billingType: string | null = null;
+    let userRole: string | null = null;
+    let teamInfo: any = null;
 
     if (currentOrgId) {
+      // First check if there's a team subscription for the organization
+      const { data: teamSub, error: teamSubErr } = await supabase
+        .from('subscriptions')
+        .select('billing_type, status, quantity, price_per_seat, plan_id')
+        .eq('organization_id', currentOrgId)
+        .in('status', ['active', 'trialing'])
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      
+      if (teamSub) {
+        billingType = teamSub.billing_type || 'team_seats'; // Default to team_seats for all paid plans
+        console.log('🎯 Found team subscription:', {
+          billingType: teamSub.billing_type,
+          status: teamSub.status,
+          quantity: teamSub.quantity,
+          pricePerSeat: teamSub.price_per_seat,
+          planId: teamSub.plan_id,
+          orgId: currentOrgId
+        });
+        
+        // Get member count for ALL paid plans (they're all team plans now)
+        if (teamSub.status === 'active' || teamSub.status === 'trialing') {
+          const { count: memberCount } = await supabase
+            .from('organization_members')
+            .select('*', { count: 'exact', head: true })
+            .eq('organization_id', currentOrgId)
+            .eq('status', 'active');
+          
+          // Get plan price and per-seat pricing
+          let perSeatCost = teamSub.price_per_seat;
+          let perSeatMonthly = null;
+          let perSeatYearly = null;
+          
+          if (teamSub.plan_id) {
+            const { data: planData } = await supabase
+              .from('plans')
+              .select('price_monthly, team_price_per_seat_monthly, team_price_per_seat_yearly')
+              .eq('id', teamSub.plan_id)
+              .single();
+            
+            // Use per-seat pricing if available, otherwise fall back to base price
+            if (planData) {
+              perSeatMonthly = planData.team_price_per_seat_monthly ? parseFloat(planData.team_price_per_seat_monthly) : null;
+              perSeatYearly = planData.team_price_per_seat_yearly ? parseFloat(planData.team_price_per_seat_yearly) : null;
+              
+              if (!perSeatCost) {
+                perSeatCost = perSeatMonthly || (planData.price_monthly ? parseFloat(planData.price_monthly) : 99);
+              }
+            }
+          }
+          
+          // Use actual member count instead of subscription quantity if they differ
+          const actualSeats = Math.max(teamSub.quantity || 1, memberCount || 1);
+          
+          teamInfo = {
+            memberCount: memberCount || 1,
+            perSeatCost: perSeatCost || 99,
+            perSeatMonthly: perSeatMonthly,
+            perSeatYearly: perSeatYearly,
+            totalCost: (perSeatCost || 99) * (memberCount || 1),
+            quantity: actualSeats
+          };
+          
+          console.log('👥 Team info:', teamInfo);
+        }
+      }
+
+      // Get user's role in the organization
+      const { data: memberData } = await supabase
+        .from('organization_members')
+        .select('role')
+        .eq('organization_id', currentOrgId)
+        .eq('user_id', user.id)
+        .eq('status', 'active')
+        .single();
+      
+      if (memberData) {
+        userRole = memberData.role;
+        console.log('👤 User role in organization:', userRole);
+      }
+
+      // Get subscription data from view
       const { data: orgSub, error: orgSubErr } = await supabase
         .from('active_user_subscriptions')
         .select('*')
         .eq('organization_id', currentOrgId)
         .maybeSingle();
-      if (orgSub) subscriptionData = orgSub;
+      if (orgSub) {
+        subscriptionData = orgSub;
+        // If we didn't get billingType from subscriptions table, check if it's a team plan
+        if (!billingType && (orgSub.plan_name?.includes('team') || orgSub.plan_display_name?.includes('Team'))) {
+          billingType = 'team_seats';
+        }
+      }
       subscriptionError = orgSubErr;
     }
 
@@ -67,7 +159,64 @@ export async function GET(request: NextRequest) {
       console.error('Error resolving active subscription:', subscriptionError);
     }
 
-    console.log('Subscription data resolved for user:', user.email, 'org:', currentOrgId, 'row exists:', !!subscriptionData);
+    console.log('🔍 Subscription data resolved:', {
+      email: user.email,
+      orgId: currentOrgId,
+      hasSubscriptionData: !!subscriptionData,
+      billingType: billingType,
+      userRole: userRole,
+      planName: subscriptionData?.plan_name,
+      planDisplayName: subscriptionData?.plan_display_name,
+      teamInfo: teamInfo
+    });
+    
+    // If we have subscription data but no team info yet, and it's a paid plan, fetch team info
+    if (subscriptionData && !teamInfo && subscriptionData.status === 'active' && 
+        subscriptionData.plan_name !== 'individual_free' && subscriptionData.plan_name !== 'free') {
+      
+      const orgId = subscriptionData.organization_id || currentOrgId;
+      if (orgId) {
+        // Get member count
+        const { count: memberCount } = await supabase
+          .from('organization_members')
+          .select('*', { count: 'exact', head: true })
+          .eq('organization_id', orgId)
+          .eq('status', 'active');
+        
+        // Get per-seat pricing from plan if available
+        let perSeatMonthly = null;
+        let perSeatYearly = null;
+        let perSeatCost = subscriptionData.price_monthly ? parseFloat(subscriptionData.price_monthly) : 99;
+        
+        if (subscriptionData.plan_id) {
+          const { data: planData } = await supabase
+            .from('plans')
+            .select('team_price_per_seat_monthly, team_price_per_seat_yearly')
+            .eq('id', subscriptionData.plan_id)
+            .single();
+          
+          if (planData) {
+            perSeatMonthly = planData.team_price_per_seat_monthly ? parseFloat(planData.team_price_per_seat_monthly) : null;
+            perSeatYearly = planData.team_price_per_seat_yearly ? parseFloat(planData.team_price_per_seat_yearly) : null;
+            perSeatCost = perSeatMonthly || perSeatCost;
+          }
+        }
+        
+        teamInfo = {
+          memberCount: memberCount || 1,
+          perSeatCost: perSeatCost,
+          perSeatMonthly: perSeatMonthly,
+          perSeatYearly: perSeatYearly,
+          totalCost: perSeatCost * (memberCount || 1),
+          quantity: memberCount || 1
+        };
+        
+        // Set billing type to team_seats for all paid plans
+        billingType = 'team_seats';
+        
+        console.log('👥 Team info (from active subscription):', teamInfo);
+      }
+    }
 
     // Plan data is already included in the view, no need to fetch separately
 
@@ -292,10 +441,15 @@ export async function GET(request: NextRequest) {
         name: subscriptionData.plan_name || 'individual_free',
         slug: subscriptionData.plan_name || 'individual_free',
         displayName: subscriptionData.plan_display_name || 'Free',
+        billingType: billingType || (subscriptionData.plan_display_name?.includes('Team') ? 'team_seats' : 'individual'),
+        userRole: userRole || null,
         pricing: {
-          monthly: subscriptionData.price_monthly ? parseFloat(subscriptionData.price_monthly) : null,
+          monthly: teamInfo ? teamInfo.totalCost : (subscriptionData.price_monthly ? parseFloat(subscriptionData.price_monthly) : null),
           yearly: subscriptionData.price_yearly ? parseFloat(subscriptionData.price_yearly) : null,
+          perSeatMonthly: teamInfo?.perSeatMonthly || undefined,
+          perSeatYearly: teamInfo?.perSeatYearly || undefined,
         },
+        teamInfo: teamInfo,
         features: {
           hasCustomTemplates: subscriptionData.has_custom_templates || false,
           hasRealTimeGuidance: subscriptionData.has_real_time_guidance || false,
@@ -330,7 +484,14 @@ export async function GET(request: NextRequest) {
     };
     
     console.log('API Response for user:', user.email);
-    console.log('Features being returned:', response.plan.features);
+    console.log('📤 Final response being sent:', {
+      planName: response.plan.name,
+      displayName: response.plan.displayName,
+      billingType: response.plan.billingType,
+      userRole: response.plan.userRole,
+      status: response.subscription.status,
+      teamInfo: response.plan.teamInfo
+    });
 
     return NextResponse.json(response, {
       headers: {

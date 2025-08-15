@@ -143,14 +143,14 @@ export const TeamMembers: React.FC = () => {
 
       <div className="overflow-hidden rounded-lg border border-border">
         <table className="w-full text-sm">
-          <thead className="bg-accent">
+          <thead className="bg-muted/50 border-b border-border">
             <tr>
-              <th className="text-left p-3">Name</th>
-              <th className="text-left p-3">Email</th>
-              <th className="text-left p-3">Role</th>
-              <th className="text-left p-3">Status</th>
-              <th className="text-left p-3">Usage (this month)</th>
-              <th className="text-right p-3">Actions</th>
+              <th className="text-left p-3 font-medium text-foreground">Name</th>
+              <th className="text-left p-3 font-medium text-foreground">Email</th>
+              <th className="text-left p-3 font-medium text-foreground">Role</th>
+              <th className="text-left p-3 font-medium text-foreground">Status</th>
+              <th className="text-left p-3 font-medium text-foreground">Usage (this month)</th>
+              <th className="text-right p-3 font-medium text-foreground">Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -187,15 +187,15 @@ export const TeamMembers: React.FC = () => {
       {/* Pending Invites */}
       {canManage && (
         <div className="overflow-hidden rounded-lg border border-border">
-          <div className="p-3 bg-accent font-medium">Pending Invitations</div>
+          <div className="p-3 bg-muted/50 font-medium text-foreground border-b border-border">Pending Invitations</div>
           <table className="w-full text-sm">
-            <thead className="bg-accent/50">
+            <thead className="bg-muted/30 border-b border-border">
               <tr>
-                <th className="text-left p-3">Email</th>
-                <th className="text-left p-3">Role</th>
-                <th className="text-left p-3">Status</th>
-                <th className="text-left p-3">Expires</th>
-                <th className="text-right p-3">Actions</th>
+                <th className="text-left p-3 font-medium text-foreground">Email</th>
+                <th className="text-left p-3 font-medium text-foreground">Role</th>
+                <th className="text-left p-3 font-medium text-foreground">Status</th>
+                <th className="text-left p-3 font-medium text-foreground">Expires</th>
+                <th className="text-right p-3 font-medium text-foreground">Actions</th>
               </tr>
             </thead>
             <tbody>

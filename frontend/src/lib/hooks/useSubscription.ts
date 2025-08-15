@@ -9,6 +9,8 @@ export interface SubscriptionData {
     pricing: {
       monthly: number | null;
       yearly: number | null;
+      perSeatMonthly?: number;
+      perSeatYearly?: number;
     };
     features?: {
       hasCustomTemplates: boolean;
@@ -190,11 +192,14 @@ export function useSubscription(): UseSubscriptionReturn {
   }, [session, authLoading, fetchSubscription]);
 
   // Derive plan type from subscription data
-  const planType: 'free' | 'pro' | 'team' = subscription?.plan.name === 'pro' 
-    ? 'pro' 
-    : subscription?.plan.name === 'team' 
-    ? 'team' 
-    : 'free';
+  const planType: 'free' | 'pro' | 'team' = (() => {
+    const planName = subscription?.plan.name;
+    if (!planName || planName === 'individual_free') return 'free';
+    if (planName === 'pro' || planName === 'starter' || planName === 'max') return 'pro';
+    if (planName === 'team') return 'team';
+    // Default to free for unknown plans
+    return 'free';
+  })();
   
   const isPro = planType === 'pro' || planType === 'team';
 

@@ -58,15 +58,38 @@ export async function POST(req: NextRequest) {
       .eq('id', user.id)
       .single();
 
+    // Use the user's current organization from users table
+    const organizationId = userData?.current_organization_id;
+    
+    if (!organizationId) {
+      console.error('User has no current organization:', {
+        userId: user.id,
+        email: user.email,
+        userData
+      });
+      return NextResponse.json(
+        { error: 'User must be part of an organization. Please complete your profile setup.' },
+        { status: 400 }
+      );
+    }
+
+    // Verify the user is a member of their current organization
     const { data: orgMember } = await supabase
       .from('organization_members')
-      .select('organization_id')
+      .select('organization_id, role, status')
       .eq('user_id', user.id)
+      .eq('organization_id', organizationId)
+      .eq('status', 'active')
       .single();
 
     if (!orgMember) {
+      console.error('User not an active member of their current organization:', {
+        userId: user.id,
+        email: user.email,
+        currentOrgId: organizationId
+      });
       return NextResponse.json(
-        { error: 'User must be part of an organization' },
+        { error: 'User membership in organization is not active. Please contact support.' },
         { status: 400 }
       );
     }
@@ -79,7 +102,7 @@ export async function POST(req: NextRequest) {
       .from('sessions')
       .insert({
         user_id: user.id,
-        organization_id: orgMember.organization_id,
+        organization_id: organizationId,
         title: data.title,
         conversation_type: data.type === 'custom' ? data.customType : data.type,
         status: 'active',
@@ -94,9 +117,17 @@ export async function POST(req: NextRequest) {
       .single();
 
     if (sessionError) {
-      console.error('Failed to create session:', sessionError);
+      console.error('Failed to create session:', {
+        error: sessionError,
+        code: sessionError.code,
+        message: sessionError.message,
+        details: sessionError.details,
+        hint: sessionError.hint,
+        user_id: user.id,
+        organization_id: organizationId
+      });
       return NextResponse.json(
-        { error: 'Failed to create session' },
+        { error: `Failed to create session: ${sessionError.message || 'Database error'}` },
         { status: 500 }
       );
     }
@@ -119,7 +150,7 @@ export async function POST(req: NextRequest) {
         .insert({
           session_id: session.id,
           user_id: user.id,
-          organization_id: orgMember.organization_id,
+          organization_id: organizationId,
           text_context: contextString,
           context_metadata: {
             meeting_agenda: contextString,
@@ -166,7 +197,7 @@ export async function POST(req: NextRequest) {
         .from('sessions')
         .select('id, title')
         .in('id', data.linkedConversationIds)
-        .eq('organization_id', orgMember.organization_id)
+        .eq('organization_id', organizationId)
         .is('deleted_at', null);
 
       if (linkedSessionsError) {

@@ -72,6 +72,14 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    // Check if user needs to complete onboarding
+    if (!userData?.has_completed_onboarding) {
+      return NextResponse.json(
+        { error: 'Setup required', message: 'Please complete onboarding first' },
+        { status: 400 }
+      );
+    }
+
     // Check if user is deactivated
     if (userData?.is_active === false) {
       console.log('User is deactivated:', user.email);
@@ -90,15 +98,13 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // If user has an organization but onboarding flag is false, self-heal the flag and proceed
+    // Check if user has an organization
     if (!userData?.current_organization_id) {
       return NextResponse.json(
         { error: 'Setup required', message: 'Please complete onboarding first' },
         { status: 400 }
       );
     }
-    // Removed auto-setting of has_completed_onboarding
-    // Users should complete onboarding explicitly, not based on having an organization
 
     // Create authenticated client with user's token for RLS
     const authClient = createAuthenticatedSupabaseClient(token);
@@ -724,11 +730,12 @@ async function fetchUserStats(
   minutesUsed = limitData.minutes_used;
   minutesRemaining = limitData.minutes_remaining;
 
-  // Get session statistics
+  // Get session statistics - filtered by user_id to show only user's own sessions
   const { data: sessionStats } = await serviceClient
     .from('sessions')
     .select('status, created_at')
     .eq('organization_id', organizationId)
+    .eq('user_id', userId)  // Only count sessions owned by this user
     .is('deleted_at', null);
 
   const sessions = sessionStats || [];

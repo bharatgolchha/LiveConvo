@@ -177,6 +177,14 @@ export function useDashboardData(): DashboardDataHookReturn {
           if (response.status === 401 && user) {
             setSessionExpiredMessage(errorData.message || 'Your session has expired. Please sign in again.');
           }
+          // Handle onboarding required error
+          if (response.status === 400 && errorData.error === 'Setup required') {
+            // Redirect to onboarding
+            if (typeof window !== 'undefined') {
+              window.location.href = '/onboarding';
+            }
+            throw new Error(errorData.message || 'Please complete onboarding first');
+          }
           // Handle deactivated account
           if (response.status === 403 && (errorData.is_deactivated || errorData.error === 'Account deactivated')) {
             throw new Error('Account deactivated');

@@ -575,10 +575,17 @@ const DashboardPage: React.FC = () => {
       });
 
       if (!response.ok) {
-        throw new Error('Failed to create meeting');
+        const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+        console.error('Meeting creation failed:', {
+          status: response.status,
+          statusText: response.statusText,
+          error: errorData
+        });
+        throw new Error(errorData.error || `Failed to create meeting: ${response.status} ${response.statusText}`);
       }
 
-      const { meeting } = await response.json();
+      const responseData = await response.json();
+      const meeting = responseData.meeting;
 
       if (meeting && typeof window !== 'undefined') {
         // If user opted to auto-join now and a meeting URL exists, fire join API in background
@@ -596,7 +603,10 @@ const DashboardPage: React.FC = () => {
       console.error('❌ Failed to create meeting:', error);
       setIsNavigating(false);
       setIsNewSession(false);
-      // TODO: Show error toast to user
+      
+      // Show error message to user
+      const errorMessage = error instanceof Error ? error.message : 'Failed to create meeting';
+      alert(`Error: ${errorMessage}\n\nPlease check the console for more details.`);
     }
   };
 
