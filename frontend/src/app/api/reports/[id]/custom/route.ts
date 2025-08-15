@@ -350,7 +350,7 @@ ${includeLinkedConversations ? `\nThis report includes linked conversations. Whe
 ${context}`
                 }
               ],
-              max_tokens: 3000,
+              max_tokens: 6000,
               temperature: 0.7,
               stream: true
             })

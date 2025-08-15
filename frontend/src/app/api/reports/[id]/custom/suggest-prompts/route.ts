@@ -163,7 +163,7 @@ Remember: Return ONLY the JSON object, no other text.`
           }
         ],
         temperature: 0.3,
-        max_tokens: 1000,
+        max_tokens: 2000,
         response_format: { type: "json_object" }
       })
     });

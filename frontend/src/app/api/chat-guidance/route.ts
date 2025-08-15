@@ -489,6 +489,35 @@ export async function POST(request: NextRequest) {
             console.log('📋 No agenda items found for session:', sessionId);
           }
 
+          // Fetch current session real-time summary to include in context
+          let realtimeSummarySection = '';
+          try {
+            const { data: currentSessionSummary, error: currentSummaryError } = await supabase
+              .from('sessions')
+              .select('realtime_summary_cache')
+              .eq('id', sessionId)
+              .single();
+            if (!currentSummaryError && currentSessionSummary?.realtime_summary_cache) {
+              const cache: any = currentSessionSummary.realtime_summary_cache;
+              const tldr: string | undefined = cache?.tldr || cache?.summary || undefined;
+              const keyPoints: string[] | undefined = cache?.keyPoints || cache?.key_points || undefined;
+              realtimeSummarySection = '\n\n🧠 REAL-TIME SUMMARY:\n';
+              if (tldr) realtimeSummarySection += `TLDR: ${tldr}\n`;
+              if (Array.isArray(keyPoints) && keyPoints.length > 0) {
+                realtimeSummarySection += 'Key Points:\n';
+                keyPoints.slice(0, 5).forEach((kp: string) => {
+                  realtimeSummarySection += `• ${kp}\n`;
+                });
+              }
+              console.log('🧠 Added real-time summary section to context:', {
+                hasTldr: !!tldr,
+                keyPointsCount: Array.isArray(keyPoints) ? keyPoints.length : 0,
+              });
+            }
+          } catch (e) {
+            console.error('❌ Error fetching real-time summary for session:', e);
+          }
+
           // 1. Fetch linked conversation IDs
           console.log('🔍 Chat Guidance Debug - Fetching linked conversation IDs...');
           const { data: linkedLinks, error: linksError } = await supabase
@@ -602,6 +631,11 @@ export async function POST(request: NextRequest) {
               // Prepend to the main context
               combinedContext = `${combinedContext}${previousMeetingsSummary}`;
               console.log('📝 Previous meetings summary preview:', previousMeetingsSummary.substring(0, 300) + '...');
+            }
+            // Add real-time summary to combined context (after previous meetings)
+            if (realtimeSummarySection) {
+              combinedContext = `${combinedContext}${realtimeSummarySection}`;
+              console.log('🧠 Real-time summary section added to combined context');
             }
           } else {
             console.log('⚠️ No linked conversation IDs found');
