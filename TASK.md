@@ -1,3 +1,10 @@
+## 2025-08-15
+
+- Fix: Smart Notes persistence and markdown rendering in meeting page
+  - Load existing notes via GET `/api/meeting/[id]/smart-notes` into context on mount (`useSmartNotes`)
+  - Persist manual notes to `smart_notes` table on add (optimistic UI, then insert via Supabase)
+  - Render notes content with `ReactMarkdown` + GFM and Tailwind `prose` for proper formatting
+
 ## 2025-08-13
 
 - Add: Drag and reorder agenda items in meeting Agenda tab

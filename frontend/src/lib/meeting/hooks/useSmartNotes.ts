@@ -9,6 +9,48 @@ export function useSmartNotes() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
 
+  // Load existing smart notes for this meeting
+  useEffect(() => {
+    const loadNotes = async () => {
+      if (!meeting?.id) return;
+
+      try {
+        const headers: HeadersInit = { 'Content-Type': 'application/json' };
+        if (session?.access_token) {
+          headers['Authorization'] = `Bearer ${session.access_token}`;
+        }
+
+        const response = await fetch(`/api/meeting/${meeting.id}/smart-notes`, {
+          method: 'GET',
+          headers
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to load smart notes');
+        }
+
+        const dbNotes: any[] = await response.json();
+
+        dbNotes.forEach((n: any) => {
+          const note: SmartNote = {
+            id: String(n.id),
+            category: n.category,
+            content: n.content,
+            importance: n.importance || 'medium',
+            timestamp: n.created_at || new Date().toISOString()
+          };
+          addSmartNote(note);
+        });
+      } catch (e: any) {
+        // Silently capture; generation can still work
+        console.error('[useSmartNotes] Failed to load existing notes:', e);
+      }
+    };
+
+    loadNotes();
+    // Only refetch when meeting changes or auth token changes
+  }, [meeting?.id, session?.access_token, addSmartNote]);
+
   const generateNotes = useCallback(async () => {
     if (!meeting?.id || transcript.length < 5) {
       setError(new Error('Not enough conversation to generate notes'));

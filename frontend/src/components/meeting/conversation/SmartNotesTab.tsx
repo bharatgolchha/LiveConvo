@@ -1,6 +1,9 @@
 import React, { useState } from 'react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useMeetingContext } from '@/lib/meeting/context/MeetingContext';
+import { supabase } from '@/lib/supabase';
 import { LoadingStates } from '../common/LoadingStates';
 import { useSmartNotes } from '@/lib/meeting/hooks/useSmartNotes';
 import { 
@@ -56,7 +59,7 @@ const categoryConfig = {
 };
 
 export function SmartNotesTab() {
-  const { smartNotes, addSmartNote, updateSmartNote, deleteSmartNote } = useMeetingContext();
+  const { meeting, smartNotes, addSmartNote, updateSmartNote, deleteSmartNote } = useMeetingContext();
   const { loading, error, generateNotes } = useSmartNotes();
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editText, setEditText] = useState('');
@@ -91,16 +94,53 @@ export function SmartNotesTab() {
     }
   };
 
-  const handleAddNote = () => {
+  const handleAddNote = async () => {
     if (newNote.content.trim()) {
-      const note: SmartNote = {
-        id: `manual-${Date.now()}`,
+      const tempId = `manual-${Date.now()}`;
+      const localNote: SmartNote = {
+        id: tempId,
         category: newNote.category,
         content: newNote.content.trim(),
         importance: 'medium',
         timestamp: new Date().toISOString()
       };
-      addSmartNote(note);
+      // Optimistic add
+      addSmartNote(localNote);
+
+      // Persist to DB
+      try {
+        if (!meeting?.id) throw new Error('Missing meeting id');
+
+        const { data: meetingData, error: meetingErr } = await supabase
+          .from('sessions')
+          .select('organization_id, user_id')
+          .eq('id', meeting.id)
+          .single();
+
+        if (meetingErr || !meetingData) throw meetingErr || new Error('Failed to load meeting');
+
+        const { data: inserted, error: insertError } = await supabase
+          .from('smart_notes')
+          .insert({
+            session_id: meeting.id,
+            user_id: meetingData.user_id,
+            organization_id: meetingData.organization_id,
+            category: localNote.category,
+            content: localNote.content,
+            importance: localNote.importance,
+            is_manual: true
+          })
+          .select('id')
+          .single();
+
+        if (!insertError && inserted?.id) {
+          // replace temp id with persisted id
+          updateSmartNote(tempId, { id: String(inserted.id) });
+        }
+      } catch (e) {
+        console.error('[SmartNotesTab] Failed to persist smart note:', e);
+      }
+
       setNewNote({ category: 'key_point', content: '' });
       setIsAdding(false);
     }
@@ -302,9 +342,11 @@ export function SmartNotesTab() {
                           </div>
                         </div>
                       ) : (
-                        <p className="text-sm text-foreground">
-                          {note.content}
-                        </p>
+                        <div className="prose prose-sm dark:prose-invert max-w-none text-foreground">
+                          <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                            {note.content}
+                          </ReactMarkdown>
+                        </div>
                       )}
                     </div>
                   </div>
