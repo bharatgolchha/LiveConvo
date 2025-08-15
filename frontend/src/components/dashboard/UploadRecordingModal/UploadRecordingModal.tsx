@@ -64,6 +64,13 @@ export function UploadRecordingModal({ isOpen, onClose, onCreated }: UploadRecor
 
   const speakerPalette = ['#22c55e','#3b82f6','#eab308','#f97316','#a855f7','#ef4444','#06b6d4','#84cc16'];
   const getSpeakerColor = (_spk: string, idx: number) => speakerPalette[idx % speakerPalette.length];
+  const getSpeakerInitials = (name: string) => {
+    const words = name.split(' ').filter(w => w.length > 0);
+    if (words.length === 0) return 'SP';
+    if (words.length === 1) return words[0].substring(0, 2).toUpperCase();
+    return (words[0][0] + words[words.length - 1][0]).toUpperCase();
+  };
+  const [highlightedSpeaker, setHighlightedSpeaker] = React.useState<string | null>(null);
 
   function mergeSpeakers(from: string, to: string) {
     if (!from || !to || from === to) return;
@@ -470,7 +477,7 @@ export function UploadRecordingModal({ isOpen, onClose, onCreated }: UploadRecor
   return (
     <div className="fixed inset-0 z-50">
       <div className="absolute inset-0 bg-black/50" onClick={() => { if (!loading && !(inputMode === 'record' && isRecordingAudio)) onClose(); }} />
-      <div className="absolute inset-x-0 top-10 mx-auto w-full max-w-2xl rounded-xl border border-border bg-card shadow-2xl overflow-hidden">
+      <div className="absolute inset-x-0 top-10 mx-auto w-full max-w-5xl rounded-xl border border-border bg-card shadow-2xl overflow-hidden">
         {/* Processing Overlay */}
         {loading && (
           <div className="absolute inset-0 z-20 bg-background/60 backdrop-blur-sm flex flex-col items-center justify-center">
@@ -491,26 +498,10 @@ export function UploadRecordingModal({ isOpen, onClose, onCreated }: UploadRecor
         </div>
 
         {/* Body */}
-        <div className={`p-5 space-y-4 max-h-[65vh] overflow-auto ${loading ? 'pointer-events-none aria-busy' : ''}`}>
+        <div className={`${step === 'speakers' ? '' : 'p-5 space-y-4'} max-h-[75vh] overflow-auto ${loading ? 'pointer-events-none aria-busy' : ''}`}>
           {step === 'upload' && (
-            <div className="space-y-4">
-              {/* Mode switch */}
-              <div className="inline-flex items-center rounded-lg border border-border bg-muted/30 p-0.5">
-                <button
-                  className={`px-3 py-1.5 text-sm rounded-md ${inputMode === 'upload' ? 'bg-card text-foreground shadow' : 'text-muted-foreground'}`}
-                  onClick={() => setInputMode('upload')}
-                  disabled={loading || isRecordingAudio}
-                >
-                  Upload
-                </button>
-                <button
-                  className={`px-3 py-1.5 text-sm rounded-md ${inputMode === 'record' ? 'bg-card text-foreground shadow' : 'text-muted-foreground'}`}
-                  onClick={() => setInputMode('record')}
-                  disabled={loading || isRecordingAudio}
-                >
-                  Record
-                </button>
-              </div>
+            <div className="p-5 space-y-4">
+              {/* Mode switch hidden */}
 
               {inputMode === 'upload' ? (
               <>
@@ -769,152 +760,275 @@ export function UploadRecordingModal({ isOpen, onClose, onCreated }: UploadRecor
           )}
 
           {step === 'transcribe' && (
-            <div className="text-sm text-muted-foreground flex items-center gap-2">
-              <svg className={`h-4 w-4 ${loading ? 'animate-spin text-primary' : 'text-muted-foreground'}`} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
-              </svg>
-              {loading ? (
-                uploadProgress > 0 ? `Uploading… ${uploadProgress}%` : 
-                recordedFile ? 'Converting to MP3 and processing transcription…' : 'Processing transcription…'
-              ) : 'Transcription complete.'}
+            <div className="p-5">
+              <div className="text-sm text-muted-foreground flex items-center gap-2">
+                <svg className={`h-4 w-4 ${loading ? 'animate-spin text-primary' : 'text-muted-foreground'}`} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
+                </svg>
+                {loading ? (
+                  uploadProgress > 0 ? `Uploading… ${uploadProgress}%` : 
+                  recordedFile ? 'Converting to MP3 and processing transcription…' : 'Processing transcription…'
+                ) : 'Transcription complete.'}
+              </div>
             </div>
           )}
 
           {step === 'speakers' && (
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div className="text-sm font-medium">Detected speakers ({uniqueSpeakers.length})</div>
-                {uniqueSpeakers.length === 2 && (
-                  <button
-                    className="text-xs px-2 py-1 rounded bg-muted hover:bg-muted/80"
-                    onClick={() => {
-                      const [a,b] = uniqueSpeakers;
-                      setSpeakerMap(prev => ({ ...prev, [a]: prev[b] || `Speaker 2`, [b]: prev[a] || `Speaker 1` }));
-                      setSegments(segments.map(seg => seg.speaker === a ? { ...seg, speaker: b } : seg.speaker === b ? { ...seg, speaker: a } : seg));
-                      if (youSpeaker === a) setYouSpeaker(b); else if (youSpeaker === b) setYouSpeaker(a);
-                    }}
-                  >Swap top two</button>
-                )}
-              </div>
-              <div className="flex items-center gap-2">
+            <div className="flex h-[calc(75vh-4rem)]">
+              {/* Left Column - Speaker Management */}
+              <div className="w-2/5 border-r border-border p-4 flex flex-col">
+                <div className="flex items-center justify-between mb-4">
+                  <div>
+                    <div className="text-sm font-semibold text-foreground">Speakers</div>
+                    <div className="text-xs text-muted-foreground mt-0.5">{uniqueSpeakers.length} detected</div>
+                  </div>
+                  {uniqueSpeakers.length === 2 && (
+                    <button
+                      className="text-xs px-2.5 py-1 rounded-md bg-muted hover:bg-muted/80 transition-colors"
+                      onClick={() => {
+                        const [a,b] = uniqueSpeakers;
+                        setSpeakerMap(prev => ({ ...prev, [a]: prev[b] || `Speaker 2`, [b]: prev[a] || `Speaker 1` }));
+                        setSegments(segments.map(seg => seg.speaker === a ? { ...seg, speaker: b } : seg.speaker === b ? { ...seg, speaker: a } : seg));
+                        if (youSpeaker === a) setYouSpeaker(b); else if (youSpeaker === b) setYouSpeaker(a);
+                      }}
+                    >Swap speakers</button>
+                  )}
+                </div>
+                
                 <input
-                  className="flex-1 rounded-md border border-border bg-background px-2 py-1 text-sm focus:outline-none"
-                  placeholder="Search speakers…"
+                  className="w-full rounded-md border border-border bg-background px-3 py-1.5 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/40 mb-3"
+                  placeholder="Search speakers..."
                   value={speakerSearch}
                   onChange={(e)=>setSpeakerSearch(e.target.value)}
                 />
-                <label className="flex items-center gap-2 text-xs text-muted-foreground">
-                  <input type="checkbox" checked={expandedTranscript} onChange={(e)=>setExpandedTranscript(e.target.checked)} />
-                  Show full transcript
-                </label>
-              </div>
 
-              {/* Speaker list */}
-              <div className="space-y-3 max-h-56 overflow-auto pr-1">
-                {uniqueSpeakers
-                  .filter(spk => (speakerMap[spk] || spk).toLowerCase().includes(speakerSearch.toLowerCase()))
-                  .map((spk, idx) => {
-                    const stats = speakerStats[spk] || { count: 0, duration: 0 };
-                    const color = getSpeakerColor(spk, idx);
-                    const display = speakerMap[spk] || `Speaker ${idx+1}`;
-                    return (
-                      <div key={spk} className="flex items-start gap-3 p-2 rounded-md border border-border bg-muted/20">
-                        <div className="w-6 h-6 rounded-full flex-shrink-0" style={{ backgroundColor: color }} />
-                        <div className="flex-1 min-w-0 space-y-1">
-                          <div className="flex items-center gap-2">
-                            <input
-                              className="flex-1 rounded-md border border-border bg-background px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
-                              value={display}
-                              onChange={(e)=> setSpeakerMap(prev => ({ ...prev, [spk]: e.target.value }))}
-                            />
-                            <select
-                              className="text-xs rounded-md border border-border bg-background px-1.5 py-1"
-                              onChange={(e)=> mergeSpeakers(spk, e.target.value)}
-                              defaultValue="__merge__"
+                {/* Speaker Cards */}
+                <div className="flex-1 overflow-y-auto pr-2 space-y-2">
+                  {uniqueSpeakers
+                    .filter(spk => (speakerMap[spk] || spk).toLowerCase().includes(speakerSearch.toLowerCase()))
+                    .map((spk, idx) => {
+                      const stats = speakerStats[spk] || { count: 0, duration: 0 };
+                      const color = getSpeakerColor(spk, idx);
+                      const display = speakerMap[spk] || `Speaker ${idx+1}`;
+                      const initials = getSpeakerInitials(display);
+                      const isHighlighted = highlightedSpeaker === spk;
+                      
+                      return (
+                        <div 
+                          key={spk} 
+                          className={`p-3 rounded-lg border transition-all cursor-pointer ${
+                            isHighlighted 
+                              ? 'border-primary bg-primary/5 shadow-sm' 
+                              : 'border-border bg-card hover:bg-muted/30'
+                          }`}
+                          onClick={() => setHighlightedSpeaker(isHighlighted ? null : spk)}
+                        >
+                          <div className="flex items-start gap-3">
+                            {/* Avatar */}
+                            <div 
+                              className="w-10 h-10 rounded-full flex items-center justify-center text-white font-medium text-sm flex-shrink-0"
+                              style={{ backgroundColor: color }}
                             >
-                              <option value="__merge__" disabled>Merge into…</option>
-                              {uniqueSpeakers.filter(o=>o!==spk).map(o => (
-                                <option key={o} value={o}>{speakerMap[o] || o}</option>
-                              ))}
-                            </select>
-                          </div>
-                          <div className="flex items-center justify-between text-xs text-muted-foreground">
-                            <div>{stats.count} segments • {(stats.duration).toFixed(1)}s</div>
-                            <div className="flex items-center gap-3">
-                              <label className="inline-flex items-center gap-1 cursor-pointer">
-                                <input
-                                  type="radio"
-                                  name="you-speaker"
-                                  checked={youSpeaker === spk}
-                                  onChange={()=> setYouSpeaker(spk)}
-                                /> You
-                              </label>
-                              <span className="text-muted-foreground/60">|</span>
-                              <span>Participant</span>
+                              {initials}
+                            </div>
+                            
+                            {/* Content */}
+                            <div className="flex-1 min-w-0">
+                              <input
+                                className="w-full rounded-md border border-border bg-background px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40 mb-2"
+                                value={display}
+                                onChange={(e)=> setSpeakerMap(prev => ({ ...prev, [spk]: e.target.value }))}
+                                onClick={(e) => e.stopPropagation()}
+                              />
+                              
+                              {/* Role Selection */}
+                              <div className="flex items-center gap-3 mb-2">
+                                <label className="inline-flex items-center gap-1.5 cursor-pointer text-xs">
+                                  <input
+                                    type="radio"
+                                    name="you-speaker"
+                                    checked={youSpeaker === spk}
+                                    onChange={()=> setYouSpeaker(spk)}
+                                    onClick={(e) => e.stopPropagation()}
+                                    className="text-primary"
+                                  />
+                                  <span className={youSpeaker === spk ? 'font-medium text-foreground' : 'text-muted-foreground'}>You</span>
+                                </label>
+                                <span className="text-muted-foreground/40">•</span>
+                                <span className="text-xs text-muted-foreground">
+                                  {youSpeaker !== spk ? 'Participant' : ''}
+                                </span>
+                              </div>
+                              
+                              {/* Stats */}
+                              <div className="flex items-center justify-between text-xs text-muted-foreground">
+                                <div className="flex items-center gap-3">
+                                  <span>{stats.count} segments</span>
+                                  <span>•</span>
+                                  <span>{Math.floor(stats.duration / 60)}m {Math.round(stats.duration % 60)}s</span>
+                                </div>
+                                <select
+                                  className="text-xs rounded border border-border bg-background px-1 py-0.5"
+                                  onChange={(e)=> mergeSpeakers(spk, e.target.value)}
+                                  onClick={(e) => e.stopPropagation()}
+                                  defaultValue="__merge__"
+                                >
+                                  <option value="__merge__" disabled>Merge</option>
+                                  {uniqueSpeakers.filter(o=>o!==spk).map(o => (
+                                    <option key={o} value={o}>{speakerMap[o] || o}</option>
+                                  ))}
+                                </select>
+                              </div>
+                              
+                              {/* Sample Text */}
+                              {stats.sample && (
+                                <div className="mt-2 text-xs text-muted-foreground line-clamp-2">
+                                  "{stats.sample}"
+                                </div>
+                              )}
                             </div>
                           </div>
-                          {stats.sample && (
-                            <div className="text-xs text-muted-foreground truncate">“{stats.sample}”</div>
-                          )}
+                        </div>
+                      );
+                    })}
+                </div>
+              </div>
+
+              {/* Right Column - Transcript Preview */}
+              <div className="flex-1 flex flex-col p-4">
+                <div className="flex items-center justify-between mb-3">
+                  <div>
+                    <div className="text-sm font-semibold text-foreground">Transcript Preview</div>
+                    <div className="text-xs text-muted-foreground mt-0.5">{segments.length} segments</div>
+                  </div>
+                  <label className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <input 
+                      type="checkbox" 
+                      checked={expandedTranscript} 
+                      onChange={(e)=>setExpandedTranscript(e.target.checked)} 
+                    />
+                    Show all
+                  </label>
+                </div>
+
+                {/* Transcript Content */}
+                <div className="flex-1 overflow-y-auto pr-2 space-y-2">
+                  {(expandedTranscript ? segments : segments.slice(0, 20)).map((s, i) => {
+                    const speakerIdx = uniqueSpeakers.indexOf(s.speaker);
+                    const color = getSpeakerColor(s.speaker, speakerIdx);
+                    const display = speakerMap[s.speaker] || s.speaker;
+                    const initials = getSpeakerInitials(display);
+                    const isHighlighted = highlightedSpeaker === s.speaker;
+                    
+                    return (
+                      <div 
+                        key={`${s.start}-${i}`} 
+                        className={`flex gap-3 p-3 rounded-lg transition-all ${
+                          isHighlighted 
+                            ? 'bg-primary/5 border border-primary/20' 
+                            : 'bg-muted/10 hover:bg-muted/20'
+                        }`}
+                      >
+                        {/* Speaker Avatar */}
+                        <div 
+                          className="w-8 h-8 rounded-full flex items-center justify-center text-white font-medium text-xs flex-shrink-0"
+                          style={{ backgroundColor: color }}
+                        >
+                          {initials}
+                        </div>
+                        
+                        {/* Transcript Text */}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="text-xs font-medium text-foreground">{display}</span>
+                            <span className="text-xs text-muted-foreground">
+                              {Math.floor((s.start ?? 0) / 60)}:{String(Math.round((s.start ?? 0) % 60)).padStart(2, '0')}
+                            </span>
+                            {s.confidence && s.confidence < 0.8 && (
+                              <span className="text-xs px-1.5 py-0.5 rounded bg-yellow-500/10 text-yellow-600">Low confidence</span>
+                            )}
+                          </div>
+                          <div className="text-sm text-foreground/90 leading-relaxed whitespace-pre-wrap">
+                            {s.text}
+                          </div>
                         </div>
                       </div>
                     );
                   })}
-              </div>
-
-              {/* Transcript preview */}
-              <div className="space-y-2">
-                {(expandedTranscript ? segments : segments.slice(0, 6)).map((s, i) => (
-                  <div key={`${s.start}-${i}`} className="rounded-md border border-border bg-muted/20 p-2">
-                    <div className="text-xs text-muted-foreground">
-                      <span className="font-mono mr-2">{speakerMap[s.speaker] || s.speaker}</span>
-                      {(s.start ?? 0).toFixed(2)}s → {(s.end ?? 0).toFixed(2)}s
+                  
+                  {!expandedTranscript && segments.length > 20 && (
+                    <div className="text-center py-3">
+                      <button 
+                        className="text-xs text-primary hover:underline" 
+                        onClick={()=> setExpandedTranscript(true)}
+                      >
+                        Show all {segments.length} segments
+                      </button>
                     </div>
-                    <div className="text-sm whitespace-pre-wrap">{s.text}</div>
-                  </div>
-                ))}
-                {!expandedTranscript && segments.length > 6 && (
-                  <button className="text-xs text-primary underline" onClick={()=> setExpandedTranscript(true)}>Show all {segments.length} lines</button>
-                )}
+                  )}
+                </div>
               </div>
             </div>
           )}
 
           {step === 'review' && (
-            <div className="space-y-3">
+            <div className="p-5 space-y-3">
               <div className="flex items-center gap-2">
                 <input
-                  className="flex-1 rounded-md border border-border bg-background px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
+                  className="flex-1 rounded-md border border-border bg-background px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
                   value={aiTitle}
                   onChange={(e) => setAiTitle(e.target.value)}
                   placeholder="Session title"
                 />
-                <button className="text-xs px-2 py-1 rounded-md bg-muted hover:bg-muted/80 disabled:opacity-50" onClick={handleGenerateTitle} disabled={loading}>Regenerate</button>
+                <button className="text-xs px-3 py-1.5 rounded-md bg-muted hover:bg-muted/80 disabled:opacity-50" onClick={handleGenerateTitle} disabled={loading}>Regenerate</button>
               </div>
               {precheck && precheck.allowed === false && (
-                <div className="text-xs text-destructive">
+                <div className="text-xs text-destructive bg-destructive/10 rounded-md px-3 py-2">
                   Out of minutes. Required {precheck.requiredMinutes} min, remaining {precheck.remainingMinutes ?? 0} min.
                 </div>
               )}
-              <div className="text-xs text-muted-foreground">Preview (first few lines)</div>
-              <div className="space-y-2">
-                {segments.slice(0, 5).map((s, i) => (
-                  <div key={`${s.start}-r-${i}`} className="rounded-md border border-border bg-muted/20 p-2">
-                    <div className="text-xs text-muted-foreground">
-                      <span className="font-mono mr-2">{speakerMap[s.speaker] || s.speaker}</span>
-                      {(s.start ?? 0).toFixed(2)}s → {(s.end ?? 0).toFixed(2)}s
-                    </div>
-                    <div className="text-sm whitespace-pre-wrap">{s.text}</div>
-                  </div>
-                ))}
+              <div>
+                <div className="text-xs text-muted-foreground mb-2">Preview (first few lines)</div>
+                <div className="space-y-2 max-h-96 overflow-y-auto pr-2">
+                  {segments.slice(0, 10).map((s, i) => {
+                    const speakerIdx = uniqueSpeakers.indexOf(s.speaker);
+                    const color = getSpeakerColor(s.speaker, speakerIdx);
+                    const display = speakerMap[s.speaker] || s.speaker;
+                    const initials = getSpeakerInitials(display);
+                    
+                    return (
+                      <div key={`${s.start}-r-${i}`} className="flex gap-3 p-3 rounded-lg bg-muted/10">
+                        <div 
+                          className="w-8 h-8 rounded-full flex items-center justify-center text-white font-medium text-xs flex-shrink-0"
+                          style={{ backgroundColor: color }}
+                        >
+                          {initials}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="text-xs font-medium text-foreground">{display}</span>
+                            <span className="text-xs text-muted-foreground">
+                              {Math.floor((s.start ?? 0) / 60)}:{String(Math.round((s.start ?? 0) % 60)).padStart(2, '0')}
+                            </span>
+                          </div>
+                          <div className="text-sm text-foreground/90 leading-relaxed whitespace-pre-wrap">
+                            {s.text}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
             </div>
           )}
 
           {error && (
-            <div className="text-sm text-destructive whitespace-pre-wrap max-h-48 overflow-auto">
-              {error}
+            <div className="mx-5 mb-4 p-3 rounded-md bg-destructive/10 border border-destructive/20">
+              <div className="text-sm text-destructive whitespace-pre-wrap max-h-48 overflow-auto">
+                {error}
+              </div>
             </div>
           )}
         </div>
