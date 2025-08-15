@@ -52,10 +52,10 @@ export async function POST(request: NextRequest) {
         .eq('user_id', authedUserId)
         .maybeSingle()
       if (inv.accepted_by_user_id === authedUserId && mem && mem.status === 'active') {
-        // Ensure user's current org and onboarding status are set
+        // Ensure user's current org is set (but don't mark onboarding complete - let them go through onboarding)
         await supabase
           .from('users')
-          .update({ current_organization_id: inv.organization_id, has_completed_onboarding: true })
+          .update({ current_organization_id: inv.organization_id })
           .eq('id', authedUserId)
         return NextResponse.json({ success: true, organization_id: inv.organization_id })
       }
@@ -100,10 +100,10 @@ export async function POST(request: NextRequest) {
       if (insErr) return error(500, 'Failed to create membership')
     }
 
-    // Ensure user's current organization points to the joined org and mark onboarding complete
+    // Ensure user's current organization points to the joined org (don't mark onboarding complete - let them go through onboarding)
     await supabase
       .from('users')
-      .update({ current_organization_id: inv.organization_id, has_completed_onboarding: true })
+      .update({ current_organization_id: inv.organization_id })
       .eq('id', authedUserId)
 
     // Mark invitation accepted
@@ -126,8 +126,16 @@ export async function POST(request: NextRequest) {
       try {
         const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', { apiVersion: '2025-05-28.basil' })
         const newQty = Math.max(1, ((subscription.quantity as number | null) ?? 0) + 1)
-        // Update items[0].quantity to satisfy Stripe typing
-        await stripe.subscriptions.update(subscription.stripe_subscription_id, { proration_behavior: 'create_prorations' })
+        
+        // Get the subscription to find the item ID
+        const stripeSubscription = await stripe.subscriptions.retrieve(subscription.stripe_subscription_id)
+        if (stripeSubscription.items.data.length > 0) {
+          // Update quantity on the subscription item
+          await stripe.subscriptionItems.update(
+            stripeSubscription.items.data[0].id,
+            { quantity: newQty, proration_behavior: 'create_prorations' }
+          )
+        }
         await supabase.from('subscriptions').update({ quantity: newQty }).eq('id', subscription.id)
         await supabase.from('team_billing_events').insert({
           organization_id: subscription.organization_id,

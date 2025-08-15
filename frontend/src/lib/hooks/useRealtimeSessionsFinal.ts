@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
-import { supabase } from '@/lib/supabase';
+import { getRealtimeClient } from '@/lib/supabase-realtime';
 import { useAuth } from '@/contexts/AuthContext';
 import type { Session } from './useSessions';
 import type { RealtimeChannel, RealtimePostgresChangesPayload } from '@supabase/supabase-js';
@@ -19,6 +19,7 @@ export function useRealtimeSessionsFinal({
   const channelRef = useRef<RealtimeChannel | null>(null);
   const isSubscribingRef = useRef(false);
   const userIdRef = useRef<string | null>(null);
+  const retryTimerRef = useRef<NodeJS.Timeout | null>(null);
   
   // Stable callback ref
   const onChangeRef = useRef(onChange);
@@ -42,6 +43,7 @@ export function useRealtimeSessionsFinal({
 
     const setupRealtime = async () => {
       try {
+        const supabase = getRealtimeClient();
         // Clean up any existing channel first
         if (channelRef.current) {
           console.log('🧹 Cleaning up existing channel');
@@ -98,6 +100,13 @@ export function useRealtimeSessionsFinal({
               console.error('❌ Final subscription failed:', status);
               setIsConnected(false);
               channelRef.current = null;
+              // Retry once after a brief delay (token refresh or network hiccup)
+              if (retryTimerRef.current) clearTimeout(retryTimerRef.current);
+              retryTimerRef.current = setTimeout(() => {
+                if (!mounted) return;
+                console.log('🔁 Retrying realtime subscription...');
+                setupRealtime();
+              }, 1000);
             } else if (status === 'CLOSED') {
               console.log('📪 Final subscription closed');
               setIsConnected(false);
@@ -119,7 +128,12 @@ export function useRealtimeSessionsFinal({
 
     return () => {
       mounted = false;
+      if (retryTimerRef.current) {
+        clearTimeout(retryTimerRef.current);
+        retryTimerRef.current = null;
+      }
       if (channelRef.current) {
+        const supabase = getRealtimeClient();
         console.log('🧹 Cleaning up final subscription');
         supabase.removeChannel(channelRef.current);
         channelRef.current = null;

@@ -13,12 +13,16 @@ interface WelcomeStepProps {
   };
   updateData: (data: any) => void;
   onNext: () => void;
+  isInvited?: boolean;
+  invitedOrgName?: string | null;
 }
 
 export const WelcomeStep: React.FC<WelcomeStepProps> = ({
   data,
   updateData,
-  onNext
+  onNext,
+  isInvited = false,
+  invitedOrgName
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [showAllTimezones, setShowAllTimezones] = useState(false);
@@ -72,31 +76,46 @@ export const WelcomeStep: React.FC<WelcomeStepProps> = ({
       </div>
 
       <div className="space-y-4">
-        <div className="space-y-2">
-          <label className="flex items-center text-sm font-medium text-foreground">
-            <Building2 className="w-4 h-4 mr-2 text-app-primary" />
-            Organization Name
-          </label>
-          <input
-            type="text"
-            value={data.organization_name}
-            onChange={(e) => updateData({ organization_name: e.target.value })}
-            placeholder="e.g. Acme Corp or John's Workspace"
-            className="w-full px-4 py-3 bg-background border border-border rounded-lg focus:ring-2 focus:ring-app-primary focus:border-app-primary transition-all duration-200 text-foreground placeholder:text-muted-foreground"
-          />
-          <div className="flex items-center justify-between">
+        {isInvited ? (
+          <div className="space-y-2">
+            <label className="flex items-center text-sm font-medium text-foreground">
+              <Building2 className="w-4 h-4 mr-2 text-app-primary" />
+              Team
+            </label>
+            <div className="w-full px-4 py-3 bg-muted/30 border border-border rounded-lg text-foreground">
+              {invitedOrgName || 'Invited Team'}
+            </div>
             <p className="text-xs text-muted-foreground">
-              We’ll use a smart default. You can rename it anytime.
+              You were invited to join this team. Organization settings are managed by your admin.
             </p>
-            <button
-              type="button"
-              onClick={() => onNext()}
-              className="text-xs text-app-primary hover:underline"
-            >
-              Use default and continue
-            </button>
           </div>
-        </div>
+        ) : (
+          <div className="space-y-2">
+            <label className="flex items-center text-sm font-medium text-foreground">
+              <Building2 className="w-4 h-4 mr-2 text-app-primary" />
+              Organization Name
+            </label>
+            <input
+              type="text"
+              value={data.organization_name}
+              onChange={(e) => updateData({ organization_name: e.target.value })}
+              placeholder="e.g. Acme Corp or John's Workspace"
+              className="w-full px-4 py-3 bg-background border border-border rounded-lg focus:ring-2 focus:ring-app-primary focus:border-app-primary transition-all duration-200 text-foreground placeholder:text-muted-foreground"
+            />
+            <div className="flex items-center justify-between">
+              <p className="text-xs text-muted-foreground">
+                We’ll use a smart default. You can rename it anytime.
+              </p>
+              <button
+                type="button"
+                onClick={() => onNext()}
+                className="text-xs text-app-primary hover:underline"
+              >
+                Use default and continue
+              </button>
+            </div>
+          </div>
+        )}
 
         <div className="space-y-2">
           <label className="flex items-center text-sm font-medium text-foreground">

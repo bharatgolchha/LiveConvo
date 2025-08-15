@@ -37,10 +37,21 @@ export const TeamMembers: React.FC = () => {
       const data = await res.json();
       if (res.ok) setMembers(data.members || []);
       else console.error('Failed to load members', data);
-      // also load invites if admin
-      const invRes = await fetch('/api/team/invitations', { headers });
-      const invData = await invRes.json();
-      if (invRes.ok) setInvites(invData.invitations || []);
+      // Load invites only if current user is owner/admin
+      try {
+        const me = (data.members || []).find((m: any) => m.user?.id && m.user.id === (session as any)?.user?.id);
+        const isAdmin = !!me && (me.role === 'owner' || me.role === 'admin');
+        if (isAdmin) {
+          const invRes = await fetch('/api/team/invitations', { headers });
+          const invData = await invRes.json();
+          if (invRes.ok) setInvites(invData.invitations || []);
+        } else {
+          setInvites([]);
+        }
+      } catch (e) {
+        // Swallow invite fetch errors to avoid blocking members
+        console.warn('Invites fetch skipped/failed', e);
+      }
     } catch (e) {
       console.error(e);
     } finally {

@@ -128,7 +128,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Only use defaults if we truly have no data
-    const limitData = limits && limits.length > 0 
+    let limitData = limits && limits.length > 0 
       ? limits[0]
       : {
           can_record: true,
@@ -197,7 +197,21 @@ export async function GET(request: NextRequest) {
     ).length;
 
     // Handle unlimited plans (when limit is null or is_unlimited flag is true)
-    const isUnlimited = limitData.is_unlimited === true || limitData.minutes_limit === null || limitData.minutes_limit >= 999999;
+    let isUnlimited = limitData.is_unlimited === true || limitData.minutes_limit === null || limitData.minutes_limit >= 999999;
+
+    // Override with plan metadata: if org plan has null limits, treat as unlimited regardless of function output
+    try {
+      const { data: subscriptionData } = await serviceClient
+        .from('active_user_subscriptions')
+        .select('plan_audio_hours_limit, plan_bot_minutes_limit')
+        .eq('organization_id', userData.current_organization_id)
+        .maybeSingle();
+      const planUnlimited = !!subscriptionData && (subscriptionData.plan_audio_hours_limit === null || subscriptionData.plan_bot_minutes_limit === null);
+      if (planUnlimited) {
+        isUnlimited = true;
+        limitData = { ...limitData, minutes_limit: null, minutes_remaining: null } as any;
+      }
+    } catch {}
     
     // Convert hours limit to minutes for consistency
     const monthlyMinutesLimit = isUnlimited ? null : limitData.minutes_limit;

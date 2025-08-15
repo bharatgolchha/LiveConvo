@@ -35,6 +35,8 @@ export interface SubscriptionData {
     limitAudioHours: number | null;
     currentSessions: number;
     limitSessions: number | null;
+    currentBotMinutes?: number;
+    limitBotMinutes?: number | null;
   };
 }
 
@@ -140,8 +142,13 @@ export function useSubscription(): UseSubscriptionReturn {
         const data: SubscriptionData = await response.json();
         console.log('useSubscription - Fetched data:', data);
 
+        // If the server reports Pro/Team plan with concrete limits, force recalc by setting timestamp 0
+        const isTeamOrPro = data?.plan?.name === 'team' || data?.plan?.name === 'pro';
+        const hasAnyLimit = data?.usage?.limitAudioHours != null;
+        const ts = isTeamOrPro && hasAnyLimit ? 0 : Date.now();
+
         // Cache and return
-        subscriptionCache.set(userId, { data, timestamp: Date.now() });
+        subscriptionCache.set(userId, { data, timestamp: ts });
         return data;
       });
 

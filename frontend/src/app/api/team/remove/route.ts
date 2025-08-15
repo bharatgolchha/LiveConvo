@@ -66,7 +66,16 @@ export async function POST(request: NextRequest) {
       try {
         const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', { apiVersion: '2025-05-28.basil' })
         const newQty = Math.max(1, Math.max(0, (sub.quantity ?? 1) - 1))
-        await stripe.subscriptions.update(sub.stripe_subscription_id, { quantity: newQty, proration_behavior: 'create_prorations' })
+        
+        // Get the subscription to find the item ID
+        const stripeSubscription = await stripe.subscriptions.retrieve(sub.stripe_subscription_id)
+        if (stripeSubscription.items.data.length > 0) {
+          // Update quantity on the subscription item
+          await stripe.subscriptionItems.update(
+            stripeSubscription.items.data[0].id,
+            { quantity: newQty, proration_behavior: 'create_prorations' }
+          )
+        }
         await supabase.from('subscriptions').update({ quantity: newQty }).eq('id', sub.id)
         await supabase.from('team_billing_events').insert({
           organization_id: sub.organization_id,

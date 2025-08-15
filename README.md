@@ -1,3 +1,16 @@
+## Organization Model Is Mandatory
+
+Every user MUST belong to an organization. The application assumes an org context everywhere (usage, billing, RLS, sharing). To enforce this:
+
+- On user creation, we auto-create a personal workspace organization and set `users.current_organization_id`.
+- A membership record is created with role `owner` and status `active`.
+- Invitation acceptance assigns the user to the inviter’s organization and updates `current_organization_id`.
+
+Implications:
+- All APIs and UI flows operate in the scope of `current_organization_id`.
+- Onboarding may be skipped if an org is already set.
+- Team members inherit plan/limits from their organization subscription.
+
 # liveprompt.ai - AI-Powered Real-Time Conversation Coach
 
 liveprompt.ai is an advanced AI conversation coaching platform that provides real-time guidance during live conversations. Whether you're in a sales call, interview, support session, or meeting, liveprompt.ai helps you communicate more effectively with AI-powered suggestions and analysis.

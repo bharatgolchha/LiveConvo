@@ -14,27 +14,7 @@ import { AuthLayout } from '@/components/auth/AuthLayout'
 import { GoogleAuthButton } from '@/components/auth/GoogleAuthButton'
 import { EmailAuthToggle, BackToGoogleButton } from '@/components/auth/EmailAuthToggle'
 
-function InviteBanner() {
-  if (typeof window === 'undefined') return null as any
-  try {
-    const token = localStorage.getItem('invite_token')
-    if (!token) return null as any
-  } catch { return null as any }
-  return (
-    <motion.div
-      initial={{ opacity: 0, height: 0 }}
-      animate={{ opacity: 1, height: 'auto' }}
-      className="mb-6"
-    >
-      <Alert className="border-blue-500/50 bg-blue-500/10">
-        <div className="flex items-center gap-2">
-          <span className="text-2xl">✉️</span>
-          <span className="text-blue-700 dark:text-blue-300">You're creating an account to join a team via invitation.</span>
-        </div>
-      </Alert>
-    </motion.div>
-  )
-}
+// Removed invite banner to keep signup generic and simple per product decision
 
 function SignUpPageContent() {
   const [fullName, setFullName] = useState('')
@@ -61,7 +41,6 @@ function SignUpPageContent() {
   useEffect(() => {
     // Check URL params for referral code and invite token
     const refFromUrl = searchParams.get('ref')
-    const inviteToken = searchParams.get('inviteToken')
     const emailFromUrl = searchParams.get('email')
 
     if (refFromUrl) {
@@ -72,9 +51,7 @@ function SignUpPageContent() {
       if (storedRef) setReferralCode(storedRef)
     }
 
-    if (inviteToken) {
-      try { localStorage.setItem('invite_token', inviteToken) } catch {}
-    }
+    // No invite handling on signup; onboarding will detect invites by email if relevant
 
     if (emailFromUrl) {
       setEmail(emailFromUrl)
@@ -107,14 +84,9 @@ function SignUpPageContent() {
     if (error) {
       setError(error.message)
     } else {
-      // If this signup was initiated from an invite, route back to invite acceptance
-      try {
-        const token = typeof window !== 'undefined' ? localStorage.getItem('invite_token') : null
-        if (token) {
-          router.push(`/invite/${token}`)
-          return
-        }
-      } catch {}
+      // Always direct to login with verification message after email signup
+      // Clear any stale invite token to avoid redirect loops back to signup
+      try { if (typeof window !== 'undefined') localStorage.removeItem('invite_token') } catch {}
       router.push('/auth/login?message=Check your email to confirm your account')
     }
     
@@ -145,8 +117,7 @@ function SignUpPageContent() {
       subtitle="Join the future of AI-powered conversations"
     >
 
-      {/* Invite CTA banner */}
-      <InviteBanner />
+      {/* Signup remains clean; invites are handled during onboarding */}
 
       {error && (
         <motion.div

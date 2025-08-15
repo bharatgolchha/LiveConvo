@@ -48,6 +48,11 @@
   - Subscriptions: read for org admins; writes through service role or server-side only.
 - Keep strict policies on `organization_members` and `organizations`.
 
+#### Mandatory Organization Association
+- Every user must have `users.current_organization_id` set at all times
+- On user insert, auto-create a personal workspace org and `organization_members` row (role `owner`, status `active`)
+- On invite acceptance, set `current_organization_id` to inviter’s org and create/activate membership
+
 #### Minimal DDL (to implement)
 - RLS: enable + policies for `organization_invitations`, `subscriptions`.
 - Constraints: `UNIQUE(organization_id, user_id)` on `organization_members`.

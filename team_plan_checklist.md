@@ -15,6 +15,7 @@
   - [x] Writes only via service role (server)
 - [x] Add constraint: UNIQUE(organization_id, user_id) on `organization_members`
 - [x] Add indexes: invites(email), org_members(organization_id,status), subscriptions(organization_id)
+- [x] Enforce mandatory org association for users (DB trigger to auto-create org + membership on user insert)
 
 #### Backend Endpoints
 - [x] POST `/api/team/invitations` (create invite)

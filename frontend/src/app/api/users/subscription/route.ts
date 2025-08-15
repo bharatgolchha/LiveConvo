@@ -194,9 +194,9 @@ export async function GET(request: NextRequest) {
     
     const limitRow = Array.isArray(limitResult) ? limitResult[0] : limitResult;
     let minutesUsed = limitRow?.minutes_used ?? 0;
-    const minutesLimitRaw = limitRow?.minutes_limit ?? null;
+    let minutesLimitRaw = limitRow?.minutes_limit ?? null;
     // Treat very large limits as unlimited (e.g., 999999)
-    const minutesLimit = minutesLimitRaw && minutesLimitRaw >= 999999 ? null : minutesLimitRaw;
+    let minutesLimit = minutesLimitRaw && minutesLimitRaw >= 999999 ? null : minutesLimitRaw;
     let minutesRemaining = limitRow?.minutes_remaining ?? (minutesLimit ? Math.max(minutesLimit - minutesUsed, 0) : null);
     
     // If subscription is active and started mid-month, recalc usage from that start date to ensure we don't include pre-subscription minutes
@@ -227,9 +227,26 @@ export async function GET(request: NextRequest) {
       }
     }
     
+    // If plan is unlimited at org-level, override to unlimited regardless of function output
+    const planUnlimited = (subscriptionData.plan_bot_minutes_limit == null) || (subscriptionData.plan_audio_hours_limit == null);
+    if (planUnlimited) {
+      minutesLimit = null;
+      minutesRemaining = null;
+    }
+
+    // If the plan specifies a concrete minutes limit, prefer it over the function output
+    // Reason: check_usage_limit_v2 may return a conservative default (e.g., 60) before org context fully propagates
+    if (subscriptionData.plan_bot_minutes_limit != null) {
+      minutesLimit = parseInt(String(subscriptionData.plan_bot_minutes_limit), 10);
+      minutesRemaining = minutesLimit != null ? Math.max(minutesLimit - (minutesUsed || 0), 0) : null;
+    }
+
     // Convert to hours for the settings page component
     const totalAudioHours = Math.round((minutesUsed / 60) * 100) / 100; // 2-decimal precision
-    const limitAudioHours = minutesLimit === null ? null : Math.round((minutesLimit / 60) * 100) / 100;
+    // Prefer plan's audio hours limit if present; else derive from minutesLimit
+    const limitAudioHours = subscriptionData.plan_audio_hours_limit != null
+      ? parseFloat(String(subscriptionData.plan_audio_hours_limit))
+      : (minutesLimit === null ? null : Math.round((minutesLimit / 60) * 100) / 100);
     
     console.log('📊 Usage after check_usage_limit_v2:', {
       minutesUsed,

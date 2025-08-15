@@ -46,6 +46,8 @@ function OnboardingContent() {
     return 1;
   });
   const [checkingStatus, setCheckingStatus] = useState(true);
+  const [isInvited, setIsInvited] = useState<boolean>(false);
+  const [invitedOrgName, setInvitedOrgName] = useState<string | null>(null);
   const [onboardingData, setOnboardingData] = useState<OnboardingData>(() => {
     // Try to restore from sessionStorage
     if (typeof window !== 'undefined') {
@@ -73,7 +75,7 @@ function OnboardingContent() {
     };
   });
 
-  const totalSteps = 4;
+  const totalSteps = isInvited ? 3 : 4;
   // Default redirect after onboarding completion
   const redirectUrl = searchParams.get('redirect') || '/dashboard';
   const stepParam = searchParams.get('step');
@@ -84,6 +86,16 @@ function OnboardingContent() {
   const [prefetchedPriceId, setPrefetchedPriceId] = useState<string | null>(null);
   const [prefetchedTrialDays, setPrefetchedTrialDays] = useState<number | null>(null);
   const [prefetchingTrialData, setPrefetchingTrialData] = useState<boolean>(false);
+  
+  // Clamp step if invited (no payment step)
+  useEffect(() => {
+    if (isInvited && currentStep > 3) {
+      setCurrentStep(3);
+      if (typeof window !== 'undefined') {
+        sessionStorage.setItem('onboardingStep', '3');
+      }
+    }
+  }, [isInvited, currentStep]);
 
   useEffect(() => {
     // Check if user has already completed onboarding
@@ -95,40 +107,61 @@ function OnboardingContent() {
       }
       
       try {
-        // If user already has a current org, skip onboarding regardless of invite tokens
+        // Check if user has a pending invite by email and reflect UI immediately
         try {
-          const headers: HeadersInit = { 'Content-Type': 'application/json' };
-          if (session?.access_token) headers['Authorization'] = `Bearer ${session.access_token}`;
-          const resp = await fetch('/api/users/organization', { headers });
-          if (resp.ok) {
-            const data = await resp.json();
-            if (data.organization_id) {
-              router.push(redirectUrl);
-              return;
+          if (session?.access_token) {
+            const res = await fetch('/api/team/invitations/resolve-by-email', {
+              headers: { 'Authorization': `Bearer ${session.access_token}` }
+            })
+            if (res.ok) {
+              const info = await res.json().catch(() => ({}))
+              if (info?.invited) {
+                setIsInvited(true)
+                if (info?.organization_name) setInvitedOrgName(info.organization_name)
+              }
             }
           }
         } catch {}
 
-        // If there is a pending invite and no current org yet, redirect to invite acceptance
+        // Then attempt auto-accept by email (idempotent)
+        let invited = false
+        let invitedName: string | null = null
         try {
-          const token = typeof window !== 'undefined' ? localStorage.getItem('invite_token') : null
-          if (token) {
-            router.replace(`/invite/${token}`)
-            return
+          if (session?.access_token) {
+            const resp = await fetch('/api/team/accept/by-email', {
+              method: 'POST',
+              headers: { 'Authorization': `Bearer ${session.access_token}` }
+            })
+            if (resp.ok) {
+              const data = await resp.json().catch(() => ({}))
+              if (data?.success && data?.invited) {
+                invited = true
+                invitedName = (data?.organization_name as string | undefined) || null
+              }
+            }
           }
         } catch {}
 
+        // Check current onboarding status
         const { data: userData, error } = await supabase
           .from('users')
           .select('has_completed_onboarding,current_organization_id')
           .eq('id', user.id)
           .single();
-        
-        if (!error && (userData?.has_completed_onboarding || userData?.current_organization_id)) {
-          console.log('User already has org or completed onboarding, redirecting...');
+
+        // Only redirect if onboarding is actually completed
+        if (!error && userData?.has_completed_onboarding) {
           router.push(redirectUrl);
           return;
         }
+
+        // If the by-email acceptance succeeded during this run, reflect invited state
+        if (invited) {
+          setIsInvited(true)
+          if (invitedName) setInvitedOrgName(invitedName)
+        }
+
+        // Do not auto-redirect on current_organization_id alone; invited users should still see onboarding steps
       } catch (error) {
         console.error('Error checking onboarding status:', error);
       } finally {
@@ -138,6 +171,8 @@ function OnboardingContent() {
 
     checkOnboardingStatus();
   }, [user, session, router, redirectUrl]);
+
+  
 
   // Prefetch trial eligibility and pricing as soon as possible
   useEffect(() => {
@@ -279,14 +314,23 @@ function OnboardingContent() {
       }
 
       console.log('📝 User has not completed onboarding, proceeding with onboarding...');
-      
-      // If not onboarded, complete the onboarding process
-      const result = await completeOnboarding({
-        organization_name: onboardingData.organization_name,
-        timezone: onboardingData.timezone,
-        use_case: onboardingData.use_case,
-        acquisition_source: onboardingData.acquisition_source
-      });
+
+      let result: any = null;
+      if (isInvited) {
+        // Invited users already have an org set; mark onboarding complete and save preferences only
+        await supabase
+          .from('users')
+          .update({ has_completed_onboarding: true })
+          .eq('id', user.id);
+      } else {
+        // If not invited, complete org creation flow
+        result = await completeOnboarding({
+          organization_name: onboardingData.organization_name,
+          timezone: onboardingData.timezone,
+          use_case: onboardingData.use_case,
+          acquisition_source: onboardingData.acquisition_source
+        });
+      }
       
       console.log('✅ Onboarding completed successfully:', result);
       try { trackEvent('onboarding_completed', 'onboarding'); } catch {}
@@ -353,6 +397,8 @@ function OnboardingContent() {
             data={onboardingData}
             updateData={updateData}
             onNext={handleNext}
+            isInvited={isInvited}
+            invitedOrgName={invitedOrgName}
           />
         );
       case 2:
@@ -369,9 +415,10 @@ function OnboardingContent() {
           <CalendarStep
             data={onboardingData}
             updateData={updateData}
+            onComplete={handleComplete}
             onNext={handleNext}
             onBack={handleBack}
-            isLastStep={false}
+            isLastStep={isInvited}
           />
         );
       case 4:
@@ -433,6 +480,13 @@ function OnboardingContent() {
             exit={{ opacity: 0, x: -20 }}
             transition={{ duration: 0.3 }}
           >
+            {isInvited && (
+              <div className="px-8 pt-6">
+                <div className="mb-4 rounded-lg border border-app-success/30 bg-app-success/10 p-3 text-sm text-app-success">
+                  You were invited{invitedOrgName ? ` to join ${invitedOrgName}` : ''}. Payment is managed by your team, so we’ll skip the upgrade step.
+                </div>
+              </div>
+            )}
             {renderStep()}
           </motion.div>
         </AnimatePresence>

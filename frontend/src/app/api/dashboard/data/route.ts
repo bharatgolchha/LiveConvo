@@ -97,17 +97,8 @@ export async function GET(request: NextRequest) {
         { status: 400 }
       );
     }
-    if (userData?.current_organization_id && userData?.has_completed_onboarding === false) {
-      try {
-        await serviceClient
-          .from('users')
-          .update({ has_completed_onboarding: true })
-          .eq('id', user.id);
-        userData.has_completed_onboarding = true as any;
-      } catch (e) {
-        console.warn('Failed to auto-set has_completed_onboarding, continuing anyway');
-      }
-    }
+    // Removed auto-setting of has_completed_onboarding
+    // Users should complete onboarding explicitly, not based on having an organization
 
     // Create authenticated client with user's token for RLS
     const authClient = createAuthenticatedSupabaseClient(token);
@@ -690,10 +681,24 @@ async function fetchUserStats(
   // Fallback values if function fails
   let minutesUsed = limitRow?.minutes_used ?? 0;
   // Check if plan is unlimited - check both is_unlimited flag and null limit
-  const isUnlimited = limitRow?.is_unlimited === true || limitRow?.minutes_limit === null;
+  let isUnlimited = limitRow?.is_unlimited === true || limitRow?.minutes_limit === null;
   // For unlimited plans, set limit to null, otherwise use the value from DB
-  const minutesLimit = isUnlimited ? null : (limitRow?.minutes_limit ?? 60);
+  let minutesLimit = isUnlimited ? null : (limitRow?.minutes_limit ?? 60);
   let minutesRemaining = isUnlimited ? null : (limitRow?.minutes_remaining ?? Math.max(0, (minutesLimit || 60) - minutesUsed));
+
+  // Override with org subscription metadata: if plan limits are null, treat as unlimited regardless of function output
+  try {
+    const { data: planRow } = await serviceClient
+      .from('active_user_subscriptions')
+      .select('plan_audio_hours_limit, plan_bot_minutes_limit')
+      .eq('organization_id', organizationId)
+      .maybeSingle();
+    if (planRow && (planRow.plan_audio_hours_limit === null || planRow.plan_bot_minutes_limit === null)) {
+      isUnlimited = true;
+      minutesLimit = null;
+      minutesRemaining = null;
+    }
+  } catch {}
   const percentageUsed = isUnlimited ? 0 : (limitRow?.percentage_used ?? (minutesLimit ? Math.round((minutesUsed / minutesLimit) * 100) : 0));
 
   const bot_minutes_used = limitRow?.minutes_used ?? 0;

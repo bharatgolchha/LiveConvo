@@ -9,6 +9,7 @@ import {
 } from '@heroicons/react/24/outline';
 import { Crown, Gift, BookOpen } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import { useSubscription } from '@/lib/hooks/useSubscription';
 
 export interface UsageStats {
   monthlyAudioHours: number;
@@ -67,13 +68,6 @@ const DashboardSidebar: React.FC<DashboardSidebarProps> = ({ usageStats, activeP
     return { archivedCount: archived, activeCount: active };
   }, [usageStats]);
 
-  // Format minutes to a human-friendly string
-  const formatMinutes = (minutes: number): string => {
-    if (minutes < 60) return `${minutes} min`;
-    const hours = Math.floor(minutes / 60);
-    const mins = minutes % 60;
-    return mins === 0 ? `${hours} hr${hours !== 1 ? 's' : ''}` : `${hours} hr${hours !== 1 ? 's' : ''} ${mins} min`;
-  };
 
   const navItems = [
     { path: 'conversations', label: 'Meetings', icon: MicrophoneIcon, count: activeCount },
@@ -83,17 +77,14 @@ const DashboardSidebar: React.FC<DashboardSidebarProps> = ({ usageStats, activeP
     { path: 'settings', label: 'Settings', icon: Cog6ToothIcon },
   ];
 
-  const monthlyMinutesUsed = usageStats?.monthlyMinutesUsed || 0;
-  const monthlyMinutesLimit = usageStats?.monthlyMinutesLimit;
-  const isUnlimited = monthlyMinutesLimit == null || monthlyMinutesLimit >= 999999;
-  const usagePercentage = isUnlimited
-    ? 0
-    : Math.min(
-        monthlyMinutesUsed / (monthlyMinutesLimit || 600) * 100,
-        100,
-      );
 
   const router = useRouter();
+  const { subscription, loading: subLoading } = useSubscription();
+
+  const botMinutesUsed = subscription?.usage?.currentBotMinutes ?? 0;
+  const botMinutesLimit = subscription?.usage?.limitBotMinutes ?? null;
+  const isUnlimited = botMinutesLimit == null || (typeof botMinutesLimit === 'number' && botMinutesLimit >= 999999);
+  const usagePct = isUnlimited ? 0 : Math.min(((botMinutesUsed || 0) / (botMinutesLimit || 1)) * 100, 100);
 
   return (
     <aside className="w-64 h-full bg-card border-r border-border flex flex-col">
@@ -178,33 +169,24 @@ const DashboardSidebar: React.FC<DashboardSidebarProps> = ({ usageStats, activeP
           </button>
         </div>
 
-        {/* Usage Stats - Now includes bot minutes */}
+        {/* Usage (from /api/users/subscription to match Billing) */}
         <div className="px-4 py-3 border-t border-border">
           <div className="space-y-2">
             <div className="flex items-center justify-between text-sm">
-              <span className="text-muted-foreground">Usage</span>
+              <span className="text-muted-foreground">Bot Minutes</span>
               <span className="font-medium">
-                {isUnlimited ? 'Unlimited' : `${formatMinutes(monthlyMinutesUsed)} / ${formatMinutes(monthlyMinutesLimit || 0)}`}
+                {isUnlimited ? 'Unlimited' : `${botMinutesUsed} / ${botMinutesLimit}`}
               </span>
             </div>
-            
             {!isUnlimited && (
-              <div className="w-full bg-muted rounded-full h-2">
-                <div 
+              <div className="w-full bg-muted rounded-full h-2" aria-hidden>
+                <div
                   className={`h-2 rounded-full transition-all duration-300 ${
-                    usagePercentage >= 90 ? 'bg-destructive' : 
-                    usagePercentage >= 75 ? 'bg-accent' : 
-                    'bg-primary'
+                    usagePct >= 90 ? 'bg-destructive' : usagePct >= 75 ? 'bg-accent' : 'bg-primary'
                   }`}
-                  style={{ width: `${Math.min(usagePercentage, 100)}%` }}
+                  style={{ width: `${Math.min(usagePct, 100)}%` }}
                 />
               </div>
-            )}
-            
-            {!isUnlimited && usagePercentage >= 90 && (
-              <p className="text-xs text-destructive mt-1">
-                {usagePercentage >= 100 ? 'Limit reached' : 'Approaching limit'}
-              </p>
             )}
           </div>
         </div>
