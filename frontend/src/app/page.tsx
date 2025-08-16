@@ -28,6 +28,7 @@ import { Header } from '@/components/layout/Header';
 import { Button } from '@/components/ui/Button';
 import { LandingAuthSection } from '@/components/landing/LandingAuthSection';
 import { AgendaShowcase } from '@/components/landing/AgendaShowcase';
+import LiveTranscriptionAnimation from '@/components/landing/LiveTranscriptionAnimation';
 import { useTheme } from '@/contexts/ThemeContext';
 
 export default function LandingPage() {
@@ -758,27 +759,9 @@ export default function LandingPage() {
                     95% accuracy in 10 languages - English, Spanish, French, German, Hindi, Russian, Portuguese, Japanese, Italian, and Dutch. Switch languages naturally, we'll keep up.
                   </p>
                   
-                  {/* Live transcription interface - video or image */}
-                  <div className="relative rounded-2xl aspect-square overflow-hidden bg-black/5">
-                    {featureMedia.liveTranscription.type === 'video' ? (
-                      <video
-                        autoPlay
-                        loop
-                        muted
-                        playsInline
-                        className="w-full h-full object-cover"
-                      >
-                        <source src={featureMedia.liveTranscription.videoSrc} type="video/mp4" />
-                      </video>
-                    ) : (
-                      <Image
-                        src={featureMedia.liveTranscription.src}
-                        alt={featureMedia.liveTranscription.alt}
-                        fill
-                        className="object-cover"
-                        sizes="(max-width: 768px) 100vw, 50vw"
-                      />
-                    )}
+                  {/* Live transcription animation */}
+                  <div className="relative rounded-2xl aspect-square overflow-hidden">
+                    <LiveTranscriptionAnimation />
                   </div>
                 </div>
                 
