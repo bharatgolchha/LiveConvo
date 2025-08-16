@@ -27,7 +27,7 @@ import SeoJsonLd from '@/components/SeoJsonLd';
 import { Header } from '@/components/layout/Header';
 import { Button } from '@/components/ui/Button';
 import { LandingAuthSection } from '@/components/landing/LandingAuthSection';
-import UploadRecordingTeaser from '@/components/landing/UploadRecordingTeaser';
+import { AgendaShowcase } from '@/components/landing/AgendaShowcase';
 import { useTheme } from '@/contexts/ThemeContext';
 
 export default function LandingPage() {
@@ -136,26 +136,38 @@ export default function LandingPage() {
       <div className="min-h-screen bg-background dark">
         <Header />
 
-        {/* Hero Section - Simplified */}
+        {/* Hero Section - Enhanced */}
         <section 
-          className="relative min-h-screen bg-cover bg-center bg-no-repeat pt-32"
+          className="relative min-h-screen bg-cover bg-center bg-no-repeat pt-32 overflow-hidden"
           style={{
             backgroundImage: 'url(https://ucvfgfbjcrxbzppwjpuu.supabase.co/storage/v1/object/public/images//ChatGPT%20Image%20Jul%207,%202025,%2008_58_51%20AM.png)'
           }}
         >
-          {/* Dark overlay for better text readability */}
-          <div className="absolute inset-0 bg-background/40" />
+          {/* Gradient overlays for depth */}
+          <div className="absolute inset-0 bg-gradient-to-b from-background/60 via-background/40 to-background/60" />
+          <div className="absolute inset-0 bg-gradient-to-r from-app-success/5 via-transparent to-app-info/5" />
+          
+          {/* Animated gradient orbs */}
+          <div className="absolute top-20 left-10 w-96 h-96 bg-gradient-to-br from-app-success/20 to-transparent rounded-full blur-3xl animate-pulse" />
+          <div className="absolute bottom-20 right-10 w-96 h-96 bg-gradient-to-br from-app-info/20 to-transparent rounded-full blur-3xl animate-pulse" style={{ animationDelay: '2s' }} />
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-gradient-to-br from-primary/10 to-transparent rounded-full blur-3xl animate-pulse" style={{ animationDelay: '4s' }} />
+          
           <div className="relative z-10">
             <div className="max-w-4xl mx-auto text-center px-6 sm:px-8 lg:px-12">
             <div className="flex flex-wrap items-center justify-center gap-3 mb-6">
-              <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-gradient-to-r from-app-success/10 to-app-info/10">
-                <span className="text-sm font-medium bg-gradient-to-r from-app-success to-app-info bg-clip-text text-transparent">✨ Works with Meet, Zoom, and Teams</span>
-              </div>
+              <motion.div 
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ duration: 0.5 }}
+                className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-gradient-to-r from-app-success/10 to-app-info/10 border border-app-success/20"
+              >
+                <span className="text-sm font-medium bg-gradient-to-r from-app-success to-app-info bg-clip-text text-transparent">🎯 NEW: AI tracks your agenda automatically</span>
+              </motion.div>
             </div>
             
-            <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold mb-8 leading-[1.1] tracking-[-0.02em] px-4">
+            <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold mb-6 leading-[1.1] tracking-[-0.02em] px-4">
               <span 
-                className="block mb-2"
+                className="block mb-3"
                 style={{
                   fontFamily: "'Inter', 'SF Pro Display', -apple-system, sans-serif",
                   fontWeight: '700',
@@ -168,7 +180,7 @@ export default function LandingPage() {
                   paddingBottom: '0.1em'
                 }}
               >
-                Your Second Brain for
+                Your AI Co-Pilot for
               </span>
               <span 
                 className="relative inline-block text-5xl sm:text-6xl lg:text-7xl"
@@ -188,7 +200,7 @@ export default function LandingPage() {
                   display: 'inline-block'
                 }}
               >
-                Every Meeting
+                Every Conversation
               </span>
             </h1>
             
@@ -198,59 +210,130 @@ export default function LandingPage() {
                 50% { background-position: 100% 50%; }
                 100% { background-position: 0% 50%; }
               }
+              @keyframes float {
+                0%, 100% { transform: translateY(0px); }
+                50% { transform: translateY(-10px); }
+              }
+              @keyframes pulse-glow {
+                0%, 100% { opacity: 0.6; }
+                50% { opacity: 1; }
+              }
             `}</style>
             
-            <p className="text-lg sm:text-xl lg:text-xl mb-8 max-w-2xl mx-auto font-medium"
-               style={{
-                 fontFamily: "'Inter', -apple-system, sans-serif",
-                 color: 'rgba(255, 255, 255, 0.8)',
-                 letterSpacing: '0.01em',
-                 lineHeight: '1.5'
-               }}
-            >
-              Liveprompt transcribes and summarizes your call as it happens—in 10 languages—while suggesting what to say next in under two seconds.
-            </p>
+            {/* Beautiful Feature Pills */}
+            <div className="flex flex-wrap items-center justify-center gap-2 mb-8 px-4">
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5, delay: 0.2 }}
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-gradient-to-r from-app-success/10 to-app-success/5 border border-app-success/20 backdrop-blur-sm"
+              >
+                <span className="w-2 h-2 rounded-full bg-app-success animate-pulse" />
+                <span className="text-sm font-medium text-foreground/90">Real-time transcription</span>
+              </motion.div>
+              
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5, delay: 0.3 }}
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-gradient-to-r from-app-info/10 to-app-info/5 border border-app-info/20 backdrop-blur-sm"
+              >
+                <span className="w-2 h-2 rounded-full bg-app-info animate-pulse" />
+                <span className="text-sm font-medium text-foreground/90">Smart suggestions</span>
+              </motion.div>
+              
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5, delay: 0.4 }}
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-gradient-to-r from-primary/10 to-primary/5 border border-primary/20 backdrop-blur-sm"
+              >
+                <span className="w-2 h-2 rounded-full bg-primary animate-pulse" />
+                <span className="text-sm font-medium text-foreground/90">Automatic summaries</span>
+              </motion.div>
+              
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5, delay: 0.5 }}
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-gradient-to-r from-app-success-light/10 to-app-success-light/5 border border-app-success-light/20 backdrop-blur-sm"
+              >
+                <span className="w-2 h-2 rounded-full bg-app-success-light animate-pulse" />
+                <span className="text-sm font-medium text-foreground/90">10 languages</span>
+              </motion.div>
+              
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5, delay: 0.6 }}
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-gradient-to-r from-violet-500/10 to-violet-500/5 border border-violet-500/20 backdrop-blur-sm"
+              >
+                <span className="w-2 h-2 rounded-full bg-violet-500 animate-pulse" />
+                <span className="text-sm font-medium text-foreground/90">Works with Meet, Zoom & Teams</span>
+              </motion.div>
+            </div>
             
-            <div className="mb-8 flex flex-col sm:flex-row items-center justify-center gap-4">
+            {/* CTA Buttons with enhanced styling */}
+            <motion.div 
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6, delay: 0.7 }}
+              className="mb-8 flex flex-col sm:flex-row items-center justify-center gap-4"
+            >
               <Button
                 onClick={() => setShowScheduleModal(true)}
                 size="lg"
-                className="text-base px-8 py-4 bg-app-success hover:bg-app-success-light text-black font-semibold rounded-xl shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-all duration-200"
+                className="relative group text-base px-8 py-4 bg-gradient-to-r from-app-success to-app-success-light hover:from-app-success-light hover:to-app-success text-black font-semibold rounded-xl shadow-lg hover:shadow-2xl transform hover:-translate-y-0.5 transition-all duration-300 overflow-hidden"
               >
-                Schedule Demo
-                <ArrowRight className="ml-2 w-4 h-4" />
+                <span className="absolute inset-0 bg-white/20 transform -skew-x-12 -translate-x-full group-hover:translate-x-full transition-transform duration-700" />
+                <span className="relative flex items-center">
+                  Schedule Demo
+                  <ArrowRight className="ml-2 w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                </span>
               </Button>
               
-              <span className="text-sm text-muted-foreground hidden sm:block">or</span>
+              <span className="text-sm text-foreground/40 hidden sm:block">or</span>
               
-              <LandingAuthSection variant="hero" />
-            </div>
+              <div className="relative">
+                <div className="absolute inset-0 bg-gradient-to-r from-app-info/20 to-primary/20 blur-xl" />
+                <LandingAuthSection variant="hero" />
+              </div>
+            </motion.div>
 
             </div>
             
-            {/* Hero Screenshot - Below Content */}
+            {/* Hero Screenshot - Enhanced with glow and animation */}
             <motion.div
-              initial={{ opacity: 0, y: 30 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.8, delay: 0.3 }}
+              initial={{ opacity: 0, y: 40, scale: 0.95 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              transition={{ duration: 1, delay: 0.8, type: "spring", stiffness: 100 }}
               className="relative mt-8 px-4 sm:px-6 lg:px-8 pb-12"
             >
-              <div className="relative rounded-2xl overflow-hidden shadow-2xl max-w-6xl mx-auto">
-                <Image
-                  src="https://ucvfgfbjcrxbzppwjpuu.supabase.co/storage/v1/object/public/images//scr111.png"
-                  alt="liveprompt.ai platform interface showing real-time AI conversation assistance"
-                  width={1200}
-                  height={800}
-                  className="w-full h-auto"
-                  priority
-                />
-                {/* Gradient overlay at bottom */}
-                <div 
-                  className="absolute bottom-0 left-0 right-0 h-48 pointer-events-none"
-                  style={{
-                    background: 'linear-gradient(to top, rgba(9, 9, 11, 1) 0%, rgba(9, 9, 11, 0.8) 20%, rgba(9, 9, 11, 0) 100%)'
-                  }}
-                />
+              <div className="relative group">
+                {/* Glow effect behind screenshot */}
+                <div className="absolute -inset-4 bg-gradient-to-r from-app-success/20 via-app-info/20 to-primary/20 rounded-3xl blur-2xl opacity-50 group-hover:opacity-75 transition-opacity duration-500" />
+                
+                <div className="relative rounded-2xl overflow-hidden shadow-2xl max-w-6xl mx-auto border border-white/10 backdrop-blur-sm">
+                  <Image
+                    src="https://ucvfgfbjcrxbzppwjpuu.supabase.co/storage/v1/object/public/images//scr111.png"
+                    alt="liveprompt.ai platform interface showing real-time AI conversation assistance"
+                    width={1200}
+                    height={800}
+                    className="w-full h-auto transform group-hover:scale-[1.02] transition-transform duration-500"
+                    priority
+                  />
+                  
+                  {/* Shimmer effect */}
+                  <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000" />
+                  
+                  {/* Gradient overlay at bottom */}
+                  <div 
+                    className="absolute bottom-0 left-0 right-0 h-48 pointer-events-none"
+                    style={{
+                      background: 'linear-gradient(to top, rgba(9, 9, 11, 1) 0%, rgba(9, 9, 11, 0.8) 20%, rgba(9, 9, 11, 0) 100%)'
+                    }}
+                  />
+                </div>
               </div>
             </motion.div>
             
@@ -272,8 +355,8 @@ export default function LandingPage() {
               viewport={{ once: true }}
               className="text-center"
             >
-              <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold mb-8 text-foreground">
-                Meet Nova — Your{' '}
+              <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold mb-6 text-foreground">
+                Meet{' '}
                 <span
                   style={{
                     background: 'linear-gradient(135deg, #22d3ee 0%, #16a34a 50%, #22d3ee 100%)',
@@ -282,56 +365,25 @@ export default function LandingPage() {
                     backgroundClip: 'text',
                   }}
                 >
-                  Real‑Time Second Brain
+                  Nova
                 </span>
+                {' '}— Your AI Assistant
               </h2>
-              <p className="text-xl sm:text-2xl lg:text-3xl leading-relaxed font-light text-foreground/90">
-                Nova automatically joins your meetings, remembers every detail, and whispers the{' '}
-                <span 
-                  style={{
-                    fontFamily: "'Raleway', 'Montserrat', 'Helvetica Neue', sans-serif",
-                    fontWeight: '300',
-                    background: 'linear-gradient(135deg, #16a34a 0%, #22d3ee 50%, #16a34a 100%)',
-                    WebkitBackgroundClip: 'text',
-                    WebkitTextFillColor: 'transparent',
-                    backgroundClip: 'text',
-                    letterSpacing: '0.04em'
-                  }}
-                >
-                  perfect response
-                </span>{' '}
-                in under two seconds.
-              </p>
-              <p className="text-xl sm:text-2xl lg:text-3xl leading-relaxed font-light text-foreground/90 mt-6">
-                While you focus on the human connection, Nova pulls context from past conversations, flags opportunities, and captures action items on the fly—so deals move{' '}
-                <span 
-                  style={{
-                    fontFamily: "'Raleway', 'Montserrat', 'Helvetica Neue', sans-serif",
-                    fontWeight: '300',
-                    background: 'linear-gradient(135deg, #16a34a 0%, #22d3ee 50%, #16a34a 100%)',
-                    WebkitBackgroundClip: 'text',
-                    WebkitTextFillColor: 'transparent',
-                    backgroundClip: 'text',
-                    letterSpacing: '0.04em'
-                  }}
-                >
-                  faster
-                </span>
-                , follow‑ups never fall through, and you always sound{' '}
-                <span 
-                  style={{
-                    fontFamily: "'Raleway', 'Montserrat', 'Helvetica Neue', sans-serif",
-                    fontWeight: '300',
-                    background: 'linear-gradient(135deg, #16a34a 0%, #22d3ee 50%, #16a34a 100%)',
-                    WebkitBackgroundClip: 'text',
-                    WebkitTextFillColor: 'transparent',
-                    backgroundClip: 'text',
-                    letterSpacing: '0.04em'
-                  }}
-                >
-                  one step smarter
-                </span>.
-              </p>
+              
+              <div className="space-y-4 max-w-3xl mx-auto">
+                <p className="text-lg sm:text-xl text-foreground/80 leading-relaxed">
+                  Nova automatically joins your meetings, remembers every detail, and whispers the{' '}
+                  <span className="font-semibold text-app-success">perfect response</span> in under two seconds.
+                </p>
+                
+                <p className="text-lg sm:text-xl text-foreground/80 leading-relaxed">
+                  While you focus on the human connection, Nova pulls context from past conversations, 
+                  flags opportunities, and captures action items on the fly—so deals move{' '}
+                  <span className="font-semibold text-app-info">faster</span>, 
+                  follow‑ups never fall through, and you always sound{' '}
+                  <span className="font-semibold text-primary">one step smarter</span>.
+                </p>
+              </div>
             </motion.div>
             
             {/* Schedule Demo Button */}
@@ -1036,7 +1088,8 @@ export default function LandingPage() {
           </div>
         </section>
 
-
+        {/* Agenda Tracking Feature Showcase */}
+        <AgendaShowcase />
 
         {/* AI Suggestions in Action - Interactive Showcase */}
         <section className="py-20 px-4 sm:px-6 lg:px-8 bg-gradient-to-b from-background via-background/95 to-muted/20">
@@ -1470,8 +1523,6 @@ export default function LandingPage() {
           </div>
         </section>
 
-        {/* Upload Recording (teaser) – placed before Pricing for strong intent alignment */}
-        <UploadRecordingTeaser />
 
         {/* Pricing Preview - Based on Database */}
         <section className="py-20 px-4 sm:px-6 lg:px-8 bg-muted/30">

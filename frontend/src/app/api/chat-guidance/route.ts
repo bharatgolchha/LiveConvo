@@ -376,7 +376,8 @@ export async function POST(request: NextRequest) {
           }).optional()
         })).optional(),
         searchQuery: z.string().optional()
-      }).optional()
+      }).optional(),
+      responseStyle: z.enum(['concise','detailed','conversational']).optional()
     }).passthrough();
 
     let parsedBody;
@@ -415,6 +416,7 @@ export async function POST(request: NextRequest) {
       sessionOwner,
       mode = 'meeting',
       dashboardContext,
+      responseStyle,
     } = parsedBody;
 
     // ------------------------------------------------------------------
@@ -457,6 +459,19 @@ export async function POST(request: NextRequest) {
               instructionsPreview: aiInstructions ? (aiInstructions.substring(0, 100) + (aiInstructions.length > 100 ? '...' : '')) : 'No instructions'
             });
           }
+
+          // Fetch stored response style from session_context if not provided in request
+          try {
+            const { data: ctxRow } = await supabase
+              .from('session_context')
+              .select('context_metadata')
+              .eq('session_id', sessionId)
+              .single();
+            const storedStyle = (ctxRow as any)?.context_metadata?.response_style;
+            if ((storedStyle === 'concise' || storedStyle === 'detailed' || storedStyle === 'conversational') && !responseStyle) {
+              effectiveResponseStyle = storedStyle;
+            }
+          } catch {}
 
           // Fetch current agenda items for this session
           console.log('🔍 Chat Guidance Debug - Fetching agenda items...');
@@ -777,6 +792,25 @@ export async function POST(request: NextRequest) {
       messagePreview: message.substring(0, 50) + '...'
     });
 
+    // Response style helpers
+    function getResponseStyleConfig(style: 'concise'|'detailed'|'conversational') {
+      if (style === 'detailed') {
+        return { id: 'detailed' as const, maxWords: 300, bulletsGuidance: 'Use headings (##), numbered steps, and examples where useful.', toneGuidance: 'Be thorough and explanatory; include brief rationale.' };
+      }
+      if (style === 'conversational') {
+        return { id: 'conversational' as const, maxWords: 150, bulletsGuidance: 'Do NOT use bullet or numbered lists. Use short paragraphs and plain language.', toneGuidance: 'Friendly, collaborative tone; empathetic framing.' };
+      }
+      return { id: 'concise' as const, maxWords: 120, bulletsGuidance: 'Prefer bullet points; keep it scannable and focused.', toneGuidance: 'Be brief, direct, and action-oriented.' };
+    }
+
+    function buildResponseStyleSystem(style: 'concise'|'detailed'|'conversational') {
+      const cfg = getResponseStyleConfig(style);
+      return `RESPONSE STYLE: ${cfg.id.toUpperCase()}
+Guidelines:\n- ${cfg.toneGuidance}\n- ${cfg.bulletsGuidance}\n- Keep responses within ~${cfg.maxWords} words unless the user asks for more detail.`;
+    }
+
+    var effectiveResponseStyle: 'concise'|'detailed'|'conversational' = (responseStyle as any) || 'concise';
+
     const apiKey = process.env.OPENROUTER_API_KEY;
     if (!apiKey) {
       return NextResponse.json(
@@ -957,7 +991,7 @@ export async function POST(request: NextRequest) {
 
     // Generate system prompt based on mode (non-stream default)
     const systemPrompt = mode === 'dashboard' 
-      ? getDashboardSystemPrompt(enhancedDashboardContext, finalPersonalContext || undefined, sessionOwnerResolved, searchResults)
+      ? getDashboardSystemPrompt(enhancedDashboardContext, finalPersonalContext || undefined, sessionOwnerResolved, searchResults, effectiveResponseStyle)
       : getChatGuidanceSystemPrompt(
           effectiveConversationType, 
           isRecording, 
@@ -971,7 +1005,8 @@ export async function POST(request: NextRequest) {
           sessionOwnerResolved,
           aiInstructions || undefined,
           searchResults,
-          fileAttachments
+          fileAttachments,
+          effectiveResponseStyle
         );
 
     // Note: For streaming, we'll add a lightweight override message later to request plain markdown.
@@ -1074,12 +1109,13 @@ export async function POST(request: NextRequest) {
         meetingUrl ? `• Platform: ${meetingUrl}` : ''
       ].filter(Boolean).join('\n');
 
-      const meetingStreamingSystem = `You are Nova, ${ownerName}'s AI meeting advisor. Be direct, practical, and brief.
+      const styleCfg = getResponseStyleConfig(effectiveResponseStyle);
+      const meetingStreamingSystem = `You are Nova, ${ownerName}'s AI meeting advisor. Be practical and useful.
 
 Rules:
 - Output clean, conversational Markdown only (no JSON).
-- ≤120 words unless asked for depth.
-- Prefer bullets; use **bold** for emphasis when helpful.
+- ≤${styleCfg.maxWords} words unless asked for depth.
+- ${effectiveResponseStyle === 'detailed' ? 'Use headings (##), numbered steps, and examples when helpful.' : effectiveResponseStyle === 'conversational' ? 'Do NOT use bullet or numbered lists. Use short paragraphs.' : 'Prefer bullet points; use **bold** for emphasis when helpful.'}
 - If context is insufficient, ask 1 concise clarifying question.
 
 Identity:
@@ -1094,8 +1130,8 @@ ${searchResults && searchResults.length ? `\n${streamingRagSection(searchResults
 
 Strict output rules:
 - Output ONLY in clean, conversational Markdown (no JSON, no XML, no code fences unless showing code).
-- Keep responses concise and avoid repetition.
-- Keep it scannable: short paragraphs, bullets, and **bold** for emphasis when helpful.
+- ${effectiveResponseStyle === 'detailed' ? 'Be thorough yet structured.' : 'Keep responses concise and avoid repetition.'}
+- ${effectiveResponseStyle === 'conversational' ? 'Do NOT use bullet or numbered lists. Use short paragraphs and a friendly tone.' : effectiveResponseStyle === 'detailed' ? 'Use headings (##), lists, and brief rationale where relevant.' : 'Keep it scannable: short paragraphs, bullets, and **bold** for emphasis when helpful.'}
 
 Identity & addressing rules:
 - The primary user is ${ownerName} (${sessionOwnerResolved?.email || 'unknown email'}). Treat them as "You".
@@ -1110,6 +1146,7 @@ ${enhancedDashboardContext ? buildDashboardSections(enhancedDashboardContext) : 
       messages = [
         ...(smartNotesPrompt ? [{ role: 'system', content: smartNotesPrompt }] as any : []),
         ...(realtimeSummarySystem ? [{ role: 'system', content: realtimeSummarySystem }] as any : []),
+        { role: 'system', content: buildResponseStyleSystem(effectiveResponseStyle) },
         { role: 'system', content: streamingSystem },
         ...chatMessages as any,
       ];
@@ -1117,6 +1154,7 @@ ${enhancedDashboardContext ? buildDashboardSections(enhancedDashboardContext) : 
       messages = [
         ...(smartNotesPrompt ? [{ role: 'system', content: smartNotesPrompt }] as any : []),
         ...(realtimeSummarySystem ? [{ role: 'system', content: realtimeSummarySystem }] as any : []),
+        { role: 'system', content: buildResponseStyleSystem(effectiveResponseStyle) },
         { role: 'system', content: systemPrompt },
         ...chatMessages as any,
       ];
@@ -1401,7 +1439,8 @@ function getChatGuidanceSystemPrompt(
     type: 'image' | 'pdf';
     dataUrl: string;
     filename: string;
-  }>
+  }>,
+  responseStyle?: 'concise' | 'detailed' | 'conversational'
 ): string {
   const live = isRecording && transcriptLength > 0;
   const modeDescriptor = live ? '🎥 LIVE (conversation in progress)' : '📝 PREP (planning before the call)';
@@ -1499,6 +1538,14 @@ function getChatGuidanceSystemPrompt(
     fileAttachmentsSection += 'These files have been provided by the user for additional context. Analyze them to provide more informed responses.\n';
   }
 
+  // Style config (duplicate of server helper; isolated here for scope)
+  const style = responseStyle || 'concise';
+  const styleCfg = style === 'detailed'
+    ? { maxWords: 300, bulletsLine: '- Prefer structured sections with headings (##) and numbered steps; bullets optional.', toneLine: '- Be thorough and explanatory; include brief rationale when useful.' }
+    : style === 'conversational'
+    ? { maxWords: 150, bulletsLine: '- Avoid bullet lists; use short paragraphs and plain language.', toneLine: '- Friendly, collaborative tone; empathetic framing.' }
+    : { maxWords: 120, bulletsLine: '- Prefer concise bullet points for scannability.', toneLine: '- Be brief, direct, and action-oriented.' };
+
   return `You are Nova, ${meLabel}'s helpful AI meeting advisor. Your job is to be genuinely useful - answer questions directly, give practical advice, and help ${meLabel} navigate their conversation with ${themLabel}.
 
 ${getCurrentDateContext()}
@@ -1544,12 +1591,12 @@ DOCUMENT SUMMARY GUIDELINES (when files are attached):
 
 RESPONSE GUIDELINES:
 - Be concise and focused - provide enough detail to be helpful without being verbose
-- Use proper markdown formatting for better readability:
+- ${styleCfg.toneLine}
+- Formatting:
   • Use **bold** for emphasis
-  • Use bullet points or numbered lists for multiple items
+  ${style === 'detailed' ? '• Use headings (##) and numbered steps when helpful' : style === 'conversational' ? '• Do NOT use bullet or numbered lists. Use short paragraphs.' : '• Prefer bullet points for multiple items'}
   • Use code formatting (backticks) for technical terms when appropriate
-  • Structure longer responses with headers (##) if needed
-- Be conversational and practical, not formal
+- Keep responses within ~${styleCfg.maxWords} words unless asked for more detail
 - Reference specific things from the transcript when relevant
 - Give actionable advice based on the current situation
 
@@ -1806,7 +1853,8 @@ function getDashboardSystemPrompt(
       key_decisions?: string[];
       action_items?: string[];
     };
-  }>
+  }>,
+  responseStyle?: 'concise' | 'detailed' | 'conversational'
 ): string {
   const ownerName = sessionOwner?.fullName || sessionOwner?.email?.split('@')[0] || 'the user';
   
@@ -1941,6 +1989,14 @@ function getDashboardSystemPrompt(
     searchResultsSection += '💡 These results were found by searching beyond your recent 2-week window based on your specific query.\n';
   }
 
+  // Style lines: avoid forcing bullets for conversational
+  const style = responseStyle || 'concise';
+  const styleIntro = style === 'detailed'
+    ? '- Be thorough yet structured. Use headings (##) and short lists where helpful.'
+    : style === 'conversational'
+    ? '- Keep it friendly, short paragraphs, minimal lists unless asked.'
+    : '- Be concise and scannable with bullets when helpful.';
+
   return `You are Nova, ${ownerName}'s dashboard AI assistant. You have access to their recent meetings, action items, and upcoming calendar events. Your job is to help them stay organized, track decisions, prepare for meetings, and find information across all their conversations.
 
 ${getCurrentDateContext()}
@@ -1999,7 +2055,7 @@ DOCUMENT SUMMARY GUIDELINES (when files are attached):
 RESPONSE GUIDELINES for the "response" field:
 - Write natural, conversational text
 - Be specific and reference actual meeting titles and dates
-- Use markdown for clear formatting (bullets, bold, headers)
+- ${style === 'conversational' ? 'Do NOT use bullet or numbered lists. Use short paragraphs.' : 'Use markdown for clear formatting (bullets, bold, headers)'}
 - When referencing meetings, ALWAYS use the markdown links provided in the context (e.g., [Meeting Title](url))
 - When listing items, include relevant context (meeting source, date, priority)
 - For action items, always mention due dates and priority

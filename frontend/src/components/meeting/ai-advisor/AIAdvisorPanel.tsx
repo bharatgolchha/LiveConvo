@@ -303,11 +303,13 @@ function AdvisorSettings() {
   const [aiInstructions, setAiInstructions] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [responseStyle, setResponseStyle] = useState<'concise'|'detailed'|'conversational'>('concise');
 
   // Fetch AI instructions on mount
   useEffect(() => {
     if (meeting?.id) {
       fetchAiInstructions();
+      fetchResponseStyle();
     }
   }, [meeting?.id]);
 
@@ -333,6 +335,46 @@ function AdvisorSettings() {
       console.error('Failed to fetch AI instructions:', error);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const fetchResponseStyle = async () => {
+    if (!meeting?.id) return;
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) return;
+      const resp = await fetch(`/api/sessions/${meeting.id}/settings`, {
+        headers: { 'Authorization': `Bearer ${session.access_token}` }
+      });
+      if (resp.ok) {
+        const data = await resp.json();
+        const style = data?.response_style;
+        if (style === 'concise' || style === 'detailed' || style === 'conversational') {
+          setResponseStyle(style);
+        }
+      }
+    } catch (e) {
+      // Silent
+    }
+  };
+
+  const saveResponseStyle = async (style: 'concise'|'detailed'|'conversational') => {
+    if (!meeting?.id) return;
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) return;
+      const resp = await fetch(`/api/sessions/${meeting.id}/settings`, {
+        method: 'PATCH',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ response_style: style })
+      });
+      if (!resp.ok) throw new Error('Failed saving response style');
+      toast.success('Response style saved');
+    } catch (e) {
+      toast.error('Failed to save response style');
     }
   };
 
@@ -422,10 +464,18 @@ function AdvisorSettings() {
 
       <div className="pt-3 border-t border-border">
         <h4 className="text-sm font-medium mb-2">Response Style</h4>
-        <select className="w-full p-2 text-sm border border-border rounded-md">
-          <option>Concise & Direct</option>
-          <option>Detailed & Explanatory</option>
-          <option>Conversational</option>
+        <select
+          className="w-full p-2 text-sm border border-border rounded-md"
+          value={responseStyle}
+          onChange={(e) => {
+            const v = e.target.value as 'concise'|'detailed'|'conversational';
+            setResponseStyle(v);
+            saveResponseStyle(v);
+          }}
+        >
+          <option value="concise">Concise & Direct</option>
+          <option value="detailed">Detailed & Explanatory</option>
+          <option value="conversational">Conversational</option>
         </select>
       </div>
     </div>
