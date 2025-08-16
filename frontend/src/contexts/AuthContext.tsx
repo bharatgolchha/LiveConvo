@@ -192,7 +192,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           redirectTo: `${window.location.origin}/auth/callback`,
           queryParams: {
             access_type: 'offline',
-            prompt: 'consent',
+            // Force Google account picker so invited users can switch accounts easily
+            prompt: 'select_account consent',
           },
           skipBrowserRedirect: false
         }

@@ -1,5 +1,6 @@
 import React from 'react';
 import { motion } from 'framer-motion';
+import { ChatBubbleLeftRightIcon } from '@heroicons/react/24/outline';
 
 interface LoadingStatesProps {
   type: 'meeting' | 'transcript' | 'summary' | 'notes' | 'guidance';
@@ -17,7 +18,7 @@ export function LoadingStates({ type, message }: LoadingStatesProps) {
         };
       case 'transcript':
         return {
-          icon: '💬',
+          icon: <ChatBubbleLeftRightIcon className="w-10 h-10 text-muted-foreground" />, 
           text: message || 'Loading transcript...',
           subtext: 'Fetching conversation history'
         };

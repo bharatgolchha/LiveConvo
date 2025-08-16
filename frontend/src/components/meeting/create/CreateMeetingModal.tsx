@@ -51,6 +51,9 @@ export function CreateMeetingModal({ isOpen, onClose, onStart }: CreateMeetingMo
       onClose();
     } catch (error) {
       console.error('Failed to create meeting:', error);
+      // Show error to user
+      const errorMessage = error instanceof Error ? error.message : 'Failed to create meeting';
+      alert(`Error: ${errorMessage}`);
     } finally {
       setIsStarting(false);
     }

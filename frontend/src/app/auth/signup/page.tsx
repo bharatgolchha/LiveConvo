@@ -14,6 +14,8 @@ import { AuthLayout } from '@/components/auth/AuthLayout'
 import { GoogleAuthButton } from '@/components/auth/GoogleAuthButton'
 import { EmailAuthToggle, BackToGoogleButton } from '@/components/auth/EmailAuthToggle'
 
+// Removed invite banner to keep signup generic and simple per product decision
+
 function SignUpPageContent() {
   const [fullName, setFullName] = useState('')
   const [email, setEmail] = useState('')
@@ -37,18 +39,22 @@ function SignUpPageContent() {
   }, [user, router])
 
   useEffect(() => {
-    // Check URL params for referral code
+    // Check URL params for referral code and invite token
     const refFromUrl = searchParams.get('ref')
+    const emailFromUrl = searchParams.get('email')
+
     if (refFromUrl) {
       setReferralCode(refFromUrl)
-      // Store in localStorage for persistence
-      localStorage.setItem('ref_code', refFromUrl)
+      try { localStorage.setItem('ref_code', refFromUrl) } catch {}
     } else {
-      // Check localStorage for referral code
-      const storedRef = localStorage.getItem('ref_code')
-      if (storedRef) {
-        setReferralCode(storedRef)
-      }
+      const storedRef = typeof window !== 'undefined' ? localStorage.getItem('ref_code') : null
+      if (storedRef) setReferralCode(storedRef)
+    }
+
+    // No invite handling on signup; onboarding will detect invites by email if relevant
+
+    if (emailFromUrl) {
+      setEmail(emailFromUrl)
     }
   }, [searchParams])
 
@@ -78,6 +84,9 @@ function SignUpPageContent() {
     if (error) {
       setError(error.message)
     } else {
+      // Always direct to login with verification message after email signup
+      // Clear any stale invite token to avoid redirect loops back to signup
+      try { if (typeof window !== 'undefined') localStorage.removeItem('invite_token') } catch {}
       router.push('/auth/login?message=Check your email to confirm your account')
     }
     
@@ -107,6 +116,8 @@ function SignUpPageContent() {
       title="Create your account"
       subtitle="Join the future of AI-powered conversations"
     >
+
+      {/* Signup remains clean; invites are handled during onboarding */}
 
       {error && (
         <motion.div

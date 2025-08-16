@@ -4,6 +4,7 @@ import React from "react";
 import { MagnifyingGlassIcon, FunnelIcon, CalendarIcon } from "@heroicons/react/24/outline";
 import { MeetingListTabs } from "./MeetingListTabs";
 import { Button } from "@/components/ui/Button";
+import { useAuth } from "@/contexts/AuthContext";
 
 type MeetingView = "live" | "all";
 
@@ -40,6 +41,7 @@ export const DashboardToolbar: React.FC<DashboardToolbarProps> = ({
   viewMode = 'timeline',
   onOpenMobileCalendar,
 }) => {
+  const { session } = useAuth();
   const inputRef = React.useRef<HTMLInputElement | null>(null);
   const wrapperRef = React.useRef<HTMLDivElement | null>(null);
   const [isFocused, setIsFocused] = React.useState(false);
@@ -70,7 +72,11 @@ export const DashboardToolbar: React.FC<DashboardToolbarProps> = ({
     (async () => {
       try {
         const params = new URLSearchParams({ limit: '50', offset: '0' });
-        const res = await fetch(`/api/dashboard/data?${params.toString()}&cb=${Date.now()}`, { cache: 'no-store', signal: controller.signal });
+        const headers: HeadersInit = { 'Cache-Control': 'no-store' };
+        if (session?.access_token) {
+          headers['Authorization'] = `Bearer ${session.access_token}`;
+        }
+        const res = await fetch(`/api/dashboard/data?${params.toString()}&cb=${Date.now()}`, { cache: 'no-store', signal: controller.signal, headers });
         if (!res.ok) return;
         const json = await res.json();
         if (aborted) return;

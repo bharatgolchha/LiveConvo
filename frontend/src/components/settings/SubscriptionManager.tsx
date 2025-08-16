@@ -9,10 +9,12 @@ import {
   AlertCircle, 
   ExternalLink,
   Crown,
-  Clock
+  Clock,
+  Users
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { format } from 'date-fns';
+import { TeamBillingManager } from './TeamBillingManager';
 
 interface SubscriptionData {
   plan: {
@@ -21,6 +23,15 @@ interface SubscriptionData {
     pricing: {
       monthly: number | null;
       yearly: number | null;
+      perSeat?: {
+        monthly: number;
+      };
+    };
+    teamInfo?: {
+      memberCount: number;
+      totalCost: number;
+      perSeatCost: number;
+      quantity: number;
     };
   };
   subscription: {
@@ -65,6 +76,7 @@ export const SubscriptionManager: React.FC = () => {
   const [planDetails, setPlanDetails] = useState<{ [key: string]: PlanDetails }>({});
   const [loading, setLoading] = useState(true);
   const [managingSubscription, setManagingSubscription] = useState(false);
+  const [organizationInfo, setOrganizationInfo] = useState<{ name: string; isOwner: boolean; id?: string } | null>(null);
 
   useEffect(() => {
     fetchSubscriptionData();
@@ -76,6 +88,35 @@ export const SubscriptionManager: React.FC = () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
 
+      // Check if user is part of an organization
+      const { data: userData } = await supabase
+        .from('users')
+        .select(`
+          id,
+          current_organization_id,
+          organization_members!inner(
+            role,
+            organizations!inner(
+              name,
+              display_name
+            )
+          )
+        `)
+        .eq('id', session.user.id)
+        .single();
+
+      if (userData?.current_organization_id && userData.organization_members?.[0]) {
+        const member = userData.organization_members[0];
+        const org = member.organizations;
+        const isOwner = member.role === 'owner';
+        
+        setOrganizationInfo({
+          name: org.display_name || org.name,
+          isOwner: isOwner,
+          id: userData.current_organization_id
+        });
+      }
+
       const response = await fetch(`/api/users/subscription?t=${Date.now()}`, {
         headers: {
           'Authorization': `Bearer ${session.access_token}`,
@@ -86,7 +127,6 @@ export const SubscriptionManager: React.FC = () => {
 
       if (response.ok) {
         const data = await response.json();
-        console.log('📊 Subscription API response:', data);
         setSubscriptionData(data);
       }
     } catch (error) {
@@ -212,6 +252,31 @@ export const SubscriptionManager: React.FC = () => {
     );
   }
 
+  // If user is a team member (not owner), show simple team membership message
+  if (organizationInfo && !organizationInfo.isOwner) {
+    return (
+      <Card className="p-6">
+        <div className="flex items-start gap-4">
+          <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+            <CheckCircle className="w-5 h-5 text-primary" />
+          </div>
+          <div className="flex-1">
+            <h2 className="text-xl font-semibold mb-2">Team Member Account</h2>
+            <p className="text-muted-foreground mb-4">
+              You are a member of <span className="font-medium">{organizationInfo.name}</span>
+            </p>
+            <div className="p-4 bg-muted/50 rounded-lg">
+              <p className="text-sm text-muted-foreground">
+                Your subscription and billing are managed by your team administrator.
+                Contact them for any billing-related questions or changes.
+              </p>
+            </div>
+          </div>
+        </div>
+      </Card>
+    );
+  }
+
   if (!subscriptionData) {
     return (
       <Card className="p-6">
@@ -245,6 +310,7 @@ export const SubscriptionManager: React.FC = () => {
           <div>
             <div className="flex items-center gap-3 mb-2">
               {isPro && <Crown className="w-5 h-5 text-yellow-500" />}
+              {plan.teamInfo && <Users className="w-5 h-5 text-primary" />}
               <h2 className="text-xl font-semibold text-foreground">
                 {plan.displayName} Plan
               </h2>
@@ -270,8 +336,21 @@ export const SubscriptionManager: React.FC = () => {
               <div>
                 <p className="text-sm font-medium text-foreground">Billing</p>
                 <p className="text-sm text-muted-foreground">
-                  ${subscription.billingInterval === 'month' ? plan.pricing.monthly : plan.pricing.yearly}
-                  /{subscription.billingInterval === 'month' ? 'month' : 'year'}
+                  {/* Show team billing if available, otherwise individual */}
+                  {plan.teamInfo ? (
+                    <>
+                      ${plan.teamInfo.totalCost.toFixed(2)}
+                      /{subscription.billingInterval === 'month' ? 'month' : 'year'}
+                      <span className="block text-xs">
+                        ({plan.teamInfo.memberCount} {plan.teamInfo.memberCount === 1 ? 'user' : 'users'} × ${plan.teamInfo.perSeatCost}/seat)
+                      </span>
+                    </>
+                  ) : (
+                    <>
+                      ${subscription.billingInterval === 'month' ? plan.pricing.monthly : plan.pricing.yearly}
+                      /{subscription.billingInterval === 'month' ? 'month' : 'year'}
+                    </>
+                  )}
                 </p>
               </div>
             </div>

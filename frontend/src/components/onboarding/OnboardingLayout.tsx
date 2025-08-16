@@ -59,7 +59,7 @@ export const OnboardingLayout: React.FC<OnboardingLayoutProps> = ({
                     alt="liveprompt.ai"
                     width={200}
                     height={45}
-                    className="object-contain"
+                    className="object-contain h-auto"
                     priority
                   />
                 </motion.div>

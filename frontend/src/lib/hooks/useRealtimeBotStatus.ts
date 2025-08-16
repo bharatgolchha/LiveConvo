@@ -16,6 +16,8 @@ interface UseRealtimeBotStatusProps {
 export function useRealtimeBotStatus({ onStatusUpdate }: UseRealtimeBotStatusProps = {}) {
   const { user } = useAuth();
   const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
+  const isSubscribingRef = useRef(false);
+  const userIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (!user?.id) {
@@ -23,9 +25,19 @@ export function useRealtimeBotStatus({ onStatusUpdate }: UseRealtimeBotStatusPro
       return;
     }
 
+    // Prevent duplicate subscribe for the same user
+    if (isSubscribingRef.current && userIdRef.current === user.id) {
+      return;
+    }
+
+    let mounted = true;
+    isSubscribingRef.current = true;
+    userIdRef.current = user.id;
+
     // Clean up existing channel if any
     if (channelRef.current) {
       supabase.removeChannel(channelRef.current);
+      channelRef.current = null;
     }
 
     console.log('📡 Setting up realtime bot status subscription for user:', user.id);
@@ -86,6 +98,9 @@ export function useRealtimeBotStatus({ onStatusUpdate }: UseRealtimeBotStatusPro
       )
       .subscribe((status) => {
         console.log('📡 Bot status subscription status:', status);
+        if (status === 'SUBSCRIBED') {
+          isSubscribingRef.current = false;
+        }
       });
 
     channelRef.current = channel;
@@ -96,6 +111,8 @@ export function useRealtimeBotStatus({ onStatusUpdate }: UseRealtimeBotStatusPro
         supabase.removeChannel(channelRef.current);
         channelRef.current = null;
       }
+      isSubscribingRef.current = false;
+      userIdRef.current = null;
     };
   }, [user?.id, onStatusUpdate]);
 

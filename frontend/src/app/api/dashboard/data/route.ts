@@ -72,6 +72,14 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    // Check if user needs to complete onboarding
+    if (!userData?.has_completed_onboarding) {
+      return NextResponse.json(
+        { error: 'Setup required', message: 'Please complete onboarding first' },
+        { status: 400 }
+      );
+    }
+
     // Check if user is deactivated
     if (userData?.is_active === false) {
       console.log('User is deactivated:', user.email);
@@ -90,7 +98,8 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    if (!userData?.current_organization_id || !userData?.has_completed_onboarding) {
+    // Check if user has an organization
+    if (!userData?.current_organization_id) {
       return NextResponse.json(
         { error: 'Setup required', message: 'Please complete onboarding first' },
         { status: 400 }
@@ -109,7 +118,7 @@ export async function GET(request: NextRequest) {
       fetchUserStats(serviceClient, user.id, userData.current_organization_id),
       
       // 3. Fetch Subscription
-      fetchSubscription(authClient, serviceClient, user.id)
+      fetchSubscription(authClient, serviceClient, user.id, userData.current_organization_id)
     ]);
 
     // Process results
@@ -678,10 +687,24 @@ async function fetchUserStats(
   // Fallback values if function fails
   let minutesUsed = limitRow?.minutes_used ?? 0;
   // Check if plan is unlimited - check both is_unlimited flag and null limit
-  const isUnlimited = limitRow?.is_unlimited === true || limitRow?.minutes_limit === null;
+  let isUnlimited = limitRow?.is_unlimited === true || limitRow?.minutes_limit === null;
   // For unlimited plans, set limit to null, otherwise use the value from DB
-  const minutesLimit = isUnlimited ? null : (limitRow?.minutes_limit ?? 60);
+  let minutesLimit = isUnlimited ? null : (limitRow?.minutes_limit ?? 60);
   let minutesRemaining = isUnlimited ? null : (limitRow?.minutes_remaining ?? Math.max(0, (minutesLimit || 60) - minutesUsed));
+
+  // Override with org subscription metadata: if plan limits are null, treat as unlimited regardless of function output
+  try {
+    const { data: planRow } = await serviceClient
+      .from('active_user_subscriptions')
+      .select('plan_audio_hours_limit, plan_bot_minutes_limit')
+      .eq('organization_id', organizationId)
+      .maybeSingle();
+    if (planRow && (planRow.plan_audio_hours_limit === null || planRow.plan_bot_minutes_limit === null)) {
+      isUnlimited = true;
+      minutesLimit = null;
+      minutesRemaining = null;
+    }
+  } catch {}
   const percentageUsed = isUnlimited ? 0 : (limitRow?.percentage_used ?? (minutesLimit ? Math.round((minutesUsed / minutesLimit) * 100) : 0));
 
   const bot_minutes_used = limitRow?.minutes_used ?? 0;
@@ -707,11 +730,12 @@ async function fetchUserStats(
   minutesUsed = limitData.minutes_used;
   minutesRemaining = limitData.minutes_remaining;
 
-  // Get session statistics
+  // Get session statistics - filtered by user_id to show only user's own sessions
   const { data: sessionStats } = await serviceClient
     .from('sessions')
     .select('status, created_at')
     .eq('organization_id', organizationId)
+    .eq('user_id', userId)  // Only count sessions owned by this user
     .is('deleted_at', null);
 
   const sessions = sessionStats || [];
@@ -770,15 +794,32 @@ async function fetchUserStats(
 // Helper function to fetch subscription
 async function fetchSubscription(
   authClient: ReturnType<typeof createAuthenticatedSupabaseClient>,
-  _serviceClient: ReturnType<typeof createServerSupabaseClient>,
-  userId: string
+  serviceClient: ReturnType<typeof createServerSupabaseClient>,
+  userId: string,
+  organizationId: string
 ) {
-  // Get active subscription using the optimized view
-  const { data: subscriptionData, error: subscriptionError } = await authClient
-    .from('active_user_subscriptions')
-    .select('*')
-    .eq('user_id', userId)
-    .maybeSingle();
+  // For team members, prefer org subscription if present
+  let subscriptionData: any = null;
+  let subscriptionError: any = null;
+  try {
+    const { data: orgSub } = await serviceClient
+      .from('active_user_subscriptions')
+      .select('*')
+      .eq('organization_id', organizationId)
+      .maybeSingle();
+    if (orgSub) subscriptionData = orgSub;
+  } catch (e) {
+    subscriptionError = e;
+  }
+  if (!subscriptionData) {
+    const { data: userSub, error: userErr } = await authClient
+      .from('active_user_subscriptions')
+      .select('*')
+      .eq('user_id', userId)
+      .maybeSingle();
+    subscriptionData = userSub;
+    subscriptionError = subscriptionError || userErr;
+  }
 
   if (subscriptionError) {
     console.error('Error fetching subscription:', subscriptionError);

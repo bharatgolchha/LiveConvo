@@ -7,7 +7,9 @@ import { Card } from '@/components/ui/Card';
 import { ThemeToggle } from '@/components/ui/ThemeToggle';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useUserStats } from '@/lib/hooks/useUserStats';
+import { useSubscription } from '@/lib/hooks/useSubscription';
 import { SubscriptionManager } from './SubscriptionManager';
+import { TeamBillingManager } from './TeamBillingManager';
 import { BotUsageDisplay } from '@/components/meeting/settings/BotUsageDisplay';
 import { CalendarSettings } from '@/components/calendar/CalendarSettings';
 import { 
@@ -17,10 +19,13 @@ import {
   ShieldCheckIcon,
   DocumentTextIcon,
   CreditCardIcon,
-  CalendarIcon
+  CalendarIcon,
+  UsersIcon,
+  LockClosedIcon
 } from '@heroicons/react/24/outline';
 import { Gift } from 'lucide-react';
 import { ReferralWidget } from '@/components/referrals/ReferralWidget';
+import TeamMembers from './TeamMembers';
 
 interface SettingsPanelProps {
   onSessionsDeleted?: () => void;
@@ -29,11 +34,13 @@ interface SettingsPanelProps {
 export const SettingsPanel: React.FC<SettingsPanelProps> = ({ onSessionsDeleted }) => {
   const { user, signOut, session } = useAuth();
   const { stats, loading: statsLoading } = useUserStats();
+  const { planType, loading: subscriptionLoading } = useSubscription();
   const [personalContext, setPersonalContext] = useState('');
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState('');
   const [organizationId, setOrganizationId] = useState<string | undefined>();
   const [exporting, setExporting] = useState(false);
+  const [selectedTab, setSelectedTab] = useState<string | null>(null);
 
   const loadPersonalContext = async () => {
     try {
@@ -85,12 +92,20 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ onSessionsDeleted 
     }
   }, [session]);
 
+
   useEffect(() => {
     if (session?.access_token) {
       loadPersonalContext();
       loadOrganizationId();
     }
   }, [session, loadOrganizationId]);
+
+  // Initialize selected tab after component mounts
+  useEffect(() => {
+    if (!selectedTab) {
+      setSelectedTab(initialTab);
+    }
+  }, []);
 
   const handleSaveContext = async () => {
     setSaving(true);
@@ -220,17 +235,53 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ onSessionsDeleted 
     return hours > 0 ? `${hours}h ${minutes}m` : `${minutes}m`;
   };
 
-  // Allow deep-linking via hash (?tab=calendar or #calendar)
+  // Allow deep-linking to settings internal tabs without conflicting with dashboard's `tab`
+  // Priority: settingsTab (query) > hash (#team) > tab (query) if valid settings tab
   const initialTab = (() => {
     if (typeof window !== 'undefined') {
       const url = new URL(window.location.href);
-      const byQuery = url.searchParams.get('tab');
+      const bySettingsQuery = url.searchParams.get('settingsTab');
+      if (bySettingsQuery) {
+        // If trying to access team tab on free plan, redirect to subscription
+        if (bySettingsQuery === 'team' && planType === 'free') {
+          return 'subscription';
+        }
+        return bySettingsQuery;
+      }
       const byHash = url.hash?.replace('#', '');
-      if (byQuery) return byQuery;
-      if (byHash) return byHash;
+      if (byHash) {
+        // If trying to access team tab on free plan, redirect to subscription
+        if (byHash === 'team' && planType === 'free') {
+          return 'subscription';
+        }
+        return byHash;
+      }
+      const byQuery = url.searchParams.get('tab');
+      const valid = new Set(['subscription','referrals','personal','account','calendar','appearance','usage','privacy','team']);
+      if (byQuery && valid.has(byQuery)) {
+        // If trying to access team tab on free plan, redirect to subscription
+        if (byQuery === 'team' && planType === 'free') {
+          return 'subscription';
+        }
+        return byQuery;
+      }
     }
     return 'subscription';
   })();
+
+  // Check if team tab should be locked
+  const isTeamLocked = planType === 'free';
+
+  // Handle tab change
+  const handleTabChange = (value: string) => {
+    // Prevent accessing team tab if on free plan
+    if (value === 'team' && isTeamLocked) {
+      // Stay on current tab or go to subscription tab
+      setSelectedTab('subscription');
+      return;
+    }
+    setSelectedTab(value);
+  };
 
   return (
     <div className="max-w-4xl mx-auto p-6">
@@ -239,8 +290,8 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ onSessionsDeleted 
         <p className="text-muted-foreground mt-2">Manage your account settings and preferences</p>
       </div>
 
-      <Tabs defaultValue={initialTab} className="space-y-6">
-        <TabsList className="grid w-full grid-cols-8">
+      <Tabs value={selectedTab || initialTab} onValueChange={handleTabChange} className="space-y-6">
+        <TabsList className="grid w-full grid-cols-9">
           <TabsTrigger value="subscription" className="flex items-center gap-2">
             <CreditCardIcon className="w-4 h-4" />
             <span className="hidden sm:inline">Billing</span>
@@ -272,6 +323,15 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ onSessionsDeleted 
           <TabsTrigger value="privacy" className="flex items-center gap-2">
             <ShieldCheckIcon className="w-4 h-4" />
             <span className="hidden sm:inline">Privacy</span>
+          </TabsTrigger>
+          <TabsTrigger 
+            value="team" 
+            className={`flex items-center gap-2 ${isTeamLocked ? 'opacity-50 cursor-not-allowed' : ''}`}
+            disabled={isTeamLocked}
+            title={isTeamLocked ? 'Team features are available on Pro and Team plans' : ''}
+          >
+            {isTeamLocked ? <LockClosedIcon className="w-4 h-4" /> : <UsersIcon className="w-4 h-4" />}
+            <span className="hidden sm:inline">Team</span>
           </TabsTrigger>
         </TabsList>
 
@@ -476,6 +536,32 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ onSessionsDeleted 
               </div>
             </div>
           </Card>
+        </TabsContent>
+
+        {/* Team Tab */}
+        <TabsContent value="team" className="space-y-4">
+          {isTeamLocked ? (
+            <Card className="p-8 text-center">
+              <div className="flex flex-col items-center space-y-4">
+                <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center">
+                  <LockClosedIcon className="w-8 h-8 text-muted-foreground" />
+                </div>
+                <h3 className="text-xl font-semibold">Team Features Locked</h3>
+                <p className="text-muted-foreground max-w-md">
+                  Team collaboration features are available on Pro and Team plans. 
+                  Upgrade your subscription to invite team members and collaborate on conversations.
+                </p>
+                <Button 
+                  onClick={() => handleTabChange('subscription')}
+                  className="mt-4"
+                >
+                  View Upgrade Options
+                </Button>
+              </div>
+            </Card>
+          ) : (
+            <TeamMembers />
+          )}
         </TabsContent>
       </Tabs>
     </div>
