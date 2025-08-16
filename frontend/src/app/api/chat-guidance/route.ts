@@ -424,6 +424,9 @@ export async function POST(request: NextRequest) {
     let aiInstructions: string | null = null;
     let agendaSection = '';
 
+    // Will hold a dedicated system message with full real-time summary
+    let realtimeSummarySystem: string | null = null;
+
     if (sessionId) {
       const authHeader = request.headers.get('authorization');
       const token = authHeader?.split(' ')[1];
@@ -501,17 +504,75 @@ export async function POST(request: NextRequest) {
               const cache: any = currentSessionSummary.realtime_summary_cache;
               const tldr: string | undefined = cache?.tldr || cache?.summary || undefined;
               const keyPoints: string[] | undefined = cache?.keyPoints || cache?.key_points || undefined;
+              const actionItems: string[] | undefined = cache?.actionItems || cache?.action_items || undefined;
+              const decisions: string[] | undefined = cache?.decisions || undefined;
+              const topics: string[] | undefined = cache?.topics || undefined;
+              const highlights: string[] | undefined = cache?.conversation_highlights || undefined;
+
+              // Build a rich section for inclusion in combinedContext
               realtimeSummarySection = '\n\n🧠 REAL-TIME SUMMARY:\n';
               if (tldr) realtimeSummarySection += `TLDR: ${tldr}\n`;
               if (Array.isArray(keyPoints) && keyPoints.length > 0) {
                 realtimeSummarySection += 'Key Points:\n';
-                keyPoints.slice(0, 5).forEach((kp: string) => {
+                keyPoints.forEach((kp: string) => {
                   realtimeSummarySection += `• ${kp}\n`;
                 });
               }
+              if (Array.isArray(actionItems) && actionItems.length > 0) {
+                realtimeSummarySection += 'Action Items:\n';
+                actionItems.forEach((ai: string) => {
+                  realtimeSummarySection += `• ${ai}\n`;
+                });
+              }
+              if (Array.isArray(decisions) && decisions.length > 0) {
+                realtimeSummarySection += 'Decisions:\n';
+                decisions.forEach((d: string) => {
+                  realtimeSummarySection += `• ${d}\n`;
+                });
+              }
+              if (Array.isArray(topics) && topics.length > 0) {
+                realtimeSummarySection += 'Topics:\n';
+                topics.forEach((t: string) => {
+                  realtimeSummarySection += `• ${t}\n`;
+                });
+              }
+              if (Array.isArray(highlights) && highlights.length > 0) {
+                realtimeSummarySection += 'Highlights:\n';
+                highlights.forEach((h: string) => {
+                  realtimeSummarySection += `• ${h}\n`;
+                });
+              }
+
+              // Also build a dedicated system message to avoid truncation in meetingBits
+              let sys = 'REAL-TIME SUMMARY CONTEXT (full):\n';
+              if (tldr) sys += `TLDR: ${tldr}\n`;
+              if (Array.isArray(keyPoints) && keyPoints.length > 0) {
+                sys += 'Key Points:\n';
+                keyPoints.forEach((kp: string) => { sys += `• ${kp}\n`; });
+              }
+              if (Array.isArray(actionItems) && actionItems.length > 0) {
+                sys += 'Action Items:\n';
+                actionItems.forEach((ai: string) => { sys += `• ${ai}\n`; });
+              }
+              if (Array.isArray(decisions) && decisions.length > 0) {
+                sys += 'Decisions:\n';
+                decisions.forEach((d: string) => { sys += `• ${d}\n`; });
+              }
+              if (Array.isArray(topics) && topics.length > 0) {
+                sys += 'Topics:\n';
+                topics.forEach((t: string) => { sys += `• ${t}\n`; });
+              }
+              if (Array.isArray(highlights) && highlights.length > 0) {
+                sys += 'Highlights:\n';
+                highlights.forEach((h: string) => { sys += `• ${h}\n`; });
+              }
+              realtimeSummarySystem = sys;
               console.log('🧠 Added real-time summary section to context:', {
                 hasTldr: !!tldr,
                 keyPointsCount: Array.isArray(keyPoints) ? keyPoints.length : 0,
+                actionItemsCount: Array.isArray(actionItems) ? actionItems.length : 0,
+                decisionsCount: Array.isArray(decisions) ? decisions.length : 0,
+                topicsCount: Array.isArray(topics) ? topics.length : 0,
               });
             }
           } catch (e) {
@@ -1048,12 +1109,14 @@ ${enhancedDashboardContext ? buildDashboardSections(enhancedDashboardContext) : 
 
       messages = [
         ...(smartNotesPrompt ? [{ role: 'system', content: smartNotesPrompt }] as any : []),
+        ...(realtimeSummarySystem ? [{ role: 'system', content: realtimeSummarySystem }] as any : []),
         { role: 'system', content: streamingSystem },
         ...chatMessages as any,
       ];
     } else {
       messages = [
         ...(smartNotesPrompt ? [{ role: 'system', content: smartNotesPrompt }] as any : []),
+        ...(realtimeSummarySystem ? [{ role: 'system', content: realtimeSummarySystem }] as any : []),
         { role: 'system', content: systemPrompt },
         ...chatMessages as any,
       ];
